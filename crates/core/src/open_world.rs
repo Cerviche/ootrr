@@ -22,6 +22,7 @@ pub const EPONA: &str = "skip_epona_race";
 pub const MASKS: &str = "skip_mask_quest";
 pub const BEANS: &str = "plant_beans";
 pub const BRIDGE: &str = "gerudo_bridge_open";
+pub const FOREST: &str = "open_forest";
 
 pub const FOUNTAIN: &str = "Logic/ZoraFountain_Child_Prefab_41c4.logic.module.ainb";
 pub const WATER_FILE: &str = "Event/EventFlow/Get_StoneOfWater.bfevfl.zs";
@@ -61,11 +62,12 @@ pub struct Opts {
     pub masks: bool,
     pub beans: bool,
     pub bridge: bool,
+    pub navi: Option<&'static str>,
 }
 
 impl Opts {
     pub fn any(&self) -> bool {
-        self.zora || self.jabu || self.time || self.beds || self.epona || self.masks || self.beans || self.bridge
+        self.zora || self.jabu || self.time || self.beds || self.epona || self.masks || self.beans || self.bridge || self.navi.is_some()
     }
 
     pub fn edits_files(&self) -> bool {
@@ -114,6 +116,9 @@ impl Opts {
         }
         if self.beans {
             out.push((BEANS, "true"));
+        }
+        if let Some(v) = self.navi {
+            out.push((FOREST, v));
         }
         out
     }
@@ -165,7 +170,12 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let masks: bool = flag(MASKS);
     let beans: bool = flag(BEANS);
     let bridge: bool = flag(BRIDGE);
-    Opts { zora, jabu, time, beds, epona, masks, beans, bridge }
+    let navi: Option<&'static str> = match s.text(FOREST) {
+        Ok("open") => Some("open"),
+        Ok("closed_deku") => Some("closed_deku"),
+        _ => None,
+    };
+    Opts { zora, jabu, time, beds, epona, masks, beans, bridge, navi }
 }
 
 fn flow_edit(raw: &[u8], f: impl FnOnce(&mut Bf) -> Res<()>) -> Res<Vec<u8>> {
@@ -240,6 +250,20 @@ mod tests {
         assert_eq!(off, Opts::default());
         assert!(!off.any() && off.defaults().is_empty() && off.notes().unwrap().is_empty());
         assert_eq!(off.logic(), vec![(TIME, "0")]);
+    }
+
+    #[test]
+    fn navi_follows_an_open_forest_and_a_closed_deku_forest() {
+        let (o, bad) = opts(&[(FOREST, Value::s("closed_deku"))]);
+        assert!(bad.is_empty());
+        assert_eq!(o.navi, Some("closed_deku"));
+        assert_eq!(o.defaults(), vec![(TIME, "true"), (FOREST, "closed_deku")]);
+        assert!(o.logic().is_empty());
+        assert!(o.notes().unwrap().iter().any(|n| n.contains("Navi's monster lesson")));
+        let (open, _) = opts(&[(FOREST, Value::s("open"))]);
+        assert_eq!(open.navi, Some("open"));
+        let (shut, _) = opts(&[(FOREST, Value::s("closed"))]);
+        assert_eq!(shut.navi, None);
     }
 
     #[test]

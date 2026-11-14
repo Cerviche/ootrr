@@ -113,7 +113,8 @@ mod tests {
     #[test]
     fn the_shipped_book_parses_and_names_known_settings() {
         let b: Book = book().unwrap();
-        assert_eq!(b.presets.len(), 7);
+        assert_eq!(b.presets.len(), 9);
+        assert_eq!(find(&b, "open_forest", "open").unwrap().edits, find(&b, "open_forest", "closed_deku").unwrap().edits);
         assert_eq!(find(&b, "skip_epona_race", "true").unwrap().edits, vec![Edit::Exp("Get_Epona_IsCompleted_Exp".to_string(), vec![(0, "IsGet.Item_Melody_EponaSong".to_string())])]);
         assert_eq!(find(&b, "skip_mask_quest", "true").unwrap().edits, vec![Edit::Enum("Step_SubEvent_MaskSalesman".to_string(), "Complete".to_string())]);
         let beans: &Preset = find(&b, "plant_beans", "true").unwrap();

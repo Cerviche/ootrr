@@ -1,3 +1,4 @@
+pub mod dpad;
 pub mod give;
 pub mod pool;
 pub mod stage;

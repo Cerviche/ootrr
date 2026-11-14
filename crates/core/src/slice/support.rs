@@ -617,7 +617,7 @@ mod tests {
         s.set("open_kakariko", Value::s("open")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.kakariko);
-        assert_eq!(p.defaults(), vec![KAKARIKO, (crate::open_world::TIME, "true")]);
+        assert_eq!(p.defaults(), vec![KAKARIKO, (crate::open_world::TIME, "true"), ("open_forest", "closed_deku")]);
         assert_eq!(p.logic(), vec![("open_forest", "closed_deku"), KAKARIKO, ("skip_child_zelda", "true")]);
         assert!(p.notes.iter().any(|n| n.contains("Death Mountain starts open") && n.contains("Mask Shop")));
         assert_eq!(p.start_flags(), vec![(EXIT_WALL.to_string(), false)]);

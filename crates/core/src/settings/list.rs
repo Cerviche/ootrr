@@ -200,7 +200,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(5, "open_door_of_time", "world", "Open Door of Time", false)
-            .tip("Start with the Door of Time already open, so the Ocarina and the Song of Time are not needed to reach the Master Sword. The Door of Time quest is left alone, so Zelda's escape and the Song of Time stay checks, and the adult pedestal works before the Forest Sage."),
+            .tip("Start with the Door of Time already open, so the Ocarina and the Song of Time are not needed to reach the Master Sword. The Door of Time quest is left alone, so Zelda's escape and the Song of Time stay checks. The adult pedestal works before the Forest Sage in every seed, with or without this setting."),
     );
     s.push(
         Setting::choice(6, "zora_fountain", "world", "Zora's Fountain", "closed")

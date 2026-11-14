@@ -382,6 +382,8 @@ mod tests {
         edits.extend(b.control.clone());
         edits.push(Edit::Enum("Step_Meet_DekuTree".to_string(), "Step03".to_string()));
         edits.push(Edit::Grant("Item_Ocarina_Fairy".to_string(), 1));
+        let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        edits.retain(|e| seen.insert(format!("{e:?}")));
         let mut y: Byml = orig.clone();
         assert_eq!(apply(&mut y, &edits).unwrap(), edits.len());
         let out: Vec<u8> = y.write().unwrap();
@@ -409,6 +411,16 @@ mod tests {
         ];
         for e in &find_beans() {
             want.push(("Bool".to_string(), key(e)));
+        }
+        for p in b.presets.iter().filter(|p| p.setting == "open_forest") {
+            for e in &p.edits {
+                if let Edit::Bool(n, _) = e {
+                    let row: (String, u32) = ("Bool".to_string(), key(n));
+                    if !want.contains(&row) {
+                        want.push(row);
+                    }
+                }
+            }
         }
         let mut got: Vec<(String, u32)> = changed_rows(&orig, &back);
         want.sort();

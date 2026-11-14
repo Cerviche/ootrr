@@ -69,6 +69,28 @@
         {"kind": "int", "name": "Get_MagicBeans", "value": 9}
       ],
       "note": "Every magic bean patch starts planted, so the adult bean platforms are there from the start and no Magic Bean is needed. The Magic Bean is taken out of the item pool and the bean salesman in Zora's River has one sale left, for 60 rupees, which holds a random item when NPC rewards are shuffled. The new game values are set in the flag list, experimental and untested in the game."
+    },
+    {
+      "setting": "open_forest",
+      "value": "open",
+      "edits": [
+        {"kind": "bool", "name": "HavePlayedEvent.NaviHint_Trial", "value": true},
+        {"kind": "bool", "name": "HaveTalked.Npc_Navi", "value": true},
+        {"kind": "bool", "name": "ActionGuide_IsEnd.Navi", "value": true},
+        {"kind": "bool", "name": "ActionGuide_IsNew.Navi", "value": true}
+      ],
+      "note": "Navi's monster lesson from the Deku Tree's first room is marked as seen when a new game starts, so the D-pad calls Navi and targeting gives enemy information even if the Deku Tree is skipped. The new game values are set in the flag list, experimental and untested in the game."
+    },
+    {
+      "setting": "open_forest",
+      "value": "closed_deku",
+      "edits": [
+        {"kind": "bool", "name": "HavePlayedEvent.NaviHint_Trial", "value": true},
+        {"kind": "bool", "name": "HaveTalked.Npc_Navi", "value": true},
+        {"kind": "bool", "name": "ActionGuide_IsEnd.Navi", "value": true},
+        {"kind": "bool", "name": "ActionGuide_IsNew.Navi", "value": true}
+      ],
+      "note": "Navi's monster lesson from the Deku Tree's first room is marked as seen when a new game starts, so the D-pad calls Navi and targeting gives enemy information even if the Deku Tree is skipped. The new game values are set in the flag list, experimental and untested in the game."
     }
   ],
   "control": [

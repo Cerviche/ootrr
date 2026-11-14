@@ -589,8 +589,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     more.extend(crate::bomb_lift::stage(&mut rf)?);
     more.extend(crate::door_fix::stage(&mut rf)?);
     if p.door {
-        more.extend(crate::door_open::stage(&mut rf)?);
+        more.extend(crate::door_open::stage_door(&mut rf)?);
     }
+    more.extend(crate::door_open::stage_pedestal(&mut rf, Some(&pk.work.join("romfs")))?);
     let reward: Option<&str> = crate::start_reward::pick(&seed.seed, p.start).map(|(_, a)| a);
     let flags: Vec<(String, bool)> = p.start_flags();
     let mut give: Vec<&str> = p.pouch.clone();
@@ -601,6 +602,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         more.push(crate::start_reward::stage_all(&mut rf, &give, &flags)?);
     }
     crate::start_items::stage::stage(&mut rf, &mut more, &p.kit)?;
+    crate::start_items::dpad::stage(&mut rf, &mut more, &crate::start_items::dpad::actors(&[&p.kit], &p.pouch))?;
     crate::pot_slice::rows::stage(&mut rf, &mut more, &crate::pot_slice::apply::hashes(&pot_ts))?;
     crate::start_defaults::stage(&mut rf, &mut more, &crate::start_defaults::presets::chosen(&p.defaults())?)?;
     if scrub_rows == 0 {
@@ -628,7 +630,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         let l: crate::flags::FlagList = crate::flags_build::load(&mut rf)?;
         crate::start_state::add_is_get(&mut state, |n| l.by_hash(crate::flags::hash_name(n) as u64).is_some());
     }
-    if p.intro || !state.is_empty() || p.opening_step().is_some() {
+    let clock: bool = p.kakariko || p.open.time;
+    if p.intro || !state.is_empty() || p.opening_step().is_some() || clock {
         let o: crate::intro_skip::Opts = if p.intro { crate::intro_skip::Opts::FULL } else { crate::intro_skip::Opts::default() };
         let (mut outs, _): (Vec<crate::staging::Out>, crate::intro_skip::Report) = crate::intro_skip::stage_with(&mut rf, o, &state)?;
         if let Some(st) = p.opening_step() {
@@ -636,6 +639,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         }
         if p.kakariko {
             outs.push(crate::start_state::stage_free_quest(&mut rf)?);
+        }
+        if clock {
             outs.push(crate::start_state::stage_field_clock(&mut rf)?);
         }
         for o in outs {
