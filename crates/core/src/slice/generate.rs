@@ -65,6 +65,9 @@ pub fn is_song(actor: &str) -> bool {
 fn by_place(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> Option<bool> {
     let name: &str = &w.locs[l].name;
     let item: &str = &w.items.names[it];
+    if let Some(ok) = crate::slice::song_spots::gate(d, p, name, item) {
+        return Some(ok);
+    }
     if let Some(ok) = crate::slice::treasure::at(p.treasure, name, item) {
         return Some(ok);
     }
@@ -296,11 +299,28 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         let caps: HM<LocId, usize> = crate::pot_slice::rules::caps(d, &w, &pk.free, &base, order.unwrap_or(&ok));
         let rank = |l: LocId| caps.get(&l).copied().unwrap_or(0);
         let r: Option<&dyn Fn(LocId) -> usize> = if caps.is_empty() { None } else { Some(&rank) };
-        let keep: Vec<LocId> = plan.iter().map(|x| x.0).collect();
+        let mut sr: Rng = Rng::from_text(&format!("{seed} songs first"));
+        let mut fixed: Vec<(LocId, ItemId)> = plan.clone();
+        if p.songs == Songs::Anywhere {
+            fixed.extend(crate::slice::song_spots::first(d, &w, &base, &pk.free, &plan, &ok, &mut sr)?);
+        }
+        let mut keep: Vec<LocId> = fixed.iter().map(|x| x.0).collect();
         let mut n: u32 = 0;
+        let mut redo: u32 = 0;
         loop {
-            let g: Placement = fill_ordered(&w, &base, &pk.free, &ok, order, &mut rng, o.tries, &plan, !p.keys_roam(), r, o.switch, &watch)
-                .map_err(|e| crate::slice::advice::explain(&p, e))?;
+            let quick: bool = p.songs == Songs::Anywhere && redo + 1 < crate::slice::song_spots::TRIES;
+            let (tries, switch): (u32, u32) = if quick { (o.tries.min(crate::slice::song_spots::QUICK_TRIES), o.switch.min(crate::slice::song_spots::QUICK_SWITCH)) } else { (o.tries, o.switch) };
+            let g: Placement = match fill_ordered(&w, &base, &pk.free, &ok, order, &mut rng, tries, &fixed, !p.keys_roam(), r, switch, &watch) {
+                Ok(g) => g,
+                Err(_) if quick => {
+                    redo += 1;
+                    fixed = plan.clone();
+                    fixed.extend(crate::slice::song_spots::first(d, &w, &base, &pk.free, &plan, &ok, &mut sr)?);
+                    keep = fixed.iter().map(|x| x.0).collect();
+                    continue;
+                }
+                Err(e) => return Err(crate::slice::advice::explain(&p, e)),
+            };
             if crate::slice::tier_order::fits(d, &w, &g, &pk.free)? {
                 break g;
             }
@@ -676,7 +696,7 @@ mod tests {
                 assert_eq!(song_loc, song_item, "{loc} holds {item}");
             }
             let n_song: usize = g.seed_file.placements.keys().filter(|k| d.flow.by_name(k).is_some_and(|f| f.cat == "song")).count();
-            assert_eq!(n_song, 10);
+            assert_eq!(n_song, 11);
         }
     }
 

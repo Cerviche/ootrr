@@ -6,6 +6,7 @@ pub mod closure;
 pub mod guard;
 pub mod kit;
 pub mod magic;
+pub mod model;
 pub mod pot_kit;
 pub mod place;
 pub mod rows;
@@ -36,10 +37,15 @@ pub struct Layers {
     pub tags: Vec<String>,
     pub ammo: bool,
     pub magic: bool,
+    pub model: Option<String>,
 }
 
 impl Layers {
     pub fn plain(&self) -> bool {
+        self.tags.is_empty() && !self.ammo && !self.magic && self.model.is_none()
+    }
+
+    pub fn kit_ok(&self) -> bool {
         self.tags.is_empty() && !self.ammo && !self.magic
     }
 }

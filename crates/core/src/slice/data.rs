@@ -17,7 +17,7 @@ pub const HELD: [u64; 0] = [];
 
 pub const SEP: &str = " @ ";
 
-pub const SONG_KEPT: [&str; 2] = ["Song from Windmill", "Sheik in Crater"];
+pub const SONG_KEPT: [&str; 1] = ["Sheik in Crater"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {

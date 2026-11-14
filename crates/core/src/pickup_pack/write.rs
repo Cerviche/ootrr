@@ -110,7 +110,10 @@ pub(crate) fn tables(rf: &mut Romfs, o: &Opts, modded: bool, s: &Spec, l: &Layer
     };
     let mut at: [usize; 2] = [0, 0];
     let a: File = table(rf, o, modded, ACTOR_INFO, |y: &mut Byml| {
-        let r: Node = rows::actor_row(rows::need(y, &s.item, ACTOR_INFO)?, &s.name, heap);
+        let mut r: Node = rows::actor_row(rows::need(y, &s.item, ACTOR_INFO)?, &s.name, heap);
+        if let Some(m) = &l.model {
+            crate::pickup_pack::model::row(&mut r, rows::need(y, m, ACTOR_INFO)?)?;
+        }
         at[0] = rows::insert(y, r)?;
         Ok(())
     })?;
@@ -427,7 +430,7 @@ pub fn run_with(romfs: &P, load: &P, mod_name: &str, s: &Spec, o: &Opts, l: &Lay
         return Err(E::Msg(format!("the game has no actor pack for {}", s.item)));
     }
     let mut packs: Vec<Vec<Entry>> = Vec::new();
-    for n in [BASE, DONOR, s.item.as_str()] {
+    for n in [BASE, DONOR, s.item.as_str()].into_iter().chain(l.model.as_deref()) {
         packs.push(sarc::parse(&start(&mut rf, o.base.as_ref(), &pack_of(n))?)?);
     }
     let pl: Plan = plan_with(&packs, s, l)?;

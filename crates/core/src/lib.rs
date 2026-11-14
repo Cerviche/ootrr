@@ -70,6 +70,7 @@ pub mod scrubs_b;
 pub mod search;
 pub mod settings;
 pub mod slice;
+pub mod song_lessons;
 pub mod song_models;
 pub mod special;
 pub mod start_defaults;

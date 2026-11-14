@@ -21,7 +21,7 @@ pub fn open(l: &Loc, p: &Plan) -> bool {
 }
 
 pub fn pouch(i: &Item) -> bool {
-    i.actor.as_deref().is_some_and(|a| (a.starts_with("Item_") || a.starts_with("Weapon_")) && !a.starts_with("Item_Melody_"))
+    i.actor.as_deref().is_some_and(|a| (a.starts_with("Item_") || a.starts_with("Weapon_")) && (!a.starts_with("Item_Melody_") || crate::slice::generate::is_song(a)))
 }
 
 pub fn bound(d: &Data, item: &str) -> bool {

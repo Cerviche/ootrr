@@ -829,6 +829,150 @@
       "identity": null,
       "notes": "OoTR refill. A pickup would add a whole new bottle, so WP4 must not map Milk to any pack",
       "source_status": "blocked_decision"
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_ZeldaLullaby",
+      "pack": "Obj_Melody_ZeldaLullaby",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_ZeldaLullaby",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_EponaSong",
+      "pack": "Obj_Melody_EponaSong",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_EponaSong",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_SariaSong",
+      "pack": "Obj_Melody_SariaSong",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_SariaSong",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_SunSong",
+      "pack": "Obj_Melody_SunSong",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_SunSong",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_TimeSong",
+      "pack": "Obj_Melody_TimeSong",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_TimeSong",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_StormSong",
+      "pack": "Obj_Melody_StormSong",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_StormSong",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_ForestMinuet",
+      "pack": "Obj_Melody_ForestMinuet",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_ForestMinuet",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_FireBolero",
+      "pack": "Obj_Melody_FireBolero",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_FireBolero",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_WaterSerenade",
+      "pack": "Obj_Melody_WaterSerenade",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_WaterSerenade",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_SpiritRequiem",
+      "pack": "Obj_Melody_SpiritRequiem",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_SpiritRequiem",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_ShadowNocturne",
+      "pack": "Obj_Melody_ShadowNocturne",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_ShadowNocturne",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_LightPrelude",
+      "pack": "Obj_Melody_LightPrelude",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_LightPrelude",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
     }
   ]
 }

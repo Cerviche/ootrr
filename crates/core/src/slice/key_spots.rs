@@ -42,11 +42,15 @@ impl Pick {
     }
 
     pub fn kit_spec(&self) -> Res<Spec> {
+        self.kit_with().map(|x| x.0)
+    }
+
+    pub fn kit_with(&self) -> Res<(Spec, Layers)> {
         let (s, l): (Spec, Layers) = self.spec()?;
-        if !l.plain() {
+        if !l.kit_ok() {
             return Err(E::Msg(format!("{} needs a pack layer, a skulltula kit cannot carry it", self.pack)));
         }
-        Ok(Spec { name: self.kit(), ..s })
+        Ok((Spec { name: self.kit(), ..s }, l))
     }
 }
 
@@ -95,7 +99,7 @@ pub fn contents(d: &Data, item: &str) -> Vec<String> {
     let Some(i) = d.item(item) else {
         return Vec::new();
     };
-    if NEVER.contains(&item) || i.kind != "Item" || i.dungeon.is_some() {
+    if NEVER.contains(&item) || !(i.kind == "Item" || crate::slice::song_spots::is_song_item(i)) || i.dungeon.is_some() {
         return Vec::new();
     }
     match family(i) {

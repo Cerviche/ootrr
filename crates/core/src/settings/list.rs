@@ -369,10 +369,10 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::choice(40, "shuffle_songs", "shuffle", "Songs", "off")
-            .tip("Whether the songs you learn from NPCs and Sheik are shuffled.")
+            .tip("Whether the songs you learn from NPCs and Sheik are shuffled. The lessons still play the usual melody scene. A song found anywhere else is handed out like an item with its get window and shows Sheik's harp. Scarecrow's Song is never shuffled. Experimental, untested in the game.")
             .opt("off", "Vanilla", "Every song comes from its usual teacher.")
             .opt("own", "Song locations", "The songs are shuffled among the places that teach songs.")
-            .opt("anywhere", "Anywhere", "Songs can appear anywhere and song locations can hold any item."),
+            .opt("anywhere", "Anywhere", "Songs can appear anywhere, also in pots, crates, freestanding spots and at Gold Skulltulas when those are shuffled, and song locations can hold any item."),
     );
     s.push(
         Setting::toggle(41, "gossip_hints", "world", "Gossip stone hints", false)

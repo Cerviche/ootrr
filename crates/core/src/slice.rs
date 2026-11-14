@@ -26,6 +26,7 @@ pub mod skull_kit;
 pub mod skull_names;
 pub mod skull_rules;
 pub mod skulls;
+pub mod song_spots;
 pub mod starts;
 pub mod support;
 pub mod swap_guard;

@@ -44,7 +44,7 @@ impl Want {
     pub fn spec(&self) -> Res<(Spec, Layers)> {
         match self.kind {
             Kind::Held => Ok((Spec { item: self.pick.pack.clone(), name: self.pick.kit(), style: Style::Touch, heap: None }, Layers::default())),
-            k if k.kit() => Ok((self.pick.kit_spec()?, Layers::default())),
+            k if k.kit() => self.pick.kit_with(),
             _ => self.pick.spec(),
         }
     }
@@ -99,7 +99,7 @@ fn opts(host: Host, base: Option<PB>, dry: bool) -> Opts {
 fn run_one(romfs: &P, load: &P, mod_name: &str, w: &Want, o: &Opts) -> Res<Done> {
     let (s, l): (Spec, Layers) = w.spec()?;
     if w.kind.kit() {
-        return kit::run(romfs, load, mod_name, &s, o, &[]);
+        return kit::run_with(romfs, load, mod_name, &s, o, &[], &l);
     }
     run_with(romfs, load, mod_name, &s, o, &l)
 }

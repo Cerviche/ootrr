@@ -106,11 +106,11 @@ mod tests {
     #[test]
     fn a_menu_scrub_takes_pouch_items_and_its_own_vanilla_item_only() {
         let d: Data = Data::load().unwrap();
-        for x in ["Hover Boots", "Lens of Truth", "Bottle", "Piece of Heart"] {
+        for x in ["Hover Boots", "Lens of Truth", "Bottle", "Piece of Heart", "Suns Song"] {
             let i: &Item = d.item(x).unwrap();
             assert!(fits(&d, "Jabu Jabus Belly Deku Scrub", i) && d.flow_accepts(i), "{x}");
         }
-        for x in ["Rupees (50)", "Zeldas Lullaby", "Deku Shield", "Double Defense", "Goron Tunic", "Deku Seeds (30)"] {
+        for x in ["Rupees (50)", "Scarecrow Song", "Deku Shield", "Double Defense", "Goron Tunic", "Deku Seeds (30)"] {
             assert!(!fits(&d, "Jabu Jabus Belly Deku Scrub", d.item(x).unwrap()), "{x}");
         }
         assert!(fits(&d, "LW Deku Scrub Grotto Rear", d.item("Deku Seeds (30)").unwrap()));
