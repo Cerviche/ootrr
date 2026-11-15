@@ -289,6 +289,24 @@
  "from": "Dm_SY_GetInEvent:GetInEvent_GreatFairyWisdom", "to": "Dm_SY_GetInEvent:GetInEvent_Demo_NotLookatObjectEntry",
  "params": [["ActorName", "$item"]]}
 ]
+},
+{
+"name": "Market Potion Shop Free Bottle",
+"why": "the tutorial bars the shop door until the escaped bug is caught, and the bug needs an empty bottle, so with another item in place of the gift the offer first asks for an empty bottle: the per talk flag check of event 16 becomes that pouch check, with one the flow runs the vanilla offer and tutorial unchanged except the first talk lines, without one the keeper says the shop opens soon (event 62) and nothing is given or started",
+"ops": [
+{"kind": "query", "file": "Npc_Hylia_020_Shop_Child.bfevfl", "index": 16, "event": "Event33",
+ "from": "GameDataActor.EventQueryIsGameDataBool", "to": "PouchSystemActor.EventQueryIsAnyBottleEmpty", "params": []},
+{"kind": "retarget", "file": "Npc_Hylia_020_Shop_Child.bfevfl", "index": 16, "event": "Event33", "case": 1, "old": 15, "new": 62}
+]
+},
+{
+"name": "Market Potion Shop Red Potion",
+"why": "the bug reward pours the Red Potion into the equipped bottle, so another item is handed over with the plain NPC gift sub, the same call Malon uses for the Weird Egg, and the tutorial still ends with the Cleared flag that opens the shop",
+"ops": [
+{"kind": "swap_sub", "file": "Npc_Hylia_020_Shop_Child.bfevfl", "index": 138, "event": "Event172",
+ "from": "Dm_SY_GetInEvent:GetInEventInEquipedBottle", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn",
+ "params": [["ActorName", "$item"], ["ASName", "Wait"], ["Target", 3], ["NpcActorName", "Npc_Hylia_020_Shop_Child"], ["NpcInstanceName", ""], ["Npc_EventStarter", "actor:Npc_Hylia_020_Shop_Child"]]}
+]
 }
 ],
 "always": [

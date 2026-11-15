@@ -145,7 +145,7 @@ mod tests {
         assert!(!x.specs.is_empty());
         for s in &x.specs {
             let l: &Loc = d.by_name(&s.name).unwrap();
-            assert!((l.gated && !l.supported) || (l.supported && l.cat == "great_fairy"), "{}", s.name);
+            assert!((l.gated && !l.supported) || (l.supported && (l.cat == "great_fairy" || l.name == "GC Rolling Goron as Child")), "{}", s.name);
             assert!(!s.ops.is_empty() && !s.why.is_empty(), "{}", s.name);
         }
         assert_eq!(x.always.iter().map(|s| s.name.as_str()).collect::<Vec<&str>>(), vec!["Din fountain gauge", "Fire Arrow pickup gauge"]);

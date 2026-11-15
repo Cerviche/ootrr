@@ -6,6 +6,7 @@ mod data;
 pub mod frogs;
 mod gate;
 mod op;
+pub mod potion;
 pub mod sim;
 pub mod trade;
 

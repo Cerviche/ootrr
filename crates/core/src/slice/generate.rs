@@ -1151,10 +1151,10 @@ mod tests {
             (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "fb7413b271d949ca4064a38f5e3d1bb3ea120953fb22a030f6260f21e89c04b2"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "dbbde2ae945e2e8eb27f8fe74e85b432bc1612f02b1f629a822e47f8cf49cc79"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "a131002f74c6dd72eb9e521304f3cb01205103b640d91df77e6ddf6e760fd180"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "98bb175b32329d04418d6e5dfab52c9a5041499caff539764aad14465f83606c"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "48b9c24a29432431f82194e48201de0729864d2988e869d852cb87ad46019197"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "a3b53f9d89f1e66a00e3ad2460d3a7120a4d74edfe56c8976f212de025fe716f"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "8d66fa158870b855c387e6b88ec2918862b2de3ee2f57dd6f5ee6cb230b5300c"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "4dbd24d29adf7f22243e98aed0233645e24860fd66a0059ee46f5091e25f1a6b"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "ef0ec2ba2e06aa59dba24d17b68c57367b7b8ae131263432d57c6fb62a551ec7"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "6484abf46790795a8d65afa76e2e78bac07a00413e7a5991461c2eab508cdbe7"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "80ad5e165800efe84e47fe39df0dcbca301861519292c1290532dde04f4d27ca"),
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
@@ -1191,10 +1191,10 @@ mod tests {
         both.set("shuffle_pots", Value::s("all")).unwrap();
         both.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str); 4] = [
-            (hives.clone(), "pin a", "d0adea81fde784f657e003f893d0a3d7dc04fa9f7156bb1434011d36e393fac5"),
-            (hives.clone(), "pin b", "aae3950fa18bc4d30c4c668f035b4216f9243ab29957240e9f2fd3fe11c19f3f"),
-            (both.clone(), "pin a", "163f3a9f4ad94da1b67611fc4542556728dc0b11ea6c665fef3b7eabe8211e8b"),
-            (both.clone(), "pin b", "70988646b115e3467cde2e8f8b00015bf7763d5cd962cff03531bb0bb7fdda22"),
+            (hives.clone(), "pin a", "952e0c00515fbbf923194eb906910b661ea9bc9e39b6594c1728042adc449b5e"),
+            (hives.clone(), "pin b", "c3da904b4607f1e516df4338f39ae408c0ee8129da38a62426529896a05d272f"),
+            (both.clone(), "pin a", "2c0fae7b1e447c580e07e0eaee85d646d6caaa1bf175e606603bc19f9a452cbe"),
+            (both.clone(), "pin b", "b52c95f21d2eff934bf929a95d90247b8b3f5c11607d33dd4164ebf4b43f0ee0"),
         ];
         for (s, seed, sum) in cases {
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();

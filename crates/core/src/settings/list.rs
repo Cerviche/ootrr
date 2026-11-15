@@ -402,6 +402,11 @@ pub fn build() -> Schema {
             .when(crate::slice::remake_chests::SETTING, "on"),
     );
     s.push(
+        Setting::toggle(46, crate::flow_extra::potion::SETTING, "shuffle", "Market Potion Shop bottle and Red Potion", false)
+            .tip("The free empty bottle the Market Potion Shop keeper gives a child after the meeting with Zelda and the Red Potion he pours as thanks for the escaped bug become two shuffled checks, and one more Bottle joins the pool. While the free bottle holds another item he starts the bug tutorial only for a child who already carries an empty bottle, and his shelves still open after the tutorial.")
+            .when("shuffle_rewards", "supported"),
+    );
+    s.push(
         Setting::toggle(54, "shuffle_scrubs_a", "shuffle", "One time scrub sales", false)
             .tip("Also shuffle the Business Scrubs that already sell one item once: the Death Mountain Crater heart scrub and the Lost Woods stick and nut bag scrubs. The price stays and the sale text still names the old item.")
             .when("shuffle_rewards", "supported"),

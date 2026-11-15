@@ -201,7 +201,7 @@ fn query(f: &mut Flow, o: &Op, from: &str, to: &str, params: &[(String, Val)]) -
     if let Kind::Switch { actor, query, params: p, .. } = &mut e.kind {
         *actor = na;
         *query = nq;
-        *p = Some(Cont { items: params.to_vec() });
+        *p = if params.is_empty() { None } else { Some(Cont { items: params.to_vec() }) };
     }
     Ok(())
 }

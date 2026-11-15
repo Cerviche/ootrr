@@ -98,6 +98,9 @@ pub fn spec(d: &Data, over: &[(&str, &str)]) -> Res<Spec> {
     if crate::pot_slice::remake::wanted(over) {
         crate::pot_slice::remake::apply(&mut files)?;
     }
+    if crate::flow_extra::potion::wanted(over) {
+        crate::flow_extra::potion::apply(&mut files)?;
+    }
     s.regions.extend(unique(files));
     Ok(s)
 }

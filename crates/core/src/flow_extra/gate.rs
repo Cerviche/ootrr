@@ -26,6 +26,9 @@ pub fn open(l: &Loc, p: &Plan) -> bool {
     if crate::flow_extra::frogs::is_bug(&l.name) {
         return p.frog_bug;
     }
+    if crate::flow_extra::potion::is(&l.name) {
+        return p.potion;
+    }
     if crate::open_world::skips::is_bean_sale(&l.name) {
         return p.open.beans;
     }
@@ -37,7 +40,7 @@ pub fn pouch(i: &Item) -> bool {
 }
 
 pub fn bound(d: &Data, item: &str) -> bool {
-    d.flow.locs.iter().any(|l| l.gated && !crate::flow_extra::trade::is(&l.name) && !crate::flow_extra::cows::is(&l.name) && !crate::flow_extra::frogs::is(&l.name) && !crate::scrubs_a::is_a(l) && !crate::scrubs_b::is_b(l) && !crate::open_world::skips::is_bean_sale(&l.name) && d.vanilla_of(&l.name) == Some(item) && d.flow_ok(&l.name))
+    d.flow.locs.iter().any(|l| l.gated && !crate::flow_extra::trade::is(&l.name) && !crate::flow_extra::cows::is(&l.name) && !crate::flow_extra::frogs::is(&l.name) && !crate::flow_extra::potion::is(&l.name) && !crate::scrubs_a::is_a(l) && !crate::scrubs_b::is_b(l) && !crate::open_world::skips::is_bean_sale(&l.name) && d.vanilla_of(&l.name) == Some(item) && d.flow_ok(&l.name))
 }
 
 pub fn fits(d: &Data, name: &str, i: &Item) -> bool {
@@ -66,7 +69,7 @@ mod tests {
     }
 
     fn gated(d: &Data) -> Vec<String> {
-        d.flow.locs.iter().filter(|l| l.gated && !crate::flow_extra::trade::is(&l.name) && !crate::flow_extra::cows::is(&l.name) && !crate::flow_extra::frogs::is(&l.name) && !crate::scrubs_a::is_a(l) && !crate::scrubs_b::is_b(l) && !crate::open_world::skips::is_bean_sale(&l.name)).map(|l| l.name.clone()).collect()
+        d.flow.locs.iter().filter(|l| l.gated && !crate::flow_extra::trade::is(&l.name) && !crate::flow_extra::cows::is(&l.name) && !crate::flow_extra::frogs::is(&l.name) && !crate::flow_extra::potion::is(&l.name) && !crate::scrubs_a::is_a(l) && !crate::scrubs_b::is_b(l) && !crate::open_world::skips::is_bean_sale(&l.name)).map(|l| l.name.clone()).collect()
     }
 
     #[test]
@@ -85,7 +88,7 @@ mod tests {
     fn gated_locations_stay_vanilla_unless_the_setting_is_on() {
         let d: Data = Data::load().unwrap();
         let names: Vec<String> = gated(&d);
-        assert_eq!(names.len(), 4);
+        assert_eq!(names.len(), 3);
         for (extra, n) in [(None, 0), (Some(false), 1)] {
             let g: Generated = generate_data(&d, &with(extra), &format!("gate {n}"), &GenOpts::default()).unwrap();
             assert!(names.iter().all(|x| !g.seed_file.placements.contains_key(x)), "{extra:?}");
@@ -93,7 +96,7 @@ mod tests {
     }
 
     #[test]
-    fn the_setting_adds_three_beatable_locations_and_rolling_goron_waits() {
+    fn the_setting_adds_three_beatable_locations_and_rolling_goron_needs_no_setting() {
         let d: Data = Data::load().unwrap();
         let s: Settings = with(Some(true));
         let off: Generated = generate_data(&d, &with(Some(false)), "extra", &GenOpts::default()).unwrap();
@@ -102,7 +105,7 @@ mod tests {
             for x in SHUFFLED {
                 assert!(g.seed_file.placements.contains_key(x), "{x}");
             }
-            assert!(!g.seed_file.placements.contains_key("GC Rolling Goron as Child"));
+            assert!(g.seed_file.placements.contains_key("GC Rolling Goron as Child"));
             assert_eq!(g.seed_file.placements.len(), off.seed_file.placements.len() + SHUFFLED.len());
             assert!(g.report.contains("structural event edits"));
             for x in SHUFFLED {

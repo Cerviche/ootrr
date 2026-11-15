@@ -65,6 +65,7 @@ pub struct Plan {
     pub cows_other: bool,
     pub frog_songs: bool,
     pub frog_bug: bool,
+    pub potion: bool,
     pub scrubs: bool,
     pub scrubs_b: bool,
     pub hearts: bool,
@@ -233,6 +234,9 @@ impl Plan {
         if self.dungeon_rewards {
             out.push((crate::medal_gate::LOGIC_KEY, "true"));
         }
+        if self.potion {
+            out.push((crate::flow_extra::potion::KEY, crate::flow_extra::potion::ON));
+        }
         out
     }
 
@@ -332,6 +336,11 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         });
     let frog_bug: bool = rewards
         && s.flag(crate::flow_extra::frogs::BUG_SETTING).unwrap_or_else(|e| {
+            bad.push(e.to_string());
+            false
+        });
+    let potion: bool = rewards
+        && s.flag(crate::flow_extra::potion::SETTING).unwrap_or_else(|e| {
             bad.push(e.to_string());
             false
         });
@@ -477,6 +486,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (cows_other, crate::flow_extra::cows::NOTE_OTHER),
         (frog_songs, crate::flow_extra::frogs::SONGS_NOTE),
         (frog_bug, crate::flow_extra::frogs::BUG_NOTE),
+        (potion, crate::flow_extra::potion::NOTE),
     ] {
         if on {
             notes.push(text.to_string());
@@ -526,7 +536,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if silver {
         notes.push(crate::slice::silver::NOTE.to_string());
     }
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, potion, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver })
 }
 
 #[cfg(test)]
