@@ -106,12 +106,14 @@ fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
     let mut pool: BM<String, Vec<String>> = BM::new();
     let mut dests: BM<String, Vec<String>> = BM::new();
     for (loc, item) in &seed.placements {
-        if crate::pot_slice::targets::is_loc(d, loc) || crate::shops::seed::skip(loc) {
+        if crate::pot_slice::targets::is_loc(d, loc) || crate::shops::seed::skip(loc) || crate::slice::silver::is_spot(loc) {
             continue;
         }
         let vanilla: &str = d.vanilla_of(loc).ok_or_else(|| E::Msg(format!("{loc} has no vanilla item")))?;
         pool.entry(vanilla.to_string()).or_default().push(vanilla_actor(d, loc)?);
-        dests.entry(item.clone()).or_default().push(loc.clone());
+        if !crate::slice::silver::is_item(item) {
+            dests.entry(item.clone()).or_default().push(loc.clone());
+        }
     }
     let stripped: bool = crate::start_items::pool::active(&plan(&seed.settings()?.settings)?);
     let mut out: BM<String, String> = BM::new();
@@ -119,6 +121,7 @@ fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
         let mut acts: Vec<String> = pool.get(item).cloned().unwrap_or_default();
         crate::pot_slice::targets::balance(d, seed, item, &mut acts);
         crate::shops::seed::balance(d, seed, item, &mut acts);
+        crate::slice::silver::balance(seed, item, &mut acts);
         if stripped {
             crate::start_items::pool::fit_actors(d, item, locs.len(), &mut acts);
         }
@@ -150,7 +153,11 @@ fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<String, String
     let given: BM<String, String> = actors_for(d, seed)?;
     let wrapped: BM<String, &'static str> = flow_wraps(d, seed);
     for (loc, item) in &seed.placements {
-        if crate::pot_slice::targets::is_loc(d, loc) || crate::slice::skulls::is_skull(d, loc) || crate::shops::seed::skip(loc) {
+        if crate::pot_slice::targets::is_loc(d, loc) || crate::slice::skulls::is_skull(d, loc) || crate::shops::seed::skip(loc) || crate::slice::silver::is_item(item) {
+            continue;
+        }
+        if let Some(t) = crate::slice::silver::targets(loc, item)? {
+            out.extend(t);
             continue;
         }
         if is_sale(d, loc) {
@@ -477,6 +484,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let mut skull_hit: BS<u64> = BS::new();
     let gr: crate::dungeon_grant::Grants = crate::slice::dungeon_items::grants(&d, seed, &p)?;
     let mut marks: crate::dungeon_grant::Marks = crate::dungeon_grant::Marks::default();
+    let silver: BM<u64, &'static str> = crate::slice::silver::grants(&d, seed)?;
+    let mut silver_used: BS<&'static str> = BS::new();
+    let mut silver_hit: BS<u64> = BS::new();
     let mut edits: Vec<Edited> = Vec::new();
     let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, p.chus, crate::slice::dungeon_items::credited(p.map)) } else { BM::new() };
     let moves: crate::chest_size::Moves = if sizes.is_empty() { crate::chest_size::Moves::default() } else { crate::chest_size::moves(&crate::chest_size::scan(&mut rf, &sizes)?, &sizes) };
@@ -506,6 +516,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             }),
             (e, None) => e,
         };
+        let e: Option<Edited> = crate::slice::silver::apply(&f, raw, e, &silver, &mut silver_used, &mut silver_hit)?;
         let e: Option<Edited> = crate::slice::dungeon_items::apply(&f, raw, e, &gr, &mut marks)?;
         if let Some(e) = crate::slice::skull_edit::apply(&f, raw, e, &skull_drops, &mut skull_hit)? {
             edits.push(e);
@@ -513,6 +524,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     crate::slice::skull_edit::all_found(&skull_drops, &skull_hit)?;
     crate::dungeon_grant::all_marked(&gr, &marks)?;
+    crate::slice::silver::all_found(&silver, &silver_hit)?;
     let pot_ts: Vec<crate::pot_slice::targets::Give> = crate::pot_slice::targets::targets_with(&d, seed, &order.assign)?;
     crate::pot_slice::apply::apply(&mut rf, &d, &pot_ts, &mut edits)?;
     let scrub_jobs: Vec<crate::scrubs_b::Job> = crate::scrubs_b::jobs(&d, seed)?;
@@ -562,9 +574,10 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let placed: BM<String, &'static str> = flow_wraps(&d, seed);
     let chest_fams: BS<&str> = upgrades.iter().map(|u| u.0.as_str()).collect();
     let gs: Vec<crate::progressive::Grant> = wrap_grants(&d, seed, &chest_fams, &placed);
-    if !upgrades.is_empty() || roam || gr.active() {
+    if !upgrades.is_empty() || roam || gr.active() || !silver_used.is_empty() {
         let mut outs: Vec<crate::staging::Out> = if !upgrades.is_empty() || roam { stage_upgrades(&mut rf, &upgrades, None, &kids, &keys)? } else { Vec::new() };
         crate::dungeon_grant::stage(&mut rf, &mut outs, &gr, &marks.used)?;
+        crate::slice::silver::stage(&mut rf, &mut outs, &silver_used)?;
         scrub_rows = crate::scrubs_b::stage_rows(&mut rf, &scrub_jobs, &mut outs, false)?;
         for o in outs {
             pk.write_romfs(&o.path, &o.z)?;
@@ -614,6 +627,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         more.extend(hints::stage(&mut rf, &d, seed, p.hints, &keys, &p.npc)?);
     }
     crate::dungeon_grant::stage_text(&mut rf, &mut more, &marks.used)?;
+    crate::slice::silver::stage_text(&mut rf, &mut more, &silver_used)?;
     more.push(stage_pouch(&mut rf, roam)?);
     more.extend(crate::bomb_lift::stage(&mut rf)?);
     if crate::bomb_pickup::needed(&pot_ts) {

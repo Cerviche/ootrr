@@ -93,6 +93,7 @@ pub struct Plan {
     pub npc: crate::npc_hints::Opts,
     pub shops: crate::shops::Opts,
     pub bridge: bool,
+    pub silver: bool,
 }
 
 const GEAR: &[(&str, &str, &str)] = &[
@@ -440,6 +441,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
     let shops: crate::shops::Opts = crate::shops::plan::read(s, &mut bad);
     let bridge: bool = crate::deku_bridge::mode(s, &mut bad);
+    let silver: bool = crate::slice::silver::mode(s, chests, remake, &mut bad);
     let excluded: Vec<String> = s.items("disabled_locations").map(|v| v.to_vec()).unwrap_or_default();
     if !bad.is_empty() {
         let lines: Vec<String> = bad.iter().map(|b| format!("  {b}")).collect();
@@ -521,7 +523,10 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::deku_bridge::NOTE.to_string());
     }
     notes.extend(shops.notes());
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge })
+    if silver {
+        notes.push(crate::slice::silver::NOTE.to_string());
+    }
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver })
 }
 
 #[cfg(test)]

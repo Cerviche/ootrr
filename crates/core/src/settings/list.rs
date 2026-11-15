@@ -397,6 +397,11 @@ pub fn build() -> Schema {
             .when("shuffle_rewards", "supported"),
     );
     s.push(
+        Setting::toggle(90, crate::slice::silver::SETTING, "shuffle", "Silver rupees", false)
+            .tip("The silver rupees of five rooms become items: the Forest and Light Trials in Ganon's Castle, the Ice Cavern push block room, the Bottom of the Well basement and the Gerudo Training Ground slopes room. Each room has five Silver Rupee items that are found in chests anywhere, and the room opens when you have found all five. The spots where the silver rupees hung hold other rupees. Needs Remake chests on, because the other chests are already full. Experimental, untested in the game.")
+            .when(crate::slice::remake_chests::SETTING, "on"),
+    );
+    s.push(
         Setting::toggle(54, "shuffle_scrubs_a", "shuffle", "One time scrub sales", false)
             .tip("Also shuffle the Business Scrubs that already sell one item once: the Death Mountain Crater heart scrub and the Lost Woods stick and nut bag scrubs. The price stays and the sale text still names the old item.")
             .when("shuffle_rewards", "supported"),
