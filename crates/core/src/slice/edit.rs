@@ -437,6 +437,12 @@ pub fn start_state(d: &Data, seed: &SeedFile, p: &crate::slice::support::Plan) -
     if p.intro {
         ops.extend(crate::start_state::first_visit());
     }
+    if p.forest == crate::slice::support::Forest::Open {
+        ops.extend(crate::story_skip::deku());
+    }
+    if p.story {
+        ops.extend(crate::story_skip::start());
+    }
     Ok(ops)
 }
 
@@ -679,6 +685,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut late: Vec<crate::staging::Out> = if p.qol.any() { crate::qol::worked(&mut rf, &pk, &p.qol)? } else { Vec::new() };
     late.extend(crate::open_world::worked(&mut rf, &pk, &p.open)?);
+    if p.story {
+        late.extend(crate::story_skip::worked(&mut rf, &pk)?);
+    }
     for o in late {
         pk.write_romfs(&o.path, &o.z)?;
         extra += 1;

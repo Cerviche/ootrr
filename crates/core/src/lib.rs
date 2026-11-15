@@ -77,6 +77,7 @@ pub mod start_defaults;
 pub mod start_items;
 pub mod start_reward;
 pub mod start_state;
+pub mod story_skip;
 pub mod songs;
 pub mod spoiler;
 pub mod staging;
