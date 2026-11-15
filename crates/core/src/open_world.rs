@@ -1,4 +1,5 @@
 pub mod ainb_edit;
+pub mod darunia;
 pub mod guard;
 pub mod skips;
 
@@ -215,12 +216,11 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have) -> Res<Vec<Out>> {
 }
 
 pub fn worked(rf: &mut Romfs, pk: &crate::modpack::Pack, o: &Opts) -> Res<Vec<Out>> {
-    if !o.edits_files() {
-        return Ok(Vec::new());
-    }
     let root: PB = pk.work.join("romfs");
     let have = |p: &str| -> Option<Vec<u8>> { fs::read(p.split('/').fold(root.clone(), |a, s| a.join(s))).ok() };
-    stage(rf, o, &have)
+    let mut outs: Vec<Out> = if o.edits_files() { stage(rf, o, &have)? } else { Vec::new() };
+    outs.extend(darunia::stage(rf, &have)?);
+    Ok(outs)
 }
 
 #[cfg(test)]
@@ -413,6 +413,26 @@ mod tests {
     }
 
     #[test]
+    fn the_bowling_prizes_need_the_cavern_cleared_and_a_bomb_bag_even_when_bombchus_are_in_logic() {
+        let no_bag = |n: &str| n == "Bomb Bag";
+        for l in ["Market Bombchu Bowling First Prize", "Market Bombchu Bowling Second Prize", "Market Bombchu Bowling Bomb"] {
+            assert!(reach(&[], &|_| false, At::Loc(l)), "{l}");
+            assert!(!reach(&[], &no_bag, At::Loc(l)), "{l}");
+            assert!(!reach(&[("bombchus_in_logic", Value::Bool(true))], &no_bag, At::Loc(l)), "{l}");
+        }
+        assert!(reach(&[], &|_| false, At::Loc("Market Bombchu Bowling Bombchus")));
+        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        let w: crate::world::World = crate::slice::logic::world_with(&d, &plan_of(&[]).logic()).unwrap();
+        let p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
+        assert!(crate::search::explore(&w, &p, &[]).won());
+        let src: &str = include_str!("../../../data/logic/World/Overworld.json");
+        for l in ["First Prize", "Second Prize", "Bombchus", "Bomb"] {
+            let line: &str = src.lines().find(|x| x.contains(&format!("\"Market Bombchu Bowling {l}\":"))).unwrap();
+            assert!(line.contains("'Defeat King Dodongo'"), "{l}");
+        }
+    }
+
+    #[test]
     fn a_running_clock_gives_night_before_zelda_and_the_old_rule_stays_without_it() {
         let no_egg = |n: &str| n == "Weird Egg";
         let tour: &str = "Graveyard Dampe Gravedigging Tour";
@@ -541,7 +561,7 @@ mod tests {
         let list: crate::byml::Byml = crate::byml::Byml::parse(&rf.zs.decompress(&fs::read(out.join(crate::chest_slot::LIST)).unwrap()).unwrap()).unwrap();
         let rows: &crate::byml::Node = list.root.get("Data").unwrap();
         let bool_of = |n: &str| rows.get("Bool").unwrap().as_arr().unwrap().iter().find(|r| r.get("Hash") == Some(&crate::byml::Node::U32(crate::start_defaults::key(n)))).and_then(|r| r.get("DefaultValue")).cloned();
-        for n in ["GaveFishToJabJab", "JabJabOpenedMouth", "HyruleField_ArriveEntrance", "HavePlayedEvent.Dm_HrlField_0020", "Npc_Hylia_Soldier_003_GateOpen"] {
+        for n in ["GaveFishToJabJab", "JabJabOpenedMouth", "HyruleField_ArriveEntrance", "HavePlayedEvent.Dm_HrlField_0020", "HavePlayedEvent.Dm_Zora_0010", "Npc_Hylia_Soldier_003_GateOpen"] {
             assert_eq!(bool_of(n), Some(crate::byml::Node::Bool(true)), "{n}");
         }
         let step: Option<crate::byml::Node> = rows.get("Enum").unwrap().as_arr().unwrap().iter().find(|r| r.get("Hash") == Some(&crate::byml::Node::U32(crate::start_defaults::key("Step_Get_StoneOfWater")))).and_then(|r| r.get("DefaultValue")).cloned();

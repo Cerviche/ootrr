@@ -14,9 +14,10 @@
       "setting": "zora_fountain",
       "value": "open",
       "edits": [
-        {"kind": "enum", "name": "Step_Get_StoneOfWater", "value": "Step07"}
+        {"kind": "enum", "name": "Step_Get_StoneOfWater", "value": "Step07"},
+        {"kind": "bool", "name": "HavePlayedEvent.Dm_Zora_0010", "value": true}
       ],
-      "note": "The Zora quest starts at the step King Zora reaches after reading Ruto's Letter (Get_StoneOfWater Step07). Impa's hint about the Zoras in the castle garden no longer appears and some Zora talk may assume the letter was read. The new game value is set in the flag list."
+      "note": "The Zora quest starts at the step King Zora reaches after reading Ruto's Letter (Get_StoneOfWater Step07), and the scene of King Zora moving counts as played so the wall beside him is gone. Impa's hint about the Zoras in the castle garden no longer appears and some Zora talk may assume the letter was read. The new game value is set in the flag list."
     },
     {
       "setting": "jabu_open",

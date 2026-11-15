@@ -1,5 +1,5 @@
 use crate::bfevfl::flow::NONE;
-use crate::bfevfl::{Bf, Case, Cont, Event, Flow, Kind, Val};
+use crate::bfevfl::{Actor, Bf, Case, Cont, Event, Flow, Kind, Val};
 use crate::error::{Error, Res};
 
 pub const STEP_ACT: &str = "EventExecuteProgressChallengeStep";
@@ -31,11 +31,15 @@ pub fn flow_mut<'a>(b: &'a mut Bf, name: &str) -> Res<&'a mut Flow> {
 }
 
 pub fn query_slot(f: &mut Flow, query: &str) -> Res<(u16, u16)> {
-    let i: usize = f
-        .actors
-        .iter()
-        .position(|a| a.name == HOLDER && a.sub.is_empty())
-        .ok_or_else(|| Error::Msg(format!("open world: the flow {} has no GameDataActor", f.name)))?;
+    let i: usize = match f.actors.iter().position(|a| a.name == HOLDER && a.sub.is_empty()) {
+        Some(i) => i,
+        None => {
+            let t: &Actor = f.actors.first().ok_or_else(|| Error::Msg(format!("open world: the flow {} has no actors", f.name)))?;
+            let a: Actor = Actor { name: HOLDER.to_string(), sub: String::new(), arg: String::new(), actions: Vec::new(), queries: Vec::new(), params: t.params.clone(), ep: t.ep, cut: t.cut };
+            f.actors.push(a);
+            f.actors.len() - 1
+        }
+    };
     let a = &mut f.actors[i];
     let j: usize = match a.queries.iter().position(|q| q == query) {
         Some(j) => j,
@@ -156,10 +160,31 @@ pub fn pin(b: &mut Bf, flow: &str, names: &[&str], flag: &str, val: u32) -> Res<
     Ok(n)
 }
 
+pub fn requery(b: &mut Bf, flow: &str, name: &str, from: &str, to_query: &str, to_flag: &str) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, flow)?;
+    let i: usize = f.events.iter().position(|e| e.name == name).ok_or_else(|| Error::Msg(format!("open world: no event {name} in {flow}")))?;
+    if text(&f.events[i].kind, "GameDataName") != Some(from) {
+        return Err(Error::Msg(format!("open world: {name} in {flow} does not read {from}")));
+    }
+    if !matches!(f.events[i].kind, Kind::Switch { .. }) {
+        return Err(Error::Msg(format!("open world: {name} in {flow} is not a switch")));
+    }
+    let slot: (u16, u16) = query_slot(f, to_query)?;
+    let Kind::Switch { actor, query, params, .. } = &mut f.events[i].kind else {
+        return Err(Error::Msg(format!("open world: {name} in {flow} is not a switch")));
+    };
+    *actor = slot.0;
+    *query = slot.1;
+    let c: &mut Cont = params.as_mut().ok_or_else(|| Error::Msg(format!("open world: {name} in {flow} has no parameters")))?;
+    let v: &mut Val = c.items.iter_mut().find(|(k, _)| k == "GameDataName").map(|(_, v)| v).ok_or_else(|| Error::Msg(format!("open world: {name} in {flow} has no GameDataName")))?;
+    *v = Val::Str(to_flag.to_string());
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bfevfl::{Actor, Entry};
+    use crate::bfevfl::Entry;
 
     fn actor(n: &str, acts: &[&str], qs: &[&str]) -> Actor {
         Actor {
@@ -232,6 +257,40 @@ mod tests {
         assert_eq!(cases(f, "H0"), vec![(0, "E3".to_string())]);
         assert!(guard_steps(&mut b, "Q", "Q", &["Step77"], "Y_Exp", Run::WhenTrue, "K").is_err());
         assert!(guard_steps(&mut b, "Nope", "Q", &["Step01"], "Y_Exp", Run::WhenTrue, "K").is_err());
+    }
+
+    #[test]
+    fn a_requery_moves_a_switch_to_another_query_and_flag_and_keeps_its_cases() {
+        let mut b: Bf = sample();
+        let before: Vec<(u32, String)> = cases(&b.flows[0], "E4");
+        requery(&mut b, "Q", "E4", "F", EXP, "G").unwrap();
+        let f: &Flow = &b.flows[0];
+        assert_eq!(cases(f, "E4"), before);
+        let Kind::Switch { actor, query, params, .. } = &f.events[4].kind else { panic!() };
+        assert_eq!((*actor, *query), (1, 1));
+        assert_eq!(f.actors[1].queries, vec!["EventQueryIsGameDataBool".to_string(), EXP.to_string()]);
+        assert_eq!(params.as_ref().and_then(|c| c.get("GameDataName")), Some(&Val::Str("G".to_string())));
+        assert!(requery(&mut b, "Q", "E4", "F", EXP, "G").is_err());
+        assert!(requery(&mut b, "Q", "E0", "F", EXP, "G").is_err());
+        assert!(requery(&mut b, "Q", "Nope", "F", EXP, "G").is_err());
+        assert!(requery(&mut b, "Nope", "E4", "G", EXP, "G").is_err());
+        let back: Bf = Bf::parse(&b.write().unwrap()).unwrap();
+        assert_eq!(back, b);
+    }
+
+    #[test]
+    fn a_flow_without_a_game_data_actor_gets_one_when_it_is_guarded() {
+        let mut b: Bf = sample();
+        b.flows[0].actors.remove(1);
+        b.flows[0].events.remove(4);
+        b.flows[0].entries.remove(1);
+        guard_steps(&mut b, "Q", "Q", &["Step09"], "Y_Exp", Run::WhenFalse, "H").unwrap();
+        let f: &Flow = &b.flows[0];
+        assert_eq!(f.actors.len(), 2);
+        assert_eq!(f.actors[1].name, HOLDER);
+        assert_eq!(f.actors[1].queries, vec![EXP.to_string()]);
+        let back: Bf = Bf::parse(&b.write().unwrap()).unwrap();
+        assert_eq!(back, b);
     }
 
     #[test]

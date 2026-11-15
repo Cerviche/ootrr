@@ -122,7 +122,7 @@ mod tests {
         assert!(!beans.edits.contains(&Edit::Bool("IsPlantedMagicBean_SmallFarm.9976156629905609191".to_string(), true)));
         assert!(beans.edits.contains(&Edit::Int("Get_MagicBeans".to_string(), 9)));
         let z: &Preset = find(&b, "zora_fountain", "open").unwrap();
-        assert_eq!(z.edits, vec![Edit::Enum("Step_Get_StoneOfWater".to_string(), "Step07".to_string())]);
+        assert_eq!(z.edits, vec![Edit::Enum("Step_Get_StoneOfWater".to_string(), "Step07".to_string()), Edit::Bool("HavePlayedEvent.Dm_Zora_0010".to_string(), true)]);
         assert_eq!(find(&b, "jabu_open", "true").unwrap().edits.len(), 2);
         assert_eq!(find(&b, "time_always_passes", "true").unwrap().edits, vec![Edit::Bool("HyruleField_ArriveEntrance".to_string(), true), Edit::Bool("HavePlayedEvent.Dm_HrlField_0020".to_string(), true)]);
         let p: &Preset = find(&b, "open_kakariko", "open").unwrap();

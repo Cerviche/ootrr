@@ -401,6 +401,7 @@ mod tests {
             ("Int".to_string(), key("PouchData.Item_Ocarina_Fairy.StockNum")),
             ("Enum".to_string(), key("Step_Meet_DekuTree")),
             ("Enum".to_string(), key("Step_Get_StoneOfWater")),
+            ("Bool".to_string(), key("HavePlayedEvent.Dm_Zora_0010")),
             ("Bool".to_string(), key("GaveFishToJabJab")),
             ("Bool".to_string(), key("JabJabOpenedMouth")),
             ("Bool".to_string(), key("HyruleField_ArriveEntrance")),

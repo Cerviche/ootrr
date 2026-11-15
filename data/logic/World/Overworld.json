@@ -1603,10 +1603,10 @@
         "region_name": "Market Bombchu Bowling",
         "scene": "Market Bombchu Bowling",
         "locations": {
-            "Market Bombchu Bowling First Prize": "has_explosives",
-            "Market Bombchu Bowling Second Prize": "has_explosives",
-            "Market Bombchu Bowling Bombchus": "found_bombchus",
-            "Market Bombchu Bowling Bomb": "has_explosives"
+            "Market Bombchu Bowling First Prize": "'Defeat King Dodongo' and Bombs",
+            "Market Bombchu Bowling Second Prize": "'Defeat King Dodongo' and Bombs",
+            "Market Bombchu Bowling Bombchus": "'Defeat King Dodongo' and found_bombchus",
+            "Market Bombchu Bowling Bomb": "'Defeat King Dodongo' and Bombs"
         },
         "exits": {
             "Market": "True"
