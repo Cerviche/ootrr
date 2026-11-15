@@ -207,7 +207,7 @@ pub fn spoiler(d: &Data, w: &World, free: &[LocId], got: &Placement, assign: &BM
             Ok(p) if crate::slice::skulls::is_skull(d, name) || held => p.kit(),
             Ok(p) => p.pack.clone(),
             Err(_) if held && crate::pot_slice::pickup::shipped_kit(item).is_some() => name_of(crate::pot_slice::pickup::shipped_kit(item).unwrap_or("")),
-            Err(_) if held && crate::pot_slice::pickup::of(item).is_some_and(|a| a == crate::pot_slice::pickup::TOKEN) => crate::pot_slice::pickup::TOKEN.to_string(),
+            Err(_) if held && crate::pot_slice::pickup::of(item).is_some_and(|a| a == crate::pot_slice::pickup::TOKEN) => crate::pickup_pack::fall::dropped(crate::pot_slice::pickup::TOKEN),
             Err(_) => continue,
         };
         pots |= c.starts_with("pot");

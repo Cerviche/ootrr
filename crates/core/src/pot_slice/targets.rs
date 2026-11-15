@@ -2,6 +2,7 @@ use std::collections::BTreeMap as BM;
 
 use crate::error::{Error as E, Res};
 use crate::pot_slice::data::Kind;
+use crate::pickup_pack::fall::dropped;
 use crate::pickup_pack::kit::name_of;
 use crate::pot_slice::pickup;
 use crate::settings::seed::SeedFile;
@@ -36,7 +37,7 @@ pub fn actor_of(d: &Data, loc: &str, item: &str, fixed: &BM<String, String>) -> 
         return Ok((name_of(a), true));
     }
     if let Some(a) = pickup::of(item) {
-        return Ok((a.to_string(), pickup::holds(item)));
+        return Ok((dropped(a), pickup::holds(item)));
     }
     crate::slice::key_spots::resolve(d, item, fixed.get(loc).map(|s| s.as_str()))
         .map(|p| (p.kit(), true))
@@ -126,10 +127,28 @@ mod tests {
         let t: Vec<Give> = targets(&d, &seed(&[(&once, "Megaton Hammer")])).unwrap();
         assert!(t.iter().all(|g| g.kit && g.actor == "Obj_Hammer_GS"));
         assert!(targets(&d, &seed(&[(&once, "Fire Arrows")])).unwrap().iter().all(|g| g.kit && g.actor == "Obj_Arrow_Fire_GS"));
-        assert!(targets(&d, &seed(&[(&once, "Gold Skulltula Token")])).unwrap().iter().all(|g| g.kit && g.actor == "Obj_Token_Gold"));
+        assert!(targets(&d, &seed(&[(&once, "Gold Skulltula Token")])).unwrap().iter().all(|g| g.kit && g.actor == "Obj_Token_Gold_Fall"));
         assert!(targets(&d, &seed(&[(&once, "Rupees (20)")])).unwrap().iter().all(|g| !g.kit));
         let bad: Option<String> = d.pots.state.iter().find(|(_, s)| **s != State::Eligible).map(|(n, _)| n.clone());
         assert!(targets(&d, &seed(&[(&bad.unwrap(), "Rupees (20)")])).is_err());
+    }
+
+    #[test]
+    fn a_token_from_any_container_is_the_falling_twin_and_only_pots_take_it_today() {
+        let d: Data = Data::load().unwrap();
+        let twins: &str = "KF House of Twins Pot 1";
+        let t: Vec<Give> = targets(&d, &seed(&[(twins, "Gold Skulltula Token")])).unwrap();
+        assert_eq!(t.len(), 2);
+        let files: std::collections::BTreeSet<&str> = t.iter().flat_map(|g| g.files.iter().map(|f| f.as_str())).collect();
+        assert!(files.iter().any(|f| f.contains("_Child_")) && files.iter().any(|f| f.contains("_Adult_")), "{files:?}");
+        assert!(t.iter().all(|g| g.kit && g.actor == "Obj_Token_Gold_Fall" && g.kind == Kind::Pot));
+        let boxes: Option<String> = eligible(&d).into_iter().find(|n| d.pots.kind_of(n).is_some_and(|k| k != Kind::Pot) && !d.pots.is_remake(n));
+        let other: String = boxes.unwrap();
+        let e: String = targets(&d, &seed(&[(&other, "Gold Skulltula Token")])).unwrap_err().to_string();
+        assert!(e.contains("keeps Gold Skulltula Token until it is picked up"), "{e}");
+        assert_eq!(actor_of(&d, &other, "Gold Skulltula Token", &BM::new()).unwrap(), ("Obj_Token_Gold_Fall".to_string(), true));
+        assert_eq!(actor_of(&d, &other, "Rupees (20)", &BM::new()).unwrap(), ("Obj_Rupee_Red".to_string(), false));
+        assert_eq!(actor_of(&d, &other, "Fire Arrows", &BM::new()).unwrap(), ("Obj_Arrow_Fire_GS".to_string(), true));
     }
 
     #[test]

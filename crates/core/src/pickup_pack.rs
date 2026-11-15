@@ -3,6 +3,7 @@ pub mod ammo;
 pub mod build;
 pub mod catalog;
 pub mod closure;
+pub mod fall;
 pub mod guard;
 pub mod kit;
 pub mod magic;
