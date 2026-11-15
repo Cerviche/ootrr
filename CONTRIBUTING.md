@@ -56,6 +56,7 @@ Never run `ootrr` with no arguments. It starts the local web server and may open
 - Use the existing writers (`bfevfl` flows, `ainb` graphs, `byml`, SARC packs, the resource size table). Edit only what you mean to change and check that the file still rewrites byte for byte.
 - **Size table rule.** If a file inside a pack grows, grow the resource size table entry of that inner file too, not only the pack's entry. If you do not, the game crashes while loading. One mod has exactly one size table.
 - Derive new files from the player's own game at build time. Never commit one.
+- **Flow load rule.** An event that calls into a flow its event row does not load is cancelled in the game (the cow ocarina bug). After a flow edit, run `ootrr flow-loads <romfs_root> <mod_romfs_folder>` on the built mod. It lists the events of the mod that call flows their row does not load, and it should list none.
 
 ## Finding flags and state
 
