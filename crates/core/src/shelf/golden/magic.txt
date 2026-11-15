@@ -1,0 +1,7 @@
+Magic sells Item_FairyBless_MP as Item_FairyBless_MP
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_FairyBless_MPDouble IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=1
+  UISystemActor.EventTriggerReserveBornMPGaugeDouble
+  UISystemActor.EventTriggerSetDisplayHeartGauge IsDisplayHeartGauge=true
+  EventSystemActor.EventWait Frames=100 IsWaitEnd=true
+  UISystemActor.EventBornMPGaugeDouble IsWaitEnd=true
+  EventSystemActor.EventWait Frames=30 IsWaitEnd=true

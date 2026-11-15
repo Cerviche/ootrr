@@ -92,6 +92,10 @@ pub fn spec(d: &Data, over: &[(&str, &str)]) -> Res<Spec> {
     if crate::slice::skull_rules::wanted(over) {
         crate::slice::skull_rules::apply(&mut files)?;
     }
+    crate::spots::inject(&mut files, over)?;
+    if crate::flow_extra::potion::wanted(over) {
+        crate::flow_extra::potion::apply(&mut files)?;
+    }
     s.regions.extend(unique(files));
     Ok(s)
 }
@@ -101,7 +105,10 @@ pub fn world(d: &Data) -> Res<World> {
 }
 
 pub fn world_with(d: &Data, over: &[(&str, &str)]) -> Res<World> {
-    let s: Spec = spec(d, over)?;
+    world_from(spec(d, over)?)
+}
+
+pub fn world_from(s: Spec) -> Res<World> {
     let mut w: World = World::build(&s).map_err(|e| E::Msg(format!("logic world: {e}")))?;
     for r in w.regions.iter_mut() {
         if r.dungeon.is_none() && TOWER.contains(&r.name.as_str()) {
@@ -232,6 +239,26 @@ mod tests {
     }
 
     #[test]
+    fn every_fountain_and_the_summit_owl_open_without_dins_fire() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let all: Search = explore(&w, &vanilla_place(&w, &d).unwrap(), &gauntlets(&w));
+        let cut: Search = explore(&w, &vanilla_without(&w, &d, &["Dins Fire"]), &gauntlets(&w));
+        let mute: Search = explore(&w, &vanilla_without(&w, &d, &["Zeldas Lullaby"]), &gauntlets(&w));
+        let poor: Search = explore(&w, &vanilla_without(&w, &d, &["Progressive Wallet"]), &gauntlets(&w));
+        for n in ["HC Great Fairy Reward", "ZF Great Fairy Reward", "DMC Great Fairy Reward", "Colossus Great Fairy Reward", "OGC Great Fairy Reward", "DMT Great Fairy Reward"] {
+            assert!(seen(&all, &w, n), "{n}");
+            assert!(seen(&cut, &w, n), "{n}");
+            assert!(!seen(&mute, &w, n), "{n}");
+            assert_eq!(seen(&poor, &w, n), !n.starts_with("Colossus") && !n.starts_with("OGC"), "{n}");
+        }
+        let owl: &str = "Death Mountain Summit -> DMT Owl Flight";
+        assert!(exit_open(&all, &w, owl, Age::Child));
+        assert!(exit_open(&cut, &w, owl, Age::Child));
+        assert!(!exit_open(&all, &w, owl, Age::Adult));
+    }
+
+    #[test]
     fn the_wallet_and_hookshot_gates_bind() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();
@@ -241,6 +268,48 @@ mod tests {
         let s: Search = explore(&w, &vanilla_without(&w, &d, &["Progressive Hookshot"]), &[]);
         assert!(!seen(&s, &w, "Big Poe Kill"));
         assert!(!s.region_reached(w.region("Water Temple Lobby").unwrap(), None));
+    }
+
+    #[test]
+    fn the_starting_wallet_pays_medigoron_granny_and_the_carpet_seller() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let s: Search = explore(&w, &vanilla_without(&w, &d, &["Progressive Wallet"]), &gauntlets(&w));
+        for n in ["GC Medigoron", "Kak Granny Buy Blue Potion", "Wasteland Bombchu Salesman"] {
+            assert!(seen(&s, &w, n), "{n}");
+        }
+    }
+
+    #[test]
+    fn hidden_grottos_open_without_the_stone_of_agony() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let mut sp: Spec = spec(&d, &[]).unwrap();
+        sp.settings.set_bool("logic_grottos_without_agony", false);
+        let old: World = world_from(sp).unwrap();
+        let s: Search = explore(&w, &vanilla_without(&w, &d, &["Stone of Agony"]), &gauntlets(&w));
+        let o: Search = explore(&old, &vanilla_without(&old, &d, &["Stone of Agony"]), &gauntlets(&old));
+        for r in ["HF Inside Fence Grotto", "HF Cow Grotto", "Kak Redead Grotto", "KF Storms Grotto", "ZR Storms Grotto", "DMT Storms Grotto"] {
+            assert!(s.region_reached(w.region(r).unwrap(), None), "{r}");
+            assert!(!o.region_reached(old.region(r).unwrap(), None), "{r}");
+        }
+        assert!(s.won() && o.won());
+    }
+
+    #[test]
+    fn the_market_potion_shop_shelves_wait_for_the_meeting_with_zelda() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let all: Search = explore(&w, &vanilla_place(&w, &d).unwrap(), &[]);
+        let cut: Search = explore(&w, &vanilla_without(&w, &d, &["Weird Egg"]), &[]);
+        let skip: World = world_with(&d, &[("skip_child_zelda", "true")]).unwrap();
+        let met: Search = explore(&skip, &vanilla_without(&skip, &d, &["Weird Egg"]), &[]);
+        for i in 1..=8 {
+            let n: String = format!("Market Potion Shop Item {i}");
+            assert!(seen(&all, &w, &n), "{n}");
+            assert!(!seen(&cut, &w, &n), "{n}");
+            assert!(seen(&met, &skip, &n), "{n}");
+        }
     }
 
     #[test]
@@ -332,7 +401,50 @@ mod tests {
         assert!(s.region_reached(w.region("Water Temple Boss Key Chest Room").unwrap(), None));
     }
 
-    fn final_count(w: &World, d: &Data, placed: &std::collections::BTreeMap<String, String>, item: &str) -> usize {
+    fn opens_with(d: &Data, lay: &str, key: &str, n: usize, at: &str) -> bool {
+        let w: World = world_with(d, &[("fire_key_layout", lay), ("water_key_layout", lay), ("spirit_key_layout", lay)]).unwrap();
+        let k: ItemId = w.item(key).unwrap();
+        let mut p: Placement = vanilla_place(&w, d).unwrap();
+        for l in &w.real {
+            if p.get(*l) == Some(k) {
+                p.item[*l] = None;
+            }
+        }
+        let mut extra: Vec<ItemId> = all_but(&w, key);
+        extra.extend(vec![k; n]);
+        let s: Search = explore(&w, &p, &extra);
+        match w.loc(at) {
+            Some(l) => s.loc_access(l),
+            None => s.region_reached(w.region(at).unwrap(), None),
+        }
+    }
+
+    #[test]
+    fn every_remake_small_key_door_costs_its_place_in_the_chain() {
+        let d: Data = Data::load().unwrap();
+        let locks: [(&str, usize, &str); 11] = [
+            ("Small Key (Forest Temple)", 1, "Forest Temple First Stalfos Chest"),
+            ("Small Key (Forest Temple)", 1, "Forest Temple Central Area"),
+            ("Small Key (Forest Temple)", 2, "Forest Temple Eye Switch Chest"),
+            ("Small Key (Forest Temple)", 3, "Forest Temple Boss Key Chest"),
+            ("Small Key (Forest Temple)", 3, "Forest Temple Bow Chest"),
+            ("Small Key (Forest Temple)", 4, "Forest Temple Blue Poe Chest"),
+            ("Small Key (Shadow Temple)", 5, "Shadow Temple Boss Key Chest"),
+            ("Small Key (Shadow Temple)", 5, "Shadow Temple Spike Walls Left Chest"),
+            ("Small Key (Fire Temple)", 8, "Fire Temple Boss Key Chest"),
+            ("Small Key (Fire Temple)", 8, "Fire Temple Flare Dancer Chest"),
+            ("Small Key (Water Temple)", 4, "Water Temple North Basement"),
+        ];
+        for lay in ["vanilla", "shuffled"] {
+            for (key, n, at) in locks {
+                assert!(!opens_with(&d, lay, key, n - 1, at), "{lay} {at} opens with {}", n - 1);
+                assert!(opens_with(&d, lay, key, n, at), "{lay} {at} stays shut with {n}");
+            }
+            assert!(opens_with(&d, lay, "Small Key (Shadow Temple)", 4, "Bongo Bongo Boss Room"), "{lay}");
+        }
+    }
+
+    fn final_count(w: &World, d: &Data, placed:&std::collections::BTreeMap<String, String>, item: &str) -> usize {
         let v: Placement = vanilla_place(w, d).unwrap();
         let i: ItemId = w.item(item).unwrap();
         let kept: usize = w.real.iter().filter(|l| v.get(**l) == Some(i) && !placed.contains_key(&w.locs[**l].name)).count();
@@ -363,5 +475,54 @@ mod tests {
         let h: ItemId = w.item("Megaton Hammer").unwrap();
         assert_eq!(exit_open(&s, &w, "ZR Front -> Zora River", Age::Adult), s.cnt[h] > 0);
         assert!(!exit_open(&s, &w, "ZR Front -> Zora River", Age::Child));
+    }
+
+    #[test]
+    fn spells_the_lens_and_the_arrows_need_the_meter_item_and_nothing_else_gives_one() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let every: Vec<ItemId> = w.items.names.iter().enumerate().filter(|(i, _)| w.items.adv[*i]).flat_map(|(i, _)| [i; 3]).collect();
+        let without: Vec<ItemId> = w.items.names.iter().enumerate().filter(|(i, n)| w.items.adv[*i] && !n.starts_with("Magic Meter")).flat_map(|(i, _)| [i; 3]).collect();
+        for spell in ["Dins Fire", "Farores Wind", "Nayrus Love", "Lens of Truth", "Fire Arrows", "Light Arrows", "Ice Arrows"] {
+            assert!(w.item(spell).is_some_and(|i| without.contains(&i)), "{spell}");
+        }
+        let reached = |s: &Search| w.real.iter().filter(|l| s.loc_access(**l)).count();
+        let rich: Search = explore(&w, &vanilla_place(&w, &d).unwrap(), &every);
+        let bare: Search = explore(&w, &vanilla_without(&w, &d, &["Magic Meter"]), &without);
+        assert!(reached(&bare) < reached(&rich));
+    }
+
+    #[test]
+    fn the_logic_files_never_let_a_magic_item_stand_in_for_the_meter() {
+        use std::path::{Path, PathBuf};
+        let dir: PathBuf = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/logic");
+        let squeeze = |s: &str| s.split_whitespace().collect::<Vec<&str>>().join(" ");
+        let h: String = squeeze(&std::fs::read_to_string(dir.join("LogicHelpers.json")).unwrap());
+        assert!(h.contains("\"can_use(item)\": \"(_is_magic_item(item) and item and Magic_Meter) or (_is_adult_item(item)"));
+        assert!(h.contains("or (_is_magic_arrow(item) and is_adult and item and Bow and Magic_Meter)"));
+        assert!(h.contains("\"_is_magic_item(item)\": \"item == Dins_Fire or item == Farores_Wind or item == Nayrus_Love or item == Lens_of_Truth\""));
+        assert!(h.contains("\"_is_magic_arrow(item)\": \"item == Fire_Arrows or item == Light_Arrows or item == Blue_Fire_Arrows\""));
+        assert_eq!(h.matches("magic_spell").count(), 3);
+        let mut raw: Vec<String> = Vec::new();
+        let mut rest: String = String::new();
+        let mut files: Vec<PathBuf> = std::fs::read_dir(dir.join("World")).unwrap().map(|e| e.unwrap().path()).collect();
+        files.sort();
+        for f in files {
+            for line in std::fs::read_to_string(&f).unwrap().lines() {
+                let plain: String = line.replace("(Magic_Meter and Fire_Arrows)", "");
+                let mut t: String = plain.clone();
+                for g in ["Dins_Fire", "Farores_Wind", "Nayrus_Love", "Lens_of_Truth", "Fire_Arrows", "Ice_Arrows", "Light_Arrows", "Blue_Fire_Arrows"] {
+                    t = t.replace(&format!("can_use({g})"), "");
+                }
+                if t.contains("Dins_Fire") {
+                    raw.push(t.trim().split('"').nth(1).unwrap_or("").to_string());
+                }
+                rest.push_str(&t.replace("Dins_Fire", ""));
+            }
+        }
+        assert!(raw.is_empty(), "{raw:?}");
+        for g in ["Farores_Wind", "Nayrus_Love", "Lens_of_Truth", "Fire_Arrows", "Ice_Arrows", "Light_Arrows", "Blue_Fire_Arrows"] {
+            assert!(!rest.contains(g), "{g}");
+        }
     }
 }

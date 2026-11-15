@@ -274,4 +274,23 @@ mod tests {
         let z: Vec<u8> = crate::zs::compress_raw(&out, id).unwrap();
         assert_eq!(rf.zs.decompress(&z).unwrap(), out);
     }
+
+    #[test]
+    fn every_beehive_row_is_88_in_the_game_and_permanent_after_the_edit() {
+        let Some(root) = real() else {
+            return;
+        };
+        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let raw: Vec<u8> = rf.read_zs(LIST).unwrap();
+        let mut y: Byml = Byml::parse(&raw).unwrap();
+        let hashes: Vec<u64> = d.pots.locs.iter().filter(|l| l.kind == "beehive").flat_map(|l| l.refs.iter().map(|r| r.hash)).collect();
+        assert_eq!(hashes.len(), 21);
+        let before: HM<u64, i64> = resets(&y);
+        assert!(hashes.iter().all(|h| before.get(h) == Some(&88)));
+        one_time(&mut y, &hashes).unwrap();
+        let after: HM<u64, i64> = resets(&y);
+        assert!(hashes.iter().all(|h| after.get(h) == Some(&24)));
+        assert_eq!(after.iter().filter(|(_, v)| **v == 24).count(), before.iter().filter(|(_, v)| **v == 24).count() + 21);
+    }
 }

@@ -495,8 +495,8 @@
             "HF East Poe Chest": "is_adult",
             "HF South Poe Chest": "is_adult",
             "HF Lake Poe Chest": "is_adult",
-            "HF Ocarina of Time Item": "is_child and story_stones",
-            "Song from Ocarina of Time": "is_child and story_stones",
+            "HF Ocarina of Time Item": "is_child and story_stones and Ocarina",
+            "Song from Ocarina of Time": "is_child and story_stones and Ocarina",
             "Big Poe Kill": "can_ride_epona and Bow and has_bottle and Hookshot",
             "HF Child Above Drawbridge Wonderitem 1": "is_child",
             "HF Child Above Drawbridge Wonderitem 2": "is_child",
@@ -541,7 +541,7 @@
             "LH GS Lab Wall": "
                 is_child and (at_night or gold_skulls_ignore_daytime) and
                 (Boomerang or (logic_lab_wall_gs and (Sticks or Kokiri_Sword)))",
-            "LH GS Small Island": "is_child and can_child_attack and (at_night or gold_skulls_ignore_daytime)",
+            "LH GS Small Island": "is_child and can_child_attack",
             "LH GS Tree": "can_use(Longshot) and (at_night or gold_skulls_ignore_daytime)",
             "LH Lab Gossip Stone": "True",
             "LH Gossip Stone (Southeast)": "True",
@@ -730,9 +730,9 @@
         "locations": {
             "GF Hideout Hole Chest": "is_adult",
             "GF HBA 1000 Points": "
-                Gerudo_Membership_Card and can_ride_epona and Bow and at_day",
+                Gerudo_Membership_Card and can_ride_epona and Bow",
             "GF HBA 1500 Points": "
-                Gerudo_Membership_Card and can_ride_epona and Bow and at_day",
+                Gerudo_Membership_Card and can_ride_epona and Bow",
             "GF Sign Wonderitem Near Entrance": "can_use(Hookshot)",
             "GF Sign Wonderitem Near HBA": "Gerudo_Membership_Card and can_use(Hookshot)",
             "GF Crate 1": "can_break_crate",
@@ -754,6 +754,7 @@
             "GF HBA Crate 11": "((is_adult and Gerudo_Membership_Card) or is_child) and can_break_crate",
             "GF HBA Crate 12": "((is_adult and Gerudo_Membership_Card) or is_child) and can_break_crate",
             "GF HBA Crate 13": "((is_adult and Gerudo_Membership_Card) or is_child) and can_break_crate",
+            "GF Cow": "is_adult and Gerudo_Membership_Card and can_play(Eponas_Song)",
             "GF GS Archery Range": "
                 can_use(Hookshot) and Gerudo_Membership_Card and (at_night or gold_skulls_ignore_daytime)"
         },
@@ -1112,7 +1113,7 @@
         "locations": {
             "Wasteland Chest": "has_fire_source",
             "Wasteland Bombchu Salesman": "
-                Progressive_Wallet and can_jumpslash and
+                can_jumpslash and
                 (shuffle_expensive_merchants or not free_bombchu_drops or has_bombchus)",
             "Wasteland Near GS Pot 1": "True",
             "Wasteland Near GS Pot 2": "True",
@@ -1322,7 +1323,7 @@
         "scene": "Temple of Time",
         "hint": "TEMPLE_OF_TIME",
         "locations": {
-            "Sheik at Temple": "is_adult and 'Defeat Phantom Ganon'",
+            "Sheik at Temple": "is_adult and ((medallion_gates and Forest_Medallion) or (not medallion_gates and 'Defeat Phantom Ganon'))",
             "Master Sword Pedestal": "True"
         },
         "exits": {
@@ -1603,10 +1604,10 @@
         "region_name": "Market Bombchu Bowling",
         "scene": "Market Bombchu Bowling",
         "locations": {
-            "Market Bombchu Bowling First Prize": "has_explosives",
-            "Market Bombchu Bowling Second Prize": "has_explosives",
-            "Market Bombchu Bowling Bombchus": "found_bombchus",
-            "Market Bombchu Bowling Bomb": "has_explosives"
+            "Market Bombchu Bowling First Prize": "'Defeat King Dodongo'",
+            "Market Bombchu Bowling Second Prize": "'Defeat King Dodongo'",
+            "Market Bombchu Bowling Bombchus": "'Defeat King Dodongo' and found_bombchus",
+            "Market Bombchu Bowling Bomb": "'Defeat King Dodongo' and Bombs"
         },
         "exits": {
             "Market": "True"
@@ -1616,14 +1617,14 @@
         "region_name": "Market Potion Shop",
         "scene": "Market Potion Shop",
         "locations": {
-            "Market Potion Shop Item 1": "True",
-            "Market Potion Shop Item 2": "True",
-            "Market Potion Shop Item 3": "True",
-            "Market Potion Shop Item 4": "True",
-            "Market Potion Shop Item 5": "True",
-            "Market Potion Shop Item 6": "True",
-            "Market Potion Shop Item 7": "True",
-            "Market Potion Shop Item 8": "True"
+            "Market Potion Shop Item 1": "'Zelda Met'",
+            "Market Potion Shop Item 2": "'Zelda Met'",
+            "Market Potion Shop Item 3": "'Zelda Met'",
+            "Market Potion Shop Item 4": "'Zelda Met'",
+            "Market Potion Shop Item 5": "'Zelda Met'",
+            "Market Potion Shop Item 6": "'Zelda Met'",
+            "Market Potion Shop Item 7": "'Zelda Met'",
+            "Market Potion Shop Item 8": "'Zelda Met'"
         },
         "exits": {
             "Market": "True"
@@ -1712,6 +1713,13 @@
         },
         "locations": {
             "Kak Windmill Roof Chest": "can_use(Longshot)",
+            "Kak Hole Beehive 1": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 2": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 3": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 4": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 5": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 6": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 7": "can_open_bomb_grotto and can_break_hole_beehive",
             "Sheik in Kakariko": "
                 is_adult and Forest_Medallion and Fire_Medallion and Water_Medallion",
             "Kak Anju as Adult": "is_adult and at_day",
@@ -1967,7 +1975,7 @@
         "locations": {
             "Kak Granny Trade Odd Mushroom": "'Odd Potion Access'",
             # Granny will not sell her item without turning in odd mushroom
-            "Kak Granny Buy Blue Potion": "Progressive_Wallet and ('Odd Potion Access' or
+            "Kak Granny Buy Blue Potion": "('Odd Potion Access' or
                 ((selected_adult_trade_item == 'Odd Potion' or selected_adult_trade_item == 'Poachers Saw' or
                 selected_adult_trade_item == 'Broken Sword' or selected_adult_trade_item == 'Prescription' or
                 selected_adult_trade_item == 'Eyeball Frog' or selected_adult_trade_item == 'Eyedrops' or
@@ -2205,11 +2213,9 @@
             "GC Maze Left Chest": "can_use(Megaton_Hammer) or can_use(Silver_Gauntlets)",
             "GC Maze Center Chest": "can_blast_or_smash",
             "GC Maze Right Chest": "can_blast_or_smash",
-            "GC Rolling Goron as Child": "
-                is_child and
-                (has_explosives or (Progressive_Strength_Upgrade and logic_child_rolling_with_strength))",
+            "GC Rolling Goron as Child": "is_child and (Bomb_Bag or Progressive_Strength_Upgrade)",
             "GC Medigoron": "
-                is_adult and Progressive_Wallet and
+                is_adult and
                 (can_blast_or_smash or Progressive_Strength_Upgrade)",
             "GC Rolling Goron as Adult": "'Stop GC Rolling Goron as Adult'",
             "GC Lower Staircase Pot 1": "True",
@@ -2499,7 +2505,7 @@
             "ZR Child Front River Wonderitem 2": "is_child",
             "ZR Child Front River Wonderitem 3": "is_child",
             "ZR Child Front River Wonderitem 4": "is_child",
-            "ZR GS Tree": "is_child and can_child_attack and can_bonk"
+            "ZR GS Tree": "can_plant_bugs and can_child_attack"
 
         },
         "exits": {
@@ -2524,6 +2530,11 @@
             "ZR Frogs Suns Song": "is_child and can_play(Suns_Song)",
             "ZR Frogs Song of Time": "is_child and can_play(Song_of_Time)",
             "ZR Frogs in the Rain": "is_child and can_play(Song_of_Storms)",
+            "ZR Frogs Bug Game": "
+                is_child and
+                can_play(Zeldas_Lullaby) and can_play(Eponas_Song) and can_play(Sarias_Song) and
+                can_play(Suns_Song) and can_play(Song_of_Time) and can_play(Song_of_Storms) and
+                has_all_notes_for_song('ZR Frogs Ocarina Game')",
             "ZR Near Open Grotto Freestanding PoH": "
                 is_child or here(can_plant_bean) or Hover_Boots or logic_zora_river_lower",
             "ZR Near Domain Freestanding PoH": "is_child or Hover_Boots or logic_zora_river_upper",
@@ -2778,7 +2789,7 @@
         "scene": "Lon Lon Ranch",
         "hint": "LON_LON_RANCH",
         "events": {
-            "Epona": "can_play(Eponas_Song) and is_adult and at_day",
+            "Epona": "can_play(Eponas_Song) and is_adult",
             "Links Cow": "can_play(Eponas_Song) and is_adult and at_day"
         },
         "locations": {
@@ -2797,7 +2808,7 @@
             "LLR Epona Hurdle Wonderitem 1": "can_ride_epona",
             "LLR Epona Hurdle Wonderitem 2": "can_ride_epona",
             "LLR GS Tree": "is_child and can_bonk",
-            "LLR GS Rain Shed": "is_child and (at_night or gold_skulls_ignore_daytime)",
+            "LLR GS Rain Shed": "is_child and can_bonk",
             "LLR GS House Window": "can_use(Boomerang) and (at_night or gold_skulls_ignore_daytime)",
             "LLR GS Back Wall": "can_use(Boomerang) and (at_night or gold_skulls_ignore_daytime)"
         },
@@ -3007,8 +3018,11 @@
     {
         "region_name": "HF Inside Fence Grotto",
         "scene": "HF Inside Fence Grotto",
+        "events": {
+            "HF Deku Scrub Grotto Adult Visit": "is_adult"
+        },
         "locations": {
-            "HF Deku Scrub Grotto": "can_stun_deku",
+            "HF Deku Scrub Grotto": "is_child and Time_Travel and can_stun_deku and 'HF Deku Scrub Grotto Adult Visit'",
             "HF Inside Fence Grotto Beehive": "can_break_lower_beehive"
         },
         "exits": {

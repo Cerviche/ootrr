@@ -2,6 +2,8 @@ use crate::byml::{Byml, Node};
 use crate::error::{Error as E, Res};
 use crate::pickup_pack::closure::{actor_file, chain, local, norm, work, Chain, Pool, COMPONENTS, PARENT};
 use crate::pickup_pack::magic;
+use crate::pickup_pack::meter;
+use crate::pickup_pack::model;
 use crate::pickup_pack::{is_actor_name, Layers, Spec, Style, BASE, DONOR};
 
 pub const NAME_REF: &str = "ActorNameRef";
@@ -53,11 +55,28 @@ pub fn shared_anim(p: &Pool, c: &Chain) -> bool {
 }
 
 pub fn fits(p: &Pool, s: &Spec) -> Res<Vec<String>> {
+    fits_with(p, s, &Layers::default())
+}
+
+pub fn fits_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Vec<String>> {
     let item: Chain = chain(p, &s.item)?;
     let donor: Chain = chain(p, DONOR)?;
     let mut bad: Vec<String> = Vec::new();
     if item.files.contains(&actor_file(BASE)) {
         bad.push(format!("{} is already a world pickup", s.item));
+    }
+    if let Some(m) = &l.model {
+        if let Err(e) = model::model_ref(p, m) {
+            bad.push(e.to_string());
+        }
+        for k in [NAME_REF, POUCH_REF] {
+            match item.comps.get(k) {
+                None => bad.push(format!("{} has no {k}", s.item)),
+                Some(v) if k != NAME_REF && held(p, &s.item, k, v).is_err() => bad.push(format!("{} keeps its {k} outside its pack", s.item)),
+                Some(_) => {}
+            }
+        }
+        return Ok(bad);
     }
     for k in [NAME_REF, MODEL_REF, ANIM_REF, POUCH_REF] {
         match item.comps.get(k) {
@@ -102,7 +121,7 @@ pub fn make(p: &Pool, s: &Spec) -> Res<Made> {
 pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
     let item: Chain = chain(p, &s.item)?;
     let donor: Chain = chain(p, DONOR)?;
-    if let Some(m) = fits(p, s)?.first() {
+    if let Some(m) = fits_with(p, s, l)?.first() {
         return Err(E::Msg(format!("{m}, so the thin pickup template does not fit")));
     }
     let item_pouch: String = held(p, &s.item, POUCH_REF, need(&item, &s.item, POUCH_REF)?)?;
@@ -112,14 +131,27 @@ pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
     comps.set(AS_INFO_REF, Node::Str(need(&donor, DONOR, AS_INFO_REF)?.to_string()));
     comps.set(AS_REF, Node::Str(need(&donor, DONOR, AS_REF)?.to_string()));
     comps.set(NAME_REF, Node::Str(need(&item, &s.item, NAME_REF)?.to_string()));
-    comps.set(ANIM_REF, Node::Str(need(&item, &s.item, ANIM_REF)?.to_string()));
-    comps.set(MODEL_REF, Node::Str(need(&item, &s.item, MODEL_REF)?.to_string()));
+    let mut extra: Vec<(String, Vec<u8>)> = Vec::new();
+    match &l.model {
+        Some(m) => {
+            let (r, f, b): (String, String, Vec<u8>) = model::anim(&s.name, version)?;
+            comps.set(ANIM_REF, Node::Str(r));
+            comps.set(MODEL_REF, Node::Str(model::model_ref(p, m)?));
+            extra.push((f, b));
+        }
+        None => {
+            comps.set(ANIM_REF, Node::Str(need(&item, &s.item, ANIM_REF)?.to_string()));
+            comps.set(MODEL_REF, Node::Str(need(&item, &s.item, MODEL_REF)?.to_string()));
+        }
+    }
     comps.set(POUCH_REF, Node::Str(local(&pouch_path)));
     if s.style == Style::Press {
         comps.set(ATTENTION_REF, Node::Str(need(&donor, DONOR, ATTENTION_REF)?.to_string()));
     }
-    let mut extra: Vec<(String, Vec<u8>)> = Vec::new();
     if l.magic {
+        if meter::applies(&s.item) {
+            return Err(E::Msg(format!("{} gives no magic meter, the magic layer would add the raise back", s.item)));
+        }
         let (f, d, r): (String, Vec<u8>, String) = magic::make(p, &item, &chain(p, BASE)?, &s.item, &s.name)?;
         comps.set(magic::TABLE_REF, Node::Str(r));
         extra.push((f, d));

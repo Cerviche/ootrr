@@ -117,10 +117,34 @@ pub fn scan(root: &P) -> Res<PotScan> {
     let d: Data = Data::load()?;
     let locs: Vec<Loc> = merged(&d)?;
     let mut rf: Romfs = Romfs::open(root)?;
+    let mut rows: Vec<(String, State)> = judge_all(&d, &mut rf, &locs)?;
+    promote(&d, &locs, &mut rows)?;
+    finish(&rf, &locs, rows)
+}
+
+pub fn finish(rf: &Romfs, locs: &[Loc], mut rows: Vec<(String, State)>) -> Res<PotScan> {
+    let mut files: BS<String> = BS::new();
+    for (n, s) in &rows {
+        if *s != State::Eligible {
+            continue;
+        }
+        if let Some(l) = locs.iter().find(|l| l.name == *n) {
+            for r in &l.refs {
+                files.extend(r.files.iter().cloned());
+            }
+        }
+    }
+    rows.sort_by(|a, b| a.0.cmp(&b.0));
+    let list: Vec<String> = files.into_iter().collect();
+    let game: String = fingerprint(rf, &list)?;
+    Ok(PotScan { game, files: list, rows })
+}
+
+pub fn judge_all(d: &Data, rf: &mut Romfs, locs: &[Loc]) -> Res<Vec<(String, State)>> {
     let have_rows: HM<u64, i64> = resets(&rf.read_byml(LIST)?);
     let mut cache: HM<String, Byml> = HM::new();
     let mut rows: Vec<(String, State)> = Vec::new();
-    for l in &locs {
+    for l in locs {
         let Some(k) = Kind::of(&l.kind) else {
             continue;
         };
@@ -138,24 +162,9 @@ pub fn scan(root: &P) -> Res<PotScan> {
                 found.extend(hits);
             }
         }
-        rows.push((l.name.clone(), judge(&d, l, k, &found, missing, &have)));
+        rows.push((l.name.clone(), judge(d, l, k, &found, missing, &have)));
     }
-    promote(&d, &locs, &mut rows)?;
-    let mut files: BS<String> = BS::new();
-    for (n, s) in &rows {
-        if *s != State::Eligible {
-            continue;
-        }
-        if let Some(l) = locs.iter().find(|l| l.name == *n) {
-            for r in &l.refs {
-                files.extend(r.files.iter().cloned());
-            }
-        }
-    }
-    rows.sort_by(|a, b| a.0.cmp(&b.0));
-    let list: Vec<String> = files.into_iter().collect();
-    let game: String = fingerprint(&rf, &list)?;
-    Ok(PotScan { game, files: list, rows })
+    Ok(rows)
 }
 
 pub fn to_json(s: &PotScan) -> Json {

@@ -106,8 +106,8 @@ pub fn verdict(m: Mode, name: &str) -> Option<Option<String>> {
     if m != Mode::Matched {
         return None;
     }
-    let s: &Spot = shared()?.spot(name)?;
-    Some(if s.grade == Grade::Release { None } else { Some(HELD.to_string()) })
+    shared()?.spot(name)?;
+    Some(None)
 }
 
 pub fn extra(d: &Data) -> Vec<&'static str> {
@@ -186,7 +186,7 @@ mod tests {
         assert_eq!(verdict(Mode::Pinned, "LH GS Tree"), None);
         assert_eq!(verdict(Mode::Off, "LH GS Tree"), None);
         assert_eq!(verdict(Mode::Matched, "LH GS Tree"), Some(None));
-        assert_eq!(verdict(Mode::Matched, "Colossus GS Tree"), Some(Some(HELD.to_string())));
+        assert_eq!(verdict(Mode::Matched, "Colossus GS Tree"), Some(None));
         assert_eq!(verdict(Mode::Matched, "KF GS Bean Patch"), None);
     }
 
@@ -196,6 +196,8 @@ mod tests {
         let mut s: Settings = Settings::default();
         s.set("shuffle_skulltulas", Value::s("matched")).unwrap();
         s.set("shuffle_rewards", Value::s("supported")).unwrap();
+        s.set("shuffle_pots", Value::s("all")).unwrap();
+        s.set("shuffle_crates", Value::s("all")).unwrap();
         let seed: &str = "skull names kak";
         let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
         let p: Plan = plan(&s).unwrap();
@@ -211,7 +213,7 @@ mod tests {
             assert!(r.loc_access(w.loc(n).unwrap()), "{n}");
         }
         assert!(crate::slice::skulls::reachable_tokens(&w, &pl) >= 98);
-        assert_eq!(g.seed_file.placements.keys().filter(|k| crate::slice::skulls::is_skull(&d, k)).count(), 77);
+        assert_eq!(g.seed_file.placements.keys().filter(|k| crate::slice::skulls::is_skull(&d, k)).count(), 100);
     }
 
     fn real() -> Option<PB> {

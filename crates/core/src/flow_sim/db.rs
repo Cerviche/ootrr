@@ -103,6 +103,12 @@ fn one(ty: &str, e: &Node) -> Option<(u32, Def)> {
 impl Db {
     pub fn load(rf: &mut Romfs) -> Res<Db> {
         let y: Byml = rf.read_byml("GameData/GameDataList.Product.110.byml.zs")?;
+        let mut db: Db = Db::from_list(&y)?;
+        db.load_deps(rf)?;
+        Ok(db)
+    }
+
+    pub fn from_list(y: &Byml) -> Res<Db> {
         let data: &Node = y.root.get("Data").ok_or(Error::Format("flow sim: no Data map"))?;
         let Node::Map(types) = data else {
             return Err(Error::Format("flow sim: Data is not a map"));
@@ -115,11 +121,10 @@ impl Db {
                 }
             }
         }
-        db.load_deps(rf)?;
         Ok(db)
     }
 
-    fn load_deps(&mut self, rf: &mut Romfs) -> Res<()> {
+    pub fn load_deps(&mut self, rf: &mut Romfs) -> Res<()> {
         let y: Byml = rf.read_byml("RSDB/Challenge.Product.111.rstbl.byml.zs")?;
         for r in y.root.as_arr().unwrap_or(&[]) {
             let id: &str = r.get("__RowId").and_then(|s| s.as_str()).unwrap_or("");

@@ -5,9 +5,10 @@ use crate::dungeon_credit::flag;
 use crate::dungeon_grant::{mark, struct_of, Grants, Kind, Marks, KINDS};
 use crate::error::{Error as E, Res};
 use crate::settings::seed::SeedFile;
+use crate::settings::Settings;
 use crate::slice::data::{Data, Item, State};
 use crate::slice::edit::Edited;
-use crate::slice::support::{Keep, Plan};
+use crate::slice::support::{Keep, Mode, Plan};
 use crate::world::{LocId, World};
 
 pub const BOSS_OK: [&str; 7] = ["remove", "vanilla", "dungeon", "regional", "overworld", "any_dungeon", "keysanity"];
@@ -42,6 +43,44 @@ pub const ROAM_BOSS: &str = "Boss Keys can be found outside their own dungeon. T
 pub const START_BOSS: &str = "Boss Keys are removed and you start with every boss door key. The Boss Keys in shuffled locations are replaced by Rupee (1).";
 pub const ROAM_MAP: &str = "Maps and Compasses can be found outside their own dungeon. The chest sets the map or compass of the dungeon it belongs to and says which.";
 pub const START_MAP: &str = "You start with every Map and Compass. The Maps and Compasses in shuffled locations are replaced by Rupee (1).";
+
+pub const CHEST_ROWS: [(&str, &str); 4] = [
+    ("shuffle_smallkeys", "Small Keys"),
+    ("shuffle_bosskeys", "Boss Keys"),
+    ("shuffle_ganon_bosskey", "Ganon's Boss Key"),
+    ("shuffle_mapcompass", "Maps and Compasses"),
+];
+
+pub fn chest_conflict(chests: Mode, keep: Keep, id: &str, label: &str, value: &str) -> Option<String> {
+    let small: bool = id == CHEST_ROWS[0].0;
+    let tail: &str = if small {
+        "the small key chests stay as they are while the logic counts every key as roaming, which no seed can satisfy"
+    } else {
+        "nothing of this kind can roam"
+    };
+    match (chests, keep) {
+        (Mode::Off, k) if k.roams() => Some(format!(
+            "{id} is {value} while shuffle_chests is off, so no chest is shuffled and {tail}. Set Chests to Dungeons only or Everywhere, or set {label} to Own dungeon"
+        )),
+        (Mode::Overworld, k) if k.roams() => Some(format!(
+            "{id} is {value} while shuffle_chests is overworld, so the dungeon chests are not shuffled and {tail}. Set Chests to Dungeons only or Everywhere, or set {label} to Own dungeon"
+        )),
+        (Mode::Dungeons, Keep::Overworld) => Some(format!(
+            "{id} is {value} while shuffle_chests is dungeons, so no overworld chest is shuffled to hold it. Set Chests to Everywhere, or set {label} to Any dungeon"
+        )),
+        _ => None,
+    }
+}
+
+pub fn chest_guard(s: &Settings, chests: Mode, keeps: [Keep; 4], bad: &mut Vec<String>) {
+    for ((id, label), keep) in CHEST_ROWS.iter().zip(keeps) {
+        if let Ok(v) = s.text(id)
+            && let Some(m) = chest_conflict(chests, keep, id, label, v)
+        {
+            bad.push(m);
+        }
+    }
+}
 
 pub fn keep_value(v: &str) -> Keep {
     match v {

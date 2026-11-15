@@ -61,6 +61,11 @@ pub struct Plan {
     pub dungeon_rewards: bool,
     pub extra: bool,
     pub trade: bool,
+    pub cows: bool,
+    pub cows_other: bool,
+    pub frog_songs: bool,
+    pub frog_bug: bool,
+    pub potion: bool,
     pub scrubs: bool,
     pub scrubs_b: bool,
     pub hearts: bool,
@@ -92,6 +97,9 @@ pub struct Plan {
     pub story: bool,
     /// crate::story_skip dungeon endings.
     pub endings: bool,
+    pub shops: crate::shops::Opts,
+    pub bridge: bool,
+    pub silver: bool,
 }
 
 const GEAR: &[(&str, &str, &str)] = &[
@@ -99,6 +107,14 @@ const GEAR: &[(&str, &str, &str)] = &[
     ("deku_shield", "Deku Shield", "Weapon_Shield_Deku"),
     ("slingshot", "Slingshot", "Weapon_Range_SlingShot"),
 ];
+
+fn gear_row(id: &str) -> Option<&'static (&'static str, &'static str, &'static str)> {
+    let key: &str = match crate::start_items::table::opt(id) {
+        Some(o) if o.group == "slingshot" => "slingshot",
+        _ => id,
+    };
+    GEAR.iter().find(|(k, _, _)| *k == key)
+}
 
 const UNCHANGED: [&str; 21] = [
     "logic_rules",
@@ -214,12 +230,30 @@ impl Plan {
         if self.skulls != crate::slice::skulls::Mode::Off {
             out.push((crate::slice::skull_rules::KEY, crate::slice::skull_rules::ON));
         }
+        if self.drops.wild() {
+            out.push((crate::pot_slice::rocks::KEY, crate::pot_slice::rocks::ON));
+        }
+        if self.drops.remake != Mode::Off {
+            out.push((crate::pot_slice::remake::KEY, crate::pot_slice::remake::ON));
+        }
+        if self.world == crate::slice::pickups::Free::All {
+            out.push((crate::spots::free::KEY, crate::spots::free::ON));
+        }
+        if self.dungeon_rewards {
+            out.push((crate::medal_gate::LOGIC_KEY, "true"));
+        }
+        if self.potion {
+            out.push((crate::flow_extra::potion::KEY, crate::flow_extra::potion::ON));
+        }
         out
     }
 
     pub fn defaults(&self) -> Vec<(&'static str, &'static str)> {
         let mut out: Vec<(&'static str, &'static str)> = if self.kakariko { vec![KAKARIKO] } else { Vec::new() };
         out.extend(self.open.defaults());
+        if self.dungeon_rewards {
+            out.push((crate::medal_gate::SETTING, "true"));
+        }
         out
     }
 
@@ -265,6 +299,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let boss: Keep = keep(s, "shuffle_bosskeys", &di::BOSS_OK, &mut bad);
     let map: Keep = keep(s, "shuffle_mapcompass", &di::MAP_OK, &mut bad);
     let ganon: Keep = keep(s, "shuffle_ganon_bosskey", &di::GANON_OK, &mut bad);
+    di::chest_guard(s, chests, [small, boss, ganon, map], &mut bad);
     let rewards: bool = match s.text("shuffle_rewards") {
         Ok("off") => false,
         Ok("supported") => true,
@@ -289,6 +324,31 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         });
     let trade: bool = rewards
         && s.flag(crate::flow_extra::trade::SETTING).unwrap_or_else(|e| {
+            bad.push(e.to_string());
+            false
+        });
+    let cows: bool = rewards
+        && s.flag(crate::flow_extra::cows::SETTING).unwrap_or_else(|e| {
+            bad.push(e.to_string());
+            false
+        });
+    let cows_other: bool = rewards
+        && s.flag(crate::flow_extra::cows::SETTING_OTHER).unwrap_or_else(|e| {
+            bad.push(e.to_string());
+            false
+        });
+    let frog_songs: bool = rewards
+        && s.flag(crate::flow_extra::frogs::SONGS_SETTING).unwrap_or_else(|e| {
+            bad.push(e.to_string());
+            false
+        });
+    let frog_bug: bool = rewards
+        && s.flag(crate::flow_extra::frogs::BUG_SETTING).unwrap_or_else(|e| {
+            bad.push(e.to_string());
+            false
+        });
+    let potion: bool = rewards
+        && s.flag(crate::flow_extra::potion::SETTING).unwrap_or_else(|e| {
             bad.push(e.to_string());
             false
         });
@@ -370,7 +430,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let mut gear: Vec<&'static str> = Vec::new();
     let mut pouch: Vec<&'static str> = Vec::new();
     for id in &chosen {
-        if let Some((_, logic, actor)) = GEAR.iter().find(|(k, _, _)| *k == id) {
+        if let Some((_, logic, actor)) = gear_row(id)
+            && !pouch.contains(actor)
+        {
             gear.push(*logic);
             pouch.push(*actor);
         }
@@ -397,6 +459,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     // Always on in this randomizer, like the other cutscene skips (no setting).
     let story: bool = true;
     let endings: bool = true;
+    let shops: crate::shops::Opts = crate::shops::plan::read(s, &mut bad);
+    let bridge: bool = crate::deku_bridge::mode(s, &mut bad);
+    let silver: bool = crate::slice::silver::mode(s, chests, remake, &mut bad);
     let excluded: Vec<String> = s.items("disabled_locations").map(|v| v.to_vec()).unwrap_or_default();
     if !bad.is_empty() {
         let lines: Vec<String> = bad.iter().map(|b| format!("  {b}")).collect();
@@ -419,7 +484,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (fast, "Chest and item pickup scenes are sped up."),
         (intro, "The new game intro is skipped. The opening movie and the wake up scene are bypassed, and the harmless first-visit scenes of the areas are marked as played."),
         (start != Reward::Off, "You start the game with one random Stone or Medallion."),
-        (!pouch.is_empty(), "The ticked Kokiri Sword, Deku Shield or Slingshot is added to the pouch when a new game starts."),
+        (!pouch.is_empty(), "The ticked Kokiri Sword, Deku Shield or Slingshot is added to the pouch when a new game starts. A ticked Big or Biggest Bullet Bag brings the Slingshot with it."),
         (small.roams(), "Small keys can be found in other dungeons or outside them. A chest key is counted for the dungeon it belongs to and the chest says which."),
         (forest != Forest::Closed, "Kokiri Forest starts open. The blocker walls are switched off when a new game starts."),
         (kakariko, "The Kakariko gate starts open and the castle visit is skipped. A new game sets the castle quest complete, the Door of Time quest past Impa's send off, the Fire Stone quest past the gate and the gate guard's flag, and gives the items of Zelda's Letter and the Song from Impa."),
@@ -431,6 +496,11 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (hints, "Gossip stones give hints. Their text is replaced in every language."),
         (extra, "Kak 20 Gold Skulltula Reward, DMT Biggoron and GC Medigoron are shuffled with structural event edits."),
         (trade, "The ten adult trade quest hand ins each give one extra shuffled item the first time. The trade chain itself stays vanilla."),
+        (cows, crate::flow_extra::cows::NOTE),
+        (cows_other, crate::flow_extra::cows::NOTE_OTHER),
+        (frog_songs, crate::flow_extra::frogs::SONGS_NOTE),
+        (frog_bug, crate::flow_extra::frogs::BUG_NOTE),
+        (potion, crate::flow_extra::potion::NOTE),
     ] {
         if on {
             notes.push(text.to_string());
@@ -473,7 +543,14 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::slice::treasure::NOTE.to_string());
     }
     notes.extend(open.notes()?);
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, story, endings })
+    if bridge {
+        notes.push(crate::deku_bridge::NOTE.to_string());
+    }
+    notes.extend(shops.notes());
+    if silver {
+        notes.push(crate::slice::silver::NOTE.to_string());
+    }
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, potion, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, story, endings })
 }
 
 #[cfg(test)]
@@ -634,7 +711,7 @@ mod tests {
         s.set("open_kakariko", Value::s("open")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.kakariko);
-        assert_eq!(p.defaults(), vec![KAKARIKO, (crate::open_world::TIME, "true")]);
+        assert_eq!(p.defaults(), vec![KAKARIKO, (crate::open_world::TIME, "true"), ("open_forest", "closed_deku")]);
         assert_eq!(p.logic(), vec![("open_forest", "closed_deku"), KAKARIKO, ("skip_child_zelda", "true")]);
         assert!(p.notes.iter().any(|n| n.contains("Death Mountain starts open") && n.contains("Mask Shop")));
         assert_eq!(p.start_flags(), vec![(EXIT_WALL.to_string(), false)]);
@@ -669,6 +746,20 @@ mod tests {
     }
 
     #[test]
+    fn a_bullet_bag_start_tier_brings_the_slingshot_once() {
+        let mut s: Settings = Settings::default();
+        for ids in [vec!["big_bullet_bag"], vec!["biggest_bullet_bag"], vec!["big_bullet_bag", "slingshot"], vec!["slingshot", "biggest_bullet_bag", "big_bullet_bag"]] {
+            s.set("starting_items", Value::set(&ids)).unwrap();
+            let p: Plan = plan(&s).unwrap();
+            assert_eq!(p.gear, vec!["Slingshot"], "{ids:?}");
+            assert_eq!(p.pouch, vec!["Weapon_Range_SlingShot"], "{ids:?}");
+        }
+        s.set("starting_items", Value::set(&["big_quiver", "big_bomb_bag", "bomb_bag"])).unwrap();
+        let p: Plan = plan(&s).unwrap();
+        assert!(p.gear.is_empty() && p.pouch.is_empty());
+    }
+
+    #[test]
     fn starting_hearts_and_songs_are_applied_and_only_noted_at_their_defaults() {
         let d: Plan = plan(&Settings::default()).unwrap();
         assert!(d.notes[0].contains("starting_hearts=3") && d.notes[0].contains("starting_songs=[]"));
@@ -687,5 +778,97 @@ mod tests {
         let mut s: Settings = Settings::default();
         s.set("disabled_locations", Value::set(&["ZD Chest"])).unwrap();
         assert_eq!(plan(&s).unwrap().excluded, vec!["ZD Chest".to_string()]);
+    }
+
+    const ROAMING: [(&str, &str, &[&str]); 4] = [
+        ("shuffle_smallkeys", "Small Keys", &["any_dungeon", "keysanity"]),
+        ("shuffle_bosskeys", "Boss Keys", &["regional", "overworld", "any_dungeon", "keysanity"]),
+        ("shuffle_ganon_bosskey", "Ganon's Boss Key", &["regional", "overworld", "any_dungeon", "keysanity"]),
+        ("shuffle_mapcompass", "Maps and Compasses", &["regional", "any_dungeon", "keysanity"]),
+    ];
+
+    #[test]
+    fn roaming_dungeon_items_need_the_dungeon_chests_shuffled() {
+        for (id, label, values) in ROAMING {
+            for v in values {
+                for chests in ["off", "overworld", "dungeons", "all"] {
+                    let mut s: Settings = Settings::default();
+                    s.set(id, Value::s(v)).unwrap();
+                    s.set("shuffle_chests", Value::s(chests)).unwrap();
+                    let conflict: bool = match chests {
+                        "off" | "overworld" => true,
+                        "dungeons" => *v == "overworld",
+                        _ => false,
+                    };
+                    let r: Res<Plan> = plan(&s);
+                    assert_eq!(r.is_err(), conflict, "{id}={v} chests={chests}");
+                    if conflict {
+                        let e: String = r.err().unwrap().to_string();
+                        assert!(e.contains(&format!("{id} is {v} while shuffle_chests is {chests}")), "{e}");
+                        assert!(e.contains(&format!("set {label} to ")) && e.contains("Set Chests to "), "{e}");
+                        assert!(!e.contains(';') && !e.contains('\u{2014}'), "{e}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn small_keys_that_roam_over_unshuffled_chests_name_the_unsatisfiable_counts() {
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_smallkeys", Value::s("keysanity")).unwrap();
+        s.set("shuffle_chests", Value::s("overworld")).unwrap();
+        let e: String = plan(&s).err().unwrap().to_string();
+        assert!(e.contains("the small key chests stay as they are while the logic counts every key as roaming"), "{e}");
+        s.set("shuffle_smallkeys", Value::s("dungeon")).unwrap();
+        s.set("shuffle_bosskeys", Value::s("keysanity")).unwrap();
+        let e: String = plan(&s).err().unwrap().to_string();
+        assert!(e.contains("nothing of this kind can roam") && !e.contains("small key chests"), "{e}");
+    }
+
+    #[test]
+    fn every_conflicting_class_is_listed_on_its_own_line() {
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_chests", Value::s("off")).unwrap();
+        for (id, _, values) in ROAMING {
+            s.set(id, Value::s(values[values.len() - 1])).unwrap();
+        }
+        let e: String = plan(&s).err().unwrap().to_string();
+        assert_eq!(e.lines().filter(|l| l.contains("while shuffle_chests is off")).count(), 4, "{e}");
+    }
+
+    #[test]
+    fn items_that_do_not_roam_never_conflict_with_any_chest_mode() {
+        for chests in ["off", "overworld", "dungeons", "all"] {
+            for (id, _, _) in ROAMING {
+                for v in ["vanilla", "dungeon"] {
+                    let mut s: Settings = Settings::default();
+                    s.set(id, Value::s(v)).unwrap();
+                    s.set("shuffle_chests", Value::s(chests)).unwrap();
+                    assert!(plan(&s).is_ok(), "{id}={v} chests={chests}");
+                }
+            }
+            let mut s: Settings = Settings::default();
+            for (id, v) in [("shuffle_bosskeys", "remove"), ("shuffle_ganon_bosskey", "remove"), ("shuffle_mapcompass", "startwith")] {
+                s.set(id, Value::s(v)).unwrap();
+            }
+            s.set("shuffle_chests", Value::s(chests)).unwrap();
+            assert!(plan(&s).is_ok(), "removed items chests={chests}");
+        }
+    }
+
+    #[test]
+    fn no_builtin_preset_trips_the_chest_guard_and_the_default_and_keysanity_still_plan() {
+        assert!(plan(&Settings::default()).is_ok());
+        for pr in crate::settings::presets::builtin().unwrap() {
+            let s: Settings = pr.apply(&Settings::default()).unwrap();
+            match plan(&s) {
+                Ok(_) => {}
+                Err(e) => assert!(!e.to_string().contains("while shuffle_chests"), "{}: {e}", pr.id),
+            }
+            if pr.id == "keysanity" {
+                assert!(plan(&s).is_ok());
+            }
+        }
     }
 }

@@ -52,8 +52,7 @@
         "locations": {
             "Deku Tree GS Basement Back Room": "
                 here(has_fire_source_with_torch or can_use(Bow)) and
-                here(can_blast_or_smash) and
-                (can_use(Boomerang) or can_use(Hookshot))"
+                here(can_use(Slingshot) or can_use(Bow))"
         },
         "exits": {
             "Deku Tree Basement Ledge": "is_child"

@@ -1,0 +1,5 @@
+{
+"format": 1,
+"note": "Hand kept logic fixes for single locations, read on every world build after the spot catalogs are added. Each row names one location and moves it to another region, gives it a new rule, or both, with the reason (usually a tester report). A row whose location is not in the world of a seed is skipped. Keep it empty until a report comes in.",
+"overrides": []
+}

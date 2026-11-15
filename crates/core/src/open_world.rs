@@ -1,4 +1,5 @@
 pub mod ainb_edit;
+pub mod darunia;
 pub mod guard;
 pub mod skips;
 
@@ -22,6 +23,7 @@ pub const EPONA: &str = "skip_epona_race";
 pub const MASKS: &str = "skip_mask_quest";
 pub const BEANS: &str = "plant_beans";
 pub const BRIDGE: &str = "gerudo_bridge_open";
+pub const FOREST: &str = "open_forest";
 
 pub const FOUNTAIN: &str = "Logic/ZoraFountain_Child_Prefab_41c4.logic.module.ainb";
 pub const WATER_FILE: &str = "Event/EventFlow/Get_StoneOfWater.bfevfl.zs";
@@ -61,11 +63,12 @@ pub struct Opts {
     pub masks: bool,
     pub beans: bool,
     pub bridge: bool,
+    pub navi: Option<&'static str>,
 }
 
 impl Opts {
     pub fn any(&self) -> bool {
-        self.zora || self.jabu || self.time || self.beds || self.epona || self.masks || self.beans || self.bridge
+        self.zora || self.jabu || self.time || self.beds || self.epona || self.masks || self.beans || self.bridge || self.navi.is_some()
     }
 
     pub fn edits_files(&self) -> bool {
@@ -114,6 +117,9 @@ impl Opts {
         }
         if self.beans {
             out.push((BEANS, "true"));
+        }
+        if let Some(v) = self.navi {
+            out.push((FOREST, v));
         }
         out
     }
@@ -165,7 +171,12 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let masks: bool = flag(MASKS);
     let beans: bool = flag(BEANS);
     let bridge: bool = flag(BRIDGE);
-    Opts { zora, jabu, time, beds, epona, masks, beans, bridge }
+    let navi: Option<&'static str> = match s.text(FOREST) {
+        Ok("open") => Some("open"),
+        Ok("closed_deku") => Some("closed_deku"),
+        _ => None,
+    };
+    Opts { zora, jabu, time, beds, epona, masks, beans, bridge, navi }
 }
 
 fn flow_edit(raw: &[u8], f: impl FnOnce(&mut Bf) -> Res<()>) -> Res<Vec<u8>> {
@@ -205,12 +216,11 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have) -> Res<Vec<Out>> {
 }
 
 pub fn worked(rf: &mut Romfs, pk: &crate::modpack::Pack, o: &Opts) -> Res<Vec<Out>> {
-    if !o.edits_files() {
-        return Ok(Vec::new());
-    }
     let root: PB = pk.work.join("romfs");
     let have = |p: &str| -> Option<Vec<u8>> { fs::read(p.split('/').fold(root.clone(), |a, s| a.join(s))).ok() };
-    stage(rf, o, &have)
+    let mut outs: Vec<Out> = if o.edits_files() { stage(rf, o, &have)? } else { Vec::new() };
+    outs.extend(darunia::stage(rf, &have)?);
+    Ok(outs)
 }
 
 #[cfg(test)]
@@ -240,6 +250,20 @@ mod tests {
         assert_eq!(off, Opts::default());
         assert!(!off.any() && off.defaults().is_empty() && off.notes().unwrap().is_empty());
         assert_eq!(off.logic(), vec![(TIME, "0")]);
+    }
+
+    #[test]
+    fn navi_follows_an_open_forest_and_a_closed_deku_forest() {
+        let (o, bad) = opts(&[(FOREST, Value::s("closed_deku"))]);
+        assert!(bad.is_empty());
+        assert_eq!(o.navi, Some("closed_deku"));
+        assert_eq!(o.defaults(), vec![(TIME, "true"), (FOREST, "closed_deku")]);
+        assert!(o.logic().is_empty());
+        assert!(o.notes().unwrap().iter().any(|n| n.contains("Navi's monster lesson")));
+        let (open, _) = opts(&[(FOREST, Value::s("open"))]);
+        assert_eq!(open.navi, Some("open"));
+        let (shut, _) = opts(&[(FOREST, Value::s("closed"))]);
+        assert_eq!(shut.navi, None);
     }
 
     #[test]
@@ -389,6 +413,52 @@ mod tests {
     }
 
     #[test]
+    fn the_bowling_prizes_need_the_cavern_cleared_and_no_bomb_bag() {
+        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        let w: crate::world::World = crate::slice::logic::world_with(&d, &plan_of(&[]).logic()).unwrap();
+        let mut p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
+        let bag: crate::logic_items::ItemId = w.item("Bomb Bag").unwrap();
+        let junk: crate::logic_items::ItemId = w.item("Rupees (5)").unwrap();
+        for l in w.real.clone() {
+            if p.get(l) == Some(bag) {
+                p.put(l, junk);
+            }
+        }
+        let won: crate::logic_items::ItemId = w.item("Defeat King Dodongo").unwrap();
+        let bare: crate::search::Search = crate::search::explore(&w, &p, &[]);
+        let done: crate::search::Search = crate::search::explore(&w, &p, &[won]);
+        for l in ["Market Bombchu Bowling First Prize", "Market Bombchu Bowling Second Prize"] {
+            assert!(reach(&[], &|_| false, At::Loc(l)), "{l}");
+            assert!(done.loc_access(w.loc(l).unwrap()), "{l}");
+            assert!(!bare.loc_access(w.loc(l).unwrap()), "{l}");
+        }
+        assert!(reach(&[], &|_| false, At::Loc("Market Bombchu Bowling Bomb")));
+        assert!(!done.loc_access(w.loc("Market Bombchu Bowling Bomb").unwrap()));
+        assert!(reach(&[], &|_| false, At::Loc("Market Bombchu Bowling Bombchus")));
+        let p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
+        assert!(crate::search::explore(&w, &p, &[]).won());
+        let src: &str = include_str!("../../../data/logic/World/Overworld.json");
+        for l in ["First Prize", "Second Prize", "Bombchus", "Bomb"] {
+            let line: &str = src.lines().find(|x| x.contains(&format!("\"Market Bombchu Bowling {l}\":"))).unwrap();
+            assert!(line.contains("'Defeat King Dodongo'"), "{l}");
+            assert_eq!(line.contains("Bombs"), l == "Bomb", "{l}");
+        }
+    }
+
+    #[test]
+    fn the_ocarina_of_time_cutscene_needs_an_ocarina_in_hand_and_vanilla_seeds_still_win() {
+        let no_ocarina = |n: &str| n == "Ocarina";
+        for l in ["HF Ocarina of Time Item", "Song from Ocarina of Time"] {
+            assert!(reach(&[], &|_| false, At::Loc(l)), "{l}");
+            assert!(!reach(&[], &no_ocarina, At::Loc(l)), "{l}");
+        }
+        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        let w: crate::world::World = crate::slice::logic::world_with(&d, &plan_of(&[]).logic()).unwrap();
+        let p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
+        assert!(crate::search::explore(&w, &p, &[]).won());
+    }
+
+    #[test]
     fn a_running_clock_gives_night_before_zelda_and_the_old_rule_stays_without_it() {
         let no_egg = |n: &str| n == "Weird Egg";
         let tour: &str = "Graveyard Dampe Gravedigging Tour";
@@ -517,7 +587,7 @@ mod tests {
         let list: crate::byml::Byml = crate::byml::Byml::parse(&rf.zs.decompress(&fs::read(out.join(crate::chest_slot::LIST)).unwrap()).unwrap()).unwrap();
         let rows: &crate::byml::Node = list.root.get("Data").unwrap();
         let bool_of = |n: &str| rows.get("Bool").unwrap().as_arr().unwrap().iter().find(|r| r.get("Hash") == Some(&crate::byml::Node::U32(crate::start_defaults::key(n)))).and_then(|r| r.get("DefaultValue")).cloned();
-        for n in ["GaveFishToJabJab", "JabJabOpenedMouth", "HyruleField_ArriveEntrance", "HavePlayedEvent.Dm_HrlField_0020", "Npc_Hylia_Soldier_003_GateOpen"] {
+        for n in ["GaveFishToJabJab", "JabJabOpenedMouth", "HyruleField_ArriveEntrance", "HavePlayedEvent.Dm_HrlField_0020", "HavePlayedEvent.Dm_Zora_0010", "Npc_Hylia_Soldier_003_GateOpen"] {
             assert_eq!(bool_of(n), Some(crate::byml::Node::Bool(true)), "{n}");
         }
         let step: Option<crate::byml::Node> = rows.get("Enum").unwrap().as_arr().unwrap().iter().find(|r| r.get("Hash") == Some(&crate::byml::Node::U32(crate::start_defaults::key("Step_Get_StoneOfWater")))).and_then(|r| r.get("DefaultValue")).cloned();

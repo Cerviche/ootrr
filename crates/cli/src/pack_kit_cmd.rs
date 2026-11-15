@@ -2,19 +2,20 @@ use std::path::Path as P;
 
 use ootrr_core::error::{Error as E, Res};
 use ootrr_core::modpack::Host;
-use ootrr_core::pickup_pack::kit::{default_kit, run as add};
+use ootrr_core::pickup_pack::kit::{default_kit, run_with as add};
 use ootrr_core::pickup_pack::write::{Done, Opts};
-use ootrr_core::pickup_pack::{Spec, Style};
+use ootrr_core::pickup_pack::{Layers, Spec, Style};
 
 fn arg<'a>(a: &'a [String], i: usize, what: &'static str) -> Res<&'a str> {
     a.get(i).map(|s| s.as_str()).ok_or(E::Format(what))
 }
 
-pub fn parse(a: &[String]) -> Res<(Spec, Opts, Vec<u64>)> {
+pub fn parse(a: &[String]) -> Res<(Spec, Opts, Vec<u64>, Layers)> {
     let item: &str = arg(a, 3, "missing Item_Actor or Obj_Actor")?;
     let mut s: Spec = Spec { item: item.to_string(), name: default_kit(item), style: Style::Touch, heap: None };
     let mut o: Opts = Opts { host: Host::Eden, base: None, rst_from: None, places: Vec::new(), dry: false };
     let mut drops: Vec<u64> = Vec::new();
+    let mut l: Layers = Layers::default();
     let mut i: usize = 4;
     while i < a.len() {
         let step: usize = match a[i].as_str() {
@@ -44,6 +45,10 @@ pub fn parse(a: &[String]) -> Res<(Spec, Opts, Vec<u64>)> {
                 o.rst_from = Some(arg(a, i + 1, "missing size table file")?.into());
                 2
             }
+            "--model-from" => {
+                l.model = Some(arg(a, i + 1, "missing model donor actor")?.to_string());
+                2
+            }
             "--drop" => {
                 let v: &str = arg(a, i + 1, "missing skulltula hash")?;
                 drops.push(v.parse().map_err(|_| E::Msg(format!("{v} is not an actor hash")))?);
@@ -54,15 +59,15 @@ pub fn parse(a: &[String]) -> Res<(Spec, Opts, Vec<u64>)> {
         };
         i += step;
     }
-    Ok((s, o, drops))
+    Ok((s, o, drops, l))
 }
 
 pub fn run(a: &[String]) -> Res<()> {
     let root: &str = arg(a, 0, "missing romfs_root")?;
     let load: &str = arg(a, 1, "missing load_dir")?;
     let name: &str = arg(a, 2, "missing mod_name")?;
-    let (s, o, drops): (Spec, Opts, Vec<u64>) = parse(a)?;
-    let d: Done = add(P::new(root), P::new(load), name, &s, &o, &drops)?;
+    let (s, o, drops, l): (Spec, Opts, Vec<u64>, Layers) = parse(a)?;
+    let d: Done = add(P::new(root), P::new(load), name, &s, &o, &drops, &l)?;
     print!("{}", d.report);
     println!("{} carries {} and the skulltula token kit, instance heap {}", s.name, s.item, d.heap);
     if o.dry {
@@ -81,17 +86,17 @@ mod tests {
 
     #[test]
     fn the_default_kit_name_marks_the_pickup_for_skulltulas() {
-        let (s, o, drops): (Spec, Opts, Vec<u64>) = parse(&args(&["r", "l", "m", "Item_Hookshot"])).unwrap();
+        let (s, o, drops, _): (Spec, Opts, Vec<u64>, Layers) = parse(&args(&["r", "l", "m", "Item_Hookshot"])).unwrap();
         assert_eq!(s.name, "Obj_Hookshot_GS");
         assert!(drops.is_empty() && o.places.is_empty() && !o.dry);
-        let (s, _, _): (Spec, Opts, Vec<u64>) = parse(&args(&["r", "l", "m", "Obj_Rupee_Red"])).unwrap();
+        let (s, _, _, _): (Spec, Opts, Vec<u64>, Layers) = parse(&args(&["r", "l", "m", "Obj_Rupee_Red"])).unwrap();
         assert_eq!((s.item.as_str(), s.name.as_str()), ("Obj_Rupee_Red", "Obj_Rupee_Red_GS"));
     }
 
     #[test]
     fn drops_and_the_shared_options_are_read() {
         let a: Vec<String> = args(&["r", "l", "m", "Item_Hookshot", "--drop", "2504273934093629549", "--drop", "7", "--name", "Obj_Hook_GS", "--heap", "200000", "--host", "hookshot", "--base", "x/romfs", "--rst-from", "t.zs", "--dry"]);
-        let (s, o, drops): (Spec, Opts, Vec<u64>) = parse(&a).unwrap();
+        let (s, o, drops, _): (Spec, Opts, Vec<u64>, Layers) = parse(&a).unwrap();
         assert_eq!(drops, vec![2504273934093629549, 7]);
         assert_eq!(s.name, "Obj_Hook_GS");
         assert_eq!(s.heap, Some(200000));

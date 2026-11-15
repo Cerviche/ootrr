@@ -21,12 +21,19 @@ pub fn list(d: &Data) -> Vec<String> {
     let mut out: BS<String> = BS::new();
     out.extend(d.scan.files.iter().cloned());
     out.extend(d.pots.files.iter().cloned());
+    out.extend(d.pots.rock_files.iter().cloned());
     for l in &d.flow.locs {
         for e in &l.edits {
-            out.insert(path_of(&e.file));
+            if crate::cow_clone::of_file(&e.file).is_none() {
+                out.insert(path_of(&e.file));
+            }
             out.extend(e.also.iter().map(|a| path_of(a)));
         }
     }
+    for c in crate::cow_clone::all() {
+        out.extend(c.spots.iter().map(|s| s.file.clone()));
+    }
+    out.extend(crate::cow_clone::stage::sources());
     for s in [BIG_FLOW, SMALL_FLOW, SETTING_TABLE, ANALYZED_TABLE, TABLE_PATH, LIST_PATH, start::MODULE, songs::FLOW, hints::FLOW, LANGUAGE] {
         out.insert(s.to_string());
     }

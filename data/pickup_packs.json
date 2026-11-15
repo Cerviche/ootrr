@@ -36,7 +36,7 @@
       ],
       "status": "built",
       "identity": "Armor_GlassTruth",
-      "notes": "Gear identity differs from the item name. HeadArmor row with MPMaxUP side effect, model floats about 1 m up."
+      "notes": "Gear identity differs from the item name. HeadArmor row, its MPMaxUP raise is removed (pickup_pack/meter.rs) so the Lens gives no magic meter. Model floats about 1 m up."
     },
     {
       "group": "A",
@@ -326,18 +326,7 @@
       ],
       "status": "built",
       "identity": "Item_DinFire",
-      "notes": "Plain, 40 files, heap 199928, MPMaxUP 24, variation frame 0, no Tag row. M1 control, a cast needs a meter. Takes the magic layer too if M1 fails",
-      "variants": [
-        {
-          "args": [
-            "--host",
-            "hookshot",
-            "--magic"
-          ],
-          "status": "built",
-          "notes": "Optional magic layer of ENGINE. Only needed if the plain pack fails the magic bar test M1."
-        }
-      ]
+      "notes": "Plain, 40 files, heap 199928, MPMaxUP 24, variation frame 0, no Tag row. The pack row and the item row carry no magic raise (pickup_pack/meter.rs), so this pickup gives no magic meter. The magic layer is refused"
     },
     {
       "group": "C",
@@ -372,18 +361,7 @@
       ],
       "status": "built",
       "identity": "Item_Arrow_Ice",
-      "notes": "Plain, 40 files, heap 199928, PouchCategory Bow, MPMaxUP 24, no Tag row so no Fire Arrow challenge. Magic layer applies if M1 fails",
-      "variants": [
-        {
-          "args": [
-            "--host",
-            "hookshot",
-            "--magic"
-          ],
-          "status": "dry_ok",
-          "notes": "Optional magic layer of ENGINE. Only needed if the plain pack fails the magic bar test M1."
-        }
-      ]
+      "notes": "Plain, 40 files, heap 199928, PouchCategory Bow, MPMaxUP 24, no Tag row so no Fire Arrow challenge. The pack row and the item row carry no magic raise (pickup_pack/meter.rs), so this pickup gives no magic meter. The magic layer is refused"
     },
     {
       "group": "C",
@@ -395,18 +373,7 @@
       ],
       "status": "built",
       "identity": "Item_Arrow_Light",
-      "notes": "Plain, 40 files, heap 199928, PouchCategory Bow, MPMaxUP 24, no Tag row. Magic layer applies if M1 fails",
-      "variants": [
-        {
-          "args": [
-            "--host",
-            "hookshot",
-            "--magic"
-          ],
-          "status": "dry_ok",
-          "notes": "Optional magic layer of ENGINE. Only needed if the plain pack fails the magic bar test M1."
-        }
-      ]
+      "notes": "Plain, 40 files, heap 199928, PouchCategory Bow, MPMaxUP 24, no Tag row. The pack row and the item row carry no magic raise (pickup_pack/meter.rs), so this pickup gives no magic meter. The magic layer is refused"
     },
     {
       "group": "C",
@@ -418,18 +385,7 @@
       ],
       "status": "built",
       "identity": "Item_FaroreWind",
-      "notes": "Plain, 40 files, heap 199928, shared Item_DinFire model, variation frame 1, MPMaxUP 24, no Tag row. Magic layer applies if M1 fails",
-      "variants": [
-        {
-          "args": [
-            "--host",
-            "hookshot",
-            "--magic"
-          ],
-          "status": "dry_ok",
-          "notes": "Optional magic layer of ENGINE. Only needed if the plain pack fails the magic bar test M1."
-        }
-      ]
+      "notes": "Plain, 40 files, heap 199928, shared Item_DinFire model, variation frame 1, MPMaxUP 24, no Tag row. The pack row and the item row carry no magic raise (pickup_pack/meter.rs), so this pickup gives no magic meter. The magic layer is refused"
     },
     {
       "group": "C",
@@ -441,18 +397,7 @@
       ],
       "status": "built",
       "identity": "Item_NayruLove",
-      "notes": "Plain, 40 files, heap 199928, shared Item_DinFire model, variation frame 2, MPMaxUP 24, no Tag row. Magic layer applies if M1 fails",
-      "variants": [
-        {
-          "args": [
-            "--host",
-            "hookshot",
-            "--magic"
-          ],
-          "status": "dry_ok",
-          "notes": "Optional magic layer of ENGINE. Only needed if the plain pack fails the magic bar test M1."
-        }
-      ]
+      "notes": "Plain, 40 files, heap 199928, shared Item_DinFire model, variation frame 2, MPMaxUP 24, no Tag row. The pack row and the item row carry no magic raise (pickup_pack/meter.rs), so this pickup gives no magic meter. The magic layer is refused"
     },
     {
       "group": "C",
@@ -829,6 +774,150 @@
       "identity": null,
       "notes": "OoTR refill. A pickup would add a whole new bottle, so WP4 must not map Milk to any pack",
       "source_status": "blocked_decision"
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_ZeldaLullaby",
+      "pack": "Obj_Melody_ZeldaLullaby",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_ZeldaLullaby",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_EponaSong",
+      "pack": "Obj_Melody_EponaSong",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_EponaSong",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_SariaSong",
+      "pack": "Obj_Melody_SariaSong",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_SariaSong",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_SunSong",
+      "pack": "Obj_Melody_SunSong",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_SunSong",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_TimeSong",
+      "pack": "Obj_Melody_TimeSong",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_TimeSong",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_StormSong",
+      "pack": "Obj_Melody_StormSong",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_StormSong",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_ForestMinuet",
+      "pack": "Obj_Melody_ForestMinuet",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_ForestMinuet",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_FireBolero",
+      "pack": "Obj_Melody_FireBolero",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_FireBolero",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_WaterSerenade",
+      "pack": "Obj_Melody_WaterSerenade",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_WaterSerenade",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_SpiritRequiem",
+      "pack": "Obj_Melody_SpiritRequiem",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_SpiritRequiem",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_ShadowNocturne",
+      "pack": "Obj_Melody_ShadowNocturne",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_ShadowNocturne",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
+    },
+    {
+      "group": "S",
+      "item": "Item_Melody_LightPrelude",
+      "pack": "Obj_Melody_LightPrelude",
+      "args": [
+        "--model-from",
+        "Dm_Item_Sheik_Harp"
+      ],
+      "status": "built",
+      "identity": "Item_Melody_LightPrelude",
+      "notes": "Song pickup. Model, model fields and the shared item animation come from Sheik's harp, identity and get text from the song. Built and audited in a seed mod, untested in the game."
     }
   ]
 }

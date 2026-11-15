@@ -328,8 +328,8 @@ mod tests {
         assert!(n1.len() < n0.len(), "{n0} {n1}");
         let (_, p0): (Vec<ItemId>, String) = rule(&w0, "Market 10 Big Poes");
         let (_, p1): (Vec<ItemId>, String) = rule(&w1, "Market 10 Big Poes");
-        assert!(p0.contains("Has(107, 10)"), "{p0}");
-        assert!(p1.contains("Any(") && !p1.contains("Has(107, 10)"), "{p1}");
+        assert!(p0.contains("Has(107, 5)"), "{p0}");
+        assert!(p1.contains("Any(") && !p1.contains("Has(107, 5)"), "{p1}");
         let (q, _): (Vec<ItemId>, String) = rule(&world_with(&d, &[]).unwrap(), "Kak Anju as Child");
         assert!(q.is_empty());
     }

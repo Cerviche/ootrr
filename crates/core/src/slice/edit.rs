@@ -99,25 +99,29 @@ fn vanilla_actor(d: &Data, loc: &str) -> Res<String> {
 }
 
 pub fn is_sale(d: &Data, loc: &str) -> bool {
-    d.flow.by_name(loc).is_some() && d.cat.by_name(loc).is_none_or(|c| c.kind == "scrub")
+    d.flow.by_name(loc).is_some() && d.cat.by_name(loc).is_none_or(|c| c.kind == "scrub" || (c.kind == "cow" && crate::flow_extra::cows::is(loc)))
 }
 
 fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
     let mut pool: BM<String, Vec<String>> = BM::new();
     let mut dests: BM<String, Vec<String>> = BM::new();
     for (loc, item) in &seed.placements {
-        if crate::pot_slice::targets::is_loc(d, loc) {
+        if crate::pot_slice::targets::is_loc(d, loc) || crate::shops::seed::skip(loc) || crate::slice::silver::is_spot(loc) {
             continue;
         }
         let vanilla: &str = d.vanilla_of(loc).ok_or_else(|| E::Msg(format!("{loc} has no vanilla item")))?;
         pool.entry(vanilla.to_string()).or_default().push(vanilla_actor(d, loc)?);
-        dests.entry(item.clone()).or_default().push(loc.clone());
+        if !crate::slice::silver::is_item(item) {
+            dests.entry(item.clone()).or_default().push(loc.clone());
+        }
     }
     let stripped: bool = crate::start_items::pool::active(&plan(&seed.settings()?.settings)?);
     let mut out: BM<String, String> = BM::new();
     for (item, locs) in &dests {
         let mut acts: Vec<String> = pool.get(item).cloned().unwrap_or_default();
         crate::pot_slice::targets::balance(d, seed, item, &mut acts);
+        crate::shops::seed::balance(d, seed, item, &mut acts);
+        crate::slice::silver::balance(seed, item, &mut acts);
         if stripped {
             crate::start_items::pool::fit_actors(d, item, locs.len(), &mut acts);
         }
@@ -149,7 +153,11 @@ fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<String, String
     let given: BM<String, String> = actors_for(d, seed)?;
     let wrapped: BM<String, &'static str> = flow_wraps(d, seed);
     for (loc, item) in &seed.placements {
-        if crate::pot_slice::targets::is_loc(d, loc) || crate::slice::skulls::is_skull(d, loc) {
+        if crate::pot_slice::targets::is_loc(d, loc) || crate::slice::skulls::is_skull(d, loc) || crate::shops::seed::skip(loc) || crate::slice::silver::is_item(item) {
+            continue;
+        }
+        if let Some(t) = crate::slice::silver::targets(loc, item)? {
+            out.extend(t);
             continue;
         }
         if is_sale(d, loc) {
@@ -452,7 +460,8 @@ pub fn skipped_locations(p: &crate::slice::support::Plan) -> Vec<&'static str> {
 }
 
 pub fn build_for(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -> Res<Built> {
-    crate::slice::seed_packs::build(seed, romfs, load, mod_name, host)
+    let b: Built = crate::slice::seed_packs::build(seed, romfs, load, mod_name, host)?;
+    crate::shelf::seed::after(seed, romfs, load, mod_name, host, b)
 }
 
 pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, extra: &Extra) -> Res<Built> {
@@ -481,12 +490,16 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let mut skull_hit: BS<u64> = BS::new();
     let gr: crate::dungeon_grant::Grants = crate::slice::dungeon_items::grants(&d, seed, &p)?;
     let mut marks: crate::dungeon_grant::Marks = crate::dungeon_grant::Marks::default();
+    let silver: BM<u64, &'static str> = crate::slice::silver::grants(&d, seed)?;
+    let mut silver_used: BS<&'static str> = BS::new();
+    let mut silver_hit: BS<u64> = BS::new();
     let mut edits: Vec<Edited> = Vec::new();
-    let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, p.chus) } else { BM::new() };
+    let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, p.chus, crate::slice::dungeon_items::credited(p.map)) } else { BM::new() };
+    let moves: crate::chest_size::Moves = if sizes.is_empty() { crate::chest_size::Moves::default() } else { crate::chest_size::moves(&crate::chest_size::scan(&mut rf, &sizes)?, &sizes) };
     let mut resized_n: usize = 0;
     for f in banc_files(&rf)? {
         let vanilla: Vec<u8> = rf.read_zs(&f)?;
-        let resized: Option<Vec<u8>> = crate::chest_size::resize(&vanilla, &sizes)?.map(|(b, n)| {
+        let resized: Option<Vec<u8>> = crate::chest_size::resize(&vanilla, &f, &sizes, &moves)?.map(|(b, n)| {
             resized_n += n;
             b
         });
@@ -509,6 +522,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             }),
             (e, None) => e,
         };
+        let e: Option<Edited> = crate::slice::silver::apply(&f, raw, e, &silver, &mut silver_used, &mut silver_hit)?;
         let e: Option<Edited> = crate::slice::dungeon_items::apply(&f, raw, e, &gr, &mut marks)?;
         if let Some(e) = crate::slice::skull_edit::apply(&f, raw, e, &skull_drops, &mut skull_hit)? {
             edits.push(e);
@@ -516,10 +530,12 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     crate::slice::skull_edit::all_found(&skull_drops, &skull_hit)?;
     crate::dungeon_grant::all_marked(&gr, &marks)?;
+    crate::slice::silver::all_found(&silver, &silver_hit)?;
     let pot_ts: Vec<crate::pot_slice::targets::Give> = crate::pot_slice::targets::targets_with(&d, seed, &order.assign)?;
     crate::pot_slice::apply::apply(&mut rf, &d, &pot_ts, &mut edits)?;
     let scrub_jobs: Vec<crate::scrubs_b::Job> = crate::scrubs_b::jobs(&d, seed)?;
     crate::scrubs_b::stage_banc(&mut rf, &scrub_jobs, &mut edits)?;
+    let gate_notes: Vec<String> = crate::entr::build::apply(&mut rf, seed, &mut edits)?;
     for (i, t) in ts.iter().enumerate() {
         let got: Vec<&str> = edits
             .iter()
@@ -564,9 +580,10 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let placed: BM<String, &'static str> = flow_wraps(&d, seed);
     let chest_fams: BS<&str> = upgrades.iter().map(|u| u.0.as_str()).collect();
     let gs: Vec<crate::progressive::Grant> = wrap_grants(&d, seed, &chest_fams, &placed);
-    if !upgrades.is_empty() || roam || gr.active() {
+    if !upgrades.is_empty() || roam || gr.active() || !silver_used.is_empty() {
         let mut outs: Vec<crate::staging::Out> = if !upgrades.is_empty() || roam { stage_upgrades(&mut rf, &upgrades, None, &kids, &keys)? } else { Vec::new() };
         crate::dungeon_grant::stage(&mut rf, &mut outs, &gr, &marks.used)?;
+        crate::slice::silver::stage(&mut rf, &mut outs, &silver_used)?;
         scrub_rows = crate::scrubs_b::stage_rows(&mut rf, &scrub_jobs, &mut outs, false)?;
         for o in outs {
             pk.write_romfs(&o.path, &o.z)?;
@@ -585,6 +602,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut staged: Stage = flow_locations::stage_merged(&mut rf, &d.flow, &flows, &gs, &FlowOpts { songs: p.songs != Songs::Off, ..FlowOpts::default() })?;
     crate::scrubs_b::stage_flow(&mut rf, &scrub_jobs, &mut staged.files)?;
+    if p.songs != Songs::Off {
+        crate::song_lessons::stage_flow(&mut rf, &mut staged.files)?;
+    }
     for f in &staged.files {
         pk.write_romfs(&f.path, &f.z)?;
         if f.new > f.old {
@@ -613,13 +633,19 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         more.extend(hints::stage(&mut rf, &d, seed, p.hints, &keys, &p.npc)?);
     }
     crate::dungeon_grant::stage_text(&mut rf, &mut more, &marks.used)?;
-    if roam {
-        more.push(stage_pouch(&mut rf)?);
-    }
+    crate::slice::silver::stage_text(&mut rf, &mut more, &silver_used)?;
+    more.push(stage_pouch(&mut rf, roam)?);
     more.extend(crate::bomb_lift::stage(&mut rf)?);
+    if crate::bomb_pickup::needed(&pot_ts) {
+        more.push(crate::bomb_pickup::stage(&mut rf)?);
+    }
     more.extend(crate::door_fix::stage(&mut rf)?);
     if p.door {
-        more.extend(crate::door_open::stage(&mut rf)?);
+        more.extend(crate::door_open::stage_door(&mut rf)?);
+    }
+    more.extend(crate::door_open::stage_pedestal(&mut rf, Some(&pk.work.join("romfs")))?);
+    if p.dungeon_rewards {
+        crate::medal_gate::stage(&mut rf, &mut more, Some(&pk.work.join("romfs")))?;
     }
     let reward: Option<&str> = crate::start_reward::pick(&seed.seed, p.start).map(|(_, a)| a);
     let flags: Vec<(String, bool)> = p.start_flags();
@@ -631,6 +657,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         more.push(crate::start_reward::stage_all(&mut rf, &give, &flags)?);
     }
     crate::start_items::stage::stage(&mut rf, &mut more, &p.kit)?;
+    crate::start_items::dpad::stage(&mut rf, &mut more, &crate::start_items::dpad::actors(&[&p.kit], &p.pouch))?;
     crate::pot_slice::rows::stage(&mut rf, &mut more, &crate::pot_slice::apply::hashes(&pot_ts))?;
     crate::start_defaults::stage(&mut rf, &mut more, &crate::start_defaults::presets::chosen(&p.defaults())?)?;
     if scrub_rows == 0 {
@@ -658,7 +685,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         let l: crate::flags::FlagList = crate::flags_build::load(&mut rf)?;
         crate::start_state::add_is_get(&mut state, |n| l.by_hash(crate::flags::hash_name(n) as u64).is_some());
     }
-    if p.intro || !state.is_empty() || p.opening_step().is_some() {
+    let clock: bool = p.kakariko || p.open.time;
+    if p.intro || !state.is_empty() || p.opening_step().is_some() || clock {
         let o: crate::intro_skip::Opts = if p.intro { crate::intro_skip::Opts::FULL } else { crate::intro_skip::Opts::default() };
         let (mut outs, _): (Vec<crate::staging::Out>, crate::intro_skip::Report) = crate::intro_skip::stage_with(&mut rf, o, &state)?;
         if let Some(st) = p.opening_step() {
@@ -666,6 +694,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         }
         if p.kakariko {
             outs.push(crate::start_state::stage_free_quest(&mut rf)?);
+        }
+        if clock {
             outs.push(crate::start_state::stage_field_clock(&mut rf)?);
         }
         for o in outs {
@@ -690,6 +720,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     if p.endings {
         late.extend(crate::story_skip::worked_endings(&mut rf, &pk)?);
+    if p.bridge {
+        late.extend(crate::deku_bridge::worked(&mut rf, &pk)?);
     }
     for o in late {
         pk.write_romfs(&o.path, &o.z)?;
@@ -704,6 +736,21 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         }
     }
     extra += crate::slice::skull_kit::write(&mut rf, &pk, &mut rst, &skull_drops, kit_pool)?;
+    let (cow_files, cow_lines): (usize, Vec<String>) = crate::cow_clone::write(&mut rf, &pk, &mut rst)?;
+    extra += cow_files;
+    let loads: Option<(crate::staging::Out, crate::flow_extra::analyzed::Added)> = crate::flow_extra::analyzed::worked(&mut rf, &pk.work.join("romfs"))?;
+    if let Some((o, _)) = &loads {
+        pk.write_romfs(&o.path, &o.z)?;
+        extra += 1;
+        if o.new > o.old {
+            if rst.is_none() {
+                rst = Some(rsizetable::load(&mut rf)?);
+            }
+            if let Some(t) = rst.as_mut() {
+                grown += crate::staging::grow_out(&mut rf, t, o)?;
+            }
+        }
+    }
     if host.one_table() && rst.is_none() {
         rst = Some(rsizetable::load(&mut rf)?);
     }
@@ -715,7 +762,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         pk.write_romfs(rsizetable::TABLE_PATH, &t.to_zs()?)?;
     }
     let chests: Vec<ChestLine> = lines(&ts, &edits);
-    let side: usize = seed.placements.keys().filter(|k| crate::pot_slice::targets::is_loc(&d, k) || crate::slice::skulls::is_skull(&d, k)).count();
+    let side: usize = seed.placements.keys().filter(|k| crate::pot_slice::targets::is_loc(&d, k) || crate::slice::skulls::is_skull(&d, k) || crate::shops::seed::skip(k)).count();
     let counts: BuildCounts = BuildCounts {
         placed: seed.placements.len() - side,
         changed: chests.len(),
@@ -727,7 +774,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     };
     let mut notes: Vec<String> = p.notes.clone();
     if p.chest_sizes {
-        notes.push(crate::chest_size::report(resized_n));
+        notes.push(crate::chest_size::report(resized_n, moves.tight.len()));
     }
     if p.world.on() && !seed.placements.keys().any(|k| pu::listed(&d, k)) {
         notes.retain(|n| !pu::is_note(n));
@@ -746,6 +793,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         notes.push(format!("Upgrade tier warning, generate this seed again with this build: {b}"));
     }
     notes.extend(crate::scrubs_b::notes(&scrub_jobs));
+    notes.extend(gate_notes);
     if !upgrades.is_empty() {
         let n: usize = ts.iter().filter(|t| t.family.is_some()).map(|t| t.name.as_str()).collect::<BS<&str>>().len();
         notes.push(format!(
@@ -753,8 +801,13 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         ));
     }
     if !pot_ts.is_empty() {
-        let n: usize = pot_ts.iter().map(|t| t.name.as_str()).collect::<BS<&str>>().len();
-        notes.push(format!("{n} pots, crates or flying pots hold other items and give them once, none of these edits is tested in the game yet:"));
+        let n: usize = pot_ts.iter().filter(|t| !t.kind.wild()).map(|t| t.name.as_str()).collect::<BS<&str>>().len();
+        let w: usize = pot_ts.iter().filter(|t| t.kind.wild()).map(|t| t.name.as_str()).collect::<BS<&str>>().len();
+        if w == 0 {
+            notes.push(format!("{n} pots, crates, flying pots or beehives hold other items, none of these edits is tested in the game yet:"));
+        } else {
+            notes.push(format!("{n} pots, crates, flying pots or beehives and {w} rocks or grass tufts hold other items, none of these edits is tested in the game yet:"));
+        }
         notes.extend(crate::pot_slice::apply::lines(&pot_ts, LISTED));
         if crate::pot_slice::apply::variants(&pot_ts) {
             notes.push(crate::slice::key_spots::LOST.to_string());
@@ -765,6 +818,14 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         for c in staged.changes.iter().take(LISTED) {
             notes.push(format!("  {} | {} | {} ({}) | {} -> {}", c.location, c.file, c.event, c.index, c.old, c.new));
         }
+    }
+    if !cow_lines.is_empty() {
+        notes.push("Cows made into actor classes of their own, untested in the game:".to_string());
+        notes.extend(cow_lines.iter().map(|l| format!("  {l}")));
+    }
+    if let Some((_, a)) = &loads {
+        notes.push(format!("{} events now load the flows their edited events call:", a.len()));
+        notes.extend(crate::flow_extra::analyzed::lines(a));
     }
     if host == Host::Hookshot {
         notes.push("Written for Hookshot, under mods/<name>/romfs. Name the mod randomizer-<seed> so co-op reads coop-seed.txt. This mod keeps the larger size-table entry from every other mod that is on.".to_string());

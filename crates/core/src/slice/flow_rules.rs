@@ -21,6 +21,9 @@ pub fn ok(d: &Data, name: &str) -> bool {
     if crate::flow_extra::trade::is(name) {
         return l.gated && d.vanilla_of(name).is_some_and(|v| l.item.as_deref() != d.item(v).and_then(|i| i.actor.as_deref()));
     }
+    if crate::flow_extra::cows::is(name) || crate::flow_extra::frogs::is(name) || crate::flow_extra::potion::is(name) {
+        return l.gated && l.item.is_some() && d.vanilla_of(name).is_some();
+    }
     if crate::scrubs_b::is_b(l) {
         return crate::scrubs_b::ok(d, l);
     }
@@ -58,7 +61,7 @@ mod tests {
     use crate::settings::{Settings, Value};
     use crate::slice::generate::{generate_data, GenOpts, Generated};
 
-    const NEW: [&str; 17] = [
+    const NEW: [&str; 18] = [
         "Graveyard Dampe Gravedigging Tour",
         "Kak 40 Gold Skulltula Reward",
         "Kak 100 Gold Skulltula Reward",
@@ -76,13 +79,13 @@ mod tests {
         "DMC Great Fairy Reward",
         "ZD Diving Minigame",
         "LH Adult Fishing",
+        "GC Rolling Goron as Child",
     ];
 
-    const PINNED: [&str; 8] = [
+    const PINNED: [&str; 7] = [
         "GC Darunias Joy",
         "LW Gift from Saria",
         "HF Ocarina of Time Item",
-        "GC Rolling Goron as Child",
         "DMT Biggoron",
         "GC Medigoron",
         "KF Links House Cow",
@@ -104,10 +107,84 @@ mod tests {
             let open: bool = d.flow.by_name(n).is_some_and(|l| crate::flow_extra::open(l, &off));
             assert!(!(d.flow_ok(n) && open), "{n}");
         }
-        assert!(!d.flow_ok("GC Rolling Goron as Child"));
+        assert!(d.flow.by_name("GC Rolling Goron as Child").is_some_and(|l| l.supported && grants_only(l) && crate::flow_extra::open(l, &off)));
         for n in ["Kak 20 Gold Skulltula Reward", "DMT Biggoron", "GC Medigoron"] {
             assert!(d.flow_ok(n) && d.flow.by_name(n).is_some_and(|l| l.gated), "{n}");
         }
+    }
+
+    fn goron(over: &[(&str, &str)], gone: &[&str]) -> bool {
+        let d: Data = Data::load().unwrap();
+        let w: crate::world::World = crate::slice::logic::world_with(&d, over).unwrap();
+        let mut p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
+        let g: Vec<crate::logic_items::ItemId> = gone.iter().map(|n| w.item(n).unwrap()).collect();
+        let f: crate::logic_items::ItemId = w.item("Rupees (5)").unwrap();
+        for l in &w.real {
+            if p.get(*l).is_some_and(|i| g.contains(&i)) {
+                p.put(*l, f);
+            }
+        }
+        let s: crate::search::Search = crate::search::explore(&w, &p, &[]);
+        s.loc_access(w.loc("GC Rolling Goron as Child").unwrap())
+    }
+
+    #[test]
+    fn the_child_rolling_goron_needs_a_bomb_bag_or_strength_and_the_gate_rule_of_goron_city_only() {
+        let chus: (&str, &str) = (crate::slice::bombchus::LOGIC_KEY, "true");
+        let open: (&str, &str) = ("open_kakariko", "open");
+        let both: [&str; 2] = ["Bomb Bag", "Progressive Strength Upgrade"];
+        assert!(goron(&[], &[]));
+        assert!(!goron(&[], &both));
+        assert!(!goron(&[chus], &both));
+        assert!(!goron(&[("logic_child_rolling_with_strength", "true")], &both));
+        assert!(!goron(&[], &["Zeldas Letter"]));
+        assert!(goron(&[open], &["Zeldas Letter"]));
+        assert!(!goron(&[open], &both));
+        assert!(goron(&[], &["Bombchus (10)","Bombchus (5)", "Bombchus (20)"]));
+        let line: &str = include_str!("../../../../data/logic/World/Overworld.json").lines().find(|l| l.contains("\"GC Rolling Goron as Child\":")).unwrap();
+        assert_eq!(line.trim(), "\"GC Rolling Goron as Child\": \"is_child and (Bomb_Bag or Progressive_Strength_Upgrade)\",");
+    }
+
+    #[test]
+    fn a_child_with_strength_and_no_bomb_bag_reaches_the_rolling_goron() {
+        assert!(goron(&[], &["Bomb Bag"]));
+        assert!(goron(&[], &["Bomb Bag", "Bombchus (10)", "Bombchus (5)", "Bombchus (20)"]));
+        let d: Data = Data::load().unwrap();
+        let w: crate::world::World = crate::slice::logic::world_with(&d, &[]).unwrap();
+        let mut p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
+        let bag: crate::logic_items::ItemId = w.item("Bomb Bag").unwrap();
+        let f: crate::logic_items::ItemId = w.item("Rupees (5)").unwrap();
+        for l in &w.real {
+            if p.get(*l) == Some(bag) {
+                p.put(*l, f);
+            }
+        }
+        let s: crate::search::Search = crate::search::explore(&w, &p, &[]);
+        let goron: crate::world::LocId = w.loc("GC Rolling Goron as Child").unwrap();
+        assert!(s.loc_access(goron));
+        assert!(!w.real.iter().any(|l| p.get(*l) == Some(bag)));
+    }
+
+    #[test]
+    fn the_two_fountains_follow_their_flows_and_the_remake_items() {
+        let d: Data = Data::load().unwrap();
+        for (loc, file, item, vanilla) in [
+            ("DMT Great Fairy Reward", "Dm_FairyFountain_Din.bfevfl", "Item_DinFire", "Dins Fire"),
+            ("HC Great Fairy Reward", "Dm_FairyFountain_Power.bfevfl", "Item_FairyBless_MP", "Magic Meter"),
+        ] {
+            let l: &Loc = d.flow.by_name(loc).unwrap();
+            assert_eq!(l.edits.len(), 1, "{loc}");
+            assert_eq!(l.edits[0].file, file, "{loc}");
+            assert_eq!(l.item.as_deref(), Some(item), "{loc}");
+            assert_eq!(l.vanilla, vanilla, "{loc}");
+            assert_eq!(d.vanilla_of(loc), Some(vanilla), "{loc}");
+            assert!(d.flow_ok(loc), "{loc}");
+        }
+        assert_eq!(d.vanilla_of("DMC Great Fairy Reward"), Some("Magic Meter"));
+        let skull: &Loc = d.flow.by_name("Kak 40 Gold Skulltula Reward").unwrap();
+        assert_eq!(skull.vanilla, "Bombchus (20)");
+        assert_eq!(d.vanilla_of("Kak 40 Gold Skulltula Reward"), Some("Bombchus (20)"));
+        assert_eq!(d.item("Bombchus (20)").and_then(|i| i.actor.as_deref()), skull.item.as_deref());
     }
 
     #[test]
