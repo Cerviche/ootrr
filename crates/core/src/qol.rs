@@ -142,6 +142,7 @@ pub fn files() -> Vec<String> {
     out.push(navi_return::FILE.to_string());
     out.push(navi_return::SEQ.to_string());
     out.push(bunny::FILE.to_string());
+    out.push(bunny::ADULT_FILE.to_string());
     out
 }
 
@@ -446,7 +447,7 @@ mod tests {
     #[test]
     fn the_file_list_is_complete_and_unique() {
         let v: Vec<String> = files();
-        assert_eq!(v.len(), 8);
+        assert_eq!(v.len(), 9);
         let mut w: Vec<String> = v.clone();
         w.sort();
         w.dedup();
