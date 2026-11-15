@@ -14,6 +14,9 @@ pub fn open(l: &Loc, p: &Plan) -> bool {
     if crate::flow_extra::trade::is(&l.name) {
         return p.trade;
     }
+    if crate::flow_extra::cows::is_other(&l.name) {
+        return p.cows_other;
+    }
     if crate::flow_extra::cows::is(&l.name) {
         return p.cows;
     }

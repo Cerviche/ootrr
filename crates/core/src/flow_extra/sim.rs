@@ -5,7 +5,7 @@ use crate::bfevfl::{Bf, Flow};
 use crate::error::{Error as E, Res};
 use crate::flow_extra::apply::{edit_flow, ops_for};
 use crate::flow_extra::op::Op;
-use crate::flow_locations::{path_of, plan, Change, Choice, Data, Opts as FlowOpts, Req};
+use crate::flow_locations::{plan, Change, Choice, Data, Opts as FlowOpts, Req};
 use crate::flow_sim::db::Db;
 use crate::flow_sim::load::{Disk, Src};
 use crate::flow_sim::run::{lines, End, Env, Fin, Mach, Opts, Sim};
@@ -61,7 +61,7 @@ pub fn edited_many(rf: &mut Romfs, cs: &[Choice]) -> Res<HM<String, Flow>> {
     files.dedup();
     let mut out: HM<String, Flow> = HM::new();
     for file in files {
-        let raw: Vec<u8> = rf.read_zs(&path_of(file))?;
+        let raw: Vec<u8> = crate::cow_clone::read(rf, file)?.0;
         let r: &[Req] = rs.get(file).map(|v| v.as_slice()).unwrap_or(&[]);
         let o: &[Op] = os.get(file).map(|v| v.as_slice()).unwrap_or(&[]);
         let b: Bf = edit_flow(&raw, r, o)?;

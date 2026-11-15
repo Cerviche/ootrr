@@ -115,6 +115,15 @@ mod tests {
     }
 
     #[test]
+    fn every_cow_row_names_its_location() {
+        let ts: &[Target] = all().unwrap();
+        for n in crate::flow_extra::cows::LOCS.iter().chain(crate::flow_extra::cows::OTHER.iter()) {
+            assert_eq!(ts.iter().filter(|t| t.kind == "cow" && t.ootr.as_deref() == Some(*n)).count(), 1, "{n}");
+        }
+        assert!(ts.iter().filter(|t| t.kind == "cow").all(|t| t.ootr.is_some()));
+    }
+
+    #[test]
     fn a_shuffled_cow_is_seen_by_its_once_flag_and_a_milk_cow_keeps_the_old_rule() {
         let ts: &[Target] = all().unwrap();
         let tbl: Table = load::load().unwrap();
@@ -124,10 +133,13 @@ mod tests {
         let flag: String = crate::flow_extra::cows::flag_of("KF Links House Cow").unwrap();
         assert_eq!(eval(o[home].as_ref().unwrap(), &peek(&flag)), Hit::On);
         assert_eq!(eval(o[home].as_ref().unwrap(), &peek("HavePlayedEvent.Animal_Cow_LinkHouse_GiveMilk")), Hit::Off);
-        assert!(o[gv].is_none() && o[other].is_none());
+        assert!(o[gv].is_none());
+        let kak: String = crate::flow_extra::cows::flag_of("Kak Impas House Cow").unwrap();
+        assert_eq!(eval(o[other].as_ref().unwrap(), &peek(&kak)), Hit::On);
+        assert_eq!(eval(o[other].as_ref().unwrap(), &peek("HavePlayedEvent.Animal_Cow_GiveMilk")), Hit::Off);
         let gift_home: usize = ts.iter().position(|t| t.kind == "gift" && t.ootr.as_deref() == Some("KF Links House Cow")).unwrap();
         assert_eq!(eval(o[gift_home].as_ref().unwrap(), &peek(&flag)), Hit::On);
-        assert_eq!(rewired(&o), 2);
+        assert_eq!(rewired(&o), 3);
         assert_eq!(rewired(&rules(ts, &placed(&[]), &tbl)), 0);
     }
 

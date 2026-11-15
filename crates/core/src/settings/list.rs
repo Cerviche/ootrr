@@ -378,7 +378,12 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(65, "shuffle_cows", "shuffle", "Link's House and Gerudo Valley cows", false)
-            .tip("The cow in Link's House and the cow in Gerudo Valley each give one extra shuffled item the first time their milk scene starts, with or without a bottle. The milk stays vanilla and stays repeatable. The other cows are not shuffled yet.")
+            .tip("The cow in Link's House and the cow in Gerudo Valley each give one extra shuffled item the first time their milk scene starts, with or without a bottle. The milk stays vanilla and stays repeatable. The other cows have their own setting.")
+            .when("shuffle_rewards", "supported"),
+    );
+    s.push(
+        Setting::toggle(66, "shuffle_cows_other", "shuffle", "Other cows", false)
+            .tip("The six other cows each give one extra shuffled item the first time their milk scene starts, with or without a bottle: the Gerudo Fortress cow, the Death Mountain Trail and Hyrule Field grotto cows, the cow behind Impa's house and the two Lon Lon Ranch stable cows. The five ordinary cows become actor classes of their own. The milk stays vanilla and stays repeatable. Experimental, untested in the game.")
             .when("shuffle_rewards", "supported"),
     );
     s.push(

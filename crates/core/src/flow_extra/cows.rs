@@ -4,16 +4,24 @@ use crate::flow_extra::op::How;
 use crate::flow_locations::{Change, Loc};
 
 pub const SETTING: &str = "shuffle_cows";
+pub const SETTING_OTHER: &str = "shuffle_cows_other";
 pub const ROLE: &str = "once";
 pub const PARAM: &str = "ActorName";
 pub const VANILLA: &str = "Milk";
 
 pub const LOCS: [&str; 2] = ["KF Links House Cow", "GV Cow"];
+pub const OTHER: [&str; 6] = ["GF Cow", "DMT Cow Grotto Cow", "Kak Impas House Cow", "HF Cow Grotto Cow", "LLR Stables Left Cow", "LLR Stables Right Cow"];
 
 pub const NOTE: &str = "Link's House cow in Kokiri Forest and the Gerudo Valley cow each give one extra shuffled item the first time their milk scene starts, with or without a bottle. The milk itself stays vanilla and stays repeatable. The other cows are not shuffled.";
 
+pub const NOTE_OTHER: &str = "The other six cows (Gerudo Fortress, the Death Mountain Trail and Hyrule Field grottos, Impa's house in Kakariko and the two Lon Lon Ranch stable cows) each give one extra shuffled item the first time their milk scene starts. The five ordinary ones become actor classes of their own. Untested in the game.";
+
 pub fn is(name: &str) -> bool {
-    LOCS.contains(&name)
+    LOCS.contains(&name) || OTHER.contains(&name)
+}
+
+pub fn is_other(name: &str) -> bool {
+    OTHER.contains(&name)
 }
 
 fn spec(name: &str) -> Res<Spec> {
@@ -61,7 +69,7 @@ mod tests {
     use std::path::{Path as P, PathBuf as PB};
 
     use super::*;
-    use crate::bfevfl::Flow;
+    use crate::bfevfl::{Bf, Flow};
     use crate::flow_extra::sim::{beyond_always, broken, called, edited, granted, run, sim, Scene};
     use crate::flow_locations::Data as FlowData;
     use crate::flow_sim::run::{End, Fin, Sim};
@@ -87,15 +95,28 @@ mod tests {
         }
     }
 
-    fn scene(entry: &str, set: &[(&str, &str)]) -> Scene {
-        Scene { flow: "Animal_Cow".to_string(), entry: entry.to_string(), set: set.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), own: Vec::new() }
+    fn scene_in(flow: &str, entry: &str, set: &[(&str, &str)]) -> Scene {
+        Scene { flow: flow.to_string(), entry: entry.to_string(), set: set.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), own: Vec::new() }
+    }
+
+    fn flow_of(loc: &str) -> String {
+        crate::cow_clone::by_location(loc).map(|c| c.class).unwrap_or_else(|| "Animal_Cow".to_string())
+    }
+
+    fn plain_of(rf: &mut Romfs, loc: &str) -> HM<String, Flow> {
+        let mut out: HM<String, Flow> = HM::new();
+        if let Some(c) = crate::cow_clone::by_location(loc) {
+            let b: Bf = Bf::parse(&crate::cow_clone::base(rf, &c.flow_file()).unwrap().unwrap()).unwrap();
+            out.insert(c.class, b.flows.into_iter().next().unwrap());
+        }
+        out
     }
 
     fn both(r: &P, loc: &str, sc: &Scene) -> (Vec<Fin>, Vec<Fin>) {
         let mut rf: Romfs = Romfs::open(r).unwrap();
         let fl: HM<String, Flow> = edited(&mut rf, loc, NEW).unwrap();
         assert_eq!(beyond_always(&fl).len(), 1, "{loc}");
-        let mut a: Sim = sim(r, HM::new()).unwrap();
+        let mut a: Sim = sim(r, plain_of(&mut rf, loc)).unwrap();
         let mut b: Sim = sim(r, fl).unwrap();
         (run(&mut a, sc).unwrap(), run(&mut b, sc).unwrap())
     }
@@ -115,7 +136,7 @@ mod tests {
     }
 
     fn check_once(r: &P, loc: &str, entry: &str, flag: &str, set: &[(&str, &str)]) {
-        let (a, b): (Vec<Fin>, Vec<Fin>) = both(r, loc, &scene(entry, set));
+        let (a, b): (Vec<Fin>, Vec<Fin>) = both(r, loc, &scene_in(&flow_of(loc), entry, set));
         assert!(a.iter().all(|f| granted(f, NEW) == 0 && !f.m.writes.contains_key(flag)), "{loc} vanilla");
         assert!(a.iter().any(|f| called(f, BOTTLE)), "{loc} vanilla milk");
         assert_eq!(shapes(&a, flag), shapes(&b, flag), "{loc} the edited paths differ from vanilla beyond the one grant");
@@ -129,7 +150,7 @@ mod tests {
     }
 
     fn check_quiet(r: &P, loc: &str, entry: &str, flag: &str, set: &[(&str, &str)]) {
-        let (a, b): (Vec<Fin>, Vec<Fin>) = both(r, loc, &scene(entry, set));
+        let (a, b): (Vec<Fin>, Vec<Fin>) = both(r, loc, &scene_in(&flow_of(loc), entry, set));
         assert!(b.iter().all(|f| granted(f, NEW) == 0 && !f.m.writes.contains_key(flag)), "{loc} {set:?}");
         assert_eq!(shapes(&a, flag), shapes(&b, flag), "{loc} {set:?}");
         assert_eq!(a.len(), b.len(), "{loc} {set:?}");
@@ -186,7 +207,7 @@ mod tests {
             assert!(crate::slice::edit::is_sale(&d, n), "{n}");
         }
         assert!(!crate::flow_extra::bound(&d, "Rupees (5)") && !crate::flow_extra::bound(&d, "Milk"));
-        assert!(!d.flow_ok("HF Cow Grotto Cow"));
+        assert!(!d.flow_ok("LLR Tower Left Cow"));
     }
 
     #[test]
@@ -301,5 +322,230 @@ mod tests {
             assert_eq!((w.child, w.entry.as_str()), (child, entry), "{n}");
             assert_eq!(w.sub, "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc");
         }
+    }
+
+    fn with_other(on: bool) -> Settings {
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_rewards", Value::s("supported")).unwrap();
+        s.set(SETTING_OTHER, Value::Bool(on)).unwrap();
+        s
+    }
+
+    #[test]
+    fn every_clone_cow_hands_out_its_item_once_from_its_own_flow() {
+        let Some(r) = root() else { return };
+        for c in crate::cow_clone::all() {
+            let flag: String = flag_of(&c.location).unwrap();
+            check_once(&r, &c.location, crate::cow_clone::flow::PUSH, &flag, &[]);
+            check_quiet(&r, &c.location, crate::cow_clone::flow::PUSH, &flag, &[(flag.as_str(), "true")]);
+        }
+    }
+
+    #[test]
+    fn an_unedited_clone_runs_the_house_milk_path_with_its_own_name() {
+        let Some(r) = root() else { return };
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        let mut v: Sim = sim(&r, HM::new()).unwrap();
+        let house: Vec<Fin> = run(&mut v, &scene_in("Animal_Cow", "PushToBottleMilk_LinkHouse", &[])).unwrap();
+        let norm = |fins: &[Fin], class: &str| -> BS<String> { shapes(fins, "").into_iter().map(|s| s.replace(class, "Animal_Cow_LinkHouse")).collect() };
+        for c in crate::cow_clone::all() {
+            let mut a: Sim = sim(&r, plain_of(&mut rf, &c.location)).unwrap();
+            let fins: Vec<Fin> = run(&mut a, &scene_in(&c.class, crate::cow_clone::flow::PUSH, &[])).unwrap();
+            assert_eq!(norm(&fins, &c.class), norm(&house, "Animal_Cow_LinkHouse"), "{}", c.class);
+            assert_eq!(fins.len(), house.len(), "{}", c.class);
+            let give: Vec<Fin> = run(&mut a, &scene_in(&c.class, crate::cow_clone::flow::GIVE, &[])).unwrap();
+            assert!(give.iter().any(|f| called(f, "Animal_Cow:Cow_GiveMilk")), "{}", c.class);
+            let talk: Vec<Fin> = run(&mut a, &scene_in(&c.class, crate::cow_clone::flow::TALK, &[])).unwrap();
+            assert!(talk.iter().any(|f| called(f, "Animal_Cow:CowTalk")), "{}", c.class);
+            assert_eq!(broken(&give) + broken(&talk) + broken(&fins), 0, "{}", c.class);
+        }
+    }
+
+    #[test]
+    fn the_fortress_cow_asks_for_an_adult_and_the_valley_child_keeps_vanilla() {
+        let Some(r) = root() else { return };
+        let flag: String = flag_of("GF Cow").unwrap();
+        check_once(&r, "GF Cow", "PushToBottleMilk_LinkHouse0", &flag, &[(CHILD, "false")]);
+        check_quiet(&r, "GF Cow", "PushToBottleMilk_LinkHouse0", &flag, &[(CHILD, "false"), (flag.as_str(), "true")]);
+        check_quiet(&r, "GF Cow", "PushToBottleMilk_LinkHouse0", &flag, &[(CHILD, "true")]);
+    }
+
+    #[test]
+    fn with_both_gerudo_gates_a_child_gets_the_valley_item_and_an_adult_the_fortress_item() {
+        let Some(r) = root() else { return };
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        let d: FlowData = FlowData::load().unwrap();
+        let (gv, gf): (String, String) = (flag_of("GV Cow").unwrap(), flag_of("GF Cow").unwrap());
+        for order in [["GV Cow", "GF Cow"], ["GF Cow", "GV Cow"]] {
+            let ch: Vec<Change> = order.iter().flat_map(|l| changes(d.by_name(l).unwrap(), NEW).unwrap()).collect();
+            let os = crate::flow_extra::ops_for(&ch).unwrap();
+            let raw: Vec<u8> = rf.read_zs(&crate::flow_locations::path_of("Animal_Cow.bfevfl")).unwrap();
+            let b: Bf = crate::flow_extra::edit_flow(&raw, &[], &os["Animal_Cow.bfevfl"]).unwrap();
+            assert_eq!(Bf::parse(&b.write().unwrap()).unwrap(), b);
+            let mut fl: HM<String, Flow> = HM::new();
+            fl.insert("Animal_Cow".to_string(), b.flows[0].clone());
+            let mut s: Sim = sim(&r, fl).unwrap();
+            for (child, want, other) in [("true", &gv, &gf), ("false", &gf, &gv)] {
+                let fins: Vec<Fin> = run(&mut s, &scene_in("Animal_Cow", "PushToBottleMilk_LinkHouse0", &[(CHILD, child)])).unwrap();
+                assert!(fins.iter().any(|f| granted(f, NEW) == 1 && gave(f, want)), "{order:?} {child}");
+                assert!(fins.iter().all(|f| !f.m.writes.contains_key(other.as_str())), "{order:?} {child}");
+                let done: Vec<Fin> = run(&mut s, &scene_in("Animal_Cow", "PushToBottleMilk_LinkHouse0", &[(CHILD, child), (want.as_str(), "true")])).unwrap();
+                assert!(done.iter().all(|f| granted(f, NEW) == 0), "{order:?} {child}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_other_cows_need_their_own_toggle_and_keep_the_string() {
+        assert!(!plan_of(&Settings::default()).unwrap().cows_other);
+        assert!(!plan_of(&with_other(false)).unwrap().cows_other);
+        assert!(plan_of(&with_other(true)).unwrap().cows_other && !plan_of(&with_other(true)).unwrap().cows);
+        assert!(!plan_of(&with(true)).unwrap().cows_other);
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_rewards", Value::s("off")).unwrap();
+        s.set(SETTING_OTHER, Value::Bool(true)).unwrap();
+        assert!(!plan_of(&s).unwrap().cows_other);
+        let mut d: Settings = Settings::default();
+        d.set(SETTING_OTHER, Value::Bool(false)).unwrap();
+        assert_eq!(Settings::default().encode().unwrap(), d.encode().unwrap());
+        assert_eq!(crate::settings::schema().get(SETTING_OTHER).map(|x| x.num), Some(66));
+        assert_eq!(crate::settings::schema().get(SETTING).map(|x| x.num), Some(65));
+    }
+
+    #[test]
+    fn the_other_cows_are_flow_ok_and_open_only_with_their_toggle() {
+        let d: Data = Data::load().unwrap();
+        let (off, one, two) = (plan_of(&Settings::default()).unwrap(), plan_of(&with(true)).unwrap(), plan_of(&with_other(true)).unwrap());
+        for n in OTHER {
+            let l: &Loc = d.flow.by_name(n).unwrap();
+            assert!(d.flow_ok(n) && is(n) && is_other(n), "{n}");
+            assert!(l.gated && !l.supported && l.cat == "cow", "{n}");
+            assert!(!crate::flow_extra::open(l, &off) && !crate::flow_extra::open(l, &one) && crate::flow_extra::open(l, &two), "{n}");
+            assert_eq!(d.vanilla_of(n), Some("Rupees (5)"), "{n}");
+            assert!(crate::slice::edit::is_sale(&d, n), "{n}");
+            assert_eq!(changes(l, NEW).unwrap().len(), 1, "{n}");
+        }
+        for n in LOCS {
+            assert!(!crate::flow_extra::open(d.flow.by_name(n).unwrap(), &two) && !is_other(n), "{n}");
+        }
+    }
+
+    #[test]
+    fn the_clone_data_points_at_the_events_the_builder_makes() {
+        let x: Extra = Extra::load().unwrap();
+        let d: FlowData = FlowData::load().unwrap();
+        for c in crate::cow_clone::all() {
+            let s: &Spec = x.by_name(&c.location).unwrap();
+            assert_eq!(s.ops.len(), 1, "{}", c.class);
+            let o = &s.ops[0];
+            assert_eq!((o.file.as_str(), o.index, o.event.as_str()), (c.flow_file().as_str(), usize::from(crate::cow_clone::flow::HEAD), "Event2"), "{}", c.class);
+            let How::Once(w) = &o.how else { panic!("once") };
+            assert!(!w.child && !w.adult && w.entry == crate::cow_clone::flow::PUSH, "{}", c.class);
+            let l: &Loc = d.by_name(&c.location).unwrap();
+            assert_eq!(l.edits.len(), 1);
+            assert_eq!((l.edits[0].file.as_str(), l.edits[0].index, l.edits[0].event.as_str()), (c.flow_file().as_str(), 16, "Event74"), "{}", c.class);
+        }
+        let Some(r) = root() else { return };
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        let (cow, _): (Bf, Bf) = crate::cow_clone::flow::sources(&mut rf).unwrap();
+        assert_eq!(crate::cow_clone::flow::mapped(&cow, 45).unwrap(), 16);
+        let gf = x.by_name("GF Cow").unwrap();
+        let How::Once(w) = &gf.ops[0].how else { panic!("once") };
+        assert!(w.adult && !w.child && w.entry == "PushToBottleMilk_LinkHouse0");
+    }
+
+    #[test]
+    fn every_cow_flag_is_a_distinct_persistent_bool_that_no_game_file_names() {
+        let all: Vec<String> = LOCS.iter().chain(OTHER.iter()).map(|n| flag_of(n).unwrap()).collect();
+        let set: BS<&String> = all.iter().collect();
+        assert_eq!(set.len(), 8);
+        for f in &all {
+            let row: &str = FLAGS.lines().find(|l| l.contains(&format!("\"name\":\"{f}\""))).unwrap();
+            assert!(row.contains("\"type\":\"Bool\"") && row.contains("\"save\":0") && row.contains("\"reset\":8"), "{f}");
+            assert!(f.starts_with("HavePlayedEvent.Dm_StaffCredit_00"), "{f}");
+        }
+        for bad in ["0022", "0003", "0004", "0020", "0021"] {
+            assert!(!all.iter().any(|f| f.ends_with(bad)), "{bad}");
+        }
+        let Some(r) = root() else { return };
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        let names: Vec<String> = all.iter().map(|f| f.trim_start_matches("HavePlayedEvent.").to_string()).collect();
+        let es: crate::byml::Byml = rf.read_byml(crate::progressive::SETTING_TABLE).unwrap();
+        let rows: String = format!("{:?}", es.root);
+        for n in &names {
+            assert!(!rows.contains(&format!("\"{n}\"")), "{n} has an event row");
+        }
+        let flows: Vec<String> = rf.list("Event/EventFlow").unwrap();
+        assert!(flows.len() > 800);
+        for f in flows.iter().filter(|f| f.ends_with(".bfevfl.zs")) {
+            let raw: Vec<u8> = rf.read_zs(f).unwrap();
+            for n in &names {
+                assert!(!raw.windows(n.len()).any(|w| w == n.as_bytes()), "{f} names {n}");
+            }
+        }
+    }
+
+    #[test]
+    fn toggle_other_adds_six_cows_with_items_the_flows_hand_out() {
+        let d: Data = Data::load().unwrap();
+        let off: Generated = generate_data(&d, &with_other(false), "cows other", &GenOpts::default()).unwrap();
+        for l in OTHER {
+            assert!(!off.seed_file.placements.contains_key(l), "{l}");
+        }
+        for n in 0..2 {
+            let g: Generated = generate_data(&d, &with_other(true), &format!("cows other {n}"), &GenOpts::default()).unwrap();
+            assert_eq!(g.seed_file.placements.len(), off.seed_file.placements.len() + OTHER.len());
+            for l in OTHER {
+                let it: &str = &g.seed_file.placements[l];
+                assert!(d.item(it).is_some_and(|i| d.flow_accepts(i) || it == "Rupees (5)"), "{l} holds {it}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_built_mod_makes_each_ordinary_cow_its_own_class_in_every_age_file() {
+        let Some(r) = root() else { return };
+        let d: Data = Data::load().unwrap();
+        let o: GenOpts = GenOpts { plando: vec![crate::slice::plando::parse("DMT Cow Grotto Cow=Hover Boots").unwrap()], ..GenOpts::default() };
+        let g: Generated = generate_data(&d, &with_other(true), "cows other build", &o).unwrap();
+        let load: PB = PB::from(env!("CARGO_MANIFEST_DIR")).join("../../target/cows_other_mods");
+        let _ = std::fs::remove_dir_all(&load);
+        let b: crate::slice::edit::Built = crate::slice::edit::build_for(&g.seed_file, &r, &load, "ootrr-cows-other", crate::modpack::Host::Eden).unwrap();
+        let romfs: PB = b.root.join("romfs");
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        let rd = |rf: &mut Romfs, p: &str| -> Vec<u8> { rf.zs.decompress(&std::fs::read(p.split('/').fold(romfs.clone(), |a, s| a.join(s))).unwrap()).unwrap() };
+        let rst: crate::rsizetable::Rst = crate::rsizetable::Rst::parse(&rd(&mut rf, crate::rsizetable::TABLE_PATH)).unwrap();
+        let info: crate::byml::Byml = crate::byml::Byml::parse(&rd(&mut rf, crate::pickup_pack::rows::ACTOR_INFO)).unwrap();
+        let es: crate::byml::Byml = crate::byml::Byml::parse(&rd(&mut rf, crate::progressive::SETTING_TABLE)).unwrap();
+        let an: crate::byml::Byml = crate::byml::Byml::parse(&rd(&mut rf, crate::progressive::ANALYZED_TABLE)).unwrap();
+        let tag: crate::pickup_pack::tag::Table = crate::pickup_pack::tag::Table::parse(&rd(&mut rf, crate::pickup_pack::tag::TAG)).unwrap();
+        let row = |y: &crate::byml::Byml, id: &str| y.root.as_arr().unwrap().iter().find(|n| n.get("__RowId").and_then(|v| v.as_str()) == Some(id)).cloned();
+        for c in crate::cow_clone::all() {
+            let pk: String = crate::cow_clone::pack::pack_of(&c.class);
+            let raw: Vec<u8> = rd(&mut rf, &pk);
+            assert_eq!(rst.get(&pk), Some(crate::pickup_pack::sizes::pack_size(raw.len()).unwrap()), "{}", c.class);
+            let fp: String = crate::flow_locations::path_of(&c.flow_file());
+            let fl: Vec<u8> = rd(&mut rf, &fp);
+            assert!(rst.get(&fp).is_some_and(|n| n as usize > fl.len()), "{}", c.class);
+            let sp: String = crate::cow_clone::pack::path(crate::cow_clone::pack::SCHEDULE, &c.class);
+            assert!(romfs.join(&sp).is_file() && rst.get(&sp).is_some(), "{}", c.class);
+            assert!(row(&info, &c.class).is_some(), "{}", c.class);
+            for id in [crate::cow_clone::flow::talk_row(&c.class), crate::cow_clone::flow::give_row(&c.class), crate::cow_clone::flow::push_row(&c.class)] {
+                assert!(row(&es, &id).is_some() && row(&an, &id).is_some(), "{id}");
+            }
+            let push = row(&an, &crate::cow_clone::flow::push_row(&c.class)).unwrap();
+            let subs: Vec<&str> = push.get("SubFlowList").unwrap().as_arr().unwrap().iter().filter_map(|x| x.as_str()).collect();
+            assert!(subs.contains(&"Dm_SY_Get") && subs.contains(&"Dm_SY_GetInEvent"), "{} {subs:?}", c.class);
+            assert_eq!(tag.tags_of(&c.class), tag.tags_of("Animal_Cow"));
+            for s in &c.spots {
+                let y: crate::byml::Byml = crate::byml::Byml::parse(&rd(&mut rf, &s.file)).unwrap();
+                assert_eq!(crate::pickup_pack::place::current(&y, s.hash).as_deref(), Some(c.class.as_str()), "{} {}", c.class, s.file);
+            }
+        }
+        assert!(crate::flow_extra::analyzed::worked(&mut rf, &romfs).unwrap().is_none());
+        let gf = row(&an, "GiveMilk_GerudoFortress").unwrap();
+        assert!(gf.get("SubFlowList").unwrap().as_arr().unwrap().iter().any(|x| x.as_str() == Some("Dm_SY_Get")));
+        assert!(b.report.contains("actor classes of their own"), "{}", b.report);
+        let _ = std::fs::remove_dir_all(&load);
     }
 }

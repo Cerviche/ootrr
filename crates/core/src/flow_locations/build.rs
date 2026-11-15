@@ -5,7 +5,7 @@ use std::path::{Path as P, PathBuf as PB};
 use crate::TITLE_ID;
 use crate::error::{Error as E, Res};
 use crate::flow_locations::data::{path_of, Data, Edit, Loc};
-use crate::flow_locations::edit::{dict_id, Req};
+use crate::flow_locations::edit::Req;
 use crate::modpack::Pack;
 use crate::romfs::Romfs;
 use crate::rsizetable::{self, Rst};
@@ -228,9 +228,8 @@ pub fn stage(rf: &mut Romfs, d: &Data, cs: &[Choice], o: &Opts) -> Res<Stage> {
         let rs: &[Req] = by.get(file).map(|v| v.as_slice()).unwrap_or(&[]);
         let os: &[crate::flow_extra::Op] = extra.get(file).map(|v| v.as_slice()).unwrap_or(&[]);
         let path: String = path_of(file);
-        let z: Vec<u8> = rf.read(&path)?;
-        let id: u32 = dict_id(&z).unwrap_or(FRAME_DICT);
-        let raw: Vec<u8> = rf.zs.decompress(&z)?;
+        let (raw, id): (Vec<u8>, Option<u32>) = crate::cow_clone::read(rf, file)?;
+        let id: u32 = id.unwrap_or(FRAME_DICT);
         let out: Vec<u8> = crate::flow_extra::edit_bytes(&raw, rs, os)?;
         files.push(StagedFile { path, z: zs::compress_raw(&out, Some(id))?, old: raw.len(), new: out.len() });
     }
@@ -258,9 +257,28 @@ pub fn apply(romfs: &P, load: &P, mod_name: &str, cs: &[Choice], o: &Opts) -> Re
         }
     }
     let staged: Vec<(String, Vec<u8>)> = st.files.iter().map(|s| (s.path.clone(), s.z.clone())).collect();
-    let flows = crate::flow_extra::analyzed::flows_of(&mut rf, &staged)?;
-    let loads = crate::flow_extra::analyzed::stage(&mut rf, &|_: &str| None, flows)?;
+    let lens: Vec<(String, usize)> = st.files.iter().map(|s| (s.path.clone(), s.new)).collect();
+    let cows: Vec<crate::cow_clone::Cow> = crate::cow_clone::active(&lens);
     let mut lines: Vec<String> = Vec::new();
+    let mut made: Vec<crate::staging::Out> = Vec::new();
+    if !cows.is_empty() {
+        if rst.is_none() {
+            rst = Some(rsizetable::load(&mut rf)?);
+        }
+        let t: &mut Rst = rst.as_mut().ok_or(E::Format("flow_locations: no size table"))?;
+        let refs: Vec<&crate::cow_clone::Cow> = cows.iter().collect();
+        let m: crate::cow_clone::Made = crate::cow_clone::stage(&mut rf, &|_: &str| None, &refs, t, &lens)?;
+        for o in &m.outs {
+            pk.write_romfs(&o.path, &o.z)?;
+        }
+        grown += crate::cow_clone::sized(&mut rf, t, &m)?;
+        lines.push(format!("{} cows became actor classes of their own:", cows.len()));
+        lines.extend(m.lines.iter().map(|l| format!("  {l}")));
+        made = m.outs;
+    }
+    let flows = crate::flow_extra::analyzed::flows_of(&mut rf, &staged)?;
+    let have = |p: &str| -> Option<Vec<u8>> { made.iter().find(|o| o.path == p).map(|o| o.z.clone()) };
+    let loads = crate::flow_extra::analyzed::stage(&mut rf, &have, flows)?;
     if let Some((o, added)) = &loads {
         pk.write_romfs(&o.path, &o.z)?;
         if o.new > o.old {

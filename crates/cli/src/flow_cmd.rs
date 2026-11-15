@@ -5,7 +5,7 @@ use std::path::Path as P;
 use ootrr_core::bfevfl::{Bf, Cont, Event, Val};
 use ootrr_core::error::{Error, Res};
 use ootrr_core::flow_locations::{
-    apply, check_list, coverage, markdown, path_of, plan, verify, Applied, Change, Checked, Choice, Data, Diff, Edit, Loc,
+    apply, check_list, coverage, markdown, plan, verify, Applied, Change, Checked, Choice, Data, Diff, Edit, Loc,
     Opts,
 };
 use ootrr_core::json::{self, Json};
@@ -109,8 +109,8 @@ pub fn check(a: &[String]) -> Res<()> {
             for f in v {
                 n += 1;
                 files.insert(f.to_string());
-                let raw: Vec<u8> = match rf.read_zs(&path_of(f)) {
-                    Ok(r) => r,
+                let raw: Vec<u8> = match ootrr_core::cow_clone::read(&mut rf, f) {
+                    Ok(r) => r.0,
                     Err(x) => {
                         bad.push(format!("{} {f}: {x}", l.name));
                         continue;

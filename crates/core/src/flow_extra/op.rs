@@ -27,6 +27,7 @@ pub struct Once {
     pub entry: String,
     pub flag: String,
     pub child: bool,
+    pub adult: bool,
     pub sub: String,
     pub params: Vec<(String, Val)>,
 }
@@ -250,15 +251,32 @@ fn flag_ask(flag: &str) -> Cont {
     Cont { items: vec![("Index".to_string(), Val::Int(-1)), ("GameDataName".to_string(), Val::Str(flag.to_string()))] }
 }
 
+fn stacked(f: &Flow, cur: u16, main: u16, val: u32) -> bool {
+    let Some(Kind::Switch { actor, query, cases, .. }) = f.events.get(usize::from(cur)).map(|e| &e.kind) else {
+        return false;
+    };
+    let Some(a) = f.actors.get(usize::from(*actor)) else {
+        return false;
+    };
+    a.name == PLAYER && a.queries.get(usize::from(*query)).map(|q| q.as_str()) == Some(CHILD) && cases.iter().any(|c| c.val == val && c.ev == main)
+}
+
 fn once(f: &mut Flow, o: &Op, w: &Once) -> Res<()> {
     let at: usize = f
         .entries
         .iter()
         .position(|e| e.name == w.entry)
         .ok_or_else(|| E::Msg(format!("the flow has no entry {}, the game files differ", w.entry)))?;
-    let main: u16 = f.entries[at].main;
-    if usize::from(main) != o.index {
-        return Err(E::Msg(format!("entry {} starts at event {main} and not {}, the game files differ", w.entry, o.index)));
+    if w.child && w.adult {
+        return Err(E::Msg(format!("the once gate of {} asks for a child and an adult at once", w.entry)));
+    }
+    let cur: u16 = f.entries[at].main;
+    let main: u16 = idx(o.index)?;
+    let val: u32 = if w.adult { 1 } else { 0 };
+    let aged: bool = w.child || w.adult;
+    let stack: bool = cur != main && aged && stacked(f, cur, main, val);
+    if cur != main && !stack {
+        return Err(E::Msg(format!("entry {} starts at event {cur} and not {}, the game files differ", w.entry, o.index)));
     }
     event(f, o.index, &o.event)?;
     let (tf, te): (&str, &str) = split(&w.sub, ':')?;
@@ -267,9 +285,17 @@ fn once(f: &mut Flow, o: &Op, w: &Once) -> Res<()> {
     let grant: u16 = push(f, Kind::Sub { next: main, params: Some(Cont { items: w.params.clone() }), flow: tf.to_string(), entry: te.to_string() })?;
     let set: u16 = push(f, Kind::Action { next: grant, actor: sa, act: si, params: Some(set_bool(&w.flag)) })?;
     let mut head: u16 = push(f, Kind::Switch { actor: qa, query: qi, cases: vec![Case { val: 0, ev: main }, Case { val: 1, ev: set }], params: Some(flag_ask(&w.flag)) })?;
-    if w.child {
+    if stack {
+        if let Kind::Switch { cases, .. } = &mut f.events[usize::from(cur)].kind {
+            for c in cases.iter_mut().filter(|c| c.val == val) {
+                c.ev = head;
+            }
+        }
+        head = cur;
+    } else if aged {
         let (pa, pi): (u16, u16) = slot(f, PLAYER, CHILD, true)?;
-        head = push(f, Kind::Switch { actor: pa, query: pi, cases: vec![Case { val: 0, ev: head }, Case { val: 1, ev: main }], params: None })?;
+        let (kid, grown): (u16, u16) = if w.child { (head, main) } else { (main, head) };
+        head = push(f, Kind::Switch { actor: pa, query: pi, cases: vec![Case { val: 0, ev: kid }, Case { val: 1, ev: grown }], params: None })?;
     }
     f.entries[at].main = head;
     f.entries[at].subs.push(grant);
@@ -447,6 +473,7 @@ mod tests {
             entry: "Start".to_string(),
             flag: "Flag_Once".to_string(),
             child,
+            adult: false,
             sub: "G:Grant".to_string(),
             params: vec![("ActorName".to_string(), Val::Str(ITEM.to_string())), ("IsNpcEventStarter".to_string(), Val::Bool(0))],
         };
@@ -488,6 +515,54 @@ mod tests {
         assert_eq!(f.actors[*actor as usize].queries[*query as usize], CHILD);
         assert_eq!(cases, &vec![Case { val: 0, ev: 5 }, Case { val: 1, ev: 0 }]);
         assert!(params.is_none());
+    }
+
+    fn aged(child: bool, adult: bool, flag: &str) -> Op {
+        let mut o: Op = once_op(child);
+        if let How::Once(w) = &mut o.how {
+            w.adult = adult;
+            w.flag = flag.to_string();
+        }
+        o
+    }
+
+    fn flag_of(f: &Flow, i: u16) -> (String, Vec<Case>) {
+        let Kind::Switch { params, cases, .. } = &f.events[usize::from(i)].kind else { panic!("switch") };
+        let Some(Val::Str(s)) = params.as_ref().and_then(|c| c.get("GameDataName")) else { panic!("flag") };
+        (s.clone(), cases.clone())
+    }
+
+    #[test]
+    fn an_adult_gate_and_a_child_gate_share_one_age_switch_in_either_order() {
+        let mut lone: Bf = sample();
+        apply(&mut lone, &aged(false, true, "Flag_Old")).unwrap();
+        let f: &Flow = &round(&lone).flows[0];
+        let Kind::Switch { cases, .. } = &f.events[usize::from(f.entries[0].main)].kind else { panic!("switch") };
+        assert_eq!(cases[0], Case { val: 0, ev: 0 });
+        assert_eq!(flag_of(f, cases[1].ev).0, "Flag_Old");
+        for kid_first in [true, false] {
+            let (c, a): (Op, Op) = (aged(true, false, "Flag_Kid"), aged(false, true, "Flag_Old"));
+            let ops: [Op; 2] = if kid_first { [c.clone(), a.clone()] } else { [a.clone(), c.clone()] };
+            let mut b: Bf = sample();
+            apply(&mut b, &ops[0]).unwrap();
+            apply(&mut b, &ops[1]).unwrap();
+            let f: &Flow = &round(&b).flows[0];
+            assert_eq!(f.events.len(), 3 + 3 + 3 + 1, "{kid_first}");
+            let Kind::Switch { actor, query, cases, .. } = &f.events[usize::from(f.entries[0].main)].kind else { panic!("switch") };
+            assert_eq!(f.actors[*actor as usize].name, PLAYER);
+            assert_eq!(f.actors[*actor as usize].queries[*query as usize], CHILD);
+            for (v, flag) in [(0, "Flag_Kid"), (1, "Flag_Old")] {
+                let ev: u16 = cases.iter().find(|x| x.val == v).unwrap().ev;
+                let (name, fc): (String, Vec<Case>) = flag_of(f, ev);
+                assert_eq!(name, flag, "{kid_first}");
+                assert_eq!(fc[0], Case { val: 0, ev: 0 });
+            }
+            assert_eq!(f.entries[0].subs.len(), 4);
+            let after: Bf = b.clone();
+            assert!(apply(&mut b, &ops[0]).is_err());
+            assert_eq!(b, after);
+        }
+        assert!(apply(&mut sample(), &aged(true, true, "Flag_Both")).is_err());
     }
 
     #[test]

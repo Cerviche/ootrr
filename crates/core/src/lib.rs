@@ -12,6 +12,7 @@ pub mod colors;
 pub mod catalog_json;
 pub mod chest_size;
 pub mod chest_slot;
+pub mod cow_clone;
 pub mod deku_bridge;
 pub mod door_fix;
 pub mod door_open;

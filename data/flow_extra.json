@@ -234,6 +234,54 @@
 ]
 },
 {
+"name": "GF Cow",
+"why": "the Gerudo Fortress cow shares the Gerudo milk entry (PushToBottleMilk_LinkHouse0) with the Gerudo Valley cow and only stands in the adult fortress, so the same once flag gate asks for an adult first, and when the valley gate is also on both gates hang off one age check",
+"ops": [
+{"kind": "once_grant", "file": "Animal_Cow.bfevfl", "index": 106, "event": "Event113", "entry": "PushToBottleMilk_LinkHouse0", "flag": "HavePlayedEvent.Dm_StaffCredit_0023", "adult": true,
+ "sub": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "$item"], ["IsNpcEventStarter", false]]}
+]
+},
+{
+"name": "DMT Cow Grotto Cow",
+"why": "an ordinary cow made into its own actor class Animal_Cow_DMT (data/cow_clones.json), whose own flow copies the Link's House milk path, so the same once flag gate goes in front of its own milk entry and no other cow sees it",
+"ops": [
+{"kind": "once_grant", "file": "Animal_Cow_DMT.bfevfl", "index": 2, "event": "Event2", "entry": "PushToBottleMilk", "flag": "HavePlayedEvent.Dm_StaffCredit_0029", "child": false,
+ "sub": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "$item"], ["IsNpcEventStarter", false]]}
+]
+},
+{
+"name": "Kak Impas House Cow",
+"why": "an ordinary cow made into its own actor class Animal_Cow_Kakariko (data/cow_clones.json), whose own flow copies the Link's House milk path, so the same once flag gate goes in front of its own milk entry and no other cow sees it",
+"ops": [
+{"kind": "once_grant", "file": "Animal_Cow_Kakariko.bfevfl", "index": 2, "event": "Event2", "entry": "PushToBottleMilk", "flag": "HavePlayedEvent.Dm_StaffCredit_0030", "child": false,
+ "sub": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "$item"], ["IsNpcEventStarter", false]]}
+]
+},
+{
+"name": "HF Cow Grotto Cow",
+"why": "an ordinary cow made into its own actor class Animal_Cow_HFGrotto (data/cow_clones.json), whose own flow copies the Link's House milk path, so the same once flag gate goes in front of its own milk entry and no other cow sees it",
+"ops": [
+{"kind": "once_grant", "file": "Animal_Cow_HFGrotto.bfevfl", "index": 2, "event": "Event2", "entry": "PushToBottleMilk", "flag": "HavePlayedEvent.Dm_StaffCredit_0024", "child": false,
+ "sub": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "$item"], ["IsNpcEventStarter", false]]}
+]
+},
+{
+"name": "LLR Stables Left Cow",
+"why": "an ordinary cow made into its own actor class Animal_Cow_LLR_Left (data/cow_clones.json), whose own flow copies the Link's House milk path, so the same once flag gate goes in front of its own milk entry and no other cow sees it",
+"ops": [
+{"kind": "once_grant", "file": "Animal_Cow_LLR_Left.bfevfl", "index": 2, "event": "Event2", "entry": "PushToBottleMilk", "flag": "HavePlayedEvent.Dm_StaffCredit_0025", "child": false,
+ "sub": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "$item"], ["IsNpcEventStarter", false]]}
+]
+},
+{
+"name": "LLR Stables Right Cow",
+"why": "an ordinary cow made into its own actor class Animal_Cow_LLR_Right (data/cow_clones.json), whose own flow copies the Link's House milk path, so the same once flag gate goes in front of its own milk entry and no other cow sees it",
+"ops": [
+{"kind": "once_grant", "file": "Animal_Cow_LLR_Right.bfevfl", "index": 2, "event": "Event2", "entry": "PushToBottleMilk", "flag": "HavePlayedEvent.Dm_StaffCredit_0026", "child": false,
+ "sub": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "$item"], ["IsNpcEventStarter", false]]}
+]
+},
+{
 "name": "DMC Great Fairy Reward",
 "why": "the Wisdom gift sub plays the double magic gauge birth after the item (events 75 to 78 of Dm_SY_GetInEvent) whatever the item is, only the magic meter items can create that gauge, so another item is handed over with the plain fountain gift sub that the other fountains use",
 "ops": [

@@ -62,6 +62,7 @@ pub struct Plan {
     pub extra: bool,
     pub trade: bool,
     pub cows: bool,
+    pub cows_other: bool,
     pub frog_songs: bool,
     pub frog_bug: bool,
     pub scrubs: bool,
@@ -318,6 +319,11 @@ pub fn plan(s: &Settings) -> Res<Plan> {
             bad.push(e.to_string());
             false
         });
+    let cows_other: bool = rewards
+        && s.flag(crate::flow_extra::cows::SETTING_OTHER).unwrap_or_else(|e| {
+            bad.push(e.to_string());
+            false
+        });
     let frog_songs: bool = rewards
         && s.flag(crate::flow_extra::frogs::SONGS_SETTING).unwrap_or_else(|e| {
             bad.push(e.to_string());
@@ -466,6 +472,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (extra, "Kak 20 Gold Skulltula Reward, DMT Biggoron and GC Medigoron are shuffled with structural event edits."),
         (trade, "The ten adult trade quest hand ins each give one extra shuffled item the first time. The trade chain itself stays vanilla."),
         (cows, crate::flow_extra::cows::NOTE),
+        (cows_other, crate::flow_extra::cows::NOTE_OTHER),
         (frog_songs, crate::flow_extra::frogs::SONGS_NOTE),
         (frog_bug, crate::flow_extra::frogs::BUG_NOTE),
     ] {
@@ -514,7 +521,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::deku_bridge::NOTE.to_string());
     }
     notes.extend(shops.notes());
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, frog_songs, frog_bug, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge })
 }
 
 #[cfg(test)]

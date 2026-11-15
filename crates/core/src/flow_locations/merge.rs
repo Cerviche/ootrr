@@ -4,7 +4,7 @@ use crate::bfevfl::{Bf, Flow};
 use crate::error::{Error as E, Res};
 use crate::flow_locations::build::{plan, Change, Choice, Opts, Stage, StagedFile, FRAME_DICT};
 use crate::flow_locations::data::{path_of, Data};
-use crate::flow_locations::edit::{dict_id, set_param, Req};
+use crate::flow_locations::edit::{set_param, Req};
 use crate::flow_extra::{apply_op, ops_for, Op};
 use crate::progressive::Grant;
 use crate::romfs::Romfs;
@@ -38,9 +38,7 @@ pub fn stage_merged(rf: &mut Romfs, d: &Data, cs: &[Choice], gs: &[Grant], o: &O
     let mut files: Vec<StagedFile> = Vec::new();
     for (file, w) in &by {
         let path: String = path_of(file);
-        let z: Vec<u8> = rf.read(&path)?;
-        let id: Option<u32> = dict_id(&z);
-        let raw: Vec<u8> = rf.zs.decompress(&z)?;
+        let (raw, id): (Vec<u8>, Option<u32>) = crate::cow_clone::read(rf, file)?;
         let mut b: Bf = Bf::parse(&raw)?;
         for r in &w.reqs {
             set_param(&mut b, r)?;

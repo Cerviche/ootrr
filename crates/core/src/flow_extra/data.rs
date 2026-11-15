@@ -88,6 +88,7 @@ fn op(j: &Json) -> Res<Op> {
             entry: text(j, "entry")?,
             flag: text(j, "flag")?,
             child: j.get("child").and_then(|v| v.as_bool()).unwrap_or(false),
+            adult: j.get("adult").and_then(|v| v.as_bool()).unwrap_or(false),
             sub: text(j, "sub")?,
             params: params(j)?,
         }),

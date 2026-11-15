@@ -754,6 +754,7 @@
             "GF HBA Crate 11": "((is_adult and Gerudo_Membership_Card) or is_child) and can_break_crate",
             "GF HBA Crate 12": "((is_adult and Gerudo_Membership_Card) or is_child) and can_break_crate",
             "GF HBA Crate 13": "((is_adult and Gerudo_Membership_Card) or is_child) and can_break_crate",
+            "GF Cow": "is_adult and Gerudo_Membership_Card and can_play(Eponas_Song)",
             "GF GS Archery Range": "
                 can_use(Hookshot) and Gerudo_Membership_Card and (at_night or gold_skulls_ignore_daytime)"
         },

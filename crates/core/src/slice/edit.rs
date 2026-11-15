@@ -711,6 +711,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         }
     }
     extra += crate::slice::skull_kit::write(&mut rf, &pk, &mut rst, &skull_drops, kit_pool)?;
+    let (cow_files, cow_lines): (usize, Vec<String>) = crate::cow_clone::write(&mut rf, &pk, &mut rst)?;
+    extra += cow_files;
     let loads: Option<(crate::staging::Out, crate::flow_extra::analyzed::Added)> = crate::flow_extra::analyzed::worked(&mut rf, &pk.work.join("romfs"))?;
     if let Some((o, _)) = &loads {
         pk.write_romfs(&o.path, &o.z)?;
@@ -791,6 +793,10 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         for c in staged.changes.iter().take(LISTED) {
             notes.push(format!("  {} | {} | {} ({}) | {} -> {}", c.location, c.file, c.event, c.index, c.old, c.new));
         }
+    }
+    if !cow_lines.is_empty() {
+        notes.push("Cows made into actor classes of their own, untested in the game:".to_string());
+        notes.extend(cow_lines.iter().map(|l| format!("  {l}")));
     }
     if let Some((_, a)) = &loads {
         notes.push(format!("{} events now load the flows their edited events call:", a.len()));
