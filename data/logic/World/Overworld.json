@@ -2213,7 +2213,7 @@
             "GC Maze Left Chest": "can_use(Megaton_Hammer) or can_use(Silver_Gauntlets)",
             "GC Maze Center Chest": "can_blast_or_smash",
             "GC Maze Right Chest": "can_blast_or_smash",
-            "GC Rolling Goron as Child": "is_child and Bomb_Bag",
+            "GC Rolling Goron as Child": "is_child and (Bomb_Bag or Progressive_Strength_Upgrade)",
             "GC Medigoron": "
                 is_adult and
                 (can_blast_or_smash or Progressive_Strength_Upgrade)",

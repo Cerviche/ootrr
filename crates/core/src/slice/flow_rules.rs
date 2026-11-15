@@ -129,19 +129,40 @@ mod tests {
     }
 
     #[test]
-    fn the_child_rolling_goron_needs_a_bomb_bag_and_the_gate_rule_of_goron_city_only() {
+    fn the_child_rolling_goron_needs_a_bomb_bag_or_strength_and_the_gate_rule_of_goron_city_only() {
         let chus: (&str, &str) = (crate::slice::bombchus::LOGIC_KEY, "true");
         let open: (&str, &str) = ("open_kakariko", "open");
+        let both: [&str; 2] = ["Bomb Bag", "Progressive Strength Upgrade"];
         assert!(goron(&[], &[]));
-        assert!(!goron(&[], &["Bomb Bag"]));
-        assert!(!goron(&[chus], &["Bomb Bag"]));
-        assert!(!goron(&[("logic_child_rolling_with_strength", "true")], &["Bomb Bag"]));
+        assert!(!goron(&[], &both));
+        assert!(!goron(&[chus], &both));
+        assert!(!goron(&[("logic_child_rolling_with_strength", "true")], &both));
         assert!(!goron(&[], &["Zeldas Letter"]));
         assert!(goron(&[open], &["Zeldas Letter"]));
-        assert!(!goron(&[open], &["Bomb Bag"]));
+        assert!(!goron(&[open], &both));
         assert!(goron(&[], &["Bombchus (10)","Bombchus (5)", "Bombchus (20)"]));
         let line: &str = include_str!("../../../../data/logic/World/Overworld.json").lines().find(|l| l.contains("\"GC Rolling Goron as Child\":")).unwrap();
-        assert_eq!(line.trim(), "\"GC Rolling Goron as Child\": \"is_child and Bomb_Bag\",");
+        assert_eq!(line.trim(), "\"GC Rolling Goron as Child\": \"is_child and (Bomb_Bag or Progressive_Strength_Upgrade)\",");
+    }
+
+    #[test]
+    fn a_child_with_strength_and_no_bomb_bag_reaches_the_rolling_goron() {
+        assert!(goron(&[], &["Bomb Bag"]));
+        assert!(goron(&[], &["Bomb Bag", "Bombchus (10)", "Bombchus (5)", "Bombchus (20)"]));
+        let d: Data = Data::load().unwrap();
+        let w: crate::world::World = crate::slice::logic::world_with(&d, &[]).unwrap();
+        let mut p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
+        let bag: crate::logic_items::ItemId = w.item("Bomb Bag").unwrap();
+        let f: crate::logic_items::ItemId = w.item("Rupees (5)").unwrap();
+        for l in &w.real {
+            if p.get(*l) == Some(bag) {
+                p.put(*l, f);
+            }
+        }
+        let s: crate::search::Search = crate::search::explore(&w, &p, &[]);
+        let goron: crate::world::LocId = w.loc("GC Rolling Goron as Child").unwrap();
+        assert!(s.loc_access(goron));
+        assert!(!w.real.iter().any(|l| p.get(*l) == Some(bag)));
     }
 
     #[test]
