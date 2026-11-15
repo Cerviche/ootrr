@@ -476,6 +476,14 @@ pub fn build() -> Schema {
             .tip("Whether the final reward of the Market Treasure Chest Game, a Piece of Heart, holds a random item. Only the first win gives it, later wins give the usual red rupee. The five rooms keep their keys and rupees. Only unique items that do nothing when found twice can be placed there, so no upgrades, ammo, bottles or keys."),
     );
     s.extend(crate::shops::plan::settings());
+    s.push(
+        Setting::choice(85, "shuffle_entrances", "shuffle", "Entrances", "off")
+            .tip("Which doors and transitions lead somewhere else. Entrances are coupled, so the way back always returns you to the door you came in by. Experimental, untested in the game. Only Off and Dungeons work in this build.")
+            .opt("off", "Vanilla", "Every entrance leads where it always does.")
+            .opt("dungeons", "Dungeons", "The eleven dungeon doors lead to other dungeons: Deku Tree, Dodongo's Cavern, Jabu Jabu's Belly, Bottom of the Well, Ice Cavern, Gerudo Training Ground and the Forest, Fire, Water, Shadow and Spirit Temples. Ganon's Castle, boss rooms, blue warps and warp songs stay. Experimental, untested in the game.")
+            .opt("overworld", "Overworld", "The area to area transitions of the overworld lead to other areas. Not built yet, a seed with this is refused.")
+            .opt("everything", "Everything", "Dungeons, overworld transitions and later interiors and grottos, each kept in its own pool. Not built yet, a seed with this is refused."),
+    );
     s.push(starting_items());
     s.push(starting_songs());
     s.sort_by_key(|x| x.num);

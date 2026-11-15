@@ -492,6 +492,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     crate::pot_slice::apply::apply(&mut rf, &d, &pot_ts, &mut edits)?;
     let scrub_jobs: Vec<crate::scrubs_b::Job> = crate::scrubs_b::jobs(&d, seed)?;
     crate::scrubs_b::stage_banc(&mut rf, &scrub_jobs, &mut edits)?;
+    let gate_notes: Vec<String> = crate::entr::build::apply(&mut rf, seed, &mut edits)?;
     for (i, t) in ts.iter().enumerate() {
         let got: Vec<&str> = edits
             .iter()
@@ -717,6 +718,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         notes.push(format!("Upgrade tier warning, generate this seed again with this build: {b}"));
     }
     notes.extend(crate::scrubs_b::notes(&scrub_jobs));
+    notes.extend(gate_notes);
     if !upgrades.is_empty() {
         let n: usize = ts.iter().filter(|t| t.family.is_some()).map(|t| t.name.as_str()).collect::<BS<&str>>().len();
         notes.push(format!(

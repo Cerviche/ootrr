@@ -8,6 +8,7 @@ mod check_rstbl;
 mod check_sarc;
 mod door_fix_cmd;
 mod door_open_cmd;
+mod entr_cmd;
 mod entrance_cmd;
 mod entrance_json;
 mod event_chests_cmd;
@@ -134,6 +135,8 @@ const USAGE: &str = "usage:
   ootrr entrance-catalog <romfs_root> <out_json>
   ootrr entrance-list <romfs_root> [filter]
   ootrr swap-entrance <romfs_root> <load_dir> <mod_name> <entrance_a> <entrance_b> [force]
+  ootrr entrance-mod <romfs_root> <load_dir> <mod_name> [--host eden|hookshot|nx2navi] [--age adult|child] [--swap Map/Name Map/Name]... [--dungeon Spot=Dungeon]...
+  ootrr entrance-verify <romfs_root> <mod_folder>
   ootrr save-info <progress.sav> [--flags <flags_json>]
   ootrr save-get <progress.sav> <name_or_hash>... [--flags <flags_json>]
   ootrr save-set <in> <out> <name=value>... [--flags <flags_json>]
@@ -412,6 +415,8 @@ fn main() -> ExitCode {
         Some("entrance-catalog") => entrance_cmd::catalog(&a[1..]),
         Some("entrance-list") => entrance_cmd::list(&a[1..]),
         Some("swap-entrance") => entrance_cmd::swap(&a[1..]),
+        Some("entrance-mod") => entr_cmd::make(&a[1..]),
+        Some("entrance-verify") => entr_cmd::verify(&a[1..]),
         Some("save-info") => save_cmd::info(&a[1..]),
         Some("save-get") => save_cmd::get(&a[1..]),
         Some("save-set") => save_cmd::set(&a[1..]),

@@ -42,6 +42,7 @@ pub fn rebuild(d: &Data, seed: &SeedFile) -> Res<(World, Placement)> {
         None => world_with(d, &p.logic())?,
     };
     add(d, &p, &mut w, &seed.seed)?;
+    crate::entr::restore(&mut w, &seed.entrances)?;
     let mut place: Placement = vanilla_place(&w, d)?;
     if crate::start_items::pool::active(&p) {
         let mut named: Vec<String> = Vec::with_capacity(p.excluded.len());

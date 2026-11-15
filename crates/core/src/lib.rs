@@ -15,6 +15,7 @@ pub mod door_open;
 pub mod dungeon_credit;
 pub mod dungeon_grant;
 pub mod dungeon_text;
+pub mod entr;
 pub mod entrance_swap;
 pub mod entrances;
 pub mod error;

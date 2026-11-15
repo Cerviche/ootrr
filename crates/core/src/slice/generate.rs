@@ -271,6 +271,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     if let Some(l) = &lay {
         l.add_free(&w, &mut pk.free)?;
     }
+    let gates: Option<crate::entr::Layout> = crate::entr::choose(s, &mut w, seed, &vanilla, &pk.free)?;
     if p.world != Mode::Off && !pk.free.iter().any(|l| pu::listed(d, &w.locs[*l].name)) {
         p.notes.retain(|n| n != pu::NOTE);
     }
@@ -328,7 +329,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         loop {
             let quick: bool = p.songs == Songs::Anywhere && redo + 1 < crate::slice::song_spots::TRIES;
             let (tries, switch): (u32, u32) = if quick { (o.tries.min(crate::slice::song_spots::QUICK_TRIES), o.switch.min(crate::slice::song_spots::QUICK_SWITCH)) } else { (o.tries, o.switch) };
-            let g: Placement = match fill_ordered(&w, &base, &pk.free, &ok, order, &mut rng, tries, &fixed, !p.keys_roam(), r, switch, &watch) {
+            let g: Placement = match fill_ordered(&w, &base, &pk.free, &ok, order, &mut rng, tries, &fixed, !p.keys_roam() && gates.is_none(), r, switch, &watch) {
                 Ok(g) => g,
                 Err(_) if quick => {
                     redo += 1;
@@ -386,6 +387,9 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         crate::shops::layout::fill_deals(l, &seed_file.placements)?;
         seed_file.shops = crate::shops::seed::entries(l);
     }
+    if let Some(l) = &gates {
+        seed_file.entrances = l.to_map();
+    }
     let (sp, spheres): (Option<String>, Steps) = if o.spoiler {
         let (mut t, st): (String, Steps) = spoiler_text(&w, &vanilla, &got, &pk)?;
         let fixed: BM<String, String> = if crate::slice::tier_fix::active(d, &w, &pk.free) {
@@ -398,6 +402,9 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         if let Some(l) = &lay {
             t.push_str(&crate::shops::spoiler::text(l));
         }
+        if let Some(l) = &gates {
+            t.insert_str(0, &crate::entr::text::spoiler(l));
+        }
         (Some(t), st)
     } else {
         (None, Vec::new())
@@ -405,6 +412,9 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     let mut rep: String = report(seed, &p, &pk, &counts, &moved);
     if !plan.is_empty() {
         let _ = writeln!(rep, "Plandomizer: {} placements were fixed by hand.", plan.len());
+    }
+    if let Some(l) = &gates {
+        rep.push_str(&crate::entr::text::report(l));
     }
     Ok(Generated { seed_file, counts, report: rep, spoiler: sp, spheres })
 }

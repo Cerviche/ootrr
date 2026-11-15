@@ -21,6 +21,7 @@ pub struct SeedFile {
     pub generator: String,
     pub placements: Map<String, String>,
     pub shops: Map<String, ShopEntry>,
+    pub entrances: Map<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -71,6 +72,7 @@ impl SeedFile {
             generator: format!("ootrr-core {}", env!("CARGO_PKG_VERSION")),
             placements,
             shops: Map::new(),
+            entrances: Map::new(),
         };
         f.check_fields()?;
         Ok(f)
@@ -99,6 +101,14 @@ impl SeedFile {
                 return Err(bad(&format!("shop slot {k:?} has an empty or odd item, pool item or price")));
             }
         }
+        if self.entrances.len() > MAX_PLACEMENTS {
+            return Err(bad("too many entrances"));
+        }
+        for (k, v) in &self.entrances {
+            if !ident_ok(k) || !ident_ok(v) {
+                return Err(bad(&format!("entrance {k:?} to {v:?} has an id that is empty, too long or has odd characters")));
+            }
+        }
         Settings::decode(&self.settings_string)
             .map_err(|e| bad(&format!("the settings string is not usable: {e}")))?;
         Ok(())
@@ -119,6 +129,9 @@ impl SeedFile {
         }
         for (k, v) in &self.shops {
             t.push_str(&format!("S\t{k}\t{}\t{}\t{}\t{}\n", v.item, v.price, v.deal, v.pool));
+        }
+        for (k, v) in &self.entrances {
+            t.push_str(&format!("E\t{k}\t{v}\n"));
         }
         sha256_hex(t.as_bytes())
     }
@@ -147,6 +160,10 @@ impl SeedFile {
             .with("placements", Json::Obj(p));
         if !self.shops.is_empty() {
             j = j.with("shops", self.shops_json());
+        }
+        if !self.entrances.is_empty() {
+            let e: Vec<(String, Json)> = self.entrances.iter().map(|(k, v)| (k.clone(), Json::Str(v.clone()))).collect();
+            j = j.with("entrances", Json::Obj(e));
         }
         j.with("checksum", self.checksum().into())
     }
@@ -213,6 +230,17 @@ impl SeedFile {
             let item: &str = v.as_str().ok_or_else(|| bad(&format!("placement {k:?} must name an item as a string")))?;
             placements.insert(k.clone(), item.to_string());
         }
+        let mut entrances: Map<String, String> = Map::new();
+        if let Some(e) = j.get("entrances") {
+            let m: &[(String, Json)] = e.as_obj().ok_or_else(|| bad("field entrances must be an object"))?;
+            if m.len() > MAX_PLACEMENTS {
+                return Err(bad("too many entrances"));
+            }
+            for (k, v) in m {
+                let to: &str = v.as_str().ok_or_else(|| bad(&format!("entrance {k:?} must name its target as a string")))?;
+                entrances.insert(k.clone(), to.to_string());
+            }
+        }
         let f: SeedFile = SeedFile {
             seed: field(j, "seed")?.to_string(),
             settings_string: field(j, "settings")?.to_string(),
@@ -224,6 +252,7 @@ impl SeedFile {
             },
             placements,
             shops: SeedFile::shops_from(j)?,
+            entrances,
         };
         f.check_fields()?;
         let want: String = field(j, "checksum")?.to_string();
@@ -301,6 +330,22 @@ mod tests {
         assert!(e.contains("checksum"), "{e}");
         assert!(SeedFile::parse(&edit(&t, "\"price\": 85", "\"price\": 0")).is_err());
         assert!(SeedFile::parse(&edit(&t, "\"deal\": true", "\"deal\": 1")).is_err());
+    }
+
+    #[test]
+    fn entrances_round_trip_and_stay_out_of_files_without_them() {
+        let mut f: SeedFile = sample();
+        assert!(!f.to_text().contains("entrances"));
+        f.entrances.insert("Deku Tree".into(), "Fire Temple".into());
+        let t: String = f.to_text();
+        assert!(t.contains("\"entrances\""));
+        let back: SeedFile = SeedFile::parse(&t).unwrap();
+        assert_eq!(back, f);
+        assert_eq!(back.to_text(), t);
+        assert_ne!(back.checksum(), sample().checksum());
+        let e: String = SeedFile::parse(&edit(&t, "\"Fire Temple\"", "\"Water Temple\"")).unwrap_err().to_string();
+        assert!(e.contains("checksum"), "{e}");
+        assert!(SeedFile::parse(&edit(&t, "\"Fire Temple\"", "7")).is_err());
     }
 
     #[test]
