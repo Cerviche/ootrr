@@ -3,12 +3,12 @@
 //! - Deku Tree (with an open forest): the meeting (Dm_Kokiri_0070/0075) and the first arrival
 //!   inside the tree (Dm_Deku_0000 plus Navi's dungeon lesson) are replaced by their writes at
 //!   new game, so the mouth is open and the quest is where the arrival leaves it.
-//! - Saria's gift (setting): the bridge event goes straight to Dm_Kokiri_0155, the short gift
+//! - Saria's gift: the bridge event goes straight to Dm_Kokiri_0155, the short gift
 //!   scene that hands over the check's item, the way it does when the long Dm_Kokiri_0150 scene
 //!   is skipped with the button. 0150 is marked as played there, which retires the trigger.
-//! - Temple of Time as a child (setting): the first entry and the altar scenes are marked as
+//! - Temple of Time as a child: the first entry and the altar scenes are marked as
 //!   played at new game, with the flags the altar scene leaves behind.
-//! - First Master Sword draw (setting): the draw gives the sword and the item of Rauru's check,
+//! - First Master Sword draw: the draw gives the sword and the item of Rauru's check,
 //!   writes what the Rauru and Sheik scenes write, and hands over to the game's own later-draw
 //!   event (Market_Child_Field_ChildToAdult), which swaps the equipment, makes Link an adult and
 //!   loads the adult temple.
@@ -23,11 +23,8 @@ use crate::bfevfl::{Bf, Cont, Event, Flow, Kind, Val};
 use crate::error::{Error, Res};
 use crate::qol::{edit_zs, Have};
 use crate::romfs::Romfs;
-use crate::settings::Settings;
 use crate::staging::Out;
 use crate::start_state::Ops;
-
-pub const SETTING: &str = "skip_story_scenes";
 
 pub const NOTE_DEKU: &str = "The Deku Tree is met at new game: its mouth is open, the Deku Tree quest is complete and the Forest Stone quest is where Link's first arrival inside the tree leaves it, so the meeting, the arrival scene and Navi's dungeon lesson are skipped.";
 pub const NOTE: &str = "Story cutscenes are skipped. Saria's long bridge scene is cut and only the short gift scene plays, so the bridge check stays where it is. The Temple of Time's first entry and altar scenes are marked as played. The first Master Sword draw gives the sword and the item of Rauru's check and then plays the short scene of a later draw, without the sword pull, Ganondorf, Rauru or Sheik scenes.";
@@ -72,7 +69,7 @@ pub fn deku() -> Ops {
     }
 }
 
-// ---------------------------------------------------------------- new game state (setting)
+// ---------------------------------------------------------------- new game state
 
 /// The child Temple of Time: each trigger area exists only while its scene is unplayed. The
 /// altar scene's flow clears the first-time light shaft and its area's logic sets the found flag.
@@ -86,13 +83,6 @@ pub const TEMPLE_FLAGS: [&str; 4] = [
 /// The new game flags of the setting.
 pub fn start() -> Ops {
     Ops { flags: TEMPLE_FLAGS.iter().map(|n| ((*n).to_string(), true)).collect(), ..Ops::default() }
-}
-
-pub fn read(s: &Settings, bad: &mut Vec<String>) -> bool {
-    s.flag(SETTING).unwrap_or_else(|e| {
-        bad.push(e.to_string());
-        false
-    })
 }
 
 // ---------------------------------------------------------------- flow helpers
@@ -396,6 +386,162 @@ pub fn patch_draw(b: &mut Bf, medal: &str, got: Option<&str>) -> Res<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------- dungeon endings
+
+pub const NOTE_ENDINGS: &str = "Dungeon ending cutscenes are shortened. After each dungeon the long scenes are cut and only the short scene that hands over the Spiritual Stone or Medallion check plays, so the reward (shuffled or not) is still shown. The Deku Tree's farewell, the Goron and Zora celebrations, Darunia's talk after he hands over the Goron's Ruby, each sage's awakening and parting words on the white screen after the medallion, the forest farewell, the village scene after the Fire Temple and Lake Hylia refilling are cut, and their scenes are marked as played.";
+pub const ENDING_FILE: &str = "Event/EventFlow/Dm_SY_BancChange_EscapeDungeon.bfevfl.zs";
+pub const ENDING_FLOW: &str = "Dm_SY_BancChange_EscapeDungeon";
+pub const ENDING_PREFIX: &str = "OOTRREnding";
+/// The scenes cut from the dungeon ending events in that flow. Each is a pre-rendered timeline
+/// (the button skip goes past them too) with no flag, quest or item write of its own, except
+/// Dm_Kokiri_0080 and Dm_Kokiri_0162, scripted scenes that only talk. The scene that hands over
+/// the reward stays in each chain (Dm_Kokiri_0130, Dm_DeathMtTrail_0025, Dm_ZoraFountain_0030,
+/// Dm_Awake_*_Get), as do the quest steps and flags the events write around them.
+pub const CUT_SCENES: [&str; 16] = [
+    // Deku Tree: his last words, farewell and death, and Link leaving the forest.
+    "Dm_Kokiri_0080",
+    "Dm_Kokiri_0095",
+    "Dm_Kokiri_0090",
+    "Dm_Kokiri_0140",
+    // Dodongo's Cavern: the Goron celebration.
+    "Dm_DeathMtTrail_0020",
+    // Jabu-Jabu: Ruto at the fountain.
+    "Dm_ZoraFountain_0020",
+    // Forest Temple: Saria awakens, then the forest scenes outside.
+    "Dm_Awake_Forest",
+    "Dm_Kokiri_0158",
+    "Dm_Kokiri_0160",
+    "Dm_Kokiri_0162",
+    // Fire Temple: Kakariko and Darunia awakens.
+    "Dm_Kakariko_0025",
+    "Dm_Awake_Fire",
+    // Water Temple: Ruto awakens, Lake Hylia refills.
+    "Dm_Awake_Water",
+    "Dm_LakeHrl_0020",
+    // Shadow and Spirit Temples: Impa and Nabooru awaken.
+    "Dm_Awake_Shadow",
+    "Dm_Awake_Spirit",
+];
+
+/// Turns every transition to a cut scene into a write of that scene's played flag, keeping its
+/// next. Several maps read these flags, so they are set as if the scene had played.
+pub fn patch_endings(b: &mut Bf) -> Res<usize> {
+    let f: &mut Flow = flow_mut(b, ENDING_FLOW)?;
+    guard(f, ENDING_PREFIX)?;
+    let mut n: usize = 0;
+    for scene in CUT_SCENES {
+        let hits: Vec<usize> = (0..f.events.len())
+            .filter(|&i| action(f, i).as_deref() == Some("EventSystemActor.EventTransition") && text(&f.events[i], "EventName") == Some(scene))
+            .collect();
+        if hits.is_empty() {
+            return Err(Error::Msg(format!("story skip: no ending plays {scene}, the game files differ")));
+        }
+        for i in hits {
+            let next: u16 = next_of(&f.events[i].kind).ok_or(Error::Format("story skip: a transition has no next"))?;
+            let mut k: Kind = set_bool(f, &format!("HavePlayedEvent.{scene}"), true)?;
+            set_next(&mut k, next)?;
+            f.events[i].kind = k;
+            f.events[i].name = format!("{ENDING_PREFIX}{i}");
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
+/// The medallion scenes of the Chamber of Sages. Each gives its check, fades to white, restores
+/// the boots, then waits a second, shows the sage's parting line(s) on the white screen and
+/// waits about three more seconds (Forest and Fire then set AllSage_AwakeSage_Fire_Or_Forest).
+pub const MEDAL_SCENES: [&str; 5] = ["Dm_Awake_Forest_Get", "Dm_Awake_Fire_Get", "Dm_Awake_Water_Get", "Dm_Awake_Shadow_Get", "Dm_Awake_Spirit_Get"];
+const RESTORE_BOOTS: &str = "Player_Event.EventTriggerPlayerRestoreBootsChange";
+
+/// Points the boots restore past the waits and talks that follow it, at the first event that is
+/// neither (the flag write, or the end). Returns how many events were passed over.
+pub fn cut_white_screen(b: &mut Bf) -> Res<usize> {
+    let f: &mut Flow = b.flows.first_mut().ok_or(Error::Format("story skip: the medallion scene holds no flow"))?;
+    let hits: Vec<usize> = (0..f.events.len()).filter(|&i| action(f, i).as_deref() == Some(RESTORE_BOOTS)).collect();
+    let [r] = hits.as_slice() else {
+        return Err(Error::Msg(format!("story skip: {} has {} boots restores, expected one", f.name, hits.len())));
+    };
+    let mut i: u16 = next_of(&f.events[*r].kind).ok_or(Error::Format("story skip: the boots restore has no next"))?;
+    let mut cut: usize = 0;
+    let mut talks: usize = 0;
+    while i != NONE {
+        let a: String = action(f, i as usize).unwrap_or_default();
+        let skip: bool = a == "EventSystemActor.EventWait" || a.ends_with(".EventTalk");
+        if !skip {
+            break;
+        }
+        talks += usize::from(a.ends_with(".EventTalk"));
+        cut += 1;
+        i = next_of(&f.events[i as usize].kind).ok_or(Error::Format("story skip: a white screen event has no next"))?;
+    }
+    if talks == 0 {
+        return Err(Error::Msg(format!("story skip: {} shows no line after the medallion, the game files differ", f.name)));
+    }
+    set_next(&mut f.events[*r].kind, i)?;
+    Ok(cut)
+}
+
+pub fn medal_file(scene: &str) -> String {
+    format!("Event/EventFlow/{scene}.bfevfl.zs")
+}
+
+/// Darunia's Goron Ruby scene. Its main entry runs its parts in order (sub :C01, :C01-05, :C01-07,
+/// :C02 ... :C09); :C01-07 ends with the grant (the check), everything after is Darunia, the Gorons
+/// and Navi talking, with no flag or item write, and :C09 closes with a listener reset, a fade out
+/// and a one second wait. The grant part is pointed straight at that close.
+pub const DARUNIA_FILE: &str = "Event/EventFlow/Dm_DeathMtTrail_0025.bfevfl.zs";
+const DARUNIA_GRANT_PART: &str = "C01-07";
+const LISTENER: &str = "SoundSystemActor.EventSoundChangeListenerPreset";
+const FADE_OUT: &str = "UISystemActor.EventEventFadeOut";
+
+pub fn cut_darunia_talk(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = b.flows.first_mut().ok_or(Error::Format("story skip: Darunia's scene holds no flow"))?;
+    let parts: Vec<usize> = (0..f.events.len()).filter(|&i| matches!(&f.events[i].kind, Kind::Sub { flow, entry, .. } if flow.is_empty() && entry == DARUNIA_GRANT_PART)).collect();
+    let [part] = parts.as_slice() else {
+        return Err(Error::Msg(format!("story skip: Darunia's scene runs {DARUNIA_GRANT_PART} {} times, expected once", parts.len())));
+    };
+    // The closing listener reset, the one whose next is the fade out.
+    let close: Vec<usize> = (0..f.events.len())
+        .filter(|&i| action(f, i).as_deref() == Some(LISTENER))
+        .filter(|&i| next_of(&f.events[i].kind).is_some_and(|n| n != NONE && action(f, n as usize).as_deref() == Some(FADE_OUT)))
+        .collect();
+    let [close] = close.as_slice() else {
+        return Err(Error::Msg(format!("story skip: Darunia's scene has {} closing fades, expected one", close.len())));
+    };
+    if next_of(&f.events[*part].kind) == Some(*close as u16) {
+        return Err(Error::Format("story skip: Darunia's talk is already cut"));
+    }
+    set_next(&mut f.events[*part].kind, *close as u16)
+}
+
+pub fn stage_endings(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
+    let mut outs: Vec<Out> = vec![edit_zs(rf, have, ENDING_FILE, |raw| {
+        rebuild(raw, |b| {
+            patch_endings(b)?;
+            Ok(())
+        })
+    })?];
+    // The location patcher may have staged these scenes already (their grant holds the check).
+    outs.push(edit_zs(rf, have, DARUNIA_FILE, |raw| rebuild(raw, cut_darunia_talk))?);
+    for s in MEDAL_SCENES {
+        // The location patcher may have staged the scene already (its grant holds the check).
+        outs.push(edit_zs(rf, have, &medal_file(s), |raw| {
+            rebuild(raw, |b| {
+                cut_white_screen(b)?;
+                Ok(())
+            })
+        })?);
+    }
+    Ok(outs)
+}
+
+pub fn worked_endings(rf: &mut Romfs, pk: &crate::modpack::Pack) -> Res<Vec<Out>> {
+    let root: std::path::PathBuf = pk.work.join("romfs");
+    let have = |p: &str| -> Option<Vec<u8>> { fs::read(p.split('/').fold(root.clone(), |a, s| a.join(s))).ok() };
+    stage_endings(rf, &have)
+}
+
 // ---------------------------------------------------------------- staging
 
 fn source(rf: &mut Romfs, have: Have, path: &str) -> Res<Vec<u8>> {
@@ -546,6 +692,90 @@ mod tests {
         assert_eq!(w[3], "EventSystemActor.EventTransition(Dm_Kokiri_0155)");
         assert_eq!(w[4], "GameDataActor.EventTriggerSetGameDataBool(HyruleField_ChangeENV)");
         assert!(w[5].contains("EventReserveBancChange"));
+        Bf::parse(&b.write().unwrap()).unwrap();
+    }
+    #[test]
+    fn the_real_dungeon_endings_keep_only_the_reward_scenes() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut b: Bf = Bf::parse(&rf.read_zs(ENDING_FILE).unwrap()).unwrap();
+        let n: usize = patch_endings(&mut b).unwrap();
+        assert!(n >= CUT_SCENES.len());
+        assert!(patch_endings(&mut b).is_err());
+        let f: &Flow = b.flows.iter().find(|f| f.name == ENDING_FLOW).unwrap();
+        let played: Vec<String> = (0..f.events.len()).filter(|&i| action(f, i).as_deref() == Some("EventSystemActor.EventTransition")).filter_map(|i| text(&f.events[i], "EventName").map(str::to_string)).collect();
+        for s in CUT_SCENES {
+            assert!(!played.iter().any(|p| p == s), "{s} still plays");
+        }
+        for s in ["Dm_Kokiri_0130", "Dm_DeathMtTrail_0025", "Dm_ZoraFountain_0030", "Dm_Awake_Forest_Get", "Dm_Awake_Fire_Get", "Dm_Awake_Water_Get", "Dm_Awake_Shadow_Get", "Dm_Awake_Spirit_Get"] {
+            assert!(played.iter().any(|p| p == s), "{s} no longer plays");
+        }
+        // The Deku Tree chain: flags in place of the four scenes, the emerald scene kept.
+        let e = f.entries.iter().find(|e| e.name == "Warp_Kokiri").unwrap();
+        let w: Vec<String> = walk(f, e.main, 12);
+        let at: usize = w.iter().position(|s| s == "EventSystemActor.EventTransition(Dm_Kokiri_0130)").unwrap();
+        let flag = |n: &str| format!("GameDataActor.EventTriggerSetGameDataBool(HavePlayedEvent.{n})");
+        assert_eq!(w[at - 3..at].to_vec(), vec![flag("Dm_Kokiri_0080"), flag("Dm_Kokiri_0095"), flag("Dm_Kokiri_0090")]);
+        assert_eq!(w[at + 1], flag("Dm_Kokiri_0140"));
+        Bf::parse(&b.write().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn the_real_medallion_scenes_end_without_the_white_screen_lines() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        for s in MEDAL_SCENES {
+            let mut b: Bf = Bf::parse(&rf.read_zs(&medal_file(s)).unwrap()).unwrap();
+            let n: usize = cut_white_screen(&mut b).unwrap();
+            assert!(n >= 3, "{s}: {n}");
+            assert!(cut_white_screen(&mut b).is_err(), "{s}: a second run finds no line");
+            let f: &Flow = &b.flows[0];
+            let g: usize = (0..f.events.len()).find(|&i| matches!(&f.events[i].kind, Kind::Sub { entry, .. } if entry == "GetPouchContentByActorName")).unwrap();
+            let w: Vec<String> = walk(f, g as u16, 10);
+            assert!(w[0].starts_with("sub GetPouchContent:GetPouchContentByActorName"), "{s}");
+            assert!(w.iter().any(|x| x.starts_with("UISystemActor.EventEventFadeOut")), "{s}");
+            assert!(!w.iter().any(|x| x.ends_with(")") && x.contains(".EventTalk(")), "{s}: {w:?}");
+            let tail: Vec<&String> = w.iter().skip_while(|x| !x.starts_with("Player_Event.EventTriggerPlayerRestoreBootsChange")).skip(1).collect();
+            if s.contains("Forest") || s.contains("Fire") {
+                assert_eq!(tail, vec!["GameDataActor.EventTriggerSetGameDataBool(AllSage_AwakeSage_Fire_Or_Forest)"], "{s}");
+            } else {
+                assert!(tail.is_empty(), "{s}: {tail:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_real_darunia_scene_ends_after_the_ruby() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut b: Bf = Bf::parse(&rf.read_zs(DARUNIA_FILE).unwrap()).unwrap();
+        cut_darunia_talk(&mut b).unwrap();
+        assert!(cut_darunia_talk(&mut b).is_err());
+        let f: &Flow = &b.flows[0];
+        let e = f.entries.iter().find(|e| e.name == "EntryPoint0").unwrap();
+        let w: Vec<String> = walk(f, e.main, 20);
+        assert_eq!(w, vec!["sub :Ready", "sub :C01", "sub :C01-05", "sub :C01-07", "SoundSystemActor.EventSoundChangeListenerPreset()", "UISystemActor.EventEventFadeOut()", "EventSystemActor.EventWait()"]);
+        // The grant is still the end of the part that is kept.
+        let g = f.entries.iter().find(|e| e.name == DARUNIA_GRANT_PART).unwrap();
+        let mut i: u16 = g.main;
+        let mut granted = false;
+        for _ in 0..40 {
+            if i == NONE {
+                break;
+            }
+            granted |= matches!(&f.events[i as usize].kind, Kind::Sub { entry, .. } if entry == "GetPouchContentByActorName");
+            i = match &f.events[i as usize].kind {
+                Kind::Fork { join, .. } => *join,
+                k => next_of(k).unwrap_or(NONE),
+            };
+        }
+        assert!(granted);
         Bf::parse(&b.write().unwrap()).unwrap();
     }
 }

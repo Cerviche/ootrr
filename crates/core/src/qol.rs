@@ -289,12 +289,13 @@ mod tests {
         let p: crate::slice::support::Plan = plan(&Settings::default()).unwrap();
         assert!(!p.qol.any());
         assert!(p.logic().is_empty());
-        assert_eq!(p.notes.len(), 3);
+        // Three from the defaults plus the two always-on cutscene skips (crate::story_skip).
+        assert_eq!(p.notes.len(), 5);
         for (k, v, key) in [(ANJU, Value::Bool(true), "chicken_count"), (POE, Value::Bool(true), "big_poe_count")] {
             let p: crate::slice::support::Plan = plan(&with(&[(k, v)])).unwrap();
             assert!(p.qol.any());
             assert_eq!(p.logic(), vec![(key, "1")]);
-            assert_eq!(p.notes.len(), 4);
+            assert_eq!(p.notes.len(), 6);
         }
         let p: crate::slice::support::Plan = plan(&with(&[(SKIP, Value::s("all"))])).unwrap();
         assert_eq!(p.qol.skip, Skip::All);

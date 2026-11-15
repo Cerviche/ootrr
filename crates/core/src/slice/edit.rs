@@ -688,6 +688,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if p.story {
         late.extend(crate::story_skip::worked(&mut rf, &pk)?);
     }
+    if p.endings {
+        late.extend(crate::story_skip::worked_endings(&mut rf, &pk)?);
+    }
     for o in late {
         pk.write_romfs(&o.path, &o.z)?;
         extra += 1;

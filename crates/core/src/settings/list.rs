@@ -477,10 +477,6 @@ pub fn build() -> Schema {
             .tip("Opens the way to Gerudo Fortress: the broken bridge in Gerudo Valley is repaired from the start, so adult Link can cross without Epona or the Longshot. The carpenters in the Thieves' Hideout are not rescued, so the guards, the rescue and the Gerudo Membership Card stay as they are. Experimental, untested in the game."),
     );
     s.push(
-        Setting::toggle(86, crate::story_skip::SETTING, "world", "Skip story cutscenes", false)
-            .tip("Saria's long bridge scene is cut and only the short gift scene plays, so the bridge check stays where it is. The Temple of Time's first entry and altar scenes as a child never play. The first Master Sword draw skips the sword pull, Ganondorf, Rauru and Sheik: the sword and the item of Rauru's check are given, the quest steps those scenes set are written, and the short scene of a later draw takes Link to the adult Temple of Time. Experimental, untested in the game."),
-    );
-    s.push(
         Setting::toggle(73, "shuffle_treasure_reward", "shuffle", "Treasure Chest Game reward", false)
             .tip("Whether the final reward of the Market Treasure Chest Game, a Piece of Heart, holds a random item. Only the first win gives it, later wins give the usual red rupee. The five rooms keep their keys and rupees. Only unique items that do nothing when found twice can be placed there, so no upgrades, ammo, bottles or keys."),
     );

@@ -88,7 +88,10 @@ pub struct Plan {
     pub open: crate::open_world::Opts,
     pub npc: crate::npc_hints::Opts,
     /// crate::story_skip: Saria's gift, the child Temple of Time and the first sword draw.
+    /// Always on; the field stays so the parts can be told apart in the build.
     pub story: bool,
+    /// crate::story_skip dungeon endings.
+    pub endings: bool,
 }
 
 const GEAR: &[(&str, &str, &str)] = &[
@@ -391,7 +394,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
-    let story: bool = crate::story_skip::read(s, &mut bad);
+    // Always on in this randomizer, like the other cutscene skips (no setting).
+    let story: bool = true;
+    let endings: bool = true;
     let excluded: Vec<String> = s.items("disabled_locations").map(|v| v.to_vec()).unwrap_or_default();
     if !bad.is_empty() {
         let lines: Vec<String> = bad.iter().map(|b| format!("  {b}")).collect();
@@ -422,6 +427,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (forest == Forest::Open, "The Deku Tree quest starts at the step Mido normally sets when he steps aside (Meet_DekuTree Step03), so Mido stands aside and the Kokiri Shop shows its later stock."),
         (forest == Forest::Open, crate::story_skip::NOTE_DEKU),
         (story, crate::story_skip::NOTE),
+        (endings, crate::story_skip::NOTE_ENDINGS),
         (hints, "Gossip stones give hints. Their text is replaced in every language."),
         (extra, "Kak 20 Gold Skulltula Reward, DMT Biggoron and GC Medigoron are shuffled with structural event edits."),
         (trade, "The ten adult trade quest hand ins each give one extra shuffled item the first time. The trade chain itself stays vanilla."),
@@ -467,7 +473,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::slice::treasure::NOTE.to_string());
     }
     notes.extend(open.notes()?);
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, story })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, story, endings })
 }
 
 #[cfg(test)]
@@ -481,7 +487,8 @@ mod tests {
         assert_eq!(p.small, Keep::Dungeon);
         assert_eq!(p.map, Keep::Dungeon);
         assert!(p.intro);
-        assert_eq!(p.notes.len(), 3);
+        assert!(p.story && p.endings);
+        assert_eq!(p.notes.len(), 5);
         assert!(p.notes.iter().any(|n| n.contains("world clock runs from the start")));
         assert_eq!(p.open, crate::open_world::Opts { time: true, ..crate::open_world::Opts::default() });
         assert!(!p.door);
