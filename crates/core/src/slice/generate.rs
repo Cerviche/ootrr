@@ -15,7 +15,7 @@ use crate::slice::logic::world_with;
 use crate::slice::pick::{pick, scoped, Pick};
 use crate::slice::pickups as pu;
 use crate::slice::plando::{loc_of, resolve, Entry};
-use crate::slice::support::{plan, Keep, Mode, Plan, Songs};
+use crate::slice::support::{plan, Keep, Plan, Songs};
 use crate::slice::watch::{Live, Watch};
 use crate::spoiler::{playthrough, Spoiler};
 use crate::world::{LocId, Placement, World};
@@ -71,7 +71,7 @@ fn by_place(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> Option<bool>
     if p.remake && crate::slice::remake_overworld::keeps_out(d, name, item) {
         return Some(false);
     }
-    if p.world != Mode::Off {
+    if p.world.on() {
         if let Some(ok) = pu::at(d, name, item) {
             return Some(ok);
         }
@@ -254,8 +254,8 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     crate::slice::starts::add(d, &p, &mut w, seed)?;
     let vanilla: Placement = vanilla_place(&w, d)?;
     let pk: Pick = pick(d, &w, &p);
-    if p.world != Mode::Off && !pk.free.iter().any(|l| pu::listed(d, &w.locs[*l].name)) {
-        p.notes.retain(|n| n != pu::NOTE);
+    if p.world.on() && !pk.free.iter().any(|l| pu::listed(d, &w.locs[*l].name)) {
+        p.notes.retain(|n| !pu::is_note(n));
     }
     let (base, gone): (Placement, Vec<String>) = crate::start_items::pool::base(d, &w, &p, &vanilla, &pk.free)?;
     p.notes.extend(gone);

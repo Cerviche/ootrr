@@ -258,10 +258,11 @@ pub fn build() -> Schema {
             .opt("random", "Random prices", "Each scrub gets a random price."),
     );
     s.push(
-        where_checks(
-            Setting::choice(12, "shuffle_freestanding_items", "shuffle", "Freestanding items", "off")
-                .tip("Which rupees, hearts and heart pieces lying on the ground hold random items. Rupees, hearts, heart pieces, the two shields and every key item whose pickup pack is built can be placed there. A spot that exists once per age only takes items that can be found twice."),
-        ),
+        Setting::choice(12, "shuffle_freestanding_items", "shuffle", "Freestanding items", "off")
+            .tip("Which items lying on the ground hold random items. Rupees, hearts, heart pieces, the two shields and every key item whose pickup pack is built can be placed there. A spot that exists once per age only takes items that can be found twice.")
+            .opt("off", "Vanilla", "Every freestanding item keeps its original item.")
+            .opt("pieces", "Only Pieces of Heart", "Heart pieces on the ground and the three heart piece chests are shuffled. Rupees and recovery hearts on the ground stay as they are.")
+            .opt("all", "Every Freestanding Item", "Heart pieces, rupees and recovery hearts on the ground are all shuffled."),
     );
     s.push(
         Setting::list(13, "disabled_locations", "shuffle", "Excluded locations", 500)

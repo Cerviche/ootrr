@@ -1,7 +1,7 @@
 use crate::error::Error as E;
 use crate::slice::fill::SHORT;
 use crate::slice::skulls::Mode as Skulls;
-use crate::slice::support::{Mode, Plan};
+use crate::slice::support::Plan;
 use crate::slice::watch::{OVER, STOPPED};
 
 pub fn changes(p: &Plan) -> Vec<&'static str> {
@@ -20,7 +20,7 @@ pub fn changes(p: &Plan) -> Vec<&'static str> {
     if p.drops.any() {
         out.push("shuffle fewer pots and crates");
     }
-    if p.world != Mode::Off {
+    if p.world.on() {
         out.push("shuffle fewer freestanding items");
     }
     out

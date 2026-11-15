@@ -64,7 +64,7 @@ pub struct Plan {
     pub scrubs: bool,
     pub scrubs_b: bool,
     pub hearts: bool,
-    pub world: Mode,
+    pub world: pu::Free,
     pub songs: Songs,
     pub hints: bool,
     pub fast: bool,
@@ -254,7 +254,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         Err(e) => bad.push(e.to_string()),
     }
     let chests: Mode = chest_mode(s, &mut bad);
-    let world: Mode = pu::mode(s, &mut bad);
+    let world: pu::Free = pu::mode(s, &mut bad);
     let drops: crate::pot_slice::Drops = crate::pot_slice::plan::read(s, &mut bad);
     let small: Keep = keep(s, "shuffle_smallkeys", &SMALL_OK, &mut bad);
     let boss: Keep = keep(s, "shuffle_bosskeys", &di::BOSS_OK, &mut bad);
@@ -407,7 +407,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     for (on, text) in [
         (hearts, "Boss Heart Containers are shuffled. Each becomes a chest."),
         (songs != Songs::Off, "Songs are shuffled. The song lessons are edited."),
-        (world != Mode::Off, pu::NOTE),
+        (world.on(), world.note().unwrap_or_default()),
         (fast, "Chest and item pickup scenes are sped up."),
         (intro, "The new game intro is skipped. The opening movie and the wake up scene are bypassed, and the harmless first-visit scenes of the areas are marked as played."),
         (start != Reward::Off, "You start the game with one random Stone or Medallion."),
@@ -433,7 +433,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if skulls != crate::slice::skulls::Mode::Off {
         notes.push(crate::slice::skulls::NOTE.to_string());
     }
-    if world != Mode::Off || drops.any() || skulls != crate::slice::skulls::Mode::Off {
+    if world.on() || drops.any() || skulls != crate::slice::skulls::Mode::Off {
         notes.push(crate::slice::key_spots::NOTE.to_string());
     }
     if drops.pots != Mode::Off {

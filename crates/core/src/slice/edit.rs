@@ -717,8 +717,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if p.chest_sizes {
         notes.push(crate::chest_size::report(resized_n));
     }
-    if p.world != crate::slice::support::Mode::Off && !seed.placements.keys().any(|k| pu::listed(&d, k)) {
-        notes.retain(|n| n != pu::NOTE);
+    if p.world.on() && !seed.placements.keys().any(|k| pu::listed(&d, k)) {
+        notes.retain(|n| !pu::is_note(n));
     }
     if !state.is_empty() {
         notes.push(format!(
