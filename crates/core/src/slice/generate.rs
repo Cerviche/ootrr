@@ -103,6 +103,9 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
     if !p.excluded.is_empty() && w.items.adv[it] && p.excluded.iter().any(|e| *e == w.locs[l].name) {
         return false;
     }
+    if crate::slice::junk_spots::refuses(d, w, p, it, l) {
+        return false;
+    }
     if d.item(&w.items.names[it]).is_some_and(|i| !crate::flow_extra::trade::keeps(d, &w.locs[l].name, i)) {
         return false;
     }
@@ -286,6 +289,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             && !ok(i, *l)
             && !d.item(&w.items.names[i]).is_some_and(|x| crate::slice::dungeon_items::exempt(&p, &x.kind))
             && !(lay.is_some() && crate::shops::is_loc(&w.locs[*l].name))
+            && !crate::slice::junk_spots::only(&p, &w.locs[*l].name)
         {
             return Err(E::Msg(format!(
                 "the vanilla item {} of {} is not allowed there under these settings",
