@@ -1204,7 +1204,7 @@
         "region_name": "Colossus Great Fairy Fountain",
         "scene": "Colossus Great Fairy Fountain",
         "locations": {
-            "Colossus Great Fairy Reward": "can_play(Zeldas_Lullaby) and Dins_Fire and Progressive_Wallet"
+            "Colossus Great Fairy Reward": "can_play(Zeldas_Lullaby) and Progressive_Wallet"
         },
         "exits": {
             "Desert Colossus": "True"
@@ -1410,7 +1410,7 @@
         "region_name": "HC Great Fairy Fountain",
         "scene": "HC Great Fairy Fountain",
         "locations": {
-            "HC Great Fairy Reward": "can_play(Zeldas_Lullaby) and Dins_Fire"
+            "HC Great Fairy Reward": "can_play(Zeldas_Lullaby)"
         },
         "exits": {
             "Castle Grounds": "True"
@@ -1453,7 +1453,7 @@
         "region_name": "OGC Great Fairy Fountain",
         "scene": "OGC Great Fairy Fountain",
         "locations": {
-            "OGC Great Fairy Reward": "can_play(Zeldas_Lullaby) and Dins_Fire and Progressive_Wallet"
+            "OGC Great Fairy Reward": "can_play(Zeldas_Lullaby) and Progressive_Wallet"
         },
         "exits": {
             "Castle Grounds": "True"
@@ -2181,7 +2181,7 @@
         "exits": {
             "Death Mountain": "True",
             "DMC Upper Local": "True",
-            "DMT Owl Flight": "is_child and Dins_Fire",
+            "DMT Owl Flight": "is_child",
             "DMT Cow Grotto": "here(can_blast_or_smash)",
             "DMT Great Fairy Fountain": "here(can_blast_or_smash)"
         }
@@ -2480,7 +2480,7 @@
         "region_name": "DMC Great Fairy Fountain",
         "scene": "DMC Great Fairy Fountain",
         "locations": {
-            "DMC Great Fairy Reward": "can_play(Zeldas_Lullaby) and Dins_Fire"
+            "DMC Great Fairy Reward": "can_play(Zeldas_Lullaby)"
         },
         "exits": {
             "DMC Lower Local": "True"
@@ -2778,7 +2778,7 @@
         "region_name": "ZF Great Fairy Fountain",
         "scene": "ZF Great Fairy Fountain",
         "locations": {
-            "ZF Great Fairy Reward": "can_play(Zeldas_Lullaby) and Dins_Fire"
+            "ZF Great Fairy Reward": "can_play(Zeldas_Lullaby)"
         },
         "exits": {
             "Zoras Fountain": "True"

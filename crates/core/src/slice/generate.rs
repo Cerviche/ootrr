@@ -1151,10 +1151,10 @@ mod tests {
             (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "fb7413b271d949ca4064a38f5e3d1bb3ea120953fb22a030f6260f21e89c04b2"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "dbbde2ae945e2e8eb27f8fe74e85b432bc1612f02b1f629a822e47f8cf49cc79"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "a131002f74c6dd72eb9e521304f3cb01205103b640d91df77e6ddf6e760fd180"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "4dbd24d29adf7f22243e98aed0233645e24860fd66a0059ee46f5091e25f1a6b"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "ef0ec2ba2e06aa59dba24d17b68c57367b7b8ae131263432d57c6fb62a551ec7"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "8a31bac1c7d8577115cda932cd4ce7464dd1f19e0f78040b258cc50a4a17d538"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "7b54ab16a0952f47b01e31b3e86fa2d05b167624c0b812aeacab4cffb68d4505"),
             (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "50ca24124a7276bde4b2ad750d44c79829a950487c0ffd16ca652bb7ee9a7e15"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "7b33ed1e9babc3972b980bca0aaf8958af23b289dc843edb7ed6b80826481106"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "9bf4cbe96f777b43ab4fb4c8d32bc2ea6b66fc583cbe5329c8f9e14f827cc450"),
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();

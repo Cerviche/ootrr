@@ -370,6 +370,100 @@ mod tests {
         }
     }
 
+    const FOUNTAINS: [(&str, &str); 6] = [
+        ("HC Great Fairy Reward", "Dm_FairyFountain_Power"),
+        ("ZF Great Fairy Reward", "Dm_FairyFountain_Frore"),
+        ("DMC Great Fairy Reward", "Dm_FairyFountain_Wisdom"),
+        ("Colossus Great Fairy Reward", "Dm_FairyFountain_Nayru"),
+        ("OGC Great Fairy Reward", "Dm_FairyFountain_Courage"),
+        ("DMT Great Fairy Reward", "Dm_FairyFountain_Din"),
+    ];
+
+    const OWNS: [&[(&str, i64)]; 2] = [&[], &[("Item_DinFire", 1)]];
+
+    fn asked(f: &Fin, event: &str, to: u16) -> bool {
+        lines(&f.m.log).iter().any(|(_, t)| t.contains(&format!("{event} switch")) && t.contains(&format!("IsGet.Item_DinFire = false -> event {to}")))
+    }
+
+    #[test]
+    fn every_fountain_opens_and_the_owl_offers_its_ride_without_dins_fire() {
+        let Some(r) = root() else { return };
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        let fl: HM<String, Flow> = edited(&mut rf, "Kak 20 Gold Skulltula Reward", "Item_AgonyStone").unwrap();
+        assert!(fl.contains_key("TriForcePoint") && fl.contains_key("Npc_Kaepora_DeathMountainTrail"));
+        for child in ["true", "false"] {
+            for (_, fountain) in FOUNTAINS {
+                let entry: String = format!("Demo_{}", fountain.trim_start_matches("Dm_"));
+                for own in OWNS {
+                    let sc: Scene = scene("TriForcePoint", &entry, &[("Sequence_IsChildhood", child)], own);
+                    let mut base: Sim = sim(&r, HM::new()).unwrap();
+                    let a: Vec<Fin> = run(&mut base, &sc).unwrap();
+                    let mut s: Sim = sim(&r, fl.clone()).unwrap();
+                    let b: Vec<Fin> = run(&mut s, &sc).unwrap();
+                    let opens = |f: &Fin| f.m.trans.iter().any(|t| t == fountain);
+                    assert_eq!(broken(&b), broken(&a), "{fountain} {child} {own:?}");
+                    if own.is_empty() {
+                        assert!(a.iter().any(|f| asked(f, "Event8", 46)), "{fountain} {child}");
+                        assert!(a.iter().filter(|f| asked(f, "Event8", 46)).all(|f| !opens(f)), "{fountain} {child}");
+                        assert!(b.iter().all(|f| !asked(f, "Event8", 46)), "{fountain} {child}");
+                        assert!(b.iter().any(|f| asked(f, "Event8", 57)), "{fountain} {child}");
+                        assert!(b.iter().filter(|f| asked(f, "Event8", 57)).all(|f| opens(f)), "{fountain} {child}");
+                    } else {
+                        assert_eq!(a.len(), b.len(), "{fountain} {child}");
+                        assert_eq!(a.iter().filter(|f| opens(f)).count(), b.iter().filter(|f| opens(f)).count(), "{fountain} {child}");
+                    }
+                }
+            }
+        }
+        let ride = |f: &Fin| f.m.trans.iter().any(|t| t == "Dm_DeathMtTrail_0030");
+        for own in OWNS {
+            let sc: Scene = scene("Npc_Kaepora_DeathMountainTrail", "Talk", &[], own);
+            let mut base: Sim = sim(&r, HM::new()).unwrap();
+            let a: Vec<Fin> = run(&mut base, &sc).unwrap();
+            let mut s: Sim = sim(&r, fl.clone()).unwrap();
+            let b: Vec<Fin> = run(&mut s, &sc).unwrap();
+            assert_eq!(broken(&b), broken(&a), "{own:?}");
+            assert!(b.iter().any(|f| ride(f)), "{own:?}");
+            assert_eq!(a.iter().any(|f| ride(f)), !own.is_empty(), "{own:?}");
+            assert!(b.iter().all(|f| !asked(f, "Event4", 16)), "{own:?}");
+        }
+    }
+
+    #[test]
+    fn every_fountain_hands_over_any_reward_to_a_player_who_owns_nothing() {
+        let Some(r) = root() else { return };
+        let d: Data = Data::load().unwrap();
+        let meter: [&str; 2] = ["Item_FairyBless_MP", "Item_FairyBless_MPDouble"];
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        let mut report: Vec<String> = Vec::new();
+        for (loc, fountain) in FOUNTAINS {
+            for met in ["false", "true"] {
+                let sc: Scene = scene(fountain, "EntryPoint0", &[("PlayerStatus.CurrentRupee", "500"), ("PlayerStatus.MPMax", "0"), ("GreatFairy_MeetFirst", met)], &[]);
+                let mut base: Sim = sim(&r, HM::new()).unwrap();
+                let a: Vec<Fin> = run(&mut base, &sc).unwrap();
+                for item in &d.accept {
+                    let Ok(fl) = edited(&mut rf, loc, item) else {
+                        report.push(format!("{loc} met={met} {item}: refused by the plan"));
+                        continue;
+                    };
+                    let mut s: Sim = sim(&r, fl).unwrap();
+                    let b: Vec<Fin> = run(&mut s, &sc).unwrap();
+                    let gave: usize = b.iter().filter(|f| f.end == End::Done && granted(f, item) == 1).count();
+                    report.push(format!("{loc} met={met} {item}: gave {gave} broken {} vanilla {} gauge {}", broken(&b), broken(&a), gauge_of(&s)));
+                    assert!(gave > 0, "{loc} {met} {item}");
+                    assert!(b.iter().all(|f| granted(f, item) <= 1), "{loc} {met} {item}");
+                    assert_eq!(broken(&b), broken(&a), "{loc} {met} {item}");
+                    if !meter.contains(&item.as_str()) {
+                        assert!(!gauge_of(&s), "{loc} {met} {item}");
+                    }
+                }
+            }
+        }
+        if let Ok(p) = std::env::var("OOTRR_FAIRY_OUT") {
+            std::fs::write(p, report.join("\n")).unwrap();
+        }
+    }
+
     #[test]
     fn medigoron_sells_once_even_with_the_biggoron_sword() {
         let Some(r) = root() else { return };

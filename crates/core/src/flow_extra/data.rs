@@ -148,7 +148,7 @@ mod tests {
             assert!((l.gated && !l.supported) || (l.supported && (l.cat == "great_fairy" || l.name == "GC Rolling Goron as Child")), "{}", s.name);
             assert!(!s.ops.is_empty() && !s.why.is_empty(), "{}", s.name);
         }
-        assert_eq!(x.always.iter().map(|s| s.name.as_str()).collect::<Vec<&str>>(), vec!["Din fountain gauge", "Fire Arrow pickup gauge"]);
+        assert_eq!(x.always.iter().map(|s| s.name.as_str()).collect::<Vec<&str>>(), vec!["Din fountain gauge", "Fire Arrow pickup gauge", "Fairy fountains without Din's Fire", "Summit owl without Din's Fire"]);
         for s in &x.always {
             assert!(!s.ops.is_empty() && !s.why.is_empty() && d.by_name(&s.name).is_none(), "{}", s.name);
             assert!(x.by_name(&s.name).is_none(), "{}", s.name);

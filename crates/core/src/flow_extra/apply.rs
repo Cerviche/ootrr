@@ -91,13 +91,23 @@ mod tests {
         let by: BM<String, Vec<Op>> = ops_for(&[ch("GC Medigoron", "Npc_Goron_Medigoron_Adult.bfevfl", "Item_Longshot"), ch("Volvagia", "X.bfevfl", "Item_A")]).unwrap();
         assert_eq!(
             by.keys().cloned().collect::<Vec<String>>(),
-            vec!["Dm_FairyFountain_Din.bfevfl".to_string(), "Dm_SY_Get.bfevfl".to_string(), "Npc_Goron_Medigoron_Adult.bfevfl".to_string(), "SimpleShop.bfevfl".to_string()]
+            vec![
+                "Dm_FairyFountain_Din.bfevfl".to_string(),
+                "Dm_SY_Get.bfevfl".to_string(),
+                "Npc_Goron_Medigoron_Adult.bfevfl".to_string(),
+                "Npc_Kaepora_DeathMountainTrail.bfevfl".to_string(),
+                "SimpleShop.bfevfl".to_string(),
+                "TriForcePoint.bfevfl".to_string()
+            ]
         );
         let txt: String = format!("{by:?}");
         assert!(txt.contains("Item_Longshot") && !txt.contains("$item"));
         let always: BM<String, Vec<Op>> = ops_for(&[]).unwrap();
         assert_eq!(always, always_ops().unwrap());
-        assert_eq!(always.keys().cloned().collect::<Vec<String>>(), vec!["Dm_FairyFountain_Din.bfevfl".to_string(), "Dm_SY_Get.bfevfl".to_string()]);
+        assert_eq!(
+            always.keys().cloned().collect::<Vec<String>>(),
+            vec!["Dm_FairyFountain_Din.bfevfl".to_string(), "Dm_SY_Get.bfevfl".to_string(), "Npc_Kaepora_DeathMountainTrail.bfevfl".to_string(), "TriForcePoint.bfevfl".to_string()]
+        );
         assert!(always.values().flatten().all(|o| matches!(o.how, crate::flow_extra::op::How::Retarget { .. })));
         assert!(ops_of("Volvagia", "Item_A").unwrap().is_empty());
         assert_eq!(ops_of("DMT Biggoron", "Item_A").unwrap().len(), 3);

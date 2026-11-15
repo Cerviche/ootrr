@@ -1,6 +1,6 @@
 {
 "format": 1,
-"note": "Structural event flow edits for the gated flow locations of data/flow_locations.json. They run only when the location receives an item other than its vanilla one, after the ordinary parameter edits of that location. $item stands for the chosen item actor. The specs of the always list run in every seed build whatever is placed, they hold the magic gauge edits that follow from only the Magic Meter items giving a meter. The locations join the pool only with shuffle_rewards=supported and shuffle_rewards_extra on. Design and evidence in docs/flow_checks.md sections 3, 4 and 8, build notes in docs/flow_checks_built_2.md.",
+"note": "Structural event flow edits for the gated flow locations of data/flow_locations.json. They run only when the location receives an item other than its vanilla one, after the ordinary parameter edits of that location. $item stands for the chosen item actor. The specs of the always list run in every seed build whatever is placed, they hold the magic gauge edits that follow from only the Magic Meter items giving a meter and the edits that open the fountains and the summit owl without Din's Fire. The locations join the pool only with shuffle_rewards=supported and shuffle_rewards_extra on. Design and evidence in docs/flow_checks.md sections 3, 4 and 8, build notes in docs/flow_checks_built_2.md.",
 "locations": [
 {
 "name": "Kak 20 Gold Skulltula Reward",
@@ -324,6 +324,20 @@
 "ops": [
 {"kind": "retarget", "file": "Dm_SY_Get.bfevfl", "index": 176, "event": "Event102", "case": 0, "old": 178, "new": 180},
 {"kind": "retarget", "file": "Dm_SY_Get.bfevfl", "index": 176, "event": "Event102", "case": 1, "old": 178, "new": 180}
+]
+},
+{
+"name": "Fairy fountains without Din's Fire",
+"why": "after Zelda's Lullaby on the Triforce mark every fountain but the Din one asks IsGet.Item_DinFire (event 3 of TriForcePoint, shared by all six fountains) and without the spell Navi gives a hint and the fountain stays shut, the fountains are free from the start, so the no case also goes to event 57, the riddle sound and the transition to the fountain",
+"ops": [
+{"kind": "retarget", "file": "TriForcePoint.bfevfl", "index": 3, "event": "Event8", "case": 1, "old": 46, "new": 57}
+]
+},
+{
+"name": "Summit owl without Din's Fire",
+"why": "the Death Mountain summit owl asks IsGet.Item_DinFire (event 3) and without the spell only talks about the fairy behind the rock, the ride is free from the start, so the no case also goes to event 12, the talk that offers the ride to Kakariko",
+"ops": [
+{"kind": "retarget", "file": "Npc_Kaepora_DeathMountainTrail.bfevfl", "index": 3, "event": "Event4", "case": 1, "old": 16, "new": 12}
 ]
 }
 ]

@@ -239,19 +239,22 @@ mod tests {
     }
 
     #[test]
-    fn five_fountains_and_the_summit_owl_wait_for_dins_fire() {
+    fn every_fountain_and_the_summit_owl_open_without_dins_fire() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();
         let all: Search = explore(&w, &vanilla_place(&w, &d).unwrap(), &gauntlets(&w));
         let cut: Search = explore(&w, &vanilla_without(&w, &d, &["Dins Fire"]), &gauntlets(&w));
-        for n in ["HC Great Fairy Reward", "ZF Great Fairy Reward", "DMC Great Fairy Reward", "Colossus Great Fairy Reward", "OGC Great Fairy Reward"] {
+        let mute: Search = explore(&w, &vanilla_without(&w, &d, &["Zeldas Lullaby"]), &gauntlets(&w));
+        let poor: Search = explore(&w, &vanilla_without(&w, &d, &["Progressive Wallet"]), &gauntlets(&w));
+        for n in ["HC Great Fairy Reward", "ZF Great Fairy Reward", "DMC Great Fairy Reward", "Colossus Great Fairy Reward", "OGC Great Fairy Reward", "DMT Great Fairy Reward"] {
             assert!(seen(&all, &w, n), "{n}");
-            assert!(!seen(&cut, &w, n), "{n}");
+            assert!(seen(&cut, &w, n), "{n}");
+            assert!(!seen(&mute, &w, n), "{n}");
+            assert_eq!(seen(&poor, &w, n), !n.starts_with("Colossus") && !n.starts_with("OGC"), "{n}");
         }
-        assert!(seen(&cut, &w, "DMT Great Fairy Reward"));
         let owl: &str = "Death Mountain Summit -> DMT Owl Flight";
         assert!(exit_open(&all, &w, owl, Age::Child));
-        assert!(!exit_open(&cut, &w, owl, Age::Child));
+        assert!(exit_open(&cut, &w, owl, Age::Child));
         assert!(!exit_open(&all, &w, owl, Age::Adult));
     }
 
@@ -517,11 +520,7 @@ mod tests {
                 rest.push_str(&t.replace("Dins_Fire", ""));
             }
         }
-        raw.sort();
-        assert_eq!(
-            raw,
-            vec!["Colossus Great Fairy Reward", "DMC Great Fairy Reward", "DMT Owl Flight", "HC Great Fairy Reward", "OGC Great Fairy Reward", "ZF Great Fairy Reward"]
-        );
+        assert!(raw.is_empty(), "{raw:?}");
         for g in ["Farores_Wind", "Nayrus_Love", "Lens_of_Truth", "Fire_Arrows", "Ice_Arrows", "Light_Arrows", "Blue_Fire_Arrows"] {
             assert!(!rest.contains(g), "{g}");
         }
