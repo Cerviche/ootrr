@@ -27,7 +27,7 @@ use crate::staging::Out;
 use crate::start_state::Ops;
 
 pub const NOTE_DEKU: &str = "The Deku Tree is met at new game: its mouth is open, the Deku Tree quest is complete and the Forest Stone quest is where Link's first arrival inside the tree leaves it, so the meeting, the arrival scene and Navi's dungeon lesson are skipped.";
-pub const NOTE: &str = "Story cutscenes are skipped. Saria's long bridge scene is cut and only the short gift scene plays, so the bridge check stays where it is. The Temple of Time's first entry and altar scenes are marked as played. The first Master Sword draw gives the sword and the item of Rauru's check and then plays the short scene of a later draw, without the sword pull, Ganondorf, Rauru or Sheik scenes.";
+pub const NOTE: &str = "Story cutscenes are skipped. Saria's long bridge scene is cut and only the short gift scene plays, so the bridge check stays where it is. The Temple of Time's first entry and altar scenes are marked as played. The first Master Sword draw gives the sword and the item of Rauru's check and then plays the short scene of a later draw, without the sword pull, Ganondorf, Rauru or Sheik scenes. Zelda's escape at the drawbridge is cut, so the Ocarina of Time waits in the moat right away. The Light Arrows scene only plays the short scene that hands over its check, and it no longer takes out the Master Sword, so Link keeps his equipment. The owls that stop Link (Hyrule Field, Zora's River, the Lost Woods) are cut and marked as met; the Death Mountain and Lake Hylia owls still offer their flights when spoken to. Sheik's song scenes go straight to the song: the talk and the three ocarina lessons before it and the talk after it are cut, and the song check is given as usual.";
 
 const TRUE: u32 = 0x8000_0001;
 const FALSE: u32 = 0;
@@ -80,9 +80,21 @@ pub const TEMPLE_FLAGS: [&str; 4] = [
     "Market_Child_FoundMasterSword",
 ];
 
-/// The new game flags of the setting.
+/// Owls the maps start on their own while the scene is unplayed (Hyrule Field near the castle,
+/// toward Gerudo Valley and toward Lake Hylia, Zora's River after Saria's Song). They write nothing
+/// but their played flag. The Death Mountain and Lake Hylia flight owls only talk when spoken to
+/// and are left alone, as are the dream owl (it opens the dream world) and the owl after the
+/// Spirit Temple (other flows branch on its scene).
+pub const OWL_FLAGS: [&str; 4] = [
+    "HavePlayedEvent.Dm_HrlField_0030",
+    "HavePlayedEvent.Dm_HrlField_0040",
+    "HavePlayedEvent.Dm_HrlField_0050",
+    "HavePlayedEvent.Dm_ZoraRiver_0005",
+];
+
+/// The always-on new game flags: the child Temple of Time and the owls.
 pub fn start() -> Ops {
-    Ops { flags: TEMPLE_FLAGS.iter().map(|n| ((*n).to_string(), true)).collect(), ..Ops::default() }
+    Ops { flags: TEMPLE_FLAGS.iter().chain(OWL_FLAGS.iter()).map(|n| ((*n).to_string(), true)).collect(), ..Ops::default() }
 }
 
 // ---------------------------------------------------------------- flow helpers
@@ -542,6 +554,245 @@ pub fn worked_endings(rf: &mut Romfs, pk: &crate::modpack::Pack) -> Res<Vec<Out>
     stage_endings(rf, &have)
 }
 
+// ---------------------------------------------------------------- light arrows
+
+/// The Light Arrows scene lives in AllSage.bfevfl: entry Market_Adult_Field_GetArrowLight (the
+/// adult Temple of Time area, AllSage Step02) and GetArrowLight_OcarinaBackTimeTemple (the Song
+/// of Time warp, Dm_SY_Ocarina) both reach Event175, which forces the Master Sword out, then play
+/// the timelines Dm_TimeTemple_0090/0095/0110/0115/0125 (Sheik is Zelda), the flowchart
+/// Dm_TimeTemple_0130 (the Light Arrows check, nothing else) and the timeline 0135 (Ganondorf takes
+/// Zelda), then Navi talks and the quests advance. The sword request becomes a flag write, the six
+/// timelines become their played flags, and after the closing camera/Navi reset the chain fades in
+/// and goes straight to the quest writes.
+pub const ARROWS_FILE: &str = "Event/EventFlow/AllSage.bfevfl.zs";
+pub const ARROWS_FLOW: &str = "AllSage";
+pub const ARROWS_PREFIX: &str = "OOTRRArrows";
+const ARROWS_SWORD: (&str, &str) = ("Event175", "Player_Event.EventTriggerEquipmentUserRequestCreateStaticEquipment");
+const ARROWS_CUT: [(&str, &str); 6] = [
+    ("Event12", "Dm_TimeTemple_0090"),
+    ("Event13", "Dm_TimeTemple_0095"),
+    ("Event14", "Dm_TimeTemple_0110"),
+    ("Event16", "Dm_TimeTemple_0115"),
+    ("Event63", "Dm_TimeTemple_0125"),
+    ("Event42", "Dm_TimeTemple_0135"),
+];
+const ARROWS_GRANT: (&str, &str) = ("Event17", "Dm_TimeTemple_0130");
+/// After 0135: Event116 (camera, Navi and Link reset fork) -> join -> Event179 (unequip) -> Event97 (fade in) -> Event10 (AllSage Complete).
+const ARROWS_RESET: &str = "Event116";
+const ARROWS_UNEQUIP: (&str, &str) = ("Event179", "Player_Event.EventPlayerUnequip");
+const ARROWS_FADE_IN: (&str, &str) = ("Event97", "UISystemActor.EventEventFadeIn");
+const ARROWS_DONE: (&str, &str) = ("Event10", "ChallengeSystemActor.EventExecuteProgressChallengeStep");
+
+fn find_action(f: &Flow, (name, want): (&str, &str)) -> Res<usize> {
+    let i: usize = find(f, name)?;
+    if action(f, i).as_deref() != Some(want) {
+        return Err(Error::Msg(format!("story skip: {name} in {} is not {want}, the game files differ", f.name)));
+    }
+    Ok(i)
+}
+
+/// Turns the transition `name` (checked to play `scene`) into a write of the scene's played flag,
+/// keeping its next unless `to` is given.
+fn transition_to_flag(f: &mut Flow, prefix: &str, name: &str, scene: &str, to: Option<u16>) -> Res<usize> {
+    let i: usize = find_action(f, (name, "EventSystemActor.EventTransition"))?;
+    if text(&f.events[i], "EventName") != Some(scene) {
+        return Err(Error::Msg(format!("story skip: {name} in {} does not play {scene}, the game files differ", f.name)));
+    }
+    let next: u16 = match to {
+        Some(t) => t,
+        None => next_of(&f.events[i].kind).ok_or(Error::Format("story skip: a transition has no next"))?,
+    };
+    let mut k: Kind = set_bool(f, &format!("HavePlayedEvent.{scene}"), true)?;
+    set_next(&mut k, next)?;
+    f.events[i].kind = k;
+    f.events[i].name = format!("{prefix}{i}");
+    Ok(i)
+}
+
+pub fn patch_light_arrows(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, ARROWS_FLOW)?;
+    guard(f, ARROWS_PREFIX)?;
+    let grant: usize = find_action(f, (ARROWS_GRANT.0, "EventSystemActor.EventTransition"))?;
+    if text(&f.events[grant], "EventName") != Some(ARROWS_GRANT.1) {
+        return Err(Error::Format("story skip: AllSage no longer plays the Light Arrows scene"));
+    }
+    let reset: usize = find(f, ARROWS_RESET)?;
+    if !matches!(f.events[reset].kind, Kind::Fork { .. }) {
+        return Err(Error::Format("story skip: the Light Arrows reset is not a fork, the game files differ"));
+    }
+    let unequip: usize = find_action(f, ARROWS_UNEQUIP)?;
+    let fade: usize = find_action(f, ARROWS_FADE_IN)?;
+    let done: usize = find_action(f, ARROWS_DONE)?;
+    // The forced Master Sword: same next, now a harmless flag write (0090 is set again below).
+    let sword: usize = find_action(f, ARROWS_SWORD)?;
+    let next: u16 = next_of(&f.events[sword].kind).ok_or(Error::Format("story skip: the sword request has no next"))?;
+    let mut k: Kind = set_bool(f, "HavePlayedEvent.Dm_TimeTemple_0090", true)?;
+    set_next(&mut k, next)?;
+    f.events[sword].kind = k;
+    f.events[sword].name = format!("{ARROWS_PREFIX}{sword}");
+    let reset: u16 = idx(reset)?;
+    for (name, scene) in ARROWS_CUT {
+        let to: Option<u16> = (scene == "Dm_TimeTemple_0135").then_some(reset);
+        transition_to_flag(f, ARROWS_PREFIX, name, scene, to)?;
+    }
+    set_next(&mut f.events[unequip].kind, idx(fade)?)?;
+    set_next(&mut f.events[fade].kind, idx(done)?)?;
+    Ok(())
+}
+
+pub fn stage_arrows(rf: &mut Romfs, have: Have) -> Res<Out> {
+    edit_zs(rf, have, ARROWS_FILE, |raw| rebuild(raw, patch_light_arrows))
+}
+
+// ---------------------------------------------------------------- zelda escape
+
+/// DoorOfTime entry DoorOfTime_Escape (the drawbridge area while DoorOfTime is Step03) fades out,
+/// sets the storm, plays the timeline Dm_HrlField_0060 (Zelda and Impa ride out, the Ocarina falls
+/// in the moat, Ganondorf), then restores the bridge and weather, warps Link, writes Step04 and fades
+/// in with Navi's hint. Only the timeline is cut; the Ocarina pickup (Step04) and Dm_MelodyGet_Time
+/// keep both checks.
+const ESCAPE_EVENT: &str = "Event13";
+const ESCAPE_SCENE: &str = "Dm_HrlField_0060";
+pub const ESCAPE_PREFIX: &str = "OOTRREscape";
+
+pub fn patch_escape(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, DOOR_FLOW)?;
+    guard(f, ESCAPE_PREFIX)?;
+    transition_to_flag(f, ESCAPE_PREFIX, ESCAPE_EVENT, ESCAPE_SCENE, None)?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------- owls in flows
+
+/// Owls played from story flows. Each scene only talks (the field owl's flow writes its quest step,
+/// the Threads of Time menu and the amiibo item itself, after the scene), so each transition becomes
+/// its played flag and the flow goes on.
+pub const OWL_PREFIX: &str = "OOTRROwl";
+/// Goto_HyruleCastle entry Goto_HyruleCastle_Kaepora_00, the first field owl (closed Kakariko
+/// gate): the owl flies in (Dm_HrlField_0005) and talks (0010). Dm_HrlField_0000 (the field
+/// opening and its clock) stays.
+const FIELD_OWL: [(&str, &str); 2] = [("Event59", "Dm_HrlField_0005"), ("Event12", "Dm_HrlField_0010")];
+/// Get_StoneOfWater entry StoneOfWater_TalkKaepora_ZoraRiver: the owl at the river entrance; the
+/// Water Stone step after it stays.
+pub const RIVER_FILE: &str = "Event/EventFlow/Get_StoneOfWater.bfevfl.zs";
+const RIVER_OWL: [(&str, &str); 1] = [("Event81", "Dm_ZoraRiver_0000")];
+/// Dm_SY_BancChangeArrive: the Lost Woods owls (from Kokiri Forest, from Goron City, and after
+/// Saria's Song). Their next is the same step logic the button skip lands on.
+pub const ARRIVE_FILE: &str = "Event/EventFlow/Dm_SY_BancChangeArrive.bfevfl.zs";
+const WOODS_OWL: [(&str, &str); 3] = [("Event214", "Dm_LostWood_0000"), ("Event209", "Dm_LostWood_0000_GoronCity"), ("Event211", "Dm_LostWood_0010")];
+
+fn cut_owls(b: &mut Bf, flow: &str, cuts: &[(&str, &str)]) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, flow)?;
+    guard(f, OWL_PREFIX)?;
+    for (name, scene) in cuts {
+        transition_to_flag(f, OWL_PREFIX, name, scene, None)?;
+    }
+    Ok(())
+}
+
+pub fn patch_field_owl(b: &mut Bf) -> Res<()> {
+    cut_owls(b, BRIDGE_FLOW, &FIELD_OWL)
+}
+
+pub fn patch_river_owl(b: &mut Bf) -> Res<()> {
+    cut_owls(b, "Get_StoneOfWater", &RIVER_OWL)
+}
+
+pub fn patch_woods_owls(b: &mut Bf) -> Res<()> {
+    cut_owls(b, "Dm_SY_BancChangeArrive", &WOODS_OWL)
+}
+
+// ---------------------------------------------------------------- sheik songs
+
+/// Sheik's six song scenes (flowcharts, Dm_MelodyGet_*). Each places the actors, talks, plays the
+/// song three times (Sheik, Link's input, the duet: subs into Dm_SY_Ocarina), then hands over the
+/// song with GetPouchContent (the check) and closes the message, then talks and sends Sheik away.
+/// The cut jumps from the placement straight to the grant, and after the message closes runs
+/// copies of the departure actions (Sheik offstage, fades, camera reset, the met-Sheik counter,
+/// the temple flag of the Prelude) into the scene's own last call.
+pub const SHEIK_PREFIX: &str = "OOTRRSheik";
+pub struct SheikCut {
+    pub scene: &'static str,
+    /// The placement event whose next becomes the grant (the first copy of `before`, if any).
+    pub start: &'static str,
+    pub before: &'static [&'static str],
+    pub grant: &'static str,
+    /// The message close after the grant.
+    pub close: &'static str,
+    pub tail: &'static [&'static str],
+    /// The original last call the tail ends on, or the end.
+    pub end: Option<&'static str>,
+    /// Events whose next becomes the end (a talk or the music after the placement).
+    pub stop: &'static [&'static str],
+}
+
+pub const SHEIK_CUTS: [SheikCut; 6] = [
+    // Minuet: Sheik is sent offstage in the placement and never seen.
+    SheikCut { scene: "Dm_MelodyGet_Forest", start: "Event307", before: &["Event318"], grant: "Event22", close: "Event17", tail: &["Event60", "Event167"], end: Some("Event330"), stop: &[] },
+    // Bolero: Sheik and the harp leave, the camera returns, the counter goes up.
+    SheikCut { scene: "Dm_MelodyGet_Fire", start: "Event0", before: &[], grant: "Event192", close: "Event204", tail: &["Event38", "Event43", "Event244", "Event152"], end: Some("Event301"), stop: &[] },
+    // Serenade: Sheik leaves behind a fade; the Ice Cavern quest writes stay in the caller.
+    SheikCut { scene: "Dm_MelodyGet_Water", start: "Event44", before: &[], grant: "Event29", close: "Event26", tail: &["Event18", "Event66", "Event47", "Event69", "Event19", "Event74", "Event282"], end: Some("Event123"), stop: &[] },
+    // Nocturne: ends faded out like vanilla (the caller fades in); the burning village stays.
+    SheikCut { scene: "Dm_MelodyGet_Shadow", start: "Event119", before: &[], grant: "Event21", close: "Event18", tail: &["Event76", "Event36"], end: None, stop: &["Event45"] },
+    // Requiem: Sheik leaves, camera, counter.
+    SheikCut { scene: "Dm_MelodyGet_Spilit", start: "Event253", before: &[], grant: "Event17", close: "Event14", tail: &["Event112", "Event153", "Event63"], end: Some("Event282"), stop: &[] },
+    // Prelude: behind a fade, Market_Adult_GetLightPrelude removes the temple Sheik.
+    SheikCut { scene: "Dm_MelodyGet_Shine", start: "Event253", before: &[], grant: "Event53", close: "Event220", tail: &["Event133", "Event100", "Event46", "Event103", "Event129", "Event116", "Event189"], end: None, stop: &["Event5"] },
+];
+
+pub fn sheik_file(scene: &str) -> String {
+    format!("Event/EventFlow/{scene}.bfevfl.zs")
+}
+
+fn copy_kind(f: &Flow, name: &str) -> Res<Kind> {
+    let k: Kind = f.events[find(f, name)?].kind.clone();
+    if next_of(&k).is_none() {
+        return Err(Error::Msg(format!("story skip: {name} in {} has no single next, the game files differ", f.name)));
+    }
+    Ok(k)
+}
+
+pub fn patch_sheik(b: &mut Bf, c: &SheikCut) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, c.scene)?;
+    guard(f, SHEIK_PREFIX)?;
+    let grant: usize = find(f, c.grant)?;
+    if !matches!(&f.events[grant].kind, Kind::Sub { entry, .. } if entry == "GetPouchContentByActorName") {
+        return Err(Error::Msg(format!("story skip: {} in {} is not the song grant, the game files differ", c.grant, c.scene)));
+    }
+    let close: usize = find_action(f, (c.close, "GameSystemActor.EventCloseMessageDialog"))?;
+    if next_of(&f.events[grant].kind) != Some(idx(close)?) {
+        return Err(Error::Msg(format!("story skip: the song grant of {} is not followed by its message close", c.scene)));
+    }
+    let start: usize = find(f, c.start)?;
+    let end: u16 = match c.end {
+        Some(n) => idx(find(f, n)?)?,
+        None => NONE,
+    };
+    let stops: Vec<usize> = c.stop.iter().map(|n| find(f, n)).collect::<Res<_>>()?;
+    let before: Vec<Kind> = c.before.iter().map(|n| copy_kind(f, n)).collect::<Res<_>>()?;
+    let tail: Vec<Kind> = c.tail.iter().map(|n| copy_kind(f, n)).collect::<Res<_>>()?;
+    let to_grant: u16 = if before.is_empty() { idx(grant)? } else { chain(f, SHEIK_PREFIX, before, idx(grant)?)? };
+    set_next(&mut f.events[start].kind, to_grant)?;
+    let after: u16 = if tail.is_empty() { end } else { chain(f, SHEIK_PREFIX, tail, end)? };
+    set_next(&mut f.events[close].kind, after)?;
+    for s in stops {
+        set_next(&mut f.events[s].kind, NONE)?;
+    }
+    // Marks the flow as patched even when nothing was appended.
+    f.events[start].name = format!("{SHEIK_PREFIX}{start}");
+    Ok(())
+}
+
+pub fn stage_sheik(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
+    let mut outs: Vec<Out> = Vec::new();
+    for c in &SHEIK_CUTS {
+        // The location patcher has staged these (their grant holds the song check).
+        outs.push(edit_zs(rf, have, &sheik_file(c.scene), |raw| rebuild(raw, |b| patch_sheik(b, c)))?);
+    }
+    Ok(outs)
+}
+
 // ---------------------------------------------------------------- staging
 
 fn source(rf: &mut Romfs, have: Have, path: &str) -> Res<Vec<u8>> {
@@ -566,9 +817,25 @@ pub fn stage(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
     let got: String = format!("IsGet.{medal}");
     let got: Option<&str> = l.by_hash(crate::flags::hash_name(&got) as u64).is_some().then_some(got.as_str());
     Ok(vec![
-        edit_zs(rf, have, BRIDGE_FILE, |raw| rebuild(raw, patch_bridge))?,
-        edit_zs(rf, have, DOOR_FILE, |raw| rebuild(raw, |b| patch_draw(b, &medal, got)))?,
-    ])
+        edit_zs(rf, have, BRIDGE_FILE, |raw| {
+            rebuild(raw, |b| {
+                patch_bridge(b)?;
+                patch_field_owl(b)
+            })
+        })?,
+        edit_zs(rf, have, RIVER_FILE, |raw| rebuild(raw, patch_river_owl))?,
+        edit_zs(rf, have, ARRIVE_FILE, |raw| rebuild(raw, patch_woods_owls))?,
+        edit_zs(rf, have, DOOR_FILE, |raw| {
+            rebuild(raw, |b| {
+                patch_draw(b, &medal, got)?;
+                patch_escape(b)
+            })
+        })?,
+        stage_arrows(rf, have)?,
+    ]
+    .into_iter()
+    .chain(stage_sheik(rf, have)?)
+    .collect())
 }
 
 pub fn worked(rf: &mut Romfs, pk: &crate::modpack::Pack) -> Res<Vec<Out>> {
@@ -616,6 +883,21 @@ mod tests {
         out
     }
 
+    /// Like walk, but a fork continues at its join.
+    fn walk_joins(f: &Flow, start: u16, limit: usize) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        let mut i: u16 = start;
+        while i != NONE && out.len() < limit {
+            let w: Vec<String> = walk(f, i, 1);
+            out.extend(w);
+            i = match &f.events[i as usize].kind {
+                Kind::Fork { join, .. } => *join,
+                k => next_of(k).unwrap_or(NONE),
+            };
+        }
+        out
+    }
+
     #[test]
     fn the_new_game_state_covers_the_deku_tree_and_the_child_temple() {
         let o: Ops = deku();
@@ -624,7 +906,7 @@ mod tests {
         assert!(o.flags.iter().any(|(n, _)| n == "KokiriForest_Meet_DekuTree_OpenDekuTreeMouth"));
         assert!(o.items.is_empty() && o.time.is_none());
         let s: Ops = start();
-        assert_eq!(s.flags.len(), 4);
+        assert_eq!(s.flags.len(), TEMPLE_FLAGS.len() + OWL_FLAGS.len());
         assert!(s.flags.iter().all(|(_, v)| *v));
         assert!(!s.flags.iter().any(|(n, _)| n.contains("Kokiri")));
         assert!(s.steps.is_empty() && s.items.is_empty());
@@ -671,7 +953,7 @@ mod tests {
             _ => true,
         }));
         Bf::parse(&b.write().unwrap()).unwrap();
-        assert_eq!(stage(&mut rf, &none).unwrap().len(), 2);
+        assert_eq!(stage(&mut rf, &none).unwrap().len(), 5 + SHEIK_CUTS.len());
     }
 
     #[test]
@@ -777,5 +1059,108 @@ mod tests {
         }
         assert!(granted);
         Bf::parse(&b.write().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn the_real_light_arrows_scene_keeps_only_the_grant() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut b: Bf = Bf::parse(&rf.read_zs(ARROWS_FILE).unwrap()).unwrap();
+        patch_light_arrows(&mut b).unwrap();
+        assert!(patch_light_arrows(&mut b).is_err());
+        let f: &Flow = b.flows.iter().find(|f| f.name == ARROWS_FLOW).unwrap();
+        let flag = |n: &str| format!("GameDataActor.EventTriggerSetGameDataBool(HavePlayedEvent.{n})");
+        for entry in ["Market_Adult_Field_GetArrowLight", "GetArrowLight_OcarinaBackTimeTemple"] {
+            let e = f.entries.iter().find(|e| e.name == entry).unwrap();
+            let w: Vec<String> = walk_joins(f, e.main, 60);
+            assert!(!w.iter().any(|x| x.contains("Equipment")), "{entry}: {w:?}");
+            let at: usize = w.iter().position(|x| x == "EventSystemActor.EventTransition(Dm_TimeTemple_0130)").unwrap();
+            assert_eq!(w[at + 1], flag("Dm_TimeTemple_0135"));
+            assert_eq!(w.iter().filter(|x| x.starts_with("EventSystemActor.EventTransition")).count(), 1, "{entry}: {w:?}");
+            for s in ["Dm_TimeTemple_0090", "Dm_TimeTemple_0095", "Dm_TimeTemple_0110", "Dm_TimeTemple_0115", "Dm_TimeTemple_0125"] {
+                assert!(w[..at].contains(&flag(s)), "{entry}: {s}");
+            }
+            let tail: Vec<&String> = w[at + 2..].iter().filter(|x| !x.starts_with("Fork") && !x.starts_with("Join")).collect();
+            assert_eq!(tail, vec!["Player_Event.EventPlayerUnequip()", "UISystemActor.EventEventFadeIn()", "ChallengeSystemActor.EventExecuteProgressChallengeStep(AllSage,Complete)", "ChallengeSystemActor.EventExecuteProgressChallengeStep(Defeat_Ganon,Step01)"], "{entry}");
+        }
+        Bf::parse(&b.write().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn the_real_zelda_escape_keeps_the_step_and_the_fade() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut b: Bf = Bf::parse(&rf.read_zs(DOOR_FILE).unwrap()).unwrap();
+        patch_escape(&mut b).unwrap();
+        assert!(patch_escape(&mut b).is_err());
+        let f: &Flow = b.flows.iter().find(|f| f.name == DOOR_FLOW).unwrap();
+        let e = f.entries.iter().find(|e| e.name == "DoorOfTime_Escape").unwrap();
+        let w: Vec<String> = walk_joins(f, e.main, 80);
+        assert!(w.contains(&"GameDataActor.EventTriggerSetGameDataBool(HavePlayedEvent.Dm_HrlField_0060)".to_string()), "{w:?}");
+        assert!(!w.iter().any(|x| x.starts_with("EventSystemActor.EventTransition")), "{w:?}");
+        assert!(w.contains(&"ChallengeSystemActor.EventExecuteProgressChallengeStep(DoorOfTime,Step04)".to_string()), "{w:?}");
+        Bf::parse(&b.write().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn the_real_owls_become_flags() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        for (file, patch) in [(BRIDGE_FILE, patch_field_owl as fn(&mut Bf) -> Res<()>), (RIVER_FILE, patch_river_owl), (ARRIVE_FILE, patch_woods_owls)] {
+            let mut b: Bf = Bf::parse(&rf.read_zs(file).unwrap()).unwrap();
+            patch(&mut b).unwrap();
+            assert!(patch(&mut b).is_err(), "{file}");
+            let f: &Flow = &b.flows[0];
+            for s in ["Dm_HrlField_0005", "Dm_HrlField_0010", "Dm_ZoraRiver_0000", "Dm_LostWood_0000", "Dm_LostWood_0000_GoronCity", "Dm_LostWood_0010"] {
+                assert!(!(0..f.events.len()).any(|i| action(f, i).as_deref() == Some("EventSystemActor.EventTransition") && text(&f.events[i], "EventName") == Some(s)), "{file}: {s}");
+            }
+            Bf::parse(&b.write().unwrap()).unwrap();
+        }
+        // The field owl's flow still writes its quest step, menu and item after the cut.
+        let mut b: Bf = Bf::parse(&rf.read_zs(BRIDGE_FILE).unwrap()).unwrap();
+        patch_field_owl(&mut b).unwrap();
+        let f: &Flow = &b.flows[0];
+        let e = f.entries.iter().find(|e| e.name == "Goto_HyruleCastle_Kaepora_00").unwrap();
+        let w: Vec<String> = walk_joins(f, e.main, 40);
+        for want in ["EventSystemActor.EventTransition(Dm_HrlField_0000)", "GameDataActor.EventTriggerSetGameDataBool(UI_IsFinishChallengeMenuOpenEvent)", "PouchSystemActor.EventTriggerAddOrRemovePouchContent(Pouch_Amiibo)", "ChallengeSystemActor.EventExecuteProgressChallengeStep(Goto_HyruleCastle,Step02)"] {
+            assert!(w.iter().any(|x| x == want), "{want}: {w:?}");
+        }
+    }
+
+    #[test]
+    fn the_real_sheik_scenes_go_from_the_placement_to_the_song() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        for c in &SHEIK_CUTS {
+            let mut b: Bf = Bf::parse(&rf.read_zs(&sheik_file(c.scene)).unwrap()).unwrap();
+            patch_sheik(&mut b, c).unwrap();
+            assert!(patch_sheik(&mut b, c).is_err(), "{}", c.scene);
+            let f: &Flow = &b.flows[0];
+            let e = f.entries.iter().find(|e| e.name == "EntryPoint0").unwrap();
+            let w: Vec<String> = walk_joins(f, e.main, 80);
+            let at: usize = w.iter().position(|x| x == "sub GetPouchContent:GetPouchContentByActorName").unwrap_or_else(|| panic!("{}: {w:?}", c.scene));
+            // No ocarina lesson, no talk on the way in or out.
+            assert!(!w.iter().any(|x| x.contains("Dm_SY_Ocarina") || x.contains(".EventTalk(")), "{}: {w:?}", c.scene);
+            assert_eq!(w[at + 1], "GameSystemActor.EventCloseMessageDialog()", "{}", c.scene);
+            let rest: &[String] = &w[at + 2..];
+            if !["Dm_MelodyGet_Shadow", "Dm_MelodyGet_Forest", "Dm_MelodyGet_Shine"].contains(&c.scene) {
+                assert!(rest.iter().any(|x| x.contains("Sheik_Adult.EventGoOffstageForUser")), "{}: {rest:?}", c.scene);
+            }
+            if c.scene == "Dm_MelodyGet_Shine" {
+                assert!(rest.iter().any(|x| x.ends_with("(Market_Adult_GetLightPrelude)")), "{rest:?}");
+            }
+            if c.scene != "Dm_MelodyGet_Shadow" {
+                assert!(rest.iter().any(|x| x.ends_with("(AllSage_MeetSheikCount)")), "{}: {rest:?}", c.scene);
+            }
+            Bf::parse(&b.write().unwrap()).unwrap();
+        }
     }
 }
