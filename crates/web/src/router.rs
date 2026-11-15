@@ -230,7 +230,7 @@ mod tests {
         let e: Resp = handle(&s, &rq("POST", "/api/generate", &[], bad));
         assert_eq!(e.status, 422);
         let t: String = String::from_utf8_lossy(&e.body).into_owned();
-        assert!(t.contains("No seed can be made with these settings") && t.contains("Boss Key"), "{t}");
+        assert!(t.contains("shuffle_bosskeys is overworld while shuffle_chests is dungeons") && t.contains("Set Chests to Everywhere"), "{t}");
         assert!(s.gens.progress("t1").get("running").and_then(|x| x.as_bool()) == Some(false));
         assert_eq!(handle(&s, &rq("POST", "/api/generate", &[], r#"{"seed":"x","ticket":"a b","settings":{}}"#)).status, 400);
     }

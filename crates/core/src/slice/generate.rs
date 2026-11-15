@@ -970,8 +970,8 @@ mod tests {
         let s: Settings = with(&[("shuffle_chests", "dungeons"), ("shuffle_bosskeys", "overworld")]);
         let t0: std::time::Instant = std::time::Instant::now();
         let e: String = generate_data(&d, &s, "x", &GenOpts::default()).err().unwrap().to_string();
-        assert!(e.starts_with("No seed can be made with these settings, the shuffled items cannot all fit"), "{e}");
-        assert!(e.contains("Boss Key") && e.contains("can only go to 0 free locations"), "{e}");
+        assert!(e.contains("shuffle_bosskeys is overworld while shuffle_chests is dungeons"), "{e}");
+        assert!(e.contains("Set Chests to Everywhere"), "{e}");
         assert!(t0.elapsed() < std::time::Duration::from_secs(20));
     }
 

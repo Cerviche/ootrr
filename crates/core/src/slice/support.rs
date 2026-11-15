@@ -283,6 +283,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let boss: Keep = keep(s, "shuffle_bosskeys", &di::BOSS_OK, &mut bad);
     let map: Keep = keep(s, "shuffle_mapcompass", &di::MAP_OK, &mut bad);
     let ganon: Keep = keep(s, "shuffle_ganon_bosskey", &di::GANON_OK, &mut bad);
+    di::chest_guard(s, chests, [small, boss, ganon, map], &mut bad);
     let rewards: bool = match s.text("shuffle_rewards") {
         Ok("off") => false,
         Ok("supported") => true,
@@ -726,5 +727,97 @@ mod tests {
         let mut s: Settings = Settings::default();
         s.set("disabled_locations", Value::set(&["ZD Chest"])).unwrap();
         assert_eq!(plan(&s).unwrap().excluded, vec!["ZD Chest".to_string()]);
+    }
+
+    const ROAMING: [(&str, &str, &[&str]); 4] = [
+        ("shuffle_smallkeys", "Small Keys", &["any_dungeon", "keysanity"]),
+        ("shuffle_bosskeys", "Boss Keys", &["regional", "overworld", "any_dungeon", "keysanity"]),
+        ("shuffle_ganon_bosskey", "Ganon's Boss Key", &["regional", "overworld", "any_dungeon", "keysanity"]),
+        ("shuffle_mapcompass", "Maps and Compasses", &["regional", "any_dungeon", "keysanity"]),
+    ];
+
+    #[test]
+    fn roaming_dungeon_items_need_the_dungeon_chests_shuffled() {
+        for (id, label, values) in ROAMING {
+            for v in values {
+                for chests in ["off", "overworld", "dungeons", "all"] {
+                    let mut s: Settings = Settings::default();
+                    s.set(id, Value::s(v)).unwrap();
+                    s.set("shuffle_chests", Value::s(chests)).unwrap();
+                    let conflict: bool = match chests {
+                        "off" | "overworld" => true,
+                        "dungeons" => *v == "overworld",
+                        _ => false,
+                    };
+                    let r: Res<Plan> = plan(&s);
+                    assert_eq!(r.is_err(), conflict, "{id}={v} chests={chests}");
+                    if conflict {
+                        let e: String = r.err().unwrap().to_string();
+                        assert!(e.contains(&format!("{id} is {v} while shuffle_chests is {chests}")), "{e}");
+                        assert!(e.contains(&format!("set {label} to ")) && e.contains("Set Chests to "), "{e}");
+                        assert!(!e.contains(';') && !e.contains('\u{2014}'), "{e}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn small_keys_that_roam_over_unshuffled_chests_name_the_unsatisfiable_counts() {
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_smallkeys", Value::s("keysanity")).unwrap();
+        s.set("shuffle_chests", Value::s("overworld")).unwrap();
+        let e: String = plan(&s).err().unwrap().to_string();
+        assert!(e.contains("the small key chests stay as they are while the logic counts every key as roaming"), "{e}");
+        s.set("shuffle_smallkeys", Value::s("dungeon")).unwrap();
+        s.set("shuffle_bosskeys", Value::s("keysanity")).unwrap();
+        let e: String = plan(&s).err().unwrap().to_string();
+        assert!(e.contains("nothing of this kind can roam") && !e.contains("small key chests"), "{e}");
+    }
+
+    #[test]
+    fn every_conflicting_class_is_listed_on_its_own_line() {
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_chests", Value::s("off")).unwrap();
+        for (id, _, values) in ROAMING {
+            s.set(id, Value::s(values[values.len() - 1])).unwrap();
+        }
+        let e: String = plan(&s).err().unwrap().to_string();
+        assert_eq!(e.lines().filter(|l| l.contains("while shuffle_chests is off")).count(), 4, "{e}");
+    }
+
+    #[test]
+    fn items_that_do_not_roam_never_conflict_with_any_chest_mode() {
+        for chests in ["off", "overworld", "dungeons", "all"] {
+            for (id, _, _) in ROAMING {
+                for v in ["vanilla", "dungeon"] {
+                    let mut s: Settings = Settings::default();
+                    s.set(id, Value::s(v)).unwrap();
+                    s.set("shuffle_chests", Value::s(chests)).unwrap();
+                    assert!(plan(&s).is_ok(), "{id}={v} chests={chests}");
+                }
+            }
+            let mut s: Settings = Settings::default();
+            for (id, v) in [("shuffle_bosskeys", "remove"), ("shuffle_ganon_bosskey", "remove"), ("shuffle_mapcompass", "startwith")] {
+                s.set(id, Value::s(v)).unwrap();
+            }
+            s.set("shuffle_chests", Value::s(chests)).unwrap();
+            assert!(plan(&s).is_ok(), "removed items chests={chests}");
+        }
+    }
+
+    #[test]
+    fn no_builtin_preset_trips_the_chest_guard_and_the_default_and_keysanity_still_plan() {
+        assert!(plan(&Settings::default()).is_ok());
+        for pr in crate::settings::presets::builtin().unwrap() {
+            let s: Settings = pr.apply(&Settings::default()).unwrap();
+            match plan(&s) {
+                Ok(_) => {}
+                Err(e) => assert!(!e.to_string().contains("while shuffle_chests"), "{}: {e}", pr.id),
+            }
+            if pr.id == "keysanity" {
+                assert!(plan(&s).is_ok());
+            }
+        }
     }
 }
