@@ -541,7 +541,7 @@
             "LH GS Lab Wall": "
                 is_child and (at_night or gold_skulls_ignore_daytime) and
                 (Boomerang or (logic_lab_wall_gs and (Sticks or Kokiri_Sword)))",
-            "LH GS Small Island": "is_child and can_child_attack and (at_night or gold_skulls_ignore_daytime)",
+            "LH GS Small Island": "is_child and can_child_attack",
             "LH GS Tree": "can_use(Longshot) and (at_night or gold_skulls_ignore_daytime)",
             "LH Lab Gossip Stone": "True",
             "LH Gossip Stone (Southeast)": "True",
@@ -2506,7 +2506,7 @@
             "ZR Child Front River Wonderitem 2": "is_child",
             "ZR Child Front River Wonderitem 3": "is_child",
             "ZR Child Front River Wonderitem 4": "is_child",
-            "ZR GS Tree": "is_child and can_child_attack and can_bonk"
+            "ZR GS Tree": "can_plant_bugs and can_child_attack"
 
         },
         "exits": {
@@ -2804,7 +2804,7 @@
             "LLR Epona Hurdle Wonderitem 1": "can_ride_epona",
             "LLR Epona Hurdle Wonderitem 2": "can_ride_epona",
             "LLR GS Tree": "is_child and can_bonk",
-            "LLR GS Rain Shed": "is_child and (at_night or gold_skulls_ignore_daytime)",
+            "LLR GS Rain Shed": "is_child and can_bonk",
             "LLR GS House Window": "can_use(Boomerang) and (at_night or gold_skulls_ignore_daytime)",
             "LLR GS Back Wall": "can_use(Boomerang) and (at_night or gold_skulls_ignore_daytime)"
         },
