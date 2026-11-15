@@ -22,9 +22,9 @@ pub const HELD: [(&str, bool); 3] = [
     ("Graveyard Dampe Race Freestanding PoH", true),
 ];
 
-pub const PIECES_NOTE: &str = "Freestanding heart pieces are shuffled. Heart pieces on the ground swap their actor for another world pickup, and three heart piece chests join the chest pool. Rupees and recovery hearts on the ground keep their items. Rupees, heart pieces, the two shields and every item with a built pickup pack can lie on the ground.";
+pub const PIECES_NOTE: &str = "Freestanding heart pieces are shuffled. Heart pieces on the ground swap their actor for another world pickup, and three heart piece chests join the chest pool. Rupees and recovery hearts on the ground keep their items. Rupees, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
 
-pub const NOTE: &str = "Freestanding items are shuffled. Heart pieces, rupees and recovery hearts on the ground swap their actor for another world pickup, and three heart piece chests join the chest pool. Rupees, recovery hearts, heart pieces, the two shields and every item with a built pickup pack can lie on the ground.";
+pub const NOTE: &str = "Freestanding items are shuffled. Heart pieces, rupees and recovery hearts on the ground swap their actor for another world pickup, and three heart piece chests join the chest pool. Rupees, recovery hearts, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
 
 pub const WORLD_ONLY: [&str; 1] = ["Recovery Heart"];
 
@@ -39,8 +39,14 @@ const ACTORS: [(&str, &str); 6] = [
     ("Rupees (50)", "Obj_Rupee_Purple"),
 ];
 
+pub const NOT_ON_GROUND: [&str; 2] = ["Obj_Token_Gold", "Obj_Arrow_Fire"];
+
 pub fn world_actor(item: &str) -> Option<&'static str> {
     ACTORS.iter().find(|a| a.0 == item).map(|a| a.1)
+}
+
+pub fn ground_actor(item: &str) -> Option<&'static str> {
+    world_actor(item).or_else(|| crate::pot_slice::pickup::of(item).filter(|a| !NOT_ON_GROUND.contains(a)))
 }
 
 pub fn is_world(l: &Loc) -> bool {
@@ -155,7 +161,7 @@ pub fn targets_with(d: &Data, l: &Loc, item: &str, extra: &Extra, tier: Option<&
     if item == vanilla {
         return Ok(Vec::new());
     }
-    let new: String = match world_actor(item).or_else(|| ks::shield(item)) {
+    let new: String = match ground_actor(item).or_else(|| ks::shield(item)) {
         Some(a) => a.to_string(),
         None => pack_actor(d, extra, item, tier).ok_or_else(|| E::Msg(format!("{item} has no world pickup and cannot be placed at {}", l.name)))?,
     };
@@ -221,7 +227,7 @@ pub fn select(d: &Data, w: &World, p: &Plan, free: &mut Vec<LocId>, left: &mut B
 
 pub fn at(d: &Data, name: &str, item: &str) -> Option<bool> {
     if d.cat.by_name(name).is_some_and(is_world) {
-        let known: bool = world_actor(item).is_some() || ks::shield(item).is_some() || ks::placeable(d, item, ks::Spot::Free);
+        let known: bool = ground_actor(item).is_some() || ks::shield(item).is_some() || ks::placeable(d, item, ks::Spot::Free);
         return Some(known && crate::slice::copies::fits(d, name, item));
     }
     None
@@ -283,6 +289,28 @@ mod tests {
         assert_eq!(world_actor("Rupees (5)"), Some("Obj_Rupee_Blue"));
         assert_eq!(world_actor("Bomb Bag"), None);
         assert_eq!(world_actor("Piece of Heart (Out of Logic)"), None);
+        assert_eq!(ground_actor("Rupees (200)"), Some("Obj_Rupee_Gold"));
+        assert_eq!(ground_actor("Heart Container"), Some("Obj_Heart_Container"));
+        assert_eq!(ground_actor("Bombs (5)"), Some("Obj_Bomb"));
+        assert_eq!(ground_actor("Gold Skulltula Token"), None);
+        assert_eq!(ground_actor("Fire Arrows"), None);
+        assert_eq!(ground_actor("Rupees (5)"), Some("Obj_Rupee_Blue"));
+    }
+
+    #[test]
+    fn every_ground_actor_stays_collected_once_taken() {
+        let root: std::path::PathBuf = std::env::var("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|_| std::path::PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
+        if !root.join("Pack").join("ZsDic.pack.zs").is_file() {
+            eprintln!("skipped, no RomFS dump at {} (set OOTRR_ROMFS)", root.display());
+            return;
+        }
+        let mut rf: crate::romfs::Romfs = crate::romfs::Romfs::open(&root).unwrap();
+        let all: Vec<&str> = crate::pot_slice::pickup::PICKUPS.iter().filter_map(|(i, _)| ground_actor(i)).collect();
+        assert!(all.len() > 20);
+        crate::pickup_persist::check_swaps(&mut rf, &all).unwrap();
+        for a in NOT_ON_GROUND {
+            assert!(crate::pickup_persist::check_swaps(&mut rf, &[a]).is_err() || a == "Obj_Arrow_Fire", "{a}");
+        }
     }
 
     #[test]
@@ -375,7 +403,7 @@ mod tests {
                 assert!(crate::slice::generate::allowed(&d, &w, &p, w.item(item).unwrap(), l), "{item} at {loc}");
                 let world_loc: bool = d.cat.by_name(loc).is_some_and(is_world);
                 if world_loc {
-                    let ok: bool = world_actor(item).is_some() || ks::shield(item).is_some() || ks::placeable(&d, item, ks::Spot::Free);
+                    let ok: bool = ground_actor(item).is_some() || ks::shield(item).is_some() || ks::placeable(&d, item, ks::Spot::Free);
                     assert!(ok, "{loc} holds {item}");
                 }
                 if item == "Recovery Heart" {

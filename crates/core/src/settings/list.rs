@@ -240,29 +240,29 @@ pub fn build() -> Schema {
     s.push(
         where_checks(
             Setting::choice(9, "shuffle_pots", "shuffle", "Pots", "off")
-                .tip("Which pots, including flying pots, hold random items. Key items whose pickup pack is built can sit in a pot. A pot that holds a key item is saved as broken only when its item is picked up, so if the item falls into a pit, lands out of reach or is left behind, the pot is back with it the next time the area loads. Rupees, hearts and ammo from a pot are given once and are gone if they are not picked up. Flying pots only hold items that can be replaced."),
+                .tip("Which pots, including flying pots, hold random items. Key items whose pickup pack is built can sit in a pot. A pot that holds a key item is saved as broken only when its item is picked up, so if the item falls into a pit, lands out of reach or is left behind, the pot is back with it the next time the area loads. Rupees, hearts and ammo from a pot are given once and are gone if they are not picked up. Flying pots work the same way."),
         ),
     );
     s.push(
         where_checks(
             Setting::choice(10, "shuffle_crates", "shuffle", "Crates", "off")
-                .tip("Which crates hold random items. Key items whose pickup pack is built can sit in a crate, given once."),
+                .tip("Which crates hold random items. Key items whose pickup pack is built can sit in a crate. A crate that holds a key item is saved as broken only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once."),
         ),
     );
     s.push(
         Setting::toggle(67, crate::pot_slice::plan::HIVES, "shuffle", "Beehives", false)
-            .tip("Whether the seven beehives in the covered hole of Kakariko Village hold random items. They are the only beehives in the remake that drop an item. Only refill items such as rupees, hearts and ammo can be placed in one, and each gives its item once. A hive needs an explosive to open the hole and then the Boomerang, the Hookshot or a bow to bring down. Experimental, untested in the game."),
+            .tip("Whether the seven beehives in the covered hole of Kakariko Village hold random items. They are the only beehives in the remake that drop an item. Key items whose pickup pack is built can sit in a hive. A hive that holds a key item is saved as fallen only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once. A hive needs an explosive to open the hole and then the Boomerang, the Hookshot or a bow to bring down. Experimental, untested in the game."),
     );
     s.push(
         where_checks(
             Setting::choice(86, "shuffle_rocks", "shuffle", "Small Rocks", "off")
-                .tip("Which small liftable rocks hold random items. The adult and the child copy of a rock are separate checks. Rocks hold only rupees, hearts and ammo, because a thrown rock can drop its item out of reach. Experimental, untested in the game."),
+                .tip("Which small liftable rocks hold random items. The adult and the child copy of a rock are separate checks. Key items whose pickup pack is built can sit under a rock. A rock that holds a key item is saved as broken only when its item is picked up, so if a thrown rock drops it out of reach it is back with the item the next time the area loads. Rupees, hearts and ammo are given once. Experimental, untested in the game."),
         ),
     );
     s.push(
         where_checks(
             Setting::choice(87, "shuffle_grass", "shuffle", "Grass", "off")
-                .tip("Which grass tufts hold random items, in the overworld and in the Deku Tree and the Bottom of the Well. Grass holds only rupees, hearts and ammo. The bug grass of the Lost Woods is left alone. Experimental, untested in the game."),
+                .tip("Which grass tufts hold random items, in the overworld and in the Deku Tree and the Bottom of the Well. Key items whose pickup pack is built can sit in grass. A tuft that holds a key item is saved as cut only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once. The bug grass of the Lost Woods is left alone. Experimental, untested in the game."),
         ),
     );
     s.push(
@@ -281,7 +281,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::choice(12, "shuffle_freestanding_items", "shuffle", "Freestanding items", "off")
-            .tip("Which items lying on the ground hold random items. Rupees, hearts, heart pieces, the two shields and every key item whose pickup pack is built can be placed there. A spot that exists once per age only takes items that can be found twice.")
+            .tip("Which items lying on the ground hold random items. Rupees, hearts, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every key item whose pickup pack is built can be placed there. A spot that exists once per age only takes items that do no harm when found twice, such as rupees, hearts, ammo and gear that a second copy does not change.")
             .opt("off", "Vanilla", "Every freestanding item keeps its original item.")
             .opt("pieces", "Only Pieces of Heart", "Heart pieces on the ground and the three heart piece chests are shuffled. Rupees and recovery hearts on the ground stay as they are.")
             .opt("all", "Every Freestanding Item", "Heart pieces, rupees and recovery hearts on the ground are all shuffled, also the 98 rupees and hearts that only the remake has, whose logic region comes from the nearest known checks."),

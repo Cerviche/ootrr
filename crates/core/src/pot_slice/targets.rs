@@ -55,8 +55,8 @@ pub fn targets_with(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Re
             return Err(E::Msg(format!("{loc} cannot be placed, its match or its saved row is not safe")));
         }
         let (actor, kit): (String, bool) = actor_of(d, loc, item, fixed)?;
-        if kit && k != Kind::Pot {
-            return Err(E::Msg(format!("{loc} is a crate, a flying pot or a beehive, it has no variant that keeps {item} until it is picked up")));
+        if kit && !k.kit() {
+            return Err(E::Msg(format!("{loc} is a {}, which has no variant that keeps {item} until it is picked up", l.kind.replace('_', " "))));
         }
         for r in &l.refs {
             out.push(Give { name: loc.clone(), kind: k, hash: r.hash, files: r.files.clone(), was: l.item.clone(), item: item.clone(), actor: actor.clone(), kit });
@@ -131,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn a_token_from_any_container_is_the_falling_twin_and_only_pots_take_it_today() {
+    fn a_token_from_any_container_is_the_falling_twin_and_every_container_takes_it() {
         let d: Data = Data::load().unwrap();
         let twins: &str = "KF House of Twins Pot 1";
         let t: Vec<Give> = targets(&d, &seed(&[(twins, "Gold Skulltula Token")])).unwrap();
@@ -141,8 +141,8 @@ mod tests {
         assert!(t.iter().all(|g| g.kit && g.actor == "Obj_Token_Gold_Fall" && g.kind == Kind::Pot));
         let boxes: Option<String> = eligible(&d).into_iter().find(|n| d.pots.kind_of(n).is_some_and(|k| k != Kind::Pot) && !d.pots.is_remake(n));
         let other: String = boxes.unwrap();
-        let e: String = targets(&d, &seed(&[(&other, "Gold Skulltula Token")])).unwrap_err().to_string();
-        assert!(e.contains("keeps Gold Skulltula Token until it is picked up"), "{e}");
+        let o: Vec<Give> = targets(&d, &seed(&[(&other, "Gold Skulltula Token")])).unwrap();
+        assert!(!o.is_empty() && o.iter().all(|g| g.kit && g.actor == "Obj_Token_Gold_Fall" && g.kind != Kind::Pot), "{o:?}");
         assert_eq!(actor_of(&d, &other, "Gold Skulltula Token", &BM::new()).unwrap(), ("Obj_Token_Gold_Fall".to_string(), true));
         assert_eq!(actor_of(&d, &other, "Rupees (20)", &BM::new()).unwrap(), ("Obj_Rupee_Red".to_string(), false));
         assert_eq!(actor_of(&d, &other, "Fire Arrows", &BM::new()).unwrap(), ("Obj_Arrow_Fire_GS".to_string(), true));
@@ -167,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn a_placed_beehive_becomes_three_gives_and_refuses_a_kit() {
+    fn a_placed_beehive_becomes_three_gives_and_takes_a_kit() {
         let d: Data = Data::load().unwrap();
         let t: Vec<Give> = targets(&d, &seed(&[("Kak Hole Beehive 1", "Rupees (20)")])).unwrap();
         assert_eq!(t.len(), 3);
@@ -175,6 +175,9 @@ mod tests {
         assert_eq!(t.iter().map(|g| g.hash).collect::<std::collections::BTreeSet<u64>>().len(), 3);
         let blue: Vec<Give> = targets(&d, &seed(&[("Kak Hole Beehive 3", "Recovery Heart")])).unwrap();
         assert!(blue.iter().all(|g| g.was == "Obj_Rupee_Blue" && g.actor == "Obj_Heart"));
-        assert!(targets(&d, &seed(&[("Kak Hole Beehive 1", "Megaton Hammer")])).is_err());
+        let kit: Vec<Give> = targets(&d, &seed(&[("Kak Hole Beehive 1", "Megaton Hammer")])).unwrap();
+        assert!(kit.len() == 3 && kit.iter().all(|g| g.kit && g.actor == "Obj_Hammer_GS"));
+        let rock: Vec<Give> = targets(&d, &seed(&[("KF Child Rock 1", "Piece of Heart")])).unwrap();
+        assert!(rock.len() == 1 && rock[0].kit && rock[0].kind == Kind::Rock && rock[0].actor == "Obj_Heart_Piece_GS");
     }
 }

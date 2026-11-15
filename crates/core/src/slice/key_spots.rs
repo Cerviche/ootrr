@@ -15,8 +15,8 @@ pub const TOP_ONLY: [&str; 2] = ["NutBag", "StickBag"];
 pub const REFUSED: [&str; 2] = ["in_game_first", "not_for_placement"];
 pub const AMMO: &str = "--ammo";
 pub const SHIELDS: [(&str, &str); 2] = [("Deku Shield", "Obj_Shield_Deku"), ("Hylian Shield", "Obj_Shield_Hylian")];
-pub const LOST: &str = "A pot that holds a key item stays unbroken in the save until the item is picked up. If you break it and leave without the item, or the item falls into a pit or is left behind on a room change, the pot is back with the item the next time you load the area. Crates and flying pots only hold items that can be replaced.";
-pub const NOTE: &str = "Key items can sit at shuffled pickup spots. Every item whose pickup pack is built can lie on the ground, in a pot, a crate or at a Gold Skulltula, the seed build writes those packs into the mod. Upgrade tiers at these spots always go low to high in the order the player can reach them, and nut and stick capacity there is always the top tier. A spot that exists once per age only takes items that can be found twice.";
+pub const LOST: &str = "A pot, crate, flying pot, beehive, rock or grass tuft that holds a key item stays unused in the save until the item is picked up. If you break it and leave without the item, or the item falls into a pit or is left behind on a room change, it is back with the item the next time you load the area.";
+pub const NOTE: &str = "Key items can sit at shuffled pickup spots. Every item whose pickup pack is built can lie on the ground, sit in a pot, a crate, a flying pot or a beehive, under a rock, in a grass tuft or at a Gold Skulltula, the seed build writes those packs into the mod. Upgrade tiers at these spots always go low to high in the order the player can reach them, and nut and stick capacity there is always the top tier. A spot that exists once per age only takes items that do no harm when found twice, such as rupees, hearts, ammo and gear that a second copy does not change.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Spot {
@@ -174,10 +174,19 @@ pub fn class(d: &Data, name: &str) -> Option<&'static str> {
         return Some("Gold Skulltula drop, a kit pickup");
     }
     if let Some(l) = d.pots.get(name) {
-        return Some(match l.kind.as_str() {
-            "crate" => "crate, given once",
-            "rock" => "rock, given once",
-            "grass" => "grass, given once",
+        let k: Option<crate::pot_slice::data::Kind> = crate::pot_slice::data::Kind::of(&l.kind);
+        let back: bool = k.is_some_and(crate::pot_slice::data::Kind::kit);
+        return Some(match (l.kind.as_str(), back) {
+            ("crate", true) => "crate, returns until its item is picked up",
+            ("flying_pot", true) => "flying pot, returns until its item is picked up",
+            ("beehive", true) => "beehive, returns until its item is picked up",
+            ("rock", true) => "rock, returns until its item is picked up",
+            ("grass", true) => "grass, returns until its item is picked up",
+            ("crate", false) => "crate, given once",
+            ("flying_pot", false) => "flying pot, given once",
+            ("beehive", false) => "beehive, given once",
+            ("rock", false) => "rock, given once",
+            ("grass", false) => "grass, given once",
             _ => "pot, returns until its item is picked up",
         });
     }
@@ -202,7 +211,7 @@ pub fn spoiler(d: &Data, w: &World, free: &[LocId], got: &Placement, assign: &BM
         if d.vanilla_of(name) == Some(item) {
             continue;
         }
-        let held: bool = d.pots.has(name) && d.pots.kind_of(name) == Some(crate::pot_slice::data::Kind::Pot);
+        let held: bool = d.pots.kind_of(name).is_some_and(crate::pot_slice::data::Kind::kit);
         let actor: String = match resolve(d, item, assign.get(name).map(|s| s.as_str())) {
             Ok(p) if crate::slice::skulls::is_skull(d, name) || held => p.kit(),
             Ok(p) => p.pack.clone(),
@@ -210,7 +219,7 @@ pub fn spoiler(d: &Data, w: &World, free: &[LocId], got: &Placement, assign: &BM
             Err(_) if held && crate::pot_slice::pickup::of(item).is_some_and(|a| a == crate::pot_slice::pickup::TOKEN) => crate::pickup_pack::fall::dropped(crate::pot_slice::pickup::TOKEN),
             Err(_) => continue,
         };
-        pots |= c.starts_with("pot");
+        pots |= c.ends_with("returns until its item is picked up") && d.pots.has(name);
         lines.push(format!("  {name}: {item} as {actor} ({c})"));
     }
     let mut out: String = String::new();

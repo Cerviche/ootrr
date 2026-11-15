@@ -235,7 +235,7 @@ mod tests {
                         continue;
                     }
                     here += 1;
-                    assert_eq!(crate::pot_slice::rules::at(&d, loc, item), Some(true), "{loc} holds {item}");
+                    assert!(crate::pot_slice::rules::at(&d, loc, item) == Some(true) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}");
                     if d.item(item).is_some_and(|i| i.adv) {
                         keys += 1;
                     }

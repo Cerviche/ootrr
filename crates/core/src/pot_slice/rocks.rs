@@ -262,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    fn rocks_and_grass_take_refills_only() {
+    fn rocks_and_grass_take_any_item_with_a_pickup_or_a_kit() {
         let d: Data = Data::load().unwrap();
         let w: World = on_world(&d);
         let p: Plan = plan(&with(&[("shuffle_rocks", "all"), ("shuffle_grass", "all")])).unwrap();
@@ -271,9 +271,12 @@ mod tests {
             assert!(ok("Rupees (20)", loc), "{loc}");
             assert!(ok("Recovery Heart", loc), "{loc}");
             assert!(ok("Bombs (5)", loc), "{loc}");
-            assert!(!ok("Progressive Hookshot", loc), "{loc}");
-            assert!(!ok("Fire Arrows", loc), "{loc}");
-            assert!(!ok("Gold Skulltula Token", loc), "{loc}");
+            assert!(ok("Progressive Hookshot", loc), "{loc}");
+            assert!(ok("Fire Arrows", loc), "{loc}");
+            assert!(ok("Gold Skulltula Token", loc), "{loc}");
+            assert!(ok("Piece of Heart", loc), "{loc}");
+            assert!(ok("Megaton Hammer", loc), "{loc}");
+            assert!(!ok("Progressive Strength Upgrade", loc), "{loc}");
             assert!(!ok("Small Key (Forest Temple)", loc), "{loc}");
         }
     }
@@ -305,7 +308,7 @@ mod tests {
                         continue;
                     };
                     here += 1;
-                    assert!(!crate::pot_slice::pickup::holds(item), "{loc} holds {item}");
+                    assert!(crate::pot_slice::rules::at(&d, loc, item) == Some(true) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}");
                     let dungeon: bool = w.regions[w.locs[w.loc(loc).unwrap()].region].dungeon.is_some();
                     let m: &str = if k == Kind::Rock { rocks } else { grass };
                     assert!(m == "all" || (m == "dungeons") == dungeon, "{loc} under {m}");

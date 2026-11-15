@@ -1,6 +1,7 @@
 use std::collections::HashMap as HM;
 
 use crate::logic_items::ItemId;
+use crate::pot_slice::data::Kind;
 use crate::pot_slice::pickup;
 use crate::slice::data::Data;
 use crate::world::{LocId, Placement, World};
@@ -8,8 +9,7 @@ use crate::world::{LocId, Placement, World};
 pub fn at(d: &Data, name: &str, item: &str) -> Option<bool> {
     if d.pots.has(name) {
         let known: bool = pickup::of(item).is_some() || crate::slice::key_spots::placeable(d, item, crate::slice::key_spots::Spot::Pot);
-        let can: bool = d.pots.kind_of(name) == Some(crate::pot_slice::data::Kind::Pot);
-        let safe: bool = can || !pickup::holds(item) || d.vanilla_of(name) == Some(item);
+        let safe: bool = d.pots.kind_of(name).is_some_and(Kind::kit) || !pickup::holds(item) || d.vanilla_of(name) == Some(item);
         return Some(known && safe && crate::slice::copies::fits(d, name, item));
     }
     None
@@ -63,7 +63,7 @@ mod tests {
         let pot: &str = "KF House of Twins Pot 1";
         let chest: &str = "KF Midos Top Left Chest";
         assert_eq!(probe(&d, &w, "Rupees (20)", pot), Some(true));
-        assert_eq!(probe(&d, &w, "Fire Arrows", pot), Some(false));
+        assert_eq!(probe(&d, &w, "Fire Arrows", pot), Some(true));
         assert_eq!(probe(&d, &w, "Fire Arrows", "Dodongos Cavern Right Side Pot 1"), Some(true));
         assert_eq!(probe(&d, &w, "Megaton Hammer", "Dodongos Cavern Right Side Pot 1"), Some(true));
         assert_eq!(probe(&d, &w, "Gold Skulltula Token", "Dodongos Cavern Right Side Pot 1"), Some(true));
@@ -112,8 +112,8 @@ mod tests {
                         here += 1;
                         let ok: bool = pickup::of(item).is_some() || crate::slice::key_spots::placeable(&d, item, crate::slice::key_spots::Spot::Pot);
                         assert!(ok, "{loc} holds {item}");
-                        let pot: bool = d.pots.kind_of(loc) == Some(crate::pot_slice::data::Kind::Pot);
-                        assert!(pot || !pickup::holds(item) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}, which a crate or flying pot could lose");
+                        assert!(d.pots.kind_of(loc).is_some_and(Kind::kit) || !pickup::holds(item) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}, which its holder could lose");
+                        assert!(crate::slice::copies::fits(&d, loc, item), "{loc} holds {item}");
                         if d.vanilla_of(loc) != Some(item.as_str()) {
                             moved += 1;
                         }
@@ -168,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    fn a_beehive_takes_only_refill_items_and_never_a_kit() {
+    fn a_beehive_takes_refills_and_gear_but_no_counted_item() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();
         let hive: &str = "Kak Hole Beehive 3";
@@ -177,8 +177,8 @@ mod tests {
         assert_eq!(probe(&d, &w, "Recovery Heart", hive), Some(true));
         assert_eq!(probe(&d, &w, "Rupees (5)", hive), Some(true));
         assert_eq!(probe(&d, &w, "Arrows (10)", hive), Some(true));
-        assert_eq!(probe(&d, &w, "Fire Arrows", hive), Some(false));
-        assert_eq!(probe(&d, &w, "Megaton Hammer", hive), Some(false));
+        assert_eq!(probe(&d, &w, "Fire Arrows", hive), Some(true));
+        assert_eq!(probe(&d, &w, "Megaton Hammer", hive), Some(true));
         assert_eq!(probe(&d, &w, "Gold Skulltula Token", hive), Some(false));
         assert_eq!(probe(&d, &w, "Piece of Heart", hive), Some(false));
         assert_eq!(probe(&d, &w, "Heart Container", hive), Some(false));
@@ -187,7 +187,7 @@ mod tests {
     }
 
     #[test]
-    fn beehive_seeds_are_beatable_and_hold_only_refills() {
+    fn beehive_seeds_are_beatable_and_hold_what_a_hive_of_three_copies_can_hold() {
         let d: Data = Data::load().unwrap();
         let mut moved: usize = 0;
         for chests in ["all", "off"] {
@@ -199,7 +199,7 @@ mod tests {
                 let hives: Vec<(&String, &String)> = g.seed_file.placements.iter().filter(|(k, _)| d.pots.kind_of(k) == Some(crate::pot_slice::data::Kind::Hive)).collect();
                 assert_eq!(hives.len(), 7, "{chests} {n}");
                 for (loc, item) in hives {
-                    assert!(pickup::of(item).is_some() && !pickup::holds(item) && crate::slice::copies::fits(&d, loc, item), "{loc} holds {item}");
+                    assert!(at(&d, loc, item) == Some(true) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}");
                     if d.vanilla_of(loc) != Some(item.as_str()) {
                         moved += 1;
                     }

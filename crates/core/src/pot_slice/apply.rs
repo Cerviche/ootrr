@@ -7,7 +7,6 @@ use crate::pot_slice::rocks;
 use crate::pot_slice::scan::peek;
 use crate::pot_slice::targets::Give;
 use crate::pickup_pack::kit::name_of;
-use crate::pickup_pack::pot_kit;
 use crate::pots::give;
 use crate::slice::pickups::swap_gyaml;
 use crate::romfs::Romfs;
@@ -29,7 +28,7 @@ pub fn give_one(y: &mut Byml, t: &Give) -> Res<usize> {
     }
     if t.kit {
         let old: &str = seen.first().map(|p| p.gyaml.as_str()).unwrap_or("");
-        if !pot_kit::ACTORS.contains(&old) {
+        if !t.kind.actors().contains(&old) {
             return Err(E::Msg(format!("actor {} of {} is {old:?}, which has no variant that keeps {} until it is picked up", t.hash, t.name, t.item)));
         }
         if swap_gyaml(y, t.hash, old, &name_of(old)) == 0 {
