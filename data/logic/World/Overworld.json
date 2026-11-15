@@ -3018,8 +3018,11 @@
     {
         "region_name": "HF Inside Fence Grotto",
         "scene": "HF Inside Fence Grotto",
+        "events": {
+            "HF Deku Scrub Grotto Adult Visit": "is_adult"
+        },
         "locations": {
-            "HF Deku Scrub Grotto": "can_stun_deku",
+            "HF Deku Scrub Grotto": "is_child and Time_Travel and can_stun_deku and 'HF Deku Scrub Grotto Adult Visit'",
             "HF Inside Fence Grotto Beehive": "can_break_lower_beehive"
         },
         "exits": {
