@@ -968,6 +968,27 @@ mod tests {
         assert!(t0.elapsed() < std::time::Duration::from_secs(20));
     }
 
+    #[test]
+    fn boss_keys_anywhere_with_shuffled_pots_generate_because_the_starting_area_keeps_a_spot() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = with(&[
+            ("shuffle_chests", "all"),
+            ("shuffle_pots", "all"),
+            ("shuffle_crates", "all"),
+            ("shuffle_bosskeys", "keysanity"),
+        ]);
+        let p: Plan = plan(&s).unwrap();
+        let w: World = world_with(&d, &p.logic()).unwrap();
+        let o: GenOpts = GenOpts { tries: 3, ..GenOpts::default() };
+        for seed in ["a", "b", "c"] {
+            let g: Generated = generate_data(&d, &s, seed, &o).unwrap_or_else(|e| panic!("{seed}: {e}"));
+            assert!(rebuilt(&d, &p, &g.seed_file.placements));
+            for (loc, item) in &g.seed_file.placements {
+                assert!(allowed(&d, &w, &p, w.item(item).unwrap(), w.loc(loc).unwrap()), "{item} at {loc}");
+            }
+        }
+    }
+
     fn xcykrix() -> Settings {
         let mut s: Settings = with(&[
             ("open_forest", "open"),

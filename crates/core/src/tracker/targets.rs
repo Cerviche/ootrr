@@ -284,6 +284,24 @@ mod tests {
     }
 
     #[test]
+    fn remake_only_chests_read_like_the_catalog_and_the_boss_rush_reads_plainly() {
+        let t: &[Target] = all().unwrap();
+        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        let mut n: usize = 0;
+        for l in d.cat.of_kind("chest").filter(|l| l.ev.iter().any(|e| e == "new")) {
+            let hit: Vec<&Target> = l.refs.iter().filter_map(|r| t.iter().find(|x| x.id == format!("chest:{}", r.hash))).collect();
+            assert!(!hit.is_empty(), "{}", l.name);
+            for x in hit {
+                assert_eq!(x.name, l.name);
+                assert!(x.ootr.is_none(), "{}", l.name);
+                n += 1;
+            }
+        }
+        assert!(n >= 29);
+        assert!(t.iter().all(|x| !x.name.contains("RushInterval") && !x.name.contains("GanondorfStage")));
+    }
+
+    #[test]
     fn bad_rows_are_refused() {
         assert!(parse("{\"targets\":[{\"id\":\"a\",\"kind\":\"chest\",\"how\":\"flag\"}]}").is_err());
         assert!(parse("{\"targets\":[{\"id\":\"a\",\"kind\":\"boat\",\"how\":\"flag\",\"life\":\"none\"}]}").is_err());
