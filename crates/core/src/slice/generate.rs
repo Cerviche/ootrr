@@ -894,10 +894,11 @@ mod tests {
         assert!(!g.report.contains("Kakariko gate starts open"));
         let p: Plan = plan(&off).unwrap();
         assert!(crate::slice::edit::skipped_locations(&p).is_empty());
-        // Only the intro skip's first-visit flags remain: no quest step, state or item.
+        // Only flags remain: the intro skip's first-visit scenes and the always-on child Temple
+        // of Time skip (crate::story_skip::temple). No quest step, state or item.
         let off_state: crate::start_state::Ops = crate::slice::edit::start_state(&d, &g.seed_file, &p).unwrap();
         assert!(off_state.steps.is_empty() && off_state.enums.is_empty() && off_state.items.is_empty());
-        assert_eq!(off_state.flags.len(), crate::start_state::FIRST_VISIT.len());
+        assert_eq!(off_state.flags.len(), crate::start_state::FIRST_VISIT.len() + crate::story_skip::TEMPLE_FLAGS.len() + crate::story_skip::OWL_FLAGS.len());
         let vanilla: Vec<String> = crate::slice::edit::skipped_items(&d, &g.seed_file, &crate::start_state::KAKARIKO_LOCATIONS).unwrap();
         assert_eq!(vanilla, vec!["Item_ZeldaLetter", "Item_Melody_ZeldaLullaby"]);
     }
