@@ -6,7 +6,7 @@ use crate::flow_locations::build::{plan, Change, Choice, Opts, Stage, StagedFile
 use crate::flow_locations::data::{path_of, Data};
 use crate::flow_locations::edit::{dict_id, set_param, Req};
 use crate::flow_extra::{apply_op, ops_for, Op};
-use crate::progressive::{wrap_grant, Grant};
+use crate::progressive::Grant;
 use crate::romfs::Romfs;
 use crate::zs;
 
@@ -50,7 +50,7 @@ pub fn stage_merged(rf: &mut Romfs, d: &Data, cs: &[Choice], gs: &[Grant], o: &O
         }
         for g in &w.grants {
             let f: &mut Flow = b.flows.first_mut().ok_or(E::Format("flow_locations: the file holds no flow"))?;
-            wrap_grant(f, g.index, &g.event, &g.param, g.family)?;
+            g.apply(f)?;
         }
         let out: Vec<u8> = b.write()?;
         if Bf::parse(&out)? != b {
@@ -66,6 +66,7 @@ pub fn stage_merged(rf: &mut Romfs, d: &Data, cs: &[Choice], gs: &[Grant], o: &O
 mod tests {
     use super::*;
     use crate::bfevfl::{Actor, Cont, Entry, Event, Kind, Val};
+    use crate::progressive::wrap_grant;
 
     fn sub(n: &str, item: &str) -> Event {
         Event {

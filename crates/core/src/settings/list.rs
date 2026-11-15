@@ -88,7 +88,7 @@ fn ganon_key() -> Vec<Setting> {
 
 fn starting_items() -> Setting {
     Setting::multi(36, "starting_items", "starting", "Starting items")
-        .tip("Items you begin the game with. One copy of each is taken out of the item pool and replaced by Rupee (1). Upgrades are ticked by tier and the highest ticked tier counts: Longshot means two progressive Hookshots, Big Quiver means the Bow and one quiver upgrade, Giant's Wallet means two wallet upgrades, Double Magic means two magic upgrades, Ocarina of Time means both ocarinas, Golden Gauntlets means all three strength upgrades. Bags start full. Bombchus need a bomb bag. Zelda's Letter cannot be given.")
+        .tip("Items you begin the game with. One copy of each is taken out of the item pool and replaced by Rupee (1). Upgrades are ticked by tier and the highest ticked tier counts: Longshot means two progressive Hookshots, Big Quiver means the Bow and one quiver upgrade, Big Bullet Bag means the Slingshot and one bullet bag upgrade, Giant's Wallet means two wallet upgrades, Double Magic means two magic upgrades, Ocarina of Time means both ocarinas, Golden Gauntlets means all three strength upgrades. Bags start full. Bombchus need a bomb bag. Zelda's Letter cannot be given.")
         .opts(&[
             ("ocarina", "Ocarina"),
             ("slingshot", "Slingshot"),

@@ -433,6 +433,19 @@ mod tests {
     }
 
     #[test]
+    fn the_ocarina_of_time_cutscene_needs_an_ocarina_in_hand_and_vanilla_seeds_still_win() {
+        let no_ocarina = |n: &str| n == "Ocarina";
+        for l in ["HF Ocarina of Time Item", "Song from Ocarina of Time"] {
+            assert!(reach(&[], &|_| false, At::Loc(l)), "{l}");
+            assert!(!reach(&[], &no_ocarina, At::Loc(l)), "{l}");
+        }
+        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        let w: crate::world::World = crate::slice::logic::world_with(&d, &plan_of(&[]).logic()).unwrap();
+        let p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
+        assert!(crate::search::explore(&w, &p, &[]).won());
+    }
+
+    #[test]
     fn a_running_clock_gives_night_before_zelda_and_the_old_rule_stays_without_it() {
         let no_egg = |n: &str| n == "Weird Egg";
         let tour: &str = "Graveyard Dampe Gravedigging Tour";

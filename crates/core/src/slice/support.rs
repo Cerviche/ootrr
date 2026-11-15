@@ -98,6 +98,14 @@ const GEAR: &[(&str, &str, &str)] = &[
     ("slingshot", "Slingshot", "Weapon_Range_SlingShot"),
 ];
 
+fn gear_row(id: &str) -> Option<&'static (&'static str, &'static str, &'static str)> {
+    let key: &str = match crate::start_items::table::opt(id) {
+        Some(o) if o.group == "slingshot" => "slingshot",
+        _ => id,
+    };
+    GEAR.iter().find(|(k, _, _)| *k == key)
+}
+
 const UNCHANGED: [&str; 21] = [
     "logic_rules",
     "starting_age",
@@ -376,7 +384,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let mut gear: Vec<&'static str> = Vec::new();
     let mut pouch: Vec<&'static str> = Vec::new();
     for id in &chosen {
-        if let Some((_, logic, actor)) = GEAR.iter().find(|(k, _, _)| *k == id) {
+        if let Some((_, logic, actor)) = gear_row(id)
+            && !pouch.contains(actor)
+        {
             gear.push(*logic);
             pouch.push(*actor);
         }
@@ -424,7 +434,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (fast, "Chest and item pickup scenes are sped up."),
         (intro, "The new game intro is skipped. The opening movie and the wake up scene are bypassed, and the harmless first-visit scenes of the areas are marked as played."),
         (start != Reward::Off, "You start the game with one random Stone or Medallion."),
-        (!pouch.is_empty(), "The ticked Kokiri Sword, Deku Shield or Slingshot is added to the pouch when a new game starts."),
+        (!pouch.is_empty(), "The ticked Kokiri Sword, Deku Shield or Slingshot is added to the pouch when a new game starts. A ticked Big or Biggest Bullet Bag brings the Slingshot with it."),
         (small.roams(), "Small keys can be found in other dungeons or outside them. A chest key is counted for the dungeon it belongs to and the chest says which."),
         (forest != Forest::Closed, "Kokiri Forest starts open. The blocker walls are switched off when a new game starts."),
         (kakariko, "The Kakariko gate starts open and the castle visit is skipped. A new game sets the castle quest complete, the Door of Time quest past Impa's send off, the Fire Stone quest past the gate and the gate guard's flag, and gives the items of Zelda's Letter and the Song from Impa."),
@@ -672,6 +682,20 @@ mod tests {
         assert!(p.gear.is_empty() && p.kit.logic() == vec![("Ocarina", 1)]);
         s.set("starting_items", Value::set(&["zeldas_letter"])).unwrap();
         assert!(plan(&s).err().unwrap().to_string().contains("zeldas_letter"));
+    }
+
+    #[test]
+    fn a_bullet_bag_start_tier_brings_the_slingshot_once() {
+        let mut s: Settings = Settings::default();
+        for ids in [vec!["big_bullet_bag"], vec!["biggest_bullet_bag"], vec!["big_bullet_bag", "slingshot"], vec!["slingshot", "biggest_bullet_bag", "big_bullet_bag"]] {
+            s.set("starting_items", Value::set(&ids)).unwrap();
+            let p: Plan = plan(&s).unwrap();
+            assert_eq!(p.gear, vec!["Slingshot"], "{ids:?}");
+            assert_eq!(p.pouch, vec!["Weapon_Range_SlingShot"], "{ids:?}");
+        }
+        s.set("starting_items", Value::set(&["big_quiver", "big_bomb_bag", "bomb_bag"])).unwrap();
+        let p: Plan = plan(&s).unwrap();
+        assert!(p.gear.is_empty() && p.pouch.is_empty());
     }
 
     #[test]

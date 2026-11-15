@@ -17,6 +17,7 @@ pub const CHAIN: &str = "ownership chain";
 pub const FIXED: &str = "fixed tier";
 pub const TOP: &str = "top only";
 pub const BOTH: &str = "base and top";
+pub const GUARD: &str = "base guard";
 pub const VANILLA: &str = "vanilla flow";
 pub const DIRECT: &str = "direct grant";
 
@@ -148,6 +149,10 @@ fn start_rows(d: &Data, p: &Plan) -> Vec<Row> {
     out
 }
 
+fn guarded(loc: &str) -> bool {
+    crate::slice::flow_wrap::PRIZES.iter().any(|p| p.0 == loc)
+}
+
 fn prize_rows(d: &Data, seed: &SeedFile) -> Vec<Row> {
     let mut out: Vec<Row> = Vec::new();
     for l in &d.flow.locs {
@@ -166,9 +171,9 @@ fn prize_rows(d: &Data, seed: &SeedFile) -> Vec<Row> {
             loc: l.name.clone(),
             family: f,
             check: format!("vanilla {}", l.cat),
-            mech: VANILLA,
+            mech: if guarded(&l.name) { GUARD } else { VANILLA },
             tier: names.join(" or "),
-            risk: UNCHECKED,
+            risk: if guarded(&l.name) { RUNTIME } else { UNCHECKED },
             held: 0,
             forced: 0,
         });
@@ -202,7 +207,7 @@ pub fn census(d: &Data, seed: &SeedFile) -> Res<Vec<Row>> {
             });
             continue;
         }
-        let row: Row = match s.give {
+        let mut row: Row = match s.give {
             Give::Flow => {
                 let chain: bool = if !placed {
                     d.wrappable(&s.loc) && used.contains(s.family)
@@ -228,6 +233,10 @@ pub fn census(d: &Data, seed: &SeedFile) -> Res<Vec<Row>> {
                 fixed_row(&w, &place, s, c, k)
             }
         };
+        if !placed && guarded(&s.loc) {
+            row.mech = GUARD;
+            row.risk = RUNTIME;
+        }
         out.push(row);
     }
     out.extend(start_rows(d, &p));
@@ -370,15 +379,20 @@ mod tests {
     }
 
     #[test]
-    fn a_bullet_bag_start_tier_without_the_slingshot_tick_gives_no_slingshot_today() {
+    fn every_start_tier_of_every_family_gives_its_base() {
         let d: Data = Data::load().unwrap();
         for (ids, fam, want) in [
             (vec!["slingshot"], "Slingshot", START_OK),
-            (vec!["big_bullet_bag"], "Slingshot", START_BAD),
-            (vec!["biggest_bullet_bag"], "Slingshot", START_BAD),
+            (vec!["big_bullet_bag"], "Slingshot", START_OK),
+            (vec!["biggest_bullet_bag"], "Slingshot", START_OK),
             (vec!["slingshot", "big_bullet_bag"], "Slingshot", START_OK),
             (vec!["big_quiver"], "Bow", START_OK),
+            (vec!["biggest_quiver"], "Bow", START_OK),
             (vec!["big_bomb_bag"], "BombBag", START_OK),
+            (vec!["biggest_bomb_bag"], "BombBag", START_OK),
+            (vec!["big_nut_bag"], "NutBag", START_OK),
+            (vec!["biggest_stick_bag"], "StickBag", START_OK),
+            (vec!["silver_gauntlets"], "Strength", START_OK),
             (vec!["longshot"], "Hookshot", START_OK),
             (vec!["golden_gauntlets"], "Strength", START_OK),
             (vec!["golden_scale"], "Scale", START_OK),

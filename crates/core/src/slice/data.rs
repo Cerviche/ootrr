@@ -4,7 +4,7 @@ use crate::catalog::Catalog;
 use crate::flow_locations::Data as FlowData;
 use crate::error::{Error as E, Res};
 use crate::json::{self, Json};
-use crate::progressive::{family_of, Grant};
+use crate::progressive::{family_of, Grant, Wrap};
 
 pub const ITEMS_JSON: &str = include_str!("../../../../data/items.json");
 pub const VANILLA_JSON: &str = include_str!("../../../../data/logic/vanilla.json");
@@ -332,7 +332,7 @@ impl Data {
                 continue;
             }
             for e in l.edits.iter().filter(|e| e.role == "grant") {
-                out.push(Grant { file: e.file.clone(), index: e.index, event: e.event.clone(), param: e.param.clone(), family });
+                out.push(Grant { file: e.file.clone(), index: e.index, event: e.event.clone(), param: e.param.clone(), family, wrap: Wrap::Chain });
             }
         }
         out

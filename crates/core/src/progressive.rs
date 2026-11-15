@@ -32,6 +32,8 @@ pub const BIG_FLOW: &str = "Event/EventFlow/Dm_SY_Treasurebox.bfevfl.zs";
 pub const SETTING_TABLE: &str = "RSDB/EventSetting.Product.111.rstbl.byml.zs";
 pub const ANALYZED_TABLE: &str = "RSDB/GameAnalyzedEventInfo.Product.111.rstbl.byml.zs";
 const QUERY: &str = "EventQueryCheckIsGet";
+const POUCH: &str = "PouchSystemActor";
+const EXISTS: &str = "EventQueryIsExistInPouch";
 const HOLDER: &str = "GameDataActor";
 const ROOT_ENTRY: &str = "Success_";
 const GUARD: &str = "BombGuard_";
@@ -132,12 +134,16 @@ fn give(f: &mut Flow, actor: &str) -> Res<u16> {
 }
 
 fn ensure_query(f: &mut Flow) -> Res<(u16, u16)> {
-    let i: usize = match f.actors.iter().position(|a| a.name == HOLDER && a.sub.is_empty()) {
+    ensure(f, HOLDER, QUERY)
+}
+
+fn ensure(f: &mut Flow, holder: &str, query: &str) -> Res<(u16, u16)> {
+    let i: usize = match f.actors.iter().position(|a| a.name == holder && a.sub.is_empty()) {
         Some(i) => i,
         None => {
             let t: &Actor = f.actors.first().ok_or(Error::Format("progressive: the flow has no actors"))?;
             let a: Actor = Actor {
-                name: HOLDER.to_string(),
+                name: holder.to_string(),
                 sub: String::new(),
                 arg: String::new(),
                 actions: Vec::new(),
@@ -151,10 +157,10 @@ fn ensure_query(f: &mut Flow) -> Res<(u16, u16)> {
         }
     };
     let a = &mut f.actors[i];
-    let j: usize = match a.queries.iter().position(|q| q == QUERY) {
+    let j: usize = match a.queries.iter().position(|q| q == query) {
         Some(j) => j,
         None => {
-            a.queries.push(QUERY.to_string());
+            a.queries.push(query.to_string());
             a.queries.len() - 1
         }
     };
@@ -283,6 +289,61 @@ pub fn wrap_grant(f: &mut Flow, index: usize, event: &str, param: &str, family: 
     Ok(())
 }
 
+pub const PLAIN_GIFT: &str = "Dm_SY_GetInEvent:GetInEvent_Demo_NotLookatObjectEntry";
+
+fn with_sub(k: &Kind, to: &str) -> Res<Kind> {
+    let (tf, te): (&str, &str) = to.split_once(':').ok_or_else(|| Error::Msg(format!("progressive: {to} has no colon")))?;
+    let mut out: Kind = k.clone();
+    let Kind::Sub { flow, entry, .. } = &mut out else {
+        return Err(Error::Format("progressive: only a sub flow call can be pointed at another sub flow"));
+    };
+    *flow = tf.to_string();
+    *entry = te.to_string();
+    Ok(out)
+}
+
+pub fn guard_grant(f: &mut Flow, index: usize, event: &str, param: &str, family: &str, plain: bool) -> Res<()> {
+    let t: &[&str] = tiers(family)?;
+    let o: &[&str] = owners(family)?;
+    let kept: Kind = {
+        let e: &Event = f.events.get(index).ok_or_else(|| Error::Msg(format!("event index {index} is out of range")))?;
+        if e.name != event {
+            return Err(Error::Msg(format!("event {index} is named {} and not {event}, the game files differ", e.name)));
+        }
+        if matches!(e.kind, Kind::Switch { .. }) {
+            return Ok(());
+        }
+        e.kind.clone()
+    };
+    let mut first: Kind = with_param(&kept, param, t[0])?;
+    if plain {
+        first = with_sub(&first, PLAIN_GIFT)?;
+    }
+    let (a, q) = ensure_query(f)?;
+    let (pa, pq) = ensure(f, POUCH, EXISTS)?;
+    let keep: u16 = push(f, kept)?;
+    let base: u16 = push(f, first)?;
+    let stock: Cont = Cont { items: vec![("Num".to_string(), Val::Int(1)), ("Actor".to_string(), Val::Str(o[0].to_string()))] };
+    let in_pouch: u16 = push(f, Kind::Switch { actor: pa, query: pq, cases: vec![Case { val: 0, ev: keep }, Case { val: 1, ev: base }], params: Some(stock) })?;
+    let c: Cont = Cont { items: vec![("ActorName".to_string(), Val::Str(o[0].to_string()))] };
+    let cases: Vec<Case> = vec![Case { val: 0, ev: keep }, Case { val: 1, ev: in_pouch }];
+    f.events[index].kind = Kind::Switch { actor: a, query: q, cases, params: Some(c) };
+    let at: u16 = idx(index)?;
+    for e in f.entries.iter_mut() {
+        if let Some(p) = e.subs.iter().position(|x| *x == at) {
+            e.subs.remove(p);
+            e.subs.extend([keep, base]);
+        }
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Wrap {
+    Chain,
+    Base { plain: bool },
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Grant {
     pub file: String,
@@ -290,6 +351,16 @@ pub struct Grant {
     pub event: String,
     pub param: String,
     pub family: &'static str,
+    pub wrap: Wrap,
+}
+
+impl Grant {
+    pub fn apply(&self, f: &mut Flow) -> Res<()> {
+        match self.wrap {
+            Wrap::Chain => wrap_grant(f, self.index, &self.event, &self.param, self.family),
+            Wrap::Base { plain } => guard_grant(f, self.index, &self.event, &self.param, self.family, plain),
+        }
+    }
 }
 
 pub fn stage_grants(rf: &mut Romfs, grants: &[Grant]) -> Res<Vec<Out>> {
@@ -303,7 +374,7 @@ pub fn stage_grants(rf: &mut Romfs, grants: &[Grant]) -> Res<Vec<Out>> {
             let mut bf: Bf = Bf::parse(raw)?;
             let flow: &mut Flow = bf.flows.first_mut().ok_or(Error::Format("progressive: the flow file has no flow"))?;
             for g in gs {
-                wrap_grant(flow, g.index, &g.event, &g.param, g.family)?;
+                g.apply(flow)?;
             }
             bf.write()
         })?);
@@ -650,6 +721,84 @@ mod tests {
         wrap_grant(&mut f, 0, "Event127", "ActorName", "Strength").unwrap();
         assert_eq!(f, before);
         assert!(wrap_grant(&mut f, 0, "Other", "ActorName", "Strength").is_err());
+    }
+
+    fn prize_flow(item: &str, sub: (&str, &str)) -> Flow {
+        Flow {
+            name: "MiniGame_HitTarget".to_string(),
+            actors: vec![actor("GameSystemActor", &[])],
+            events: vec![Event {
+                name: "Event378".to_string(),
+                kind: Kind::Sub {
+                    next: 7,
+                    params: Some(Cont { items: vec![("ReveiveItem".to_string(), Val::Str(item.to_string())), ("ASName".to_string(), Val::Str("Wait".to_string()))] }),
+                    flow: sub.0.to_string(),
+                    entry: sub.1.to_string(),
+                },
+            }],
+            entries: vec![Entry { name: "Child_Reward".to_string(), subs: vec![0], vars: Vec::new(), main: 0, pad: 0 }],
+        }
+    }
+
+    #[test]
+    fn a_guarded_prize_keeps_the_vanilla_event_for_an_owner_and_gives_the_base_to_anyone_else() {
+        let mut f: Flow = prize_flow("Item_BulletBag_Large", ("NpcCommon", "NpcCommon_HandOver_NpcToPlayer_NoDisplay"));
+        guard_grant(&mut f, 0, "Event378", "ReveiveItem", "Slingshot", false).unwrap();
+        assert_eq!(f.events.len(), 4);
+        assert_eq!(f.entries[0].subs, vec![1, 2]);
+        let Kind::Switch { cases, params, .. } = &f.events[0].kind else {
+            panic!("expected a switch at the old index");
+        };
+        assert_eq!(cases, &vec![Case { val: 0, ev: 1 }, Case { val: 1, ev: 3 }]);
+        assert_eq!(params.as_ref().and_then(|c| c.get("ActorName")), Some(&Val::Str("Weapon_Range_SlingShot".to_string())));
+        let Kind::Switch { actor, query, cases, params } = &f.events[3].kind else {
+            panic!("expected the pouch switch");
+        };
+        assert_eq!(cases, &vec![Case { val: 0, ev: 1 }, Case { val: 1, ev: 2 }]);
+        assert_eq!(params.as_ref().and_then(|c| c.get("Actor")), Some(&Val::Str("Weapon_Range_SlingShot".to_string())));
+        assert_eq!(params.as_ref().and_then(|c| c.get("Num")), Some(&Val::Int(1)));
+        assert_eq!((f.actors[usize::from(*actor)].name.as_str(), f.actors[usize::from(*actor)].queries[usize::from(*query)].as_str()), ("PouchSystemActor", "EventQueryIsExistInPouch"));
+        for (i, want) in [(1usize, "Item_BulletBag_Large"), (2, "Item_Range_SlingShot")] {
+            let Kind::Sub { next, params, flow, entry } = &f.events[i].kind else {
+                panic!("expected a sub");
+            };
+            assert_eq!((*next, flow.as_str(), entry.as_str()), (7, "NpcCommon", "NpcCommon_HandOver_NpcToPlayer_NoDisplay"));
+            assert_eq!(params.as_ref().and_then(|c| c.get("ReveiveItem")), Some(&Val::Str(want.to_string())));
+            assert_eq!(params.as_ref().and_then(|c| c.get("ASName")), Some(&Val::Str("Wait".to_string())));
+        }
+        let before: Flow = f.clone();
+        guard_grant(&mut f, 0, "Event378", "ReveiveItem", "Slingshot", false).unwrap();
+        assert_eq!(f, before);
+        assert!(guard_grant(&mut f, 0, "Other", "ReveiveItem", "Slingshot", false).is_err());
+    }
+
+    #[test]
+    fn a_plain_guard_hands_the_base_over_with_the_plain_gift_sub() {
+        let mut f: Flow = prize_flow("Item_FairyBless_MPDouble", ("Dm_SY_GetInEvent", "GetInEvent_GreatFairyWisdom"));
+        guard_grant(&mut f, 0, "Event378", "ReveiveItem", "Magic", true).unwrap();
+        let Kind::Sub { flow, entry, params, .. } = &f.events[1].kind else {
+            panic!("expected a sub");
+        };
+        assert_eq!((flow.as_str(), entry.as_str()), ("Dm_SY_GetInEvent", "GetInEvent_GreatFairyWisdom"));
+        assert_eq!(params.as_ref().and_then(|c| c.get("ReveiveItem")), Some(&Val::Str("Item_FairyBless_MPDouble".to_string())));
+        let Kind::Sub { flow, entry, params, .. } = &f.events[2].kind else {
+            panic!("expected a sub");
+        };
+        assert_eq!((flow.as_str(), entry.as_str()), ("Dm_SY_GetInEvent", "GetInEvent_Demo_NotLookatObjectEntry"));
+        assert_eq!(params.as_ref().and_then(|c| c.get("ReveiveItem")), Some(&Val::Str("Item_FairyBless_MP".to_string())));
+        let Kind::Switch { params, .. } = &f.events[0].kind else {
+            panic!("expected a switch");
+        };
+        assert_eq!(params.as_ref().and_then(|c| c.get("ActorName")), Some(&Val::Str("Item_FairyBless_MP".to_string())));
+    }
+
+    #[test]
+    fn a_chain_wrapped_prize_is_left_to_its_chain() {
+        let mut f: Flow = prize_flow("Item_BombBag_Medium", ("NpcCommon", "NpcCommon_HandOver_NpcToPlayer_NoDisplay"));
+        wrap_grant(&mut f, 0, "Event378", "ReveiveItem", "BombBag").unwrap();
+        let before: Flow = f.clone();
+        guard_grant(&mut f, 0, "Event378", "ReveiveItem", "BombBag", false).unwrap();
+        assert_eq!(f, before);
     }
 
     fn walk(f: &Flow, main: u16, owned: &[&str]) -> String {
