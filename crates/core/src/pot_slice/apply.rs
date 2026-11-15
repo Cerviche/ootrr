@@ -2,6 +2,8 @@ use std::collections::BTreeMap as BM;
 
 use crate::byml::Byml;
 use crate::error::{Error as E, Res};
+use crate::placement::hash_of;
+use crate::pot_slice::rocks;
 use crate::pot_slice::scan::peek;
 use crate::pot_slice::targets::Give;
 use crate::pickup_pack::kit::name_of;
@@ -22,6 +24,9 @@ pub fn give_one(y: &mut Byml, t: &Give) -> Res<usize> {
         )));
     }
     let n: usize = give(y, t.hash, &t.actor);
+    if t.kind.wild() {
+        drop_table(y, t.hash);
+    }
     if t.kit {
         let old: &str = seen.first().map(|p| p.gyaml.as_str()).unwrap_or("");
         if !pot_kit::ACTORS.contains(&old) {
@@ -32,6 +37,20 @@ pub fn give_one(y: &mut Byml, t: &Give) -> Res<usize> {
         }
     }
     Ok(n)
+}
+
+pub fn drop_table(y: &mut Byml, hash: u64) -> usize {
+    let Some(list) = y.root.get_mut("Actors").and_then(|a| a.as_arr_mut()) else {
+        return 0;
+    };
+    let mut n: usize = 0;
+    for a in list.iter_mut().filter(|a| hash_of(a) == Some(hash)) {
+        if let Some(d) = a.get_mut("Dynamic").filter(|d| d.get(rocks::TABLE).is_some()) {
+            d.remove(rocks::TABLE);
+            n += 1;
+        }
+    }
+    n
 }
 
 pub fn variants(ts: &[Give]) -> bool {
@@ -49,11 +68,27 @@ pub fn check_game(rf: &Romfs, d: &Data) -> Res<()> {
     Ok(())
 }
 
+pub fn check_rocks(rf: &Romfs, d: &Data) -> Res<()> {
+    let have: String = fingerprint(rf, &d.pots.rock_files)?;
+    if have != d.pots.rock_game {
+        return Err(E::Msg(format!(
+            "the rock and grass data was made for the game {} but this folder is {}",
+            d.pots.rock_game, have
+        )));
+    }
+    Ok(())
+}
+
 pub fn apply(rf: &mut Romfs, d: &Data, ts: &[Give], edits: &mut Vec<Edited>) -> Res<usize> {
     if ts.is_empty() {
         return Ok(0);
     }
-    check_game(rf, d)?;
+    if ts.iter().any(|t| !t.kind.wild()) {
+        check_game(rf, d)?;
+    }
+    if ts.iter().any(|t| t.kind.wild()) {
+        check_rocks(rf, d)?;
+    }
     let mut by: BM<&str, Vec<&Give>> = BM::new();
     for t in ts {
         for f in &t.files {
@@ -157,6 +192,33 @@ mod tests {
         let mut y: Byml = file(vec![pot(1, Some("Obj_Heart"))]);
         assert!(give_one(&mut y, &give_of(1, "", "Obj_Rupee_Blue")).is_err());
         assert!(give_one(&mut y, &give_of(1, "Obj_Rupee_Green", "Obj_Rupee_Blue")).is_err());
+    }
+
+    #[test]
+    fn a_rock_with_its_own_table_takes_the_pickup_and_loses_the_table() {
+        let rock = |h: u64, dy: Option<Vec<(String, Node)>>| {
+            let mut m: Vec<(String, Node)> = vec![("Gyaml".to_string(), Node::Str(rocks::ROCK.to_string())), ("Hash".to_string(), Node::U64(h))];
+            if let Some(x) = dy {
+                m.push(("Dynamic".to_string(), Node::Map(x)));
+            }
+            Node::Map(m)
+        };
+        let table: Vec<(String, Node)> = vec![(rocks::TABLE.to_string(), Node::Str("DropTable_Obj_Bomb".to_string())), ("GameModelController_GeneralInstanceParam1".to_string(), Node::I32(2))];
+        let mut y: Byml = file(vec![rock(1, Some(table)), rock(2, None), rock(3, Some(vec![(rocks::TABLE.to_string(), Node::Str("DropTable_Obj_Heart".to_string()))]))]);
+        let mut g: Give = give_of(1, "", "Obj_Rupee_Red");
+        g.kind = Kind::Rock;
+        assert_eq!(give_one(&mut y, &g).unwrap(), 1);
+        g.hash = 2;
+        assert_eq!(give_one(&mut y, &g).unwrap(), 1);
+        let p: Vec<crate::pot_slice::scan::Peek> = peek(&y, 1);
+        assert_eq!((p[0].drop.as_str(), p[0].table.as_str()), ("Obj_Rupee_Red", ""));
+        let a: &Node = crate::slice::banc::actors(&y)[0].get("Dynamic").unwrap();
+        assert_eq!(a.get("GameModelController_GeneralInstanceParam1"), Some(&Node::I32(2)));
+        assert_eq!(peek(&y, 2)[0].drop, "Obj_Rupee_Red");
+        assert_eq!(peek(&y, 3)[0].table, "DropTable_Obj_Heart");
+        let mut pot: Byml = file(vec![rock(4, Some(vec![(rocks::TABLE.to_string(), Node::Str("DropTable_Obj_Heart".to_string()))]))]);
+        give_one(&mut pot, &give_of(4, "", "Obj_Rupee_Blue")).unwrap();
+        assert_eq!(peek(&pot, 4)[0].table, "DropTable_Obj_Heart");
     }
 
     #[test]

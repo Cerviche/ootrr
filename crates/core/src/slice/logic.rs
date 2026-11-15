@@ -92,6 +92,9 @@ pub fn spec(d: &Data, over: &[(&str, &str)]) -> Res<Spec> {
     if crate::slice::skull_rules::wanted(over) {
         crate::slice::skull_rules::apply(&mut files)?;
     }
+    if crate::pot_slice::rocks::wanted(over) {
+        crate::pot_slice::rocks::apply(&mut files)?;
+    }
     s.regions.extend(unique(files));
     Ok(s)
 }

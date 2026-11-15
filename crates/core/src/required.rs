@@ -21,6 +21,7 @@ pub fn list(d: &Data) -> Vec<String> {
     let mut out: BS<String> = BS::new();
     out.extend(d.scan.files.iter().cloned());
     out.extend(d.pots.files.iter().cloned());
+    out.extend(d.pots.rock_files.iter().cloned());
     for l in &d.flow.locs {
         for e in &l.edits {
             out.insert(path_of(&e.file));

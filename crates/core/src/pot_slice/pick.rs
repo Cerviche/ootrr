@@ -20,7 +20,9 @@ fn mode_of(p: &Plan, k: Kind) -> Mode {
     match k {
         Kind::Crate => p.drops.crates,
         Kind::Hive => p.drops.hives,
-        _ => p.drops.pots,
+        Kind::Rock => p.drops.rocks,
+        Kind::Grass => p.drops.grass,
+        Kind::Pot | Kind::Flying => p.drops.pots,
     }
 }
 

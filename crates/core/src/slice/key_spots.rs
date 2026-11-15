@@ -176,6 +176,8 @@ pub fn class(d: &Data, name: &str) -> Option<&'static str> {
     if let Some(l) = d.pots.get(name) {
         return Some(match l.kind.as_str() {
             "crate" => "crate, given once",
+            "rock" => "rock, given once",
+            "grass" => "grass, given once",
             _ => "pot, returns until its item is picked up",
         });
     }

@@ -20,6 +20,9 @@ pub fn changes(p: &Plan) -> Vec<&'static str> {
     if p.drops.any() {
         out.push("shuffle fewer pots and crates");
     }
+    if p.drops.wild() {
+        out.push("shuffle fewer rocks and grass");
+    }
     if p.world != Mode::Off {
         out.push("shuffle fewer freestanding items");
     }

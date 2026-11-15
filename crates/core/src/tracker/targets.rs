@@ -70,7 +70,7 @@ pub struct Target {
     pub twin: Option<u64>,
 }
 
-pub const KINDS: [&str; 18] = [
+pub const KINDS: [&str; 20] = [
     "chest",
     "skulltula",
     "heart_piece",
@@ -82,6 +82,8 @@ pub const KINDS: [&str; 18] = [
     "flying_pot",
     "crate",
     "beehive",
+    "rock",
+    "grass",
     "key",
     "scrub",
     "shop",
@@ -91,7 +93,7 @@ pub const KINDS: [&str; 18] = [
     "trap_chest",
 ];
 
-pub const OFF_BY_DEFAULT: [&str; 4] = ["pot", "flying_pot", "crate", "shop"];
+pub const OFF_BY_DEFAULT: [&str; 6] = ["pot", "flying_pot", "crate", "rock", "grass", "shop"];
 
 pub const DREAM: &str = "DreamWorld";
 
@@ -234,12 +236,13 @@ mod tests {
     #[test]
     fn the_table_loads_with_every_kind() {
         let t: &[Target] = all().unwrap();
-        assert_eq!(t.len(), 1324);
+        assert_eq!(t.len(), 1562);
         let mut n: BTreeMap<&str, usize> = BTreeMap::new();
         for x in t {
             *n.entry(x.kind.as_str()).or_insert(0) += 1;
         }
         assert_eq!(n["pot"], 469);
+        assert_eq!((n["rock"], n["grass"]), (146, 92));
         assert_eq!(n["chest"], 204);
         assert_eq!(n["shop"], 64);
         assert_eq!(n.len(), KINDS.len());

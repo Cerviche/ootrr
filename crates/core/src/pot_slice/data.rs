@@ -3,7 +3,7 @@ use std::collections::{HashMap as HM, HashSet as HS};
 use crate::catalog::{Catalog, Loc};
 use crate::error::{Error as E, Res};
 use crate::json::{self, Json};
-use crate::pot_slice::pickup;
+use crate::pot_slice::{pickup, rocks};
 use crate::slice::data::{Data, State};
 
 pub const CATALOG_JSON: &str = include_str!("../../../../data/pots_catalog.json");
@@ -15,6 +15,8 @@ pub enum Kind {
     Crate,
     Flying,
     Hive,
+    Rock,
+    Grass,
 }
 
 impl Kind {
@@ -24,8 +26,14 @@ impl Kind {
             "crate" => Some(Kind::Crate),
             "flying_pot" => Some(Kind::Flying),
             "beehive" => Some(Kind::Hive),
+            "rock" => Some(Kind::Rock),
+            "grass" => Some(Kind::Grass),
             _ => None,
         }
+    }
+
+    pub fn wild(self) -> bool {
+        matches!(self, Kind::Rock | Kind::Grass)
     }
 
     pub fn reset(self) -> i64 {
@@ -41,6 +49,8 @@ impl Kind {
             Kind::Crate => matches!(g, "Obj_BrokenBox_A_01" | "Obj_BrokenBox_A_03"),
             Kind::Hive => g == "Obj_Kokiri_Beehive_A_01",
             Kind::Flying => matches!(g, "Enemy_FlyingPot_SpiritTemple" | "Enemy_FlyingPot_ShadowTemple" | "Enemy_FlyingPot_IceCavern"),
+            Kind::Rock => g == rocks::ROCK,
+            Kind::Grass => g == rocks::GRASS,
         }
     }
 }
@@ -53,6 +63,8 @@ pub struct PotData {
     pub only: HS<String>,
     pub game: String,
     pub files: Vec<String>,
+    pub rock_game: String,
+    pub rock_files: Vec<String>,
 }
 
 impl PotData {
@@ -145,21 +157,28 @@ pub fn parse_scan(t: &str) -> Res<(String, Vec<String>, Vec<(String, State)>)> {
 
 impl PotData {
     pub fn load(d: &Data) -> Res<PotData> {
-        let locs: Vec<Loc> = merged(d)?;
-        let (game, files, rows): (String, Vec<String>, Vec<(String, State)>) = parse_scan(SCAN_JSON)?;
+        let mut locs: Vec<Loc> = merged(d)?;
+        locs.extend(rocks::locs()?);
+        let (game, files, mut rows): (String, Vec<String>, Vec<(String, State)>) = parse_scan(SCAN_JSON)?;
+        let (rock_game, rock_files, more): (String, Vec<String>, Vec<(String, State)>) = parse_scan(rocks::SCAN_JSON)?;
+        rows.extend(more);
         let mut ix: HM<String, usize> = HM::new();
         for (i, l) in locs.iter().enumerate() {
             if ix.insert(l.name.clone(), i).is_some() {
                 return Err(E::Msg(format!("pot catalog: {} is listed twice", l.name)));
             }
         }
-        let only: HS<String> = pot_only(d, &locs);
-        Ok(PotData { locs, ix, state: rows.into_iter().collect(), only, game, files })
+        let pots: Vec<Loc> = locs.iter().filter(|l| !Kind::of(&l.kind).is_some_and(Kind::wild)).cloned().collect();
+        let only: HS<String> = pot_only(d, &pots);
+        Ok(PotData { locs, ix, state: rows.into_iter().collect(), only, game, files, rock_game, rock_files })
     }
 }
 
 impl Data {
     pub fn with_pots(mut self) -> Res<Data> {
+        for l in rocks::locs()? {
+            self.remake.entry(l.name).or_insert(l.vanilla);
+        }
         self.pots = PotData::load(&self)?;
         Ok(self)
     }

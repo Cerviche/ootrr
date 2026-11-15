@@ -211,6 +211,9 @@ impl Plan {
         if self.skulls != crate::slice::skulls::Mode::Off {
             out.push((crate::slice::skull_rules::KEY, crate::slice::skull_rules::ON));
         }
+        if self.drops.wild() {
+            out.push((crate::pot_slice::rocks::KEY, crate::pot_slice::rocks::ON));
+        }
         out
     }
 
