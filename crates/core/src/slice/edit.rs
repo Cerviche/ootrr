@@ -478,11 +478,12 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let gr: crate::dungeon_grant::Grants = crate::slice::dungeon_items::grants(&d, seed, &p)?;
     let mut marks: crate::dungeon_grant::Marks = crate::dungeon_grant::Marks::default();
     let mut edits: Vec<Edited> = Vec::new();
-    let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, p.chus) } else { BM::new() };
+    let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, p.chus, crate::slice::dungeon_items::credited(p.map)) } else { BM::new() };
+    let moves: crate::chest_size::Moves = if sizes.is_empty() { crate::chest_size::Moves::default() } else { crate::chest_size::moves(&crate::chest_size::scan(&mut rf, &sizes)?, &sizes) };
     let mut resized_n: usize = 0;
     for f in banc_files(&rf)? {
         let vanilla: Vec<u8> = rf.read_zs(&f)?;
-        let resized: Option<Vec<u8>> = crate::chest_size::resize(&vanilla, &sizes)?.map(|(b, n)| {
+        let resized: Option<Vec<u8>> = crate::chest_size::resize(&vanilla, &f, &sizes, &moves)?.map(|(b, n)| {
             resized_n += n;
             b
         });
@@ -727,7 +728,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     };
     let mut notes: Vec<String> = p.notes.clone();
     if p.chest_sizes {
-        notes.push(crate::chest_size::report(resized_n));
+        notes.push(crate::chest_size::report(resized_n, moves.tight.len()));
     }
     if p.world.on() && !seed.placements.keys().any(|k| pu::listed(&d, k)) {
         notes.retain(|n| !pu::is_note(n));
