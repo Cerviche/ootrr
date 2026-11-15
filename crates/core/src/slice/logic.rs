@@ -387,4 +387,57 @@ mod tests {
         assert_eq!(exit_open(&s, &w, "ZR Front -> Zora River", Age::Adult), s.cnt[h] > 0);
         assert!(!exit_open(&s, &w, "ZR Front -> Zora River", Age::Child));
     }
+
+    #[test]
+    fn spells_the_lens_and_the_arrows_need_the_meter_item_and_nothing_else_gives_one() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let every: Vec<ItemId> = w.items.names.iter().enumerate().filter(|(i, _)| w.items.adv[*i]).flat_map(|(i, _)| [i; 3]).collect();
+        let without: Vec<ItemId> = w.items.names.iter().enumerate().filter(|(i, n)| w.items.adv[*i] && !n.starts_with("Magic Meter")).flat_map(|(i, _)| [i; 3]).collect();
+        for spell in ["Dins Fire", "Farores Wind", "Nayrus Love", "Lens of Truth", "Fire Arrows", "Light Arrows", "Ice Arrows"] {
+            assert!(w.item(spell).is_some_and(|i| without.contains(&i)), "{spell}");
+        }
+        let reached = |s: &Search| w.real.iter().filter(|l| s.loc_access(**l)).count();
+        let rich: Search = explore(&w, &vanilla_place(&w, &d).unwrap(), &every);
+        let bare: Search = explore(&w, &vanilla_without(&w, &d, &["Magic Meter"]), &without);
+        assert!(reached(&bare) < reached(&rich));
+    }
+
+    #[test]
+    fn the_logic_files_never_let_a_magic_item_stand_in_for_the_meter() {
+        use std::path::{Path, PathBuf};
+        let dir: PathBuf = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/logic");
+        let squeeze = |s: &str| s.split_whitespace().collect::<Vec<&str>>().join(" ");
+        let h: String = squeeze(&std::fs::read_to_string(dir.join("LogicHelpers.json")).unwrap());
+        assert!(h.contains("\"can_use(item)\": \"(_is_magic_item(item) and item and Magic_Meter) or (_is_adult_item(item)"));
+        assert!(h.contains("or (_is_magic_arrow(item) and is_adult and item and Bow and Magic_Meter)"));
+        assert!(h.contains("\"_is_magic_item(item)\": \"item == Dins_Fire or item == Farores_Wind or item == Nayrus_Love or item == Lens_of_Truth\""));
+        assert!(h.contains("\"_is_magic_arrow(item)\": \"item == Fire_Arrows or item == Light_Arrows or item == Blue_Fire_Arrows\""));
+        assert_eq!(h.matches("magic_spell").count(), 3);
+        let mut raw: Vec<String> = Vec::new();
+        let mut rest: String = String::new();
+        let mut files: Vec<PathBuf> = std::fs::read_dir(dir.join("World")).unwrap().map(|e| e.unwrap().path()).collect();
+        files.sort();
+        for f in files {
+            for line in std::fs::read_to_string(&f).unwrap().lines() {
+                let plain: String = line.replace("(Magic_Meter and Fire_Arrows)", "");
+                let mut t: String = plain.clone();
+                for g in ["Dins_Fire", "Farores_Wind", "Nayrus_Love", "Lens_of_Truth", "Fire_Arrows", "Ice_Arrows", "Light_Arrows", "Blue_Fire_Arrows"] {
+                    t = t.replace(&format!("can_use({g})"), "");
+                }
+                if t.contains("Dins_Fire") {
+                    raw.push(t.trim().split('"').nth(1).unwrap_or("").to_string());
+                }
+                rest.push_str(&t.replace("Dins_Fire", ""));
+            }
+        }
+        raw.sort();
+        assert_eq!(
+            raw,
+            vec!["Colossus Great Fairy Reward", "DMC Great Fairy Reward", "DMT Owl Flight", "HC Great Fairy Reward", "OGC Great Fairy Reward", "ZF Great Fairy Reward"]
+        );
+        for g in ["Farores_Wind", "Nayrus_Love", "Lens_of_Truth", "Fire_Arrows", "Ice_Arrows", "Light_Arrows", "Blue_Fire_Arrows"] {
+            assert!(!rest.contains(g), "{g}");
+        }
+    }
 }

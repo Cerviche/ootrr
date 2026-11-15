@@ -11,6 +11,7 @@ use crate::modpack::Pack;
 use crate::pickup_pack::actor::{identity, make_with, pouch_file, Made, ATTENTION_REF, AUTO_GET, POUCH_REF};
 use crate::pickup_pack::build::{pool_of, Plan};
 use crate::pickup_pack::closure::{actor_file, chain, dangling_with, is_byml, local, norm, select, work, Chain, Pool, COMPONENTS, PARENT};
+use crate::pickup_pack::meter;
 use crate::pickup_pack::place;
 use crate::pickup_pack::rows::{self, ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO};
 use crate::pickup_pack::sizes;
@@ -470,6 +471,9 @@ pub fn copy_rows(ys: &mut [Byml; 3], pl: &Plan) -> Res<usize> {
             r.set(rows::LAYER, v.clone());
         }
         at[i] = rows::insert(&mut ys[i], r)?;
+    }
+    if meter::applies(&pl.identity) {
+        meter::strip_all(&mut ys[2])?;
     }
     if at[0] != at[1] {
         return Err(E::Msg(format!("the new row sits at {} in the actor table and at {} in the game actor table, the two tables no longer line up", at[0], at[1])));

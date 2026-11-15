@@ -6,10 +6,21 @@ use crate::flow_extra::data::{Extra, Spec};
 use crate::flow_extra::op::{apply, Op};
 use crate::flow_locations::{edit_bytes as plain, set_param, Change, Req};
 
+pub fn always_ops() -> Res<BM<String, Vec<Op>>> {
+    let x: Extra = Extra::load()?;
+    let mut out: BM<String, Vec<Op>> = BM::new();
+    for s in &x.always {
+        for o in &s.ops {
+            out.entry(o.file.clone()).or_default().push(o.clone());
+        }
+    }
+    Ok(out)
+}
+
 pub fn ops_for(changes: &[Change]) -> Res<BM<String, Vec<Op>>> {
     let x: Extra = Extra::load()?;
     let mut seen: Vec<&str> = Vec::new();
-    let mut out: BM<String, Vec<Op>> = BM::new();
+    let mut out: BM<String, Vec<Op>> = always_ops()?;
     for c in changes {
         if seen.contains(&c.location.as_str()) {
             continue;
@@ -74,10 +85,16 @@ mod tests {
     #[test]
     fn ops_follow_the_changed_locations_and_bind_the_item() {
         let by: BM<String, Vec<Op>> = ops_for(&[ch("GC Medigoron", "Npc_Goron_Medigoron_Adult.bfevfl", "Item_Longshot"), ch("Volvagia", "X.bfevfl", "Item_A")]).unwrap();
-        assert_eq!(by.keys().cloned().collect::<Vec<String>>(), vec!["Npc_Goron_Medigoron_Adult.bfevfl".to_string(), "SimpleShop.bfevfl".to_string()]);
+        assert_eq!(
+            by.keys().cloned().collect::<Vec<String>>(),
+            vec!["Dm_FairyFountain_Din.bfevfl".to_string(), "Dm_SY_Get.bfevfl".to_string(), "Npc_Goron_Medigoron_Adult.bfevfl".to_string(), "SimpleShop.bfevfl".to_string()]
+        );
         let txt: String = format!("{by:?}");
         assert!(txt.contains("Item_Longshot") && !txt.contains("$item"));
-        assert!(ops_for(&[]).unwrap().is_empty());
+        let always: BM<String, Vec<Op>> = ops_for(&[]).unwrap();
+        assert_eq!(always, always_ops().unwrap());
+        assert_eq!(always.keys().cloned().collect::<Vec<String>>(), vec!["Dm_FairyFountain_Din.bfevfl".to_string(), "Dm_SY_Get.bfevfl".to_string()]);
+        assert!(always.values().flatten().all(|o| matches!(o.how, crate::flow_extra::op::How::Retarget { .. })));
         assert!(ops_of("Volvagia", "Item_A").unwrap().is_empty());
         assert_eq!(ops_of("DMT Biggoron", "Item_A").unwrap().len(), 3);
     }

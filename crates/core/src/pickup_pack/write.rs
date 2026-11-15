@@ -375,7 +375,7 @@ pub fn audit(rf: &mut Romfs, s: &Spec, pl: &Plan, files: &[File], rst_z: &[u8], 
         if !rows::sorted(&y)? || n + had != m + 1 {
             return Err(E::Msg(format!("audit: {t} is not the table it started from plus one sorted row")));
         }
-        let eased = |x: &Node| t == POUCH_INFO && (sc.layers.ammo || meter::applies(&pl.identity)) && rows::id(x) == Some(pl.identity.as_str());
+        let eased = |x: &Node| t == POUCH_INFO && ((sc.layers.ammo && rows::id(x) == Some(pl.identity.as_str())) || (meter::applies(&pl.identity) && meter::loses(x)));
         let kept: usize = was
             .root
             .as_arr()
@@ -1021,7 +1021,6 @@ mod tests {
         for (item, name, n, raise) in [
             ("Item_FairyBless_MP", "Obj_FairyBless_MP", 41, "Item_FairyBless_MP"),
             ("Item_FairyBless_MPDouble", "Obj_FairyBless_MPDouble", 41, "Item_FairyBless_MPDouble"),
-            ("Item_Arrow_Light", "Obj_Arrow_Light", 40, "Item_FairyBless_MP"),
         ] {
             let s: Spec = spec_of(item, name);
             let own: String = magic::table_file(name);
@@ -1049,29 +1048,42 @@ mod tests {
     }
 
     #[test]
-    fn the_spell_and_the_ice_arrow_give_no_magic_meter_and_the_meter_items_do() {
+    fn the_seven_magic_items_give_no_magic_meter_and_the_meter_items_do() {
         let Some(root) = real() else {
             return;
         };
         let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let was: Byml = rf.read_byml(POUCH_INFO).unwrap();
+        let cut: Vec<String> = was.root.as_arr().unwrap().iter().filter(|r| meter::loses(r)).map(|r| rows::id(r).unwrap().to_string()).collect();
+        assert_eq!(cut.len(), 21);
+        assert_eq!(meter::left(&was).len(), 25);
         let on: Layers = Layers { magic: true, ..Layers::default() };
-        for (item, name) in [("Item_DinFire", "Obj_DinFire"), ("Item_Arrow_Ice", "Obj_Arrow_Ice")] {
+        for (item, name) in [
+            ("Item_GlassTruth", "Obj_GlassTruth"),
+            ("Item_DinFire", "Obj_DinFire"),
+            ("Item_FaroreWind", "Obj_FaroreWind"),
+            ("Item_NayruLove", "Obj_NayruLove"),
+            ("Item_Arrow_Fire", "Obj_Arrow_Fire2"),
+            ("Item_Arrow_Ice", "Obj_Arrow_Ice"),
+            ("Item_Arrow_Light", "Obj_Arrow_Light"),
+        ] {
             let s: Spec = spec_of(item, name);
             let d: Done = run(&root, P::new("unused"), "unused", &s, &opts(Vec::new())).unwrap();
             let mut rows_changed: Vec<String> = changed(&mut rf, &d, POUCH_INFO);
             rows_changed.sort();
-            let mut want: Vec<String> = vec![item.to_string(), name.to_string()];
+            let mut want: Vec<String> = cut.clone();
+            want.push(name.to_string());
             want.sort();
             assert_eq!(rows_changed, want, "{item}");
-            let was: Byml = rf.read_byml(POUCH_INFO).unwrap();
             let now: Byml = Byml::parse(&file(&d, POUCH_INFO).raw).unwrap();
-            assert!(meter::raises(rows::find(&was, item).unwrap()), "{item}");
-            for who in [item, name] {
-                let r: &Node = rows::find(&now, who).unwrap();
-                assert_eq!(r.get(meter::KIND), None, "{who}");
-                assert_eq!(r.get(meter::AMOUNT), None, "{who}");
+            assert_eq!(meter::left(&now), vec!["Item_FairyBless_MP", "Item_FairyBless_MPDouble", "Pouch_FairyBless_MP", "Pouch_FairyBless_MPDouble"], "{item}");
+            for r in now.root.as_arr().unwrap() {
+                if !meter::keeps(rows::id(r).unwrap()) {
+                    assert!(!meter::raises(r), "{item} {:?}", rows::id(r));
+                    assert_eq!(r.get(meter::AMOUNT), None, "{item} {:?}", rows::id(r));
+                }
             }
-            assert!(d.report.contains("magic raise:"), "{item} {}", d.report);
+            assert!(d.report.contains("magic raise: 21 rows"), "{item} {}", d.report);
             let again: Done = run(&root, P::new("unused"), "unused", &s, &opts(Vec::new())).unwrap();
             assert_eq!(file(&again, POUCH_INFO).raw, file(&d, POUCH_INFO).raw, "{item}");
             let e: String = run_with(&root, P::new("unused"), "unused", &s, &opts(Vec::new()), &on).unwrap_err().to_string();
@@ -1083,6 +1095,7 @@ mod tests {
             let now: Byml = Byml::parse(&file(&d, POUCH_INFO).raw).unwrap();
             assert!(meter::raises(rows::find(&now, name).unwrap()), "{item}");
             assert!(meter::raises(rows::find(&now, item).unwrap()), "{item}");
+            assert_eq!(meter::left(&now).len(), 26, "{item}");
             assert!(!d.report.contains("magic raise:"), "{item}");
         }
     }

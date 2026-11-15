@@ -613,9 +613,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         more.extend(hints::stage(&mut rf, &d, seed, p.hints, &keys, &p.npc)?);
     }
     crate::dungeon_grant::stage_text(&mut rf, &mut more, &marks.used)?;
-    if roam {
-        more.push(stage_pouch(&mut rf)?);
-    }
+    more.push(stage_pouch(&mut rf, roam)?);
     more.extend(crate::bomb_lift::stage(&mut rf)?);
     more.extend(crate::door_fix::stage(&mut rf)?);
     if p.door {

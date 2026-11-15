@@ -36,7 +36,7 @@
       ],
       "status": "built",
       "identity": "Armor_GlassTruth",
-      "notes": "Gear identity differs from the item name. HeadArmor row with MPMaxUP side effect, model floats about 1 m up."
+      "notes": "Gear identity differs from the item name. HeadArmor row, its MPMaxUP raise is removed (pickup_pack/meter.rs) so the Lens gives no magic meter. Model floats about 1 m up."
     },
     {
       "group": "A",
@@ -373,18 +373,7 @@
       ],
       "status": "built",
       "identity": "Item_Arrow_Light",
-      "notes": "Plain, 40 files, heap 199928, PouchCategory Bow, MPMaxUP 24, no Tag row. Magic layer applies if M1 fails",
-      "variants": [
-        {
-          "args": [
-            "--host",
-            "hookshot",
-            "--magic"
-          ],
-          "status": "dry_ok",
-          "notes": "Optional magic layer of ENGINE. Only needed if the plain pack fails the magic bar test M1."
-        }
-      ]
+      "notes": "Plain, 40 files, heap 199928, PouchCategory Bow, MPMaxUP 24, no Tag row. The pack row and the item row carry no magic raise (pickup_pack/meter.rs), so this pickup gives no magic meter. The magic layer is refused"
     },
     {
       "group": "C",
@@ -396,18 +385,7 @@
       ],
       "status": "built",
       "identity": "Item_FaroreWind",
-      "notes": "Plain, 40 files, heap 199928, shared Item_DinFire model, variation frame 1, MPMaxUP 24, no Tag row. Magic layer applies if M1 fails",
-      "variants": [
-        {
-          "args": [
-            "--host",
-            "hookshot",
-            "--magic"
-          ],
-          "status": "dry_ok",
-          "notes": "Optional magic layer of ENGINE. Only needed if the plain pack fails the magic bar test M1."
-        }
-      ]
+      "notes": "Plain, 40 files, heap 199928, shared Item_DinFire model, variation frame 1, MPMaxUP 24, no Tag row. The pack row and the item row carry no magic raise (pickup_pack/meter.rs), so this pickup gives no magic meter. The magic layer is refused"
     },
     {
       "group": "C",
@@ -419,18 +397,7 @@
       ],
       "status": "built",
       "identity": "Item_NayruLove",
-      "notes": "Plain, 40 files, heap 199928, shared Item_DinFire model, variation frame 2, MPMaxUP 24, no Tag row. Magic layer applies if M1 fails",
-      "variants": [
-        {
-          "args": [
-            "--host",
-            "hookshot",
-            "--magic"
-          ],
-          "status": "dry_ok",
-          "notes": "Optional magic layer of ENGINE. Only needed if the plain pack fails the magic bar test M1."
-        }
-      ]
+      "notes": "Plain, 40 files, heap 199928, shared Item_DinFire model, variation frame 2, MPMaxUP 24, no Tag row. The pack row and the item row carry no magic raise (pickup_pack/meter.rs), so this pickup gives no magic meter. The magic layer is refused"
     },
     {
       "group": "C",

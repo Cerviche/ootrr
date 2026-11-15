@@ -62,7 +62,7 @@ mod tests {
 
     use super::*;
     use crate::bfevfl::Flow;
-    use crate::flow_extra::sim::{broken, called, edited, granted, run, sim, Scene};
+    use crate::flow_extra::sim::{beyond_always, broken, called, edited, granted, run, sim, Scene};
     use crate::flow_locations::Data as FlowData;
     use crate::flow_sim::run::{End, Fin, Sim};
     use crate::romfs::Romfs;
@@ -94,7 +94,7 @@ mod tests {
     fn both(r: &P, loc: &str, sc: &Scene) -> (Vec<Fin>, Vec<Fin>) {
         let mut rf: Romfs = Romfs::open(r).unwrap();
         let fl: HM<String, Flow> = edited(&mut rf, loc, NEW).unwrap();
-        assert_eq!(fl.len(), 1, "{loc}");
+        assert_eq!(beyond_always(&fl).len(), 1, "{loc}");
         let mut a: Sim = sim(r, HM::new()).unwrap();
         let mut b: Sim = sim(r, fl).unwrap();
         (run(&mut a, sc).unwrap(), run(&mut b, sc).unwrap())
@@ -240,7 +240,7 @@ mod tests {
         let d: FlowData = FlowData::load().unwrap();
         let ch: Vec<Change> = LOCS.iter().flat_map(|l| changes(d.by_name(l).unwrap(), NEW).unwrap()).collect();
         let os = crate::flow_extra::ops_for(&ch).unwrap();
-        assert_eq!(os.len(), 1);
+        assert_eq!(os.len(), 1 + crate::flow_extra::always_ops().unwrap().len());
         assert_eq!(os["Animal_Cow.bfevfl"].len(), 2);
         let raw: Vec<u8> = rf.read_zs(&crate::flow_locations::path_of("Animal_Cow.bfevfl")).unwrap();
         let b: crate::bfevfl::Bf = crate::flow_extra::edit_flow(&raw, &[], &os["Animal_Cow.bfevfl"]).unwrap();

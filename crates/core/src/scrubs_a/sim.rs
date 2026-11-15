@@ -4,7 +4,7 @@ mod tests {
     use std::path::{Path as P, PathBuf as PB};
 
     use crate::bfevfl::{Bf, Flow};
-    use crate::flow_extra::sim::{broken, edited, granted, run, run_from, sim, Scene};
+    use crate::flow_extra::sim::{beyond_always, broken, edited, granted, run, run_from, sim, Scene};
     use crate::flow_locations::{path_of, Data, Loc};
     use crate::flow_sim::run::{End, Fin, Sim};
     use crate::flow_sim::state::State;
@@ -70,7 +70,7 @@ mod tests {
     fn sims(r: &P, loc: &str) -> (Sim, Sim) {
         let mut rf: Romfs = Romfs::open(r).unwrap();
         let fl: HM<String, Flow> = edited(&mut rf, loc, NEW).unwrap();
-        assert_eq!(fl.len(), 1, "{loc}");
+        assert_eq!(beyond_always(&fl).len(), 1, "{loc}");
         (sim(r, HM::new()).unwrap(), sim(r, fl).unwrap())
     }
 
@@ -78,8 +78,8 @@ mod tests {
     fn the_vanilla_item_placed_back_leaves_the_flow_untouched() {
         let Some(r) = root() else { return };
         let mut rf: Romfs = Romfs::open(&r).unwrap();
-        assert!(edited(&mut rf, "DMC Deku Scrub", "Obj_Heart_Piece").unwrap().is_empty());
-        assert!(edited(&mut rf, "HF Deku Scrub Grotto", "Obj_Heart_Piece").unwrap().is_empty());
+        assert!(beyond_always(&edited(&mut rf, "DMC Deku Scrub", "Obj_Heart_Piece").unwrap()).is_empty());
+        assert!(beyond_always(&edited(&mut rf, "HF Deku Scrub Grotto", "Obj_Heart_Piece").unwrap()).is_empty());
         let d: Data = Data::load().unwrap();
         for c in &CASES[1..3] {
             let l: &Loc = d.by_name(c.loc).unwrap();

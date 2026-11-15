@@ -413,10 +413,13 @@ pub fn sweep(y: &mut Byml, file: &str) -> Res<usize> {
     Ok(n)
 }
 
-pub fn stage_pouch(rf: &mut Romfs) -> Res<Out> {
+pub fn stage_pouch(rf: &mut Romfs, roam: bool) -> Res<Out> {
     rewrite(rf, POUCH_TABLE, |raw: &[u8]| {
         let mut y: Byml = Byml::parse(raw)?;
-        quiet_pouch(&mut y)?;
+        if roam {
+            quiet_pouch(&mut y)?;
+        }
+        crate::pickup_pack::meter::strip_all(&mut y)?;
         y.write()
     })
 }
@@ -819,6 +822,42 @@ mod tests {
         assert!(quiet_pouch(&mut odd).is_err());
         let mut none: Byml = Byml { root: Node::Arr(vec![row("Obj_Dungeon_SmallKey", NATIVE_DEAL)]), version: 2, big: false };
         assert!(quiet_pouch(&mut none).is_err());
+    }
+
+    #[test]
+    fn the_seed_pouch_table_always_loses_the_magic_raise_of_the_non_meter_rows() {
+        use crate::pickup_pack::meter;
+        let r: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
+        if !r.join("Event/EventFlow").is_dir() {
+            eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", r.display());
+            return;
+        }
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        let was: Byml = rf.read_byml(POUCH_TABLE).unwrap();
+        let before: &[Node] = was.root.as_arr().unwrap();
+        assert_eq!(before.iter().filter(|n| meter::loses(n)).count(), 21);
+        assert_eq!(meter::left(&was).len(), 25);
+        let want: Vec<Node> = before
+            .iter()
+            .map(|n| {
+                let mut c: Node = n.clone();
+                if meter::loses(&c) {
+                    meter::strip(&mut c);
+                }
+                c
+            })
+            .collect();
+        let plain: Out = stage_pouch(&mut rf, false).unwrap();
+        let now: Byml = Byml::parse(&rf.zs.decompress(&plain.z).unwrap()).unwrap();
+        assert_eq!(now.root.as_arr().unwrap().len(), want.len());
+        for (a, b) in now.root.as_arr().unwrap().iter().zip(&want) {
+            assert_eq!(a, b, "{}", text(a, "__RowId"));
+        }
+        assert_eq!(meter::left(&now), vec!["Item_FairyBless_MP", "Item_FairyBless_MPDouble", "Pouch_FairyBless_MP", "Pouch_FairyBless_MPDouble"]);
+        let roam: Out = stage_pouch(&mut rf, true).unwrap();
+        let both: Byml = Byml::parse(&rf.zs.decompress(&roam.z).unwrap()).unwrap();
+        assert_eq!(meter::left(&both), meter::left(&now));
+        assert!(both.root.as_arr().unwrap().iter().all(|n| !meter::loses(n)));
     }
 
     fn chest(hash: u64, gyaml: &str) -> Node {

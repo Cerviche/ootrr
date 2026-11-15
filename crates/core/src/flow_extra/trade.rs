@@ -91,7 +91,7 @@ mod tests {
     use super::*;
     use crate::bfevfl::{Bf, Flow};
     use crate::flow_extra::op::Op;
-    use crate::flow_extra::sim::{edited, granted, run, run_from, sim, stem, Scene};
+    use crate::flow_extra::sim::{beyond_always, edited, granted, run, run_from, sim, stem, Scene};
     use crate::flow_locations::{path_of, plan, Choice, Data as FlowData, Opts};
     use crate::flow_sim::run::{End, Fin, Sim};
     use crate::flow_sim::state::{State, V};
@@ -160,7 +160,8 @@ mod tests {
         let (ch, _, _): (Vec<Change>, usize, Vec<String>) = plan(&d, &cs, &Opts::default()).unwrap();
         assert_eq!(ch.len(), 10);
         let os: BM<String, Vec<Op>> = crate::flow_extra::ops_for(&ch).unwrap();
-        assert_eq!(os.values().map(|v| v.len()).sum::<usize>(), 10);
+        let own: usize = crate::flow_extra::always_ops().unwrap().values().map(|v| v.len()).sum();
+        assert_eq!(os.values().map(|v| v.len()).sum::<usize>(), 10 + own);
         let mut out: HM<String, Flow> = HM::new();
         for (file, o) in &os {
             let raw: Vec<u8> = rf.read_zs(&path_of(file)).unwrap();
@@ -309,7 +310,7 @@ mod tests {
         let Some(r) = root() else { return };
         let mut rf: Romfs = Romfs::open(&r).unwrap();
         for h in &HANDS {
-            assert!(edited(&mut rf, h.loc, h.gives).unwrap().is_empty(), "{}", h.loc);
+            assert!(beyond_always(&edited(&mut rf, h.loc, h.gives).unwrap()).is_empty(), "{}", h.loc);
         }
     }
 

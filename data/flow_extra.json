@@ -1,6 +1,6 @@
 {
 "format": 1,
-"note": "Structural event flow edits for the gated flow locations of data/flow_locations.json. They run only when the location receives an item other than its vanilla one, after the ordinary parameter edits of that location. $item stands for the chosen item actor. The locations join the pool only with shuffle_rewards=supported and shuffle_rewards_extra on. Design and evidence in docs/flow_checks.md sections 3, 4 and 8, build notes in docs/flow_checks_built_2.md.",
+"note": "Structural event flow edits for the gated flow locations of data/flow_locations.json. They run only when the location receives an item other than its vanilla one, after the ordinary parameter edits of that location. $item stands for the chosen item actor. The specs of the always list run in every seed build whatever is placed, they hold the magic gauge edits that follow from only the Magic Meter items giving a meter. The locations join the pool only with shuffle_rewards=supported and shuffle_rewards_extra on. Design and evidence in docs/flow_checks.md sections 3, 4 and 8, build notes in docs/flow_checks_built_2.md.",
 "locations": [
 {
 "name": "Kak 20 Gold Skulltula Reward",
@@ -131,11 +131,30 @@
 ]
 },
 {
-"name": "DMT Great Fairy Reward",
-"why": "the Din gift sub waits on the magic gauge when the player has none (GreatFairy_HasNoMPOnDinDemo, set by event 579 when PlayerStatus.MPMax is 0), a gift that is not Din's Fire may never create the gauge the sub waits for, so both cases of that check go to event 42 and the flag is never set, the gift sub then takes its no gauge branch",
+"name": "DMC Great Fairy Reward",
+"why": "the Wisdom gift sub plays the double magic gauge birth after the item (events 75 to 78 of Dm_SY_GetInEvent) whatever the item is, only the magic meter items can create that gauge, so another item is handed over with the plain fountain gift sub that the other fountains use",
+"ops": [
+{"kind": "swap_sub", "file": "Dm_FairyFountain_Wisdom.bfevfl", "index": 72, "event": "Event144",
+ "from": "Dm_SY_GetInEvent:GetInEvent_GreatFairyWisdom", "to": "Dm_SY_GetInEvent:GetInEvent_Demo_NotLookatObjectEntry",
+ "params": [["ActorName", "$item"]]}
+]
+}
+],
+"always": [
+{
+"name": "Din fountain gauge",
+"why": "Din's Fire no longer carries the magic meter, so the Din gift sub must never be told the player had no magic (GreatFairy_HasNoMPOnDinDemo, set by event 579 when PlayerStatus.MPMax is 0), that flag makes the sub play the gauge birth for a gauge that Din's Fire cannot create, both cases of the check go to event 42 whatever the gift is and the flag is never set",
 "ops": [
 {"kind": "retarget", "file": "Dm_FairyFountain_Din.bfevfl", "index": 579, "event": "Event52", "case": 0, "old": 580, "new": 42},
 {"kind": "retarget", "file": "Dm_FairyFountain_Din.bfevfl", "index": 579, "event": "Event52", "case": 1, "old": 580, "new": 42}
+]
+},
+{
+"name": "Fire Arrow pickup gauge",
+"why": "the pickup of the Fire Arrows (the one actor with the Obj_Fire_Arrow tag, case 1 of the tag check) plays the MPOpen gauge birth when PlayerStatus.MPMax is 0, Fire Arrows no longer carry the magic meter, so both cases of the check in event 176 end in the 30 frame wait of event 180 and no gauge is born",
+"ops": [
+{"kind": "retarget", "file": "Dm_SY_Get.bfevfl", "index": 176, "event": "Event102", "case": 0, "old": 178, "new": 180},
+{"kind": "retarget", "file": "Dm_SY_Get.bfevfl", "index": 176, "event": "Event102", "case": 1, "old": 178, "new": 180}
 ]
 }
 ]
