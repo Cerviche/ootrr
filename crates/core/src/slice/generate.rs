@@ -310,22 +310,23 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         }
     }
     let mut rng: Rng = Rng::from_text(seed);
-    let got: Placement = if pk.free.is_empty() {
-        base.clone()
-    } else {
+    let pinned: Vec<&str> = if lay.is_some() { crate::slice::tier_order::pinned(d, &w, &pk.free) } else { Vec::new() };
+    let shelf = |it: ItemId, l: LocId| ok(it, l) && !(crate::shops::is_loc(&w.locs[l].name) && d.family(&w.items.names[it]).is_some_and(|f| pinned.contains(&f)));
+    let mut run = |careful: bool| -> Res<Placement> {
+        let ok: &dyn Fn(ItemId, LocId) -> bool = if careful { &shelf } else { &ok };
         let fix: bool = crate::slice::tier_fix::active(d, &w, &pk.free);
         let narrow = |it: ItemId, l: LocId| ok(it, l) && !crate::slice::key_spots::widened(d, &w.locs[l].name, &w.items.names[it]);
         let order: Option<&dyn Fn(ItemId, LocId) -> bool> = if fix { Some(&narrow) } else { None };
-        let mut caps: HM<LocId, usize> = crate::pot_slice::rules::caps(d, &w, &pk.free, &base, order.unwrap_or(&ok));
+        let mut caps: HM<LocId, usize> = crate::pot_slice::rules::caps(d, &w, &pk.free, &base, order.unwrap_or(ok));
         if caps.is_empty() && lay.is_some() {
-            caps = crate::shops::rules::caps(&w, &pk.free, &base, order.unwrap_or(&ok));
+            caps = crate::shops::rules::caps(&w, &pk.free, &base, order.unwrap_or(ok));
         }
         let rank = |l: LocId| caps.get(&l).copied().unwrap_or(0);
         let r: Option<&dyn Fn(LocId) -> usize> = if caps.is_empty() { None } else { Some(&rank) };
-        let mut sr: Rng = Rng::from_text(&format!("{seed} songs first"));
+        let mut sr: Rng = Rng::from_text(&format!("{seed} songs first{}", if careful { " careful" } else { "" }));
         let mut fixed: Vec<(LocId, ItemId)> = plan.clone();
         if p.songs == Songs::Anywhere {
-            fixed.extend(crate::slice::song_spots::first(d, &w, &base, &pk.free, &plan, &ok, &mut sr)?);
+            fixed.extend(crate::slice::song_spots::first_with(d, &w, &base, &pk.free, &plan, ok, &mut sr, careful)?);
         }
         let mut keep: Vec<LocId> = fixed.iter().map(|x| x.0).collect();
         let mut n: u32 = 0;
@@ -333,25 +334,25 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         loop {
             let quick: bool = p.songs == Songs::Anywhere && redo + 1 < crate::slice::song_spots::TRIES;
             let (tries, switch): (u32, u32) = if quick { (o.tries.min(crate::slice::song_spots::QUICK_TRIES), o.switch.min(crate::slice::song_spots::QUICK_SWITCH)) } else { (o.tries, o.switch) };
-            let g: Placement = match fill_ordered(&w, &base, &pk.free, &ok, order, &mut rng, tries, &fixed, !p.keys_roam() && gates.is_none(), r, switch, &watch) {
+            let g: Placement = match fill_ordered(&w, &base, &pk.free, ok, order, &mut rng, tries, &fixed, !p.keys_roam() && gates.is_none(), r, switch, &watch) {
                 Ok(g) => g,
                 Err(_) if quick => {
                     redo += 1;
                     fixed = plan.clone();
-                    fixed.extend(crate::slice::song_spots::first(d, &w, &base, &pk.free, &plan, &ok, &mut sr)?);
+                    fixed.extend(crate::slice::song_spots::first_with(d, &w, &base, &pk.free, &plan, ok, &mut sr, careful)?);
                     keep = fixed.iter().map(|x| x.0).collect();
                     continue;
                 }
                 Err(e) => return Err(crate::slice::advice::explain(&p, e)),
             };
             if crate::slice::tier_order::fits(d, &w, &g, &pk.free)? {
-                break g;
+                return Ok(g);
             }
             if fix {
                 let mut fr: Rng = Rng::from_text(&format!("{seed} tier repair {n}"));
-                let c: crate::slice::tier_fix::Ctx = crate::slice::tier_fix::Ctx { d, w: &w, free: &pk.free, keep: &keep, ok: &ok };
+                let c: crate::slice::tier_fix::Ctx = crate::slice::tier_fix::Ctx { d, w: &w, free: &pk.free, keep: &keep, ok };
                 if let Some(x) = crate::slice::tier_fix::repair(&c, &g, &mut fr)? {
-                    break x;
+                    return Ok(x);
                 }
             }
             n += 1;
@@ -364,6 +365,19 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
                 let last: Vec<String> = crate::slice::tier_fix::verdict(d, &w, &g, &pk.free)?.bad.into_iter().take(2).collect();
                 return Err(E::Msg(format!("no fill in {TIER_TRIES} tries kept every fixed upgrade tier in order, {hint}. The last fill failed because {}", last.join(", and "))));
             }
+        }
+    };
+    let got: Placement = if pk.free.is_empty() {
+        base.clone()
+    } else {
+        match run(false) {
+            Ok(g) => g,
+            Err(e) if p.songs != Songs::Anywhere || watch.check().is_err() => return Err(e),
+            Err(e) => match run(true) {
+                Ok(g) => g,
+                Err(x) if watch.check().is_err() => return Err(x),
+                Err(_) => return Err(e),
+            },
         }
     };
     if p.skulls != crate::slice::skulls::Mode::Off {

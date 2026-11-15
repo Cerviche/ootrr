@@ -66,7 +66,7 @@ mod tests {
             if lv != "shuffle" {
                 s.set("shop_price_max", Value::Int(700)).unwrap();
                 s.set("shop_deal_items", Value::set(&["stacks", "upgrades", "hearts", "songs"])).unwrap();
-                s.set("shuffle_songs", Value::s(if lv == "deals_4" { "own" } else { "anywhere" })).unwrap();
+                s.set("shuffle_songs", Value::s("anywhere")).unwrap();
             }
             for n in 0..2 {
                 let g: Generated = generate_data(&d, &s, &format!("audit {lv} {n}"), &GenOpts { spoiler: true, ..GenOpts::default() }).unwrap_or_else(|e| panic!("{lv} {n}: {e}"));

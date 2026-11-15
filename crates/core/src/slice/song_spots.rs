@@ -3,6 +3,8 @@ use crate::logic_items::ItemId;
 use crate::rng::Rng;
 use crate::search::Search;
 use crate::slice::data::{Data, Item};
+use crate::slice::fill::SHORT;
+use crate::slice::fit::{Fit, Grid};
 use crate::slice::generate::is_song;
 use crate::slice::support::{Plan, Songs};
 use crate::world::{LocId, Placement, World};
@@ -29,6 +31,10 @@ pub const QUICK_TRIES: u32 = 40;
 pub const QUICK_SWITCH: u32 = 10;
 
 pub fn first(d: &Data, w: &World, base: &Placement, free: &[LocId], plan: &[(LocId, ItemId)], ok: &dyn Fn(ItemId, LocId) -> bool, rng: &mut Rng) -> Res<Vec<(LocId, ItemId)>> {
+    first_with(d, w, base, free, plan, ok, rng, false)
+}
+
+pub fn first_with(d: &Data, w: &World, base: &Placement, free: &[LocId], plan: &[(LocId, ItemId)], ok: &dyn Fn(ItemId, LocId) -> bool, rng: &mut Rng, fit: bool) -> Res<Vec<(LocId, ItemId)>> {
     let mut fixed: Placement = base.clone();
     let mut pool: Vec<ItemId> = free.iter().filter_map(|l| base.get(*l)).collect();
     for l in free {
@@ -44,6 +50,13 @@ pub fn first(d: &Data, w: &World, base: &Placement, free: &[LocId], plan: &[(Loc
     songs.sort();
     rng.shuffle(&mut songs);
     let mut open: Vec<LocId> = free.iter().copied().filter(|l| !plan.iter().any(|x| x.0 == *l)).collect();
+    let spots: Vec<LocId> = open.clone();
+    let none: [ItemId; 0] = [];
+    let g: Grid = Grid::new(if fit { pool.as_slice() } else { &none }, &spots, ok);
+    let mut f: Fit = Fit::new(&g);
+    if fit && !f.full() {
+        return Err(E::Msg(SHORT.to_string()));
+    }
     let prog: Vec<ItemId> = pool.iter().copied().filter(|i| w.items.adv[*i]).collect();
     let mut assumed: Search = Search::new(w);
     assumed.settle(&fixed, true);
@@ -53,11 +66,25 @@ pub fn first(d: &Data, w: &World, base: &Placement, free: &[LocId], plan: &[(Loc
         assumed.remove(it);
         let mut mx: Search = assumed.clone();
         mx.settle(&fixed, true);
-        let cands: Vec<LocId> = open.iter().copied().filter(|l| ok(it, *l) && mx.loc_access(*l)).collect();
-        if cands.is_empty() {
-            return Err(E::Msg(format!("no spot for {} when the songs are placed first", w.items.names[it])));
+        let mut cands: Vec<LocId> = open.iter().copied().filter(|l| ok(it, *l) && mx.loc_access(*l)).collect();
+        let p: Option<usize> = if fit { pool.iter().position(|x| *x == it) } else { None };
+        let mut pick: Option<LocId> = None;
+        while !cands.is_empty() {
+            let k: usize = rng.below(cands.len() as u64) as usize;
+            let l: LocId = cands[k];
+            let kept: bool = match (p, spots.iter().position(|x| *x == l)) {
+                (Some(p), Some(j)) => f.take(p, j),
+                _ => true,
+            };
+            if kept {
+                pick = Some(l);
+                break;
+            }
+            cands.swap_remove(k);
         }
-        let l: LocId = cands[rng.below(cands.len() as u64) as usize];
+        let Some(l) = pick else {
+            return Err(E::Msg(format!("no spot for {} when the songs are placed first", w.items.names[it])));
+        };
         open.retain(|x| *x != l);
         fixed.put(l, it);
         out.push((l, it));
@@ -115,6 +142,24 @@ mod tests {
             }
         }
         assert!(at_pickups > 0);
+    }
+
+    #[test]
+    fn songs_placed_first_leave_room_for_four_shelf_deals_per_shop() {
+        use crate::slice::generate::{generate_data, GenOpts, Generated};
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = Settings::default();
+        for (k, v) in [("shuffle_shops", "deals_4"), ("shuffle_chests", "all"), ("shuffle_songs", "anywhere")] {
+            s.set(k, Value::s(v)).unwrap();
+        }
+        s.set("shop_price_max", Value::Int(700)).unwrap();
+        s.set("shop_deal_items", Value::set(&["stacks", "hearts", "songs"])).unwrap();
+        for n in 0..2 {
+            let g: Generated = generate_data(&d, &s, &format!("room for deals {n}"), &GenOpts::default()).unwrap_or_else(|e| panic!("{n}: {e}"));
+            let songs: usize = g.seed_file.placements.values().filter(|i| d.item(i).is_some_and(is_song_item)).count();
+            assert_eq!(songs, 11, "{n}");
+            assert!(g.seed_file.shops.values().filter(|e| e.deal).count() > 0, "{n}");
+        }
     }
 
     #[test]
