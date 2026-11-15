@@ -6,6 +6,7 @@ mod check_catalog;
 mod check_msbt;
 mod check_rstbl;
 mod check_sarc;
+mod deku_bridge_cmd;
 mod door_fix_cmd;
 mod door_open_cmd;
 mod entr_cmd;
@@ -78,6 +79,7 @@ const USAGE: &str = "usage:
   ootrr qol-mod <romfs_root> <load_dir> <mod_name> <skip-story | skip-all | anju | poe | navi-dungeons | navi-everywhere | bunny-speed | bunny-jump>
   ootrr door-fix <romfs_root> <load_dir> <mod_name>
   ootrr door-open <romfs_root> <load_dir> <mod_name>
+  ootrr deku-bridge-testmod <romfs_root> <load_dir> <mod_name>
   ootrr start-defaults <romfs_root> <load_dir> <mod_name> [--preset setting=value]... [--control] [--bool N=v] [--int N=v] [--enum N=v] [--grant Actor:n] [--opening-step S]
   ootrr flow-rewards <romfs_root> <out_json>
   ootrr flow-sim <romfs_root> <flow> <entry> [--set name=value]... [--own Item[:n]]... [--choose n]... [--hour h] [--follow] [--verbose] [--mod dir] [--patch doorfix] [--nodep Challenge] [--never lit,!lit] [--expect rule] [--compare] [--run Flow:Entry]...
@@ -353,6 +355,7 @@ fn main() -> ExitCode {
         Some("qol-mod") => qol_cmd::run(&a[1..]),
         Some("door-fix") => door_fix_cmd::run(&a[1..]),
         Some("door-open") => door_open_cmd::run(&a[1..]),
+        Some("deku-bridge-testmod") => deku_bridge_cmd::testmod(&a[1..]),
         Some("start-defaults") => start_defaults_cmd::run(&a[1..]),
         Some("progressive") => progressive_cmd::run(&a[1..]),
         Some("key-credit") => key_credit_cmd::run(&a[1..]),

@@ -1111,6 +1111,7 @@ mod tests {
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
+            s.set(crate::deku_bridge::KEY, Value::Bool(false)).unwrap();
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
             let mut f: SeedFile = g.seed_file.clone();
             if s.flag("shuffle_dungeon_rewards").unwrap() {

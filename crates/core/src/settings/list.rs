@@ -484,6 +484,11 @@ pub fn build() -> Schema {
             .opt("overworld", "Overworld", "The area to area transitions of the overworld lead to other areas. Not built yet, a seed with this is refused.")
             .opt("everything", "Everything", "Dungeons, overworld transitions and later interiors and grottos, each kept in its own pool. Not built yet, a seed with this is refused."),
     );
+    s.push(
+        Setting::toggle(crate::deku_bridge::NUM, crate::deku_bridge::KEY, "world", "Deku Tree bridge never breaks", true)
+            .wire_as(Value::Bool(false))
+            .tip("The wooden bridge in the Deku Tree slingshot room stays up when Link walks, rolls or jumps on it, so you never drop into the pit below it. Nothing else in the dungeon changes and the logic is the same, because the room never needed the bridge to break. Without the Slingshot the jump across has a window of about nine frames, so this keeps the room fair when the chests there hold other items. A bridge that already broke in a save stays broken. Experimental, untested in the game."),
+    );
     s.push(starting_items());
     s.push(starting_songs());
     s.sort_by_key(|x| x.num);

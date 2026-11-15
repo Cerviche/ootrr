@@ -87,6 +87,7 @@ pub struct Plan {
     pub open: crate::open_world::Opts,
     pub npc: crate::npc_hints::Opts,
     pub shops: crate::shops::Opts,
+    pub bridge: bool,
 }
 
 const GEAR: &[(&str, &str, &str)] = &[
@@ -389,6 +390,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
     let shops: crate::shops::Opts = crate::shops::plan::read(s, &mut bad);
+    let bridge: bool = crate::deku_bridge::mode(s, &mut bad);
     let excluded: Vec<String> = s.items("disabled_locations").map(|v| v.to_vec()).unwrap_or_default();
     if !bad.is_empty() {
         let lines: Vec<String> = bad.iter().map(|b| format!("  {b}")).collect();
@@ -459,8 +461,11 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::slice::treasure::NOTE.to_string());
     }
     notes.extend(open.notes()?);
+    if bridge {
+        notes.push(crate::deku_bridge::NOTE.to_string());
+    }
     notes.extend(shops.notes());
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, scrubs, scrubs_b, hearts, world, songs, hints, fast, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, scrubs, scrubs_b, hearts, world, songs, hints, fast, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge })
 }
 
 #[cfg(test)]
@@ -474,7 +479,7 @@ mod tests {
         assert_eq!(p.small, Keep::Dungeon);
         assert_eq!(p.map, Keep::Dungeon);
         assert!(p.intro);
-        assert_eq!(p.notes.len(), 3);
+        assert_eq!(p.notes.len(), 4);
         assert!(p.notes.iter().any(|n| n.contains("world clock runs from the start")));
         assert_eq!(p.open, crate::open_world::Opts { time: true, ..crate::open_world::Opts::default() });
         assert!(!p.door);

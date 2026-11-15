@@ -666,6 +666,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut late: Vec<crate::staging::Out> = if p.qol.any() { crate::qol::worked(&mut rf, &pk, &p.qol)? } else { Vec::new() };
     late.extend(crate::open_world::worked(&mut rf, &pk, &p.open)?);
+    if p.bridge {
+        late.extend(crate::deku_bridge::worked(&mut rf, &pk)?);
+    }
     for o in late {
         pk.write_romfs(&o.path, &o.z)?;
         extra += 1;

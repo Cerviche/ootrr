@@ -10,6 +10,7 @@ pub mod catalog;
 pub mod colors;
 pub mod catalog_json;
 pub mod chest_slot;
+pub mod deku_bridge;
 pub mod door_fix;
 pub mod door_open;
 pub mod dungeon_credit;
