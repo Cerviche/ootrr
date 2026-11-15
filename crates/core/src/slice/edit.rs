@@ -621,6 +621,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         more.extend(crate::door_open::stage_door(&mut rf)?);
     }
     more.extend(crate::door_open::stage_pedestal(&mut rf, Some(&pk.work.join("romfs")))?);
+    if p.dungeon_rewards {
+        crate::medal_gate::stage(&mut rf, &mut more, Some(&pk.work.join("romfs")))?;
+    }
     let reward: Option<&str> = crate::start_reward::pick(&seed.seed, p.start).map(|(_, a)| a);
     let flags: Vec<(String, bool)> = p.start_flags();
     let mut give: Vec<&str> = p.pouch.clone();

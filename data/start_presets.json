@@ -92,6 +92,16 @@
         {"kind": "bool", "name": "ActionGuide_IsNew.Navi", "value": true}
       ],
       "note": "Navi's monster lesson from the Deku Tree's first room is marked as seen when a new game starts, so the D-pad calls Navi and targeting gives enemy information even if the Deku Tree is skipped. The new game values are set in the flag list, experimental and untested in the game."
+    },
+    {
+      "setting": "shuffle_dungeon_rewards",
+      "value": "true",
+      "edits": [
+        {"kind": "exp", "name": "SageOfShadow_Kakariko_Burning", "value": [[0, "IsGet.Item_Medal_Forest"], [0, "IsGet.Item_Medal_Fire"], [0, "IsGet.Item_Medal_Water"], [3], [3]]},
+        {"kind": "exp", "name": "AllSage_IsAfter_Step01_02_Exp", "value": [[0, "IsGet.Item_Medal_Forest"]]},
+        {"kind": "exp", "name": "AllSage_IsAfter_Step02_Exp", "value": [[0, "IsGet.Item_Medal_Shadow"], [0, "IsGet.Item_Medal_Spirit"], [3], [0, "HavePlayedEvent.Dm_TimeTemple_0130"], [5], [3]]}
+      ],
+      "note": "With Stones and Medallions shuffled, the story scenes that stand for a medallion check the medallion items instead of the sage quests. The Kakariko fire and Sheik's Nocturne of Shadow need the Forest, Fire and Water Medallions (SageOfShadow_Kakariko_Burning is rewritten). Sheik's Prelude of Light in the Temple of Time needs the Forest Medallion and the Light Arrows scene needs the Shadow and Spirit Medallions. Those two read the computed flags AllSage_IsAfter_Step01_02_Exp and AllSage_IsAfter_Step02_Exp, which nothing in the game read before and which are rewritten here, through two logic module edits and one map edit in the Temple of Time. Experimental and untested in the game."
     }
   ],
   "control": [

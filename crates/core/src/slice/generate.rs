@@ -1147,8 +1147,8 @@ mod tests {
             (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "fb7413b271d949ca4064a38f5e3d1bb3ea120953fb22a030f6260f21e89c04b2"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "dbbde2ae945e2e8eb27f8fe74e85b432bc1612f02b1f629a822e47f8cf49cc79"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "a131002f74c6dd72eb9e521304f3cb01205103b640d91df77e6ddf6e760fd180"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "f28ca1b1c5c10a57ddfe32a35a3a70f1078c02a410fb1abaf16062330b7f079a"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "b373ae515687d18bd42b8b4954af787026e5b3b9fafff00e0315b799979a70ba"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "98bb175b32329d04418d6e5dfab52c9a5041499caff539764aad14465f83606c"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "48b9c24a29432431f82194e48201de0729864d2988e869d852cb87ad46019197"),
             (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "a3b53f9d89f1e66a00e3ad2460d3a7120a4d74edfe56c8976f212de025fe716f"),
             (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "8d66fa158870b855c387e6b88ec2918862b2de3ee2f57dd6f5ee6cb230b5300c"),
         ];

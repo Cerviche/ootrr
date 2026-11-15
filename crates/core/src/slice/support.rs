@@ -226,12 +226,18 @@ impl Plan {
         if self.drops.remake != Mode::Off {
             out.push((crate::pot_slice::remake::KEY, crate::pot_slice::remake::ON));
         }
+        if self.dungeon_rewards {
+            out.push((crate::medal_gate::LOGIC_KEY, "true"));
+        }
         out
     }
 
     pub fn defaults(&self) -> Vec<(&'static str, &'static str)> {
         let mut out: Vec<(&'static str, &'static str)> = if self.kakariko { vec![KAKARIKO] } else { Vec::new() };
         out.extend(self.open.defaults());
+        if self.dungeon_rewards {
+            out.push((crate::medal_gate::SETTING, "true"));
+        }
         out
     }
 

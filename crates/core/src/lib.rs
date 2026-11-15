@@ -47,6 +47,7 @@ pub mod logic_items;
 pub mod logic_json;
 pub mod logic_synth;
 pub mod logic_val;
+pub mod medal_gate;
 pub mod modpack;
 pub mod msbt;
 pub mod murmur;

@@ -1322,7 +1322,7 @@
         "scene": "Temple of Time",
         "hint": "TEMPLE_OF_TIME",
         "locations": {
-            "Sheik at Temple": "is_adult and 'Defeat Phantom Ganon'",
+            "Sheik at Temple": "is_adult and ((medallion_gates and Forest_Medallion) or (not medallion_gates and 'Defeat Phantom Ganon'))",
             "Master Sword Pedestal": "True"
         },
         "exits": {
