@@ -565,7 +565,8 @@ mod tests {
         assert_eq!(p.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 5);
+        assert_eq!(p.notes.len(), 6);
+        assert!(p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
         assert!(p.notes.iter().any(|n| n.contains("world clock runs from the start")));
         assert_eq!(p.open, crate::open_world::Opts { time: true, ..crate::open_world::Opts::default() });
         assert!(!p.door);

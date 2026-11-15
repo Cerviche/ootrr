@@ -720,6 +720,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     if p.endings {
         late.extend(crate::story_skip::worked_endings(&mut rf, &pk)?);
+    }
     if p.bridge {
         late.extend(crate::deku_bridge::worked(&mut rf, &pk)?);
     }

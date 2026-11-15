@@ -2204,16 +2204,14 @@
                 can_blast_or_smash or can_use(Dins_Fire) or can_use(Bow) or
                 Progressive_Strength_Upgrade or 'Goron City Child Fire'",
             "Stop GC Rolling Goron as Adult": "
-                is_adult and
-                (Progressive_Strength_Upgrade or has_explosives or Bow or
-                    (logic_link_goron_dins and can_use(Dins_Fire)))"
+                is_adult and (Progressive_Strength_Upgrade or has_explosives)"
         },
         "locations": {
             "GC Maze Silver Chest": "can_use(Silver_Gauntlets) and can_blast_or_smash",
             "GC Maze Left Chest": "can_use(Megaton_Hammer) or can_use(Silver_Gauntlets)",
             "GC Maze Center Chest": "can_blast_or_smash",
             "GC Maze Right Chest": "can_blast_or_smash",
-            "GC Rolling Goron as Child": "is_child and (Bomb_Bag or Progressive_Strength_Upgrade)",
+            "GC Rolling Goron as Child": "is_child and Bomb_Bag",
             "GC Medigoron": "
                 is_adult and
                 (can_blast_or_smash or Progressive_Strength_Upgrade)",

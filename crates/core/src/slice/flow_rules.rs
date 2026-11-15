@@ -129,7 +129,7 @@ mod tests {
     }
 
     #[test]
-    fn the_child_rolling_goron_needs_a_bomb_bag_or_strength_and_the_gate_rule_of_goron_city_only() {
+    fn the_child_rolling_goron_needs_a_bomb_bag_and_the_gate_rule_of_goron_city_only() {
         let chus: (&str, &str) = (crate::slice::bombchus::LOGIC_KEY, "true");
         let open: (&str, &str) = ("open_kakariko", "open");
         let both: [&str; 2] = ["Bomb Bag", "Progressive Strength Upgrade"];
@@ -142,27 +142,23 @@ mod tests {
         assert!(!goron(&[open], &both));
         assert!(goron(&[], &["Bombchus (10)","Bombchus (5)", "Bombchus (20)"]));
         let line: &str = include_str!("../../../../data/logic/World/Overworld.json").lines().find(|l| l.contains("\"GC Rolling Goron as Child\":")).unwrap();
-        assert_eq!(line.trim(), "\"GC Rolling Goron as Child\": \"is_child and (Bomb_Bag or Progressive_Strength_Upgrade)\",");
+        assert_eq!(line.trim(), "\"GC Rolling Goron as Child\": \"is_child and Bomb_Bag\",");
     }
 
     #[test]
-    fn a_child_with_strength_and_no_bomb_bag_reaches_the_rolling_goron() {
-        assert!(goron(&[], &["Bomb Bag"]));
-        assert!(goron(&[], &["Bomb Bag", "Bombchus (10)", "Bombchus (5)", "Bombchus (20)"]));
-        let d: Data = Data::load().unwrap();
-        let w: crate::world::World = crate::slice::logic::world_with(&d, &[]).unwrap();
-        let mut p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
-        let bag: crate::logic_items::ItemId = w.item("Bomb Bag").unwrap();
-        let f: crate::logic_items::ItemId = w.item("Rupees (5)").unwrap();
-        for l in &w.real {
-            if p.get(*l) == Some(bag) {
-                p.put(*l, f);
-            }
-        }
-        let s: crate::search::Search = crate::search::explore(&w, &p, &[]);
-        let goron: crate::world::LocId = w.loc("GC Rolling Goron as Child").unwrap();
-        assert!(s.loc_access(goron));
-        assert!(!w.real.iter().any(|l| p.get(*l) == Some(bag)));
+    fn a_child_with_strength_and_no_bomb_bag_does_not_reach_the_rolling_goron() {
+        assert!(!goron(&[], &["Bomb Bag"]));
+        assert!(!goron(&[(crate::slice::bombchus::LOGIC_KEY, "true")], &["Bomb Bag"]));
+    }
+
+    #[test]
+    fn the_adult_rolling_goron_stops_with_bomb_flowers_bombs_or_bombchus() {
+        let rule: &str = include_str!("../../../../data/logic/World/Overworld.json")
+            .split("\"Stop GC Rolling Goron as Adult\": \"")
+            .nth(1)
+            .and_then(|r| r.split('"').next())
+            .unwrap();
+        assert_eq!(rule.split_whitespace().collect::<Vec<_>>().join(" "), "is_adult and (Progressive_Strength_Upgrade or has_explosives)");
     }
 
     #[test]

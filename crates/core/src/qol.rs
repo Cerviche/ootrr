@@ -290,13 +290,14 @@ mod tests {
         let p: crate::slice::support::Plan = plan(&Settings::default()).unwrap();
         assert!(!p.qol.any());
         assert!(p.logic().is_empty());
-        // Three from the defaults plus the two always-on cutscene skips (crate::story_skip).
-        assert_eq!(p.notes.len(), 5);
+        // Three from the defaults, the two always-on cutscene skips (crate::story_skip)
+        // and the default-on Deku Tree bridge (crate::deku_bridge).
+        assert_eq!(p.notes.len(), 6);
         for (k, v, key) in [(ANJU, Value::Bool(true), "chicken_count"), (POE, Value::Bool(true), "big_poe_count")] {
             let p: crate::slice::support::Plan = plan(&with(&[(k, v)])).unwrap();
             assert!(p.qol.any());
             assert_eq!(p.logic(), vec![(key, "1")]);
-            assert_eq!(p.notes.len(), 6);
+            assert_eq!(p.notes.len(), 7);
         }
         let p: crate::slice::support::Plan = plan(&with(&[(SKIP, Value::s("all"))])).unwrap();
         assert_eq!(p.qol.skip, Skip::All);
@@ -474,7 +475,7 @@ mod tests {
     #[test]
     fn the_file_list_is_complete_and_unique() {
         let v: Vec<String> = files();
-        assert_eq!(v.len(), 12);
+        assert_eq!(v.len(), 13);
         let mut w: Vec<String> = v.clone();
         w.sort();
         w.dedup();
