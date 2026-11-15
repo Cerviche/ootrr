@@ -68,6 +68,7 @@ pub mod rsizetable;
 pub mod rule_ast;
 pub mod rules;
 pub mod bomb_lift;
+pub mod bomb_pickup;
 pub mod sarc;
 pub mod save;
 pub mod scrubs_a;
