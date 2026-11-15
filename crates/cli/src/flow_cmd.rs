@@ -199,3 +199,22 @@ pub fn run_verify(a: &[String]) -> Res<()> {
     print_checked(&c);
     if c.problems.is_empty() { Ok(()) } else { Err(Error::Msg(format!("{} problems", c.problems.len()))) }
 }
+
+pub fn run_loads(a: &[String]) -> Res<()> {
+    let root: &str = arg(a, 0, "missing romfs_root")?;
+    let modf: &str = arg(a, 1, "missing mod romfs folder")?;
+    let mut rf: Romfs = Romfs::open(P::new(root))?;
+    match ootrr_core::flow_extra::analyzed::worked(&mut rf, P::new(modf))? {
+        None => {
+            println!("every event of the edited flows lists the flows it calls");
+            Ok(())
+        }
+        Some((_, added)) => {
+            println!("{} events call flows their analyzed event row does not list:", added.len());
+            for l in ootrr_core::flow_extra::analyzed::lines(&added) {
+                println!("{l}");
+            }
+            Err(Error::Msg(format!("{} events miss flows", added.len())))
+        }
+    }
+}

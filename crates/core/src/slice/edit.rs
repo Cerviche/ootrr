@@ -708,6 +708,19 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         }
     }
     extra += crate::slice::skull_kit::write(&mut rf, &pk, &mut rst, &skull_drops, kit_pool)?;
+    let loads: Option<(crate::staging::Out, crate::flow_extra::analyzed::Added)> = crate::flow_extra::analyzed::worked(&mut rf, &pk.work.join("romfs"))?;
+    if let Some((o, _)) = &loads {
+        pk.write_romfs(&o.path, &o.z)?;
+        extra += 1;
+        if o.new > o.old {
+            if rst.is_none() {
+                rst = Some(rsizetable::load(&mut rf)?);
+            }
+            if let Some(t) = rst.as_mut() {
+                grown += crate::staging::grow_out(&mut rf, t, o)?;
+            }
+        }
+    }
     if host.one_table() && rst.is_none() {
         rst = Some(rsizetable::load(&mut rf)?);
     }
@@ -775,6 +788,10 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         for c in staged.changes.iter().take(LISTED) {
             notes.push(format!("  {} | {} | {} ({}) | {} -> {}", c.location, c.file, c.event, c.index, c.old, c.new));
         }
+    }
+    if let Some((_, a)) = &loads {
+        notes.push(format!("{} events now load the flows their edited events call:", a.len()));
+        notes.extend(crate::flow_extra::analyzed::lines(a));
     }
     if host == Host::Hookshot {
         notes.push("Written for Hookshot, under mods/<name>/romfs. Name the mod randomizer-<seed> so co-op reads coop-seed.txt. This mod keeps the larger size-table entry from every other mod that is on.".to_string());

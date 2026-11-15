@@ -230,6 +230,20 @@ mod tests {
         assert_eq!(f.events.len(), v.events.len() + 7);
         let gave: bool = f.events.iter().any(|e| matches!(&e.kind, crate::bfevfl::Kind::Sub { entry, params, .. } if entry == "GetInEvent_NotTurn_NotNpc" && params.as_ref().and_then(|c| c.get("ActorName")).is_some_and(|x| *x != crate::bfevfl::Val::Str("Item_Bottle_Milk".to_string()))));
         assert!(gave);
+        let romfs: PB = b.root.join("romfs");
+        assert!(crate::flow_extra::analyzed::worked(&mut rf, &romfs).unwrap().is_none(), "an edited cow event calls a flow its row does not load");
+        let t: crate::byml::Byml = crate::byml::Byml::parse(&rf.zs.decompress(&std::fs::read(romfs.join(crate::progressive::ANALYZED_TABLE)).unwrap()).unwrap()).unwrap();
+        let subs = |id: &str| -> Vec<String> {
+            let n = t.root.as_arr().unwrap().iter().find(|n| n.get("__RowId").and_then(|v| v.as_str()) == Some(id)).unwrap();
+            n.get(crate::flow_extra::analyzed::SUBS).and_then(|v| v.as_arr()).unwrap().iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect()
+        };
+        for id in ["GiveMilk_GerudoValley", "GiveMilk_GerudoFortress", "Animal_Cow_PushToBottleMilk_LinkHouse"] {
+            assert!(subs(id).contains(&"Dm_SY_Get".to_string()), "{id}");
+        }
+        assert!(!subs("Animal_Cow_PushToBottleMilk").contains(&"Dm_SY_Get".to_string()));
+        let rst: crate::rsizetable::Rst = crate::rsizetable::Rst::parse(&rf.zs.decompress(&std::fs::read(romfs.join(crate::rsizetable::TABLE_PATH)).unwrap()).unwrap()).unwrap();
+        let van: crate::rsizetable::Rst = crate::rsizetable::load(&mut rf).unwrap();
+        assert!(rst.get(crate::progressive::ANALYZED_TABLE) > van.get(crate::progressive::ANALYZED_TABLE));
         let _ = std::fs::remove_dir_all(&load);
     }
 

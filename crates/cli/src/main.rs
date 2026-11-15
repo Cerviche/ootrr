@@ -94,6 +94,7 @@ const USAGE: &str = "usage:
   ootrr flow-locations-check <romfs_root> [flags_json]
   ootrr flow-apply <romfs_root> <load_dir> <mod_name> [--untested] <location=Item_Actor>...
   ootrr flow-verify <romfs_root> <mod_folder> [--untested] [location=Item_Actor]...
+  ootrr flow-loads <romfs_root> <mod_romfs_folder>
   ootrr check-catalog <romfs_root> <catalog_json>
   ootrr calibrate <romfs_root> <load_dir> <mod_name> <area> [--catalog <json>] [--dry]
   ootrr check-msbt <romfs_root> [language ... | all]
@@ -378,6 +379,7 @@ fn main() -> ExitCode {
         Some("flow-locations-check") => flow_cmd::check(&a[1..]),
         Some("flow-apply") => flow_cmd::run_apply(&a[1..]),
         Some("flow-verify") => flow_cmd::run_verify(&a[1..]),
+        Some("flow-loads") => flow_cmd::run_loads(&a[1..]),
         Some("check-catalog") => check_catalog::run(&a[1..]),
         Some("calibrate") => calibrate_cmd::run(&a[1..]),
         Some("check-msbt") => check_msbt::run(&a[1..]),

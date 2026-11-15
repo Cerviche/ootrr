@@ -1,3 +1,4 @@
+pub mod analyzed;
 mod apply;
 mod clone;
 pub mod cows;

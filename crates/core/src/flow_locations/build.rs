@@ -242,6 +242,25 @@ pub fn apply(romfs: &P, load: &P, mod_name: &str, cs: &[Choice], o: &Opts) -> Re
             }
         }
     }
+    let staged: Vec<(String, Vec<u8>)> = st.files.iter().map(|s| (s.path.clone(), s.z.clone())).collect();
+    let flows = crate::flow_extra::analyzed::flows_of(&mut rf, &staged)?;
+    let loads = crate::flow_extra::analyzed::stage(&mut rf, &|_: &str| None, flows)?;
+    let mut lines: Vec<String> = Vec::new();
+    if let Some((o, added)) = &loads {
+        pk.write_romfs(&o.path, &o.z)?;
+        if o.new > o.old {
+            if rst.is_none() {
+                rst = Some(rsizetable::load(&mut rf)?);
+            }
+            if let Some(t) = rst.as_mut()
+                && t.grow(&o.path, o.old as u64, o.new as u64, MARGIN)?.is_some()
+            {
+                grown += 1;
+            }
+        }
+        lines.push(format!("{} events now load the flows their edited events call:", added.len()));
+        lines.extend(crate::flow_extra::analyzed::lines(added));
+    }
     if let Some(t) = &rst {
         pk.write_romfs(rsizetable::TABLE_PATH, &t.to_zs()?)?;
     }
@@ -255,7 +274,7 @@ pub fn apply(romfs: &P, load: &P, mod_name: &str, cs: &[Choice], o: &Opts) -> Re
         untested: st.untested,
         report: String::new(),
     };
-    a.report = describe(&a, &[]);
+    a.report = describe(&a, &lines);
     Ok(a)
 }
 
@@ -338,6 +357,27 @@ mod tests {
         let by: BM<String, Vec<Req>> = reqs(&c);
         assert_eq!(by.len(), 1);
         assert_eq!(by.values().next().map(|v| v.len()), Some(2));
+    }
+
+    #[test]
+    fn flow_apply_writes_the_event_rows_and_sizes_a_cow_edit_needs() {
+        let r: PB = std::env::var_os("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|| PB::from("C:/o/nup dump/updates/131072/romfs"));
+        if !r.join("Event/EventFlow").is_dir() {
+            eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", r.display());
+            return;
+        }
+        let load: PB = PB::from(env!("CARGO_MANIFEST_DIR")).join("../../target/flow_loads_mods");
+        let _ = std::fs::remove_dir_all(&load);
+        let a: Applied = apply(&r, &load, "ootrr-flow-loads", &[ch("GV Cow", "Obj_Rupee_Purple")], &Opts::default()).unwrap();
+        let romfs: PB = a.root.join("romfs");
+        assert!(romfs.join(crate::progressive::ANALYZED_TABLE).is_file());
+        assert!(romfs.join(rsizetable::TABLE_PATH).is_file());
+        assert!(a.report.contains("GiveMilk_GerudoValley: loads Dm_SY_Get"), "{}", a.report);
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        assert!(crate::flow_extra::analyzed::worked(&mut rf, &romfs).unwrap().is_none());
+        let plain: Applied = apply(&r, &load, "ootrr-flow-loads-plain", &[ch("Volvagia", "Item_Medal_Water")], &Opts::default()).unwrap();
+        assert!(!plain.root.join("romfs").join(crate::progressive::ANALYZED_TABLE).exists());
+        let _ = std::fs::remove_dir_all(&load);
     }
 
     #[test]
