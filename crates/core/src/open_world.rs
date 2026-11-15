@@ -413,22 +413,35 @@ mod tests {
     }
 
     #[test]
-    fn the_bowling_prizes_need_the_cavern_cleared_and_a_bomb_bag_even_when_bombchus_are_in_logic() {
-        let no_bag = |n: &str| n == "Bomb Bag";
-        for l in ["Market Bombchu Bowling First Prize", "Market Bombchu Bowling Second Prize", "Market Bombchu Bowling Bomb"] {
-            assert!(reach(&[], &|_| false, At::Loc(l)), "{l}");
-            assert!(!reach(&[], &no_bag, At::Loc(l)), "{l}");
-            assert!(!reach(&[("bombchus_in_logic", Value::Bool(true))], &no_bag, At::Loc(l)), "{l}");
-        }
-        assert!(reach(&[], &|_| false, At::Loc("Market Bombchu Bowling Bombchus")));
+    fn the_bowling_prizes_need_the_cavern_cleared_and_no_bomb_bag() {
         let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
         let w: crate::world::World = crate::slice::logic::world_with(&d, &plan_of(&[]).logic()).unwrap();
+        let mut p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
+        let bag: crate::logic_items::ItemId = w.item("Bomb Bag").unwrap();
+        let junk: crate::logic_items::ItemId = w.item("Rupees (5)").unwrap();
+        for l in w.real.clone() {
+            if p.get(l) == Some(bag) {
+                p.put(l, junk);
+            }
+        }
+        let won: crate::logic_items::ItemId = w.item("Defeat King Dodongo").unwrap();
+        let bare: crate::search::Search = crate::search::explore(&w, &p, &[]);
+        let done: crate::search::Search = crate::search::explore(&w, &p, &[won]);
+        for l in ["Market Bombchu Bowling First Prize", "Market Bombchu Bowling Second Prize"] {
+            assert!(reach(&[], &|_| false, At::Loc(l)), "{l}");
+            assert!(done.loc_access(w.loc(l).unwrap()), "{l}");
+            assert!(!bare.loc_access(w.loc(l).unwrap()), "{l}");
+        }
+        assert!(reach(&[], &|_| false, At::Loc("Market Bombchu Bowling Bomb")));
+        assert!(!done.loc_access(w.loc("Market Bombchu Bowling Bomb").unwrap()));
+        assert!(reach(&[], &|_| false, At::Loc("Market Bombchu Bowling Bombchus")));
         let p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
         assert!(crate::search::explore(&w, &p, &[]).won());
         let src: &str = include_str!("../../../data/logic/World/Overworld.json");
         for l in ["First Prize", "Second Prize", "Bombchus", "Bomb"] {
             let line: &str = src.lines().find(|x| x.contains(&format!("\"Market Bombchu Bowling {l}\":"))).unwrap();
             assert!(line.contains("'Defeat King Dodongo'"), "{l}");
+            assert_eq!(line.contains("Bombs"), l == "Bomb", "{l}");
         }
     }
 

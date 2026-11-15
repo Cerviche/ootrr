@@ -117,7 +117,7 @@
   "logic_goron_city_pot_with_strength": false,
   "logic_goron_grotto": false,
   "logic_graveyard_poh": false,
-  "logic_grottos_without_agony": false,
+  "logic_grottos_without_agony": true,
   "logic_gtg_eye_statue_wonderitem": false,
   "logic_gtg_fake_wall": false,
   "logic_gtg_flame_wall": false,

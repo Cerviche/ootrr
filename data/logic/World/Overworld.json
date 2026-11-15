@@ -1113,7 +1113,7 @@
         "locations": {
             "Wasteland Chest": "has_fire_source",
             "Wasteland Bombchu Salesman": "
-                Progressive_Wallet and can_jumpslash and
+                can_jumpslash and
                 (shuffle_expensive_merchants or not free_bombchu_drops or has_bombchus)",
             "Wasteland Near GS Pot 1": "True",
             "Wasteland Near GS Pot 2": "True",
@@ -1604,8 +1604,8 @@
         "region_name": "Market Bombchu Bowling",
         "scene": "Market Bombchu Bowling",
         "locations": {
-            "Market Bombchu Bowling First Prize": "'Defeat King Dodongo' and Bombs",
-            "Market Bombchu Bowling Second Prize": "'Defeat King Dodongo' and Bombs",
+            "Market Bombchu Bowling First Prize": "'Defeat King Dodongo'",
+            "Market Bombchu Bowling Second Prize": "'Defeat King Dodongo'",
             "Market Bombchu Bowling Bombchus": "'Defeat King Dodongo' and found_bombchus",
             "Market Bombchu Bowling Bomb": "'Defeat King Dodongo' and Bombs"
         },
@@ -1617,14 +1617,14 @@
         "region_name": "Market Potion Shop",
         "scene": "Market Potion Shop",
         "locations": {
-            "Market Potion Shop Item 1": "True",
-            "Market Potion Shop Item 2": "True",
-            "Market Potion Shop Item 3": "True",
-            "Market Potion Shop Item 4": "True",
-            "Market Potion Shop Item 5": "True",
-            "Market Potion Shop Item 6": "True",
-            "Market Potion Shop Item 7": "True",
-            "Market Potion Shop Item 8": "True"
+            "Market Potion Shop Item 1": "'Zelda Met'",
+            "Market Potion Shop Item 2": "'Zelda Met'",
+            "Market Potion Shop Item 3": "'Zelda Met'",
+            "Market Potion Shop Item 4": "'Zelda Met'",
+            "Market Potion Shop Item 5": "'Zelda Met'",
+            "Market Potion Shop Item 6": "'Zelda Met'",
+            "Market Potion Shop Item 7": "'Zelda Met'",
+            "Market Potion Shop Item 8": "'Zelda Met'"
         },
         "exits": {
             "Market": "True"
@@ -1975,7 +1975,7 @@
         "locations": {
             "Kak Granny Trade Odd Mushroom": "'Odd Potion Access'",
             # Granny will not sell her item without turning in odd mushroom
-            "Kak Granny Buy Blue Potion": "Progressive_Wallet and ('Odd Potion Access' or
+            "Kak Granny Buy Blue Potion": "('Odd Potion Access' or
                 ((selected_adult_trade_item == 'Odd Potion' or selected_adult_trade_item == 'Poachers Saw' or
                 selected_adult_trade_item == 'Broken Sword' or selected_adult_trade_item == 'Prescription' or
                 selected_adult_trade_item == 'Eyeball Frog' or selected_adult_trade_item == 'Eyedrops' or
@@ -2215,7 +2215,7 @@
             "GC Maze Right Chest": "can_blast_or_smash",
             "GC Rolling Goron as Child": "is_child and Bomb_Bag",
             "GC Medigoron": "
-                is_adult and Progressive_Wallet and
+                is_adult and
                 (can_blast_or_smash or Progressive_Strength_Upgrade)",
             "GC Rolling Goron as Adult": "'Stop GC Rolling Goron as Adult'",
             "GC Lower Staircase Pot 1": "True",

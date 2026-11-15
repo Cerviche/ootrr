@@ -273,6 +273,48 @@ mod tests {
     }
 
     #[test]
+    fn the_starting_wallet_pays_medigoron_granny_and_the_carpet_seller() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let s: Search = explore(&w, &vanilla_without(&w, &d, &["Progressive Wallet"]), &gauntlets(&w));
+        for n in ["GC Medigoron", "Kak Granny Buy Blue Potion", "Wasteland Bombchu Salesman"] {
+            assert!(seen(&s, &w, n), "{n}");
+        }
+    }
+
+    #[test]
+    fn hidden_grottos_open_without_the_stone_of_agony() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let mut sp: Spec = spec(&d, &[]).unwrap();
+        sp.settings.set_bool("logic_grottos_without_agony", false);
+        let old: World = world_from(sp).unwrap();
+        let s: Search = explore(&w, &vanilla_without(&w, &d, &["Stone of Agony"]), &gauntlets(&w));
+        let o: Search = explore(&old, &vanilla_without(&old, &d, &["Stone of Agony"]), &gauntlets(&old));
+        for r in ["HF Inside Fence Grotto", "HF Cow Grotto", "Kak Redead Grotto", "KF Storms Grotto", "ZR Storms Grotto", "DMT Storms Grotto"] {
+            assert!(s.region_reached(w.region(r).unwrap(), None), "{r}");
+            assert!(!o.region_reached(old.region(r).unwrap(), None), "{r}");
+        }
+        assert!(s.won() && o.won());
+    }
+
+    #[test]
+    fn the_market_potion_shop_shelves_wait_for_the_meeting_with_zelda() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let all: Search = explore(&w, &vanilla_place(&w, &d).unwrap(), &[]);
+        let cut: Search = explore(&w, &vanilla_without(&w, &d, &["Weird Egg"]), &[]);
+        let skip: World = world_with(&d, &[("skip_child_zelda", "true")]).unwrap();
+        let met: Search = explore(&skip, &vanilla_without(&skip, &d, &["Weird Egg"]), &[]);
+        for i in 1..=8 {
+            let n: String = format!("Market Potion Shop Item {i}");
+            assert!(seen(&all, &w, &n), "{n}");
+            assert!(!seen(&cut, &w, &n), "{n}");
+            assert!(seen(&met, &skip, &n), "{n}");
+        }
+    }
+
+    #[test]
     fn the_water_temple_gate_needs_the_ice_cavern() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();
