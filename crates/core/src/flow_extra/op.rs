@@ -19,6 +19,7 @@ pub enum How {
     Rename { old: String, new: String },
     Clone { param: String, old: String, new: String },
     Once(Once),
+    Next { old: u16, new: u16 },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -78,6 +79,7 @@ impl Op {
             How::Rename { .. } => "rename_actor",
             How::Clone { .. } => "clone_sub",
             How::Once(_) => "once_grant",
+            How::Next { .. } => "next",
         }
     }
 }
@@ -221,6 +223,23 @@ fn insert(f: &mut Flow, o: &Op, flag: &str) -> Res<()> {
     Ok(())
 }
 
+fn next(f: &mut Flow, o: &Op, old: u16, new: u16) -> Res<()> {
+    let n: usize = f.events.len();
+    if usize::from(new) >= n {
+        return Err(E::Msg(format!("next of event {} points at {new}, past the {n} events", o.index)));
+    }
+    let e: &mut Event = event(f, o.index, &o.event)?;
+    let at: &mut u16 = match &mut e.kind {
+        Kind::Action { next, .. } | Kind::Sub { next, .. } => next,
+        _ => return Err(E::Msg(format!("event {} has no single next event", o.event))),
+    };
+    if *at != old {
+        return Err(E::Msg(format!("event {} goes to {} and not {old}, the game files differ", o.event, *at)));
+    }
+    *at = new;
+    Ok(())
+}
+
 fn push(f: &mut Flow, kind: Kind) -> Res<u16> {
     let at: u16 = idx(f.events.len())?;
     f.events.push(Event { name: format!("Extra{at}"), kind });
@@ -283,6 +302,7 @@ pub fn apply(b: &mut Bf, o: &Op) -> Res<()> {
         How::Rename { old, new } => rename(f, old, new),
         How::Clone { param, old, new } => crate::flow_extra::clone::clone_sub(f, o.index, &o.event, param, old, new),
         How::Once(w) => once(f, o, w),
+        How::Next { old, new } => next(f, o, *old, *new),
         How::Set { .. } => Ok(()),
     }
 }
@@ -409,6 +429,17 @@ mod tests {
         let mut twice: Bf = sample();
         apply(&mut twice, &op(0, How::Rename { old: "Item_A".to_string(), new: "PouchSystemActor".to_string() })).unwrap();
         assert_eq!(twice, sample());
+    }
+
+    #[test]
+    fn next_moves_the_follow_up_of_one_event_and_checks_the_old_one() {
+        let mut b: Bf = sample();
+        apply(&mut b, &op(2, How::Next { old: 1, new: 0 })).unwrap();
+        let Kind::Sub { next, .. } = &round(&b).flows[0].events[2].kind else { panic!("sub") };
+        assert_eq!(*next, 0);
+        assert!(apply(&mut sample(), &op(2, How::Next { old: 0, new: 1 })).is_err());
+        assert!(apply(&mut sample(), &op(2, How::Next { old: 1, new: 9 })).is_err());
+        assert!(apply(&mut sample(), &op(0, How::Next { old: 1, new: 2 })).is_err());
     }
 
     fn once_op(child: bool) -> Op {

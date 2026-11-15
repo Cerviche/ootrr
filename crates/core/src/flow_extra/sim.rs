@@ -39,9 +39,12 @@ pub fn stem(file: &str) -> String {
 }
 
 pub fn edited(rf: &mut Romfs, location: &str, item: &str) -> Res<HM<String, Flow>> {
+    edited_many(rf, &[Choice { location: location.to_string(), item: item.to_string() }])
+}
+
+pub fn edited_many(rf: &mut Romfs, cs: &[Choice]) -> Res<HM<String, Flow>> {
     let d: Data = Data::load()?;
-    let c: Choice = Choice { location: location.to_string(), item: item.to_string() };
-    let (changes, _, _): (Vec<Change>, usize, Vec<String>) = plan(&d, &[c], &FlowOpts::default())?;
+    let (changes, _, _): (Vec<Change>, usize, Vec<String>) = plan(&d, cs, &FlowOpts::default())?;
     let mut rs: BM<String, Vec<Req>> = BM::new();
     for c in changes.iter().filter(|c| crate::flow_extra::trade::plain(c)) {
         rs.entry(c.file.clone()).or_default().push(Req {

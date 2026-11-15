@@ -80,7 +80,7 @@ pub fn changes(l: &Loc, item: &str) -> Res<Vec<Change>> {
 }
 
 pub fn plain(c: &Change) -> bool {
-    c.role != ROLE && crate::flow_extra::cows::plain(c)
+    c.role != ROLE && crate::flow_extra::cows::plain(c) && crate::flow_extra::frogs::plain(c)
 }
 
 #[cfg(test)]

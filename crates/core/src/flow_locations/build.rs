@@ -133,6 +133,14 @@ pub fn plan(d: &Data, cs: &[Choice], o: &Opts) -> Res<(Vec<Change>, usize, Vec<S
                 c.item, l.name
             )));
         }
+        if crate::flow_extra::frogs::is(&l.name) {
+            if crate::flow_extra::frogs::is_bug(&l.name) && l.item.as_deref() == Some(c.item.as_str()) {
+                same += 1;
+            } else {
+                out.extend(crate::flow_extra::frogs::changes(l, &c.item)?);
+            }
+            continue;
+        }
         for e in &l.edits {
             if e.item == c.item {
                 same += 1;
@@ -149,6 +157,13 @@ pub fn plan(d: &Data, cs: &[Choice], o: &Opts) -> Res<(Vec<Change>, usize, Vec<S
                     old: e.item.clone(),
                     new: c.item.clone(),
                 });
+            }
+        }
+    }
+    if seen.iter().any(|n| crate::flow_extra::frogs::is_song(n)) {
+        for n in crate::flow_extra::frogs::SONGS.iter().filter(|n| !seen.contains(*n)) {
+            if let Some(l) = d.by_name(n) {
+                out.extend(crate::flow_extra::frogs::changes(l, l.item.as_deref().unwrap_or(crate::flow_extra::frogs::PURPLE))?);
             }
         }
     }

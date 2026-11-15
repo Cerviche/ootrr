@@ -3,6 +3,7 @@ mod apply;
 mod clone;
 pub mod cows;
 mod data;
+pub mod frogs;
 mod gate;
 mod op;
 pub mod sim;

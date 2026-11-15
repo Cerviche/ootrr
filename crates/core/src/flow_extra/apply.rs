@@ -30,7 +30,11 @@ pub fn ops_for(changes: &[Change]) -> Res<BM<String, Vec<Op>>> {
             continue;
         };
         for o in &s.ops {
-            out.entry(o.file.clone()).or_default().push(o.bind(&c.new));
+            let b: Op = o.bind(&c.new);
+            let list: &mut Vec<Op> = out.entry(o.file.clone()).or_default();
+            if !list.contains(&b) {
+                list.push(b);
+            }
         }
     }
     Ok(out)

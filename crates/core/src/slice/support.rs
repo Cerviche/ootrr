@@ -62,6 +62,8 @@ pub struct Plan {
     pub extra: bool,
     pub trade: bool,
     pub cows: bool,
+    pub frog_songs: bool,
+    pub frog_bug: bool,
     pub scrubs: bool,
     pub scrubs_b: bool,
     pub hearts: bool,
@@ -316,6 +318,16 @@ pub fn plan(s: &Settings) -> Res<Plan> {
             bad.push(e.to_string());
             false
         });
+    let frog_songs: bool = rewards
+        && s.flag(crate::flow_extra::frogs::SONGS_SETTING).unwrap_or_else(|e| {
+            bad.push(e.to_string());
+            false
+        });
+    let frog_bug: bool = rewards
+        && s.flag(crate::flow_extra::frogs::BUG_SETTING).unwrap_or_else(|e| {
+            bad.push(e.to_string());
+            false
+        });
     let scrubs: bool = crate::scrubs_a::read(s, rewards, &mut bad);
     let scrubs_b: bool = crate::scrubs_b::read(s, rewards, &mut bad);
     let hearts: bool = s.flag("shuffle_boss_hearts").unwrap_or_else(|e| {
@@ -454,6 +466,8 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (extra, "Kak 20 Gold Skulltula Reward, DMT Biggoron and GC Medigoron are shuffled with structural event edits."),
         (trade, "The ten adult trade quest hand ins each give one extra shuffled item the first time. The trade chain itself stays vanilla."),
         (cows, crate::flow_extra::cows::NOTE),
+        (frog_songs, crate::flow_extra::frogs::SONGS_NOTE),
+        (frog_bug, crate::flow_extra::frogs::BUG_NOTE),
     ] {
         if on {
             notes.push(text.to_string());
@@ -500,7 +514,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::deku_bridge::NOTE.to_string());
     }
     notes.extend(shops.notes());
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, frog_songs, frog_bug, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge })
 }
 
 #[cfg(test)]

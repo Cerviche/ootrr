@@ -35,9 +35,10 @@ fn ev(j: &Json, k: &str) -> Res<u16> {
 
 fn val(j: &Json) -> Res<Val> {
     match j {
-        Json::Str(s) => Ok(match s.strip_prefix("actor:") {
-            Some(a) => Val::Actor(a.to_string(), String::new()),
-            None => Val::Str(s.clone()),
+        Json::Str(s) => Ok(match (s.strip_prefix("actor:"), s.strip_prefix("arg:")) {
+            (Some(a), _) => Val::Actor(a.to_string(), String::new()),
+            (None, Some(a)) => Val::Arg(a.to_string()),
+            (None, None) => Val::Str(s.clone()),
         }),
         Json::Int(n) => i32::try_from(*n).map(Val::Int).map_err(|_| E::Format("flow_extra json: number out of range")),
         Json::Bool(b) => Ok(Val::Bool(u32::from(*b))),
@@ -81,6 +82,7 @@ fn op(j: &Json) -> Res<Op> {
         "query" => How::Query { from: text(j, "from")?, to: text(j, "to")?, params: params(j)? },
         "set" => How::Set { param: text(j, "param")?, old: text(j, "old")?, new: text(j, "new")? },
         "insert_set" => How::Insert { flag: text(j, "flag")? },
+        "next" => How::Next { old: ev(j, "old")?, new: ev(j, "new")? },
         "clone_sub" => How::Clone { param: text(j, "param")?, old: text(j, "old")?, new: text(j, "new")? },
         "once_grant" => How::Once(Once {
             entry: text(j, "entry")?,
@@ -161,6 +163,7 @@ mod tests {
     fn values_keep_their_types() {
         assert_eq!(val(&Json::Str("actor:Npc_A".to_string())).unwrap(), Val::Actor("Npc_A".to_string(), String::new()));
         assert_eq!(val(&Json::Str("x".to_string())).unwrap(), Val::Str("x".to_string()));
+        assert_eq!(val(&Json::Str("arg:ActorName".to_string())).unwrap(), Val::Arg("ActorName".to_string()));
         assert_eq!(val(&Json::Int(-1)).unwrap(), Val::Int(-1));
         assert_eq!(val(&Json::Bool(true)).unwrap(), Val::Bool(1));
         assert!(val(&Json::Null).is_err());

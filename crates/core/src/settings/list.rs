@@ -382,6 +382,16 @@ pub fn build() -> Schema {
             .when("shuffle_rewards", "supported"),
     );
     s.push(
+        Setting::toggle(93, crate::flow_extra::frogs::SONGS_SETTING, "shuffle", "Zora's River frog songs", false)
+            .tip("The frogs in Zora's River give one shuffled item the first time you play each of Zelda's Lullaby, Epona's Song, Saria's Song, the Sun's Song and the Song of Time to them, in place of the rupees. The Song of Storms Heart Piece is a check of its own as before.")
+            .when("shuffle_rewards", "supported"),
+    );
+    s.push(
+        Setting::toggle(94, crate::flow_extra::frogs::BUG_SETTING, "shuffle", "Zora's River frog bug game Heart Piece", false)
+            .tip("The first win of the frog bug game in Zora's River, which opens after all six frog songs, gives a shuffled item in place of the Heart Piece. Later wins still give a Blue Rupee.")
+            .when("shuffle_rewards", "supported"),
+    );
+    s.push(
         Setting::toggle(54, "shuffle_scrubs_a", "shuffle", "One time scrub sales", false)
             .tip("Also shuffle the Business Scrubs that already sell one item once: the Death Mountain Crater heart scrub and the Lost Woods stick and nut bag scrubs. The price stays and the sale text still names the old item.")
             .when("shuffle_rewards", "supported"),

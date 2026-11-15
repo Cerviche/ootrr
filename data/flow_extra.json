@@ -131,6 +131,109 @@
 ]
 },
 {
+"name": "ZR Frogs Zeldas Lullaby",
+"why": "the caller of TeachNewMusic for Zelda's Lullaby also passes the chosen item, the five rupee payouts of TeachNewMusic (picked by MiniGame_FrogTenors_GetCount) hand out that argument with the plain get scene instead of the rupee sub, which also drops its own pose and wait, the rupee display open (from events 79 and 203) and close are skipped, the count still rises at event 243 and the song flag is still set at event 74. The shared edits are listed for every song and run once",
+"ops": [
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 80, "event": "Event172", "from": ":TeachNewMusic", "to": ":TeachNewMusic", "params": [["GameDataName", "MiniGame_FrogTenors_ZeldaLullaby"], ["ActorName", "$item"]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 79, "event": "Event171", "old": 235, "new": 233},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 203, "event": "Event346", "old": 235, "new": 233},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 236, "event": "Event381", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 236, "event": "Event381", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 239, "event": "Event388", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 239, "event": "Event388", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 240, "event": "Event389", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 240, "event": "Event389", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 241, "event": "Event390", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 241, "event": "Event390", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 242, "event": "Event391", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 242, "event": "Event391", "old": 234, "new": 243}
+]
+},
+{
+"name": "ZR Frogs Eponas Song",
+"why": "the caller of TeachNewMusic for Epona's Song also passes the chosen item, the five rupee payouts of TeachNewMusic (picked by MiniGame_FrogTenors_GetCount) hand out that argument with the plain get scene instead of the rupee sub, which also drops its own pose and wait, the rupee display open (from events 79 and 203) and close are skipped, the count still rises at event 243 and the song flag is still set at event 74. The shared edits are listed for every song and run once",
+"ops": [
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 81, "event": "Event220", "from": ":TeachNewMusic", "to": ":TeachNewMusic", "params": [["GameDataName", "MiniGame_FrogTenors_EponaSong"], ["ActorName", "$item"]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 79, "event": "Event171", "old": 235, "new": 233},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 203, "event": "Event346", "old": 235, "new": 233},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 236, "event": "Event381", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 236, "event": "Event381", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 239, "event": "Event388", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 239, "event": "Event388", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 240, "event": "Event389", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 240, "event": "Event389", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 241, "event": "Event390", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 241, "event": "Event390", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 242, "event": "Event391", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 242, "event": "Event391", "old": 234, "new": 243}
+]
+},
+{
+"name": "ZR Frogs Sarias Song",
+"why": "the caller of TeachNewMusic for Saria's Song also passes the chosen item, the five rupee payouts of TeachNewMusic (picked by MiniGame_FrogTenors_GetCount) hand out that argument with the plain get scene instead of the rupee sub, which also drops its own pose and wait, the rupee display open (from events 79 and 203) and close are skipped, the count still rises at event 243 and the song flag is still set at event 74. The shared edits are listed for every song and run once",
+"ops": [
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 82, "event": "Event221", "from": ":TeachNewMusic", "to": ":TeachNewMusic", "params": [["GameDataName", "MiniGame_FrogTenors_SariaSong"], ["ActorName", "$item"]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 79, "event": "Event171", "old": 235, "new": 233},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 203, "event": "Event346", "old": 235, "new": 233},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 236, "event": "Event381", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 236, "event": "Event381", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 239, "event": "Event388", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 239, "event": "Event388", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 240, "event": "Event389", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 240, "event": "Event389", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 241, "event": "Event390", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 241, "event": "Event390", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 242, "event": "Event391", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 242, "event": "Event391", "old": 234, "new": 243}
+]
+},
+{
+"name": "ZR Frogs Suns Song",
+"why": "the caller of TeachNewMusic for the Sun's Song also passes the chosen item, the five rupee payouts of TeachNewMusic (picked by MiniGame_FrogTenors_GetCount) hand out that argument with the plain get scene instead of the rupee sub, which also drops its own pose and wait, the rupee display open (from events 79 and 203) and close are skipped, the count still rises at event 243 and the song flag is still set at event 74. The shared edits are listed for every song and run once",
+"ops": [
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 83, "event": "Event222", "from": ":TeachNewMusic", "to": ":TeachNewMusic", "params": [["GameDataName", "MiniGame_FrogTenors_SunSong"], ["ActorName", "$item"]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 79, "event": "Event171", "old": 235, "new": 233},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 203, "event": "Event346", "old": 235, "new": 233},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 236, "event": "Event381", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 236, "event": "Event381", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 239, "event": "Event388", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 239, "event": "Event388", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 240, "event": "Event389", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 240, "event": "Event389", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 241, "event": "Event390", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 241, "event": "Event390", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 242, "event": "Event391", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 242, "event": "Event391", "old": 234, "new": 243}
+]
+},
+{
+"name": "ZR Frogs Song of Time",
+"why": "the caller of TeachNewMusic for the Song of Time also passes the chosen item, the five rupee payouts of TeachNewMusic (picked by MiniGame_FrogTenors_GetCount) hand out that argument with the plain get scene instead of the rupee sub, which also drops its own pose and wait, the rupee display open (from events 79 and 203) and close are skipped, the count still rises at event 243 and the song flag is still set at event 74. The shared edits are listed for every song and run once",
+"ops": [
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 84, "event": "Event223", "from": ":TeachNewMusic", "to": ":TeachNewMusic", "params": [["GameDataName", "MiniGame_FrogTenors_TimeSong"], ["ActorName", "$item"]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 79, "event": "Event171", "old": 235, "new": 233},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 203, "event": "Event346", "old": 235, "new": 233},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 236, "event": "Event381", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 236, "event": "Event381", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 239, "event": "Event388", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 239, "event": "Event388", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 240, "event": "Event389", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 240, "event": "Event389", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 241, "event": "Event390", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 241, "event": "Event390", "old": 234, "new": 243},
+{"kind": "swap_sub", "file": "MiniGame_FrogTenors.bfevfl", "index": 242, "event": "Event391", "from": ":GetRupy_FrogsTenors", "to": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "arg:ActorName"], ["IsNpcEventStarter", false]]},
+{"kind": "next", "file": "MiniGame_FrogTenors.bfevfl", "index": 242, "event": "Event391", "old": 234, "new": 243}
+]
+},
+{
+"name": "ZR Frogs Bug Game",
+"why": "only the first win of the bug game hands out the Heart Piece, through the callers at event 71 and at event 91 (retry), both picked by the MiniGame_FrogTenors_InsectRepellent flag that the win sets, so only their ActorName follows the chosen item and the Blue Rupee callers 72 and 92 stay vanilla",
+"ops": [
+{"kind": "set", "file": "MiniGame_FrogTenors.bfevfl", "index": 71, "event": "Event161", "param": "ActorName", "old": "Obj_Heart_Piece", "new": "$item"},
+{"kind": "set", "file": "MiniGame_FrogTenors.bfevfl", "index": 91, "event": "Event75", "param": "ActorName", "old": "Obj_Heart_Piece", "new": "$item"}
+]
+},
+{
 "name": "DMC Great Fairy Reward",
 "why": "the Wisdom gift sub plays the double magic gauge birth after the item (events 75 to 78 of Dm_SY_GetInEvent) whatever the item is, only the magic meter items can create that gauge, so another item is handed over with the plain fountain gift sub that the other fountains use",
 "ops": [
