@@ -101,7 +101,10 @@ pub fn world(d: &Data) -> Res<World> {
 }
 
 pub fn world_with(d: &Data, over: &[(&str, &str)]) -> Res<World> {
-    let s: Spec = spec(d, over)?;
+    world_from(spec(d, over)?)
+}
+
+pub fn world_from(s: Spec) -> Res<World> {
     let mut w: World = World::build(&s).map_err(|e| E::Msg(format!("logic world: {e}")))?;
     for r in w.regions.iter_mut() {
         if r.dungeon.is_none() && TOWER.contains(&r.name.as_str()) {

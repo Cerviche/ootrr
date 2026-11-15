@@ -65,6 +65,9 @@ pub fn is_song(actor: &str) -> bool {
 fn by_place(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> Option<bool> {
     let name: &str = &w.locs[l].name;
     let item: &str = &w.items.names[it];
+    if let Some(ok) = crate::shops::rules::at(d, &p.shops, p.songs == Songs::Anywhere, name, item) {
+        return Some(ok);
+    }
     if let Some(ok) = crate::slice::song_spots::gate(d, p, name, item) {
         return Some(ok);
     }
@@ -247,7 +250,15 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     }
     let watch: Watch = Watch::new(o.limit, o.live.clone());
     let mut p: Plan = plan(s)?;
-    let mut w: World = world_with(d, &p.logic())?;
+    let room: crate::shops::layout::Room = crate::shops::rules::room(d, &p)?;
+    let mut lay: Option<crate::shops::Layout> = crate::shops::layout::of(&p.shops, seed, room)?;
+    p.notes.extend(lay.as_ref().and_then(|l| crate::shops::rules::cut_note(l.cut, room)));
+    let owned: Option<Data> = lay.as_ref().map(|l| crate::shops::logic::data_with(d, l)).transpose()?;
+    let d: &Data = owned.as_ref().unwrap_or(d);
+    let mut w: World = match &lay {
+        Some(l) => crate::shops::logic::world(d, &p.logic(), l)?,
+        None => world_with(d, &p.logic())?,
+    };
     let mut named: Vec<String> = Vec::with_capacity(p.excluded.len());
     for e in &p.excluded {
         let l: LocId = loc_of(&w, e).map_err(|x| E::Msg(x.to_string().replacen("plando:", "disabled locations:", 1)))?;
@@ -256,7 +267,10 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     p.excluded = named;
     crate::slice::starts::add(d, &p, &mut w, seed)?;
     let vanilla: Placement = vanilla_place(&w, d)?;
-    let pk: Pick = pick(d, &w, &p);
+    let mut pk: Pick = pick(d, &w, &p);
+    if let Some(l) = &lay {
+        l.add_free(&w, &mut pk.free)?;
+    }
     if p.world != Mode::Off && !pk.free.iter().any(|l| pu::listed(d, &w.locs[*l].name)) {
         p.notes.retain(|n| n != pu::NOTE);
     }
@@ -270,6 +284,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             && !p.excluded.contains(&w.locs[*l].name)
             && !ok(i, *l)
             && !d.item(&w.items.names[i]).is_some_and(|x| crate::slice::dungeon_items::exempt(&p, &x.kind))
+            && !(lay.is_some() && crate::shops::is_loc(&w.locs[*l].name))
         {
             return Err(E::Msg(format!(
                 "the vanilla item {} of {} is not allowed there under these settings",
@@ -296,7 +311,10 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         let fix: bool = crate::slice::tier_fix::active(d, &w, &pk.free);
         let narrow = |it: ItemId, l: LocId| ok(it, l) && !crate::slice::key_spots::widened(d, &w.locs[l].name, &w.items.names[it]);
         let order: Option<&dyn Fn(ItemId, LocId) -> bool> = if fix { Some(&narrow) } else { None };
-        let caps: HM<LocId, usize> = crate::pot_slice::rules::caps(d, &w, &pk.free, &base, order.unwrap_or(&ok));
+        let mut caps: HM<LocId, usize> = crate::pot_slice::rules::caps(d, &w, &pk.free, &base, order.unwrap_or(&ok));
+        if caps.is_empty() && lay.is_some() {
+            caps = crate::shops::rules::caps(&w, &pk.free, &base, order.unwrap_or(&ok));
+        }
         let rank = |l: LocId| caps.get(&l).copied().unwrap_or(0);
         let r: Option<&dyn Fn(LocId) -> usize> = if caps.is_empty() { None } else { Some(&rank) };
         let mut sr: Rng = Rng::from_text(&format!("{seed} songs first"));
@@ -363,7 +381,11 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         changed: changed(&vanilla, &got, &pk.free),
         fixed_elsewhere: w.real.len() - pk.free.len(),
     };
-    let seed_file: SeedFile = SeedFile::new(seed, s, &d.scan.game, map)?;
+    let mut seed_file: SeedFile = SeedFile::new(seed, s, &d.scan.game, map)?;
+    if let Some(l) = lay.as_mut() {
+        crate::shops::layout::fill_deals(l, &seed_file.placements)?;
+        seed_file.shops = crate::shops::seed::entries(l);
+    }
     let (sp, spheres): (Option<String>, Steps) = if o.spoiler {
         let (mut t, st): (String, Steps) = spoiler_text(&w, &vanilla, &got, &pk)?;
         let fixed: BM<String, String> = if crate::slice::tier_fix::active(d, &w, &pk.free) {
@@ -373,6 +395,9 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         };
         t.push_str(&crate::slice::skulls::spoiler_with(d, &w, &p, &pk.free, &got, &fixed));
         t.push_str(&crate::slice::key_spots::spoiler(d, &w, &pk.free, &got, &fixed));
+        if let Some(l) = &lay {
+            t.push_str(&crate::shops::spoiler::text(l));
+        }
         (Some(t), st)
     } else {
         (None, Vec::new())

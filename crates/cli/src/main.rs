@@ -32,6 +32,7 @@ mod qol_cmd;
 mod save_cmd;
 mod serve_cmd;
 mod settings_cmd;
+mod shelf_cmd;
 mod teleport_check;
 mod teleport_cmd;
 mod teleport_merge_cmd;
@@ -117,6 +118,8 @@ const USAGE: &str = "usage:
   ootrr event-chest-show <romfs_root> <event_name> ...
   ootrr event-chests-testmod <romfs_root> <event_chests_json> <load_dir> <mod_name>
   ootrr treasure-testmod <romfs_root> <load_dir> <mod_name> <item_actor> [keep-view]
+  ootrr shelf-testmod <romfs_root> <load_dir> <mod_name> [--host hookshot|eden|nx2navi] <Shop Location=Item@price>...
+  ootrr shop-audit <seed_file>...
   ootrr find-drop <romfs_root> <item_name_or_star>
   ootrr set-drop <romfs_root> <load_dir> <mod_name> <actor_hash> <item_name> [no-event]
   ootrr hints-show <seed.ootrr> <romfs_root> [--npc]
@@ -399,6 +402,8 @@ fn main() -> ExitCode {
         Some("event-chest-show") => event_chests_cmd::show(&a[1..]),
         Some("event-chests-testmod") => event_chests_cmd::testmod(&a[1..]),
         Some("treasure-testmod") => treasure_cmd::testmod(&a[1..]),
+        Some("shelf-testmod") => shelf_cmd::testmod(&a[1..]),
+        Some("shop-audit") => shelf_cmd::audit_seeds(&a[1..]),
         Some("find-drop") => find_drop(&a[1..]),
         Some("set-drop") => set_drop(&a[1..]),
         Some("zs-extract") => zs_extract(&a[1..]),

@@ -20,7 +20,18 @@ pub struct SeedFile {
     pub game: String,
     pub generator: String,
     pub placements: Map<String, String>,
+    pub shops: Map<String, ShopEntry>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShopEntry {
+    pub item: String,
+    pub price: i64,
+    pub deal: bool,
+    pub pool: String,
+}
+
+pub const MAX_PRICE: i64 = 999;
 
 fn bad(m: &str) -> Error {
     Error::Msg(format!("seed file: {m}"))
@@ -59,6 +70,7 @@ impl SeedFile {
             game: game.to_string(),
             generator: format!("ootrr-core {}", env!("CARGO_PKG_VERSION")),
             placements,
+            shops: Map::new(),
         };
         f.check_fields()?;
         Ok(f)
@@ -82,6 +94,11 @@ impl SeedFile {
                 return Err(bad(&format!("placement {k:?} to {v:?} has an id that is empty, too long or has odd characters")));
             }
         }
+        for (k, v) in &self.shops {
+            if !ident_ok(k) || !ident_ok(&v.item) || (v.deal && !ident_ok(&v.pool)) || !(1..=MAX_PRICE).contains(&v.price) {
+                return Err(bad(&format!("shop slot {k:?} has an empty or odd item, pool item or price")));
+            }
+        }
         Settings::decode(&self.settings_string)
             .map_err(|e| bad(&format!("the settings string is not usable: {e}")))?;
         Ok(())
@@ -100,20 +117,61 @@ impl SeedFile {
         for (k, v) in &self.placements {
             t.push_str(&format!("P\t{k}\t{v}\n"));
         }
+        for (k, v) in &self.shops {
+            t.push_str(&format!("S\t{k}\t{}\t{}\t{}\t{}\n", v.item, v.price, v.deal, v.pool));
+        }
         sha256_hex(t.as_bytes())
+    }
+
+    fn shops_json(&self) -> Json {
+        let mut out: Vec<(String, Json)> = Vec::new();
+        for (k, v) in &self.shops {
+            let mut e: Json = Json::obj().with("item", v.item.as_str().into()).with("price", Json::Int(v.price));
+            if v.deal {
+                e = e.with("deal", Json::Bool(true)).with("pool", v.pool.as_str().into());
+            }
+            out.push((k.clone(), e));
+        }
+        Json::Obj(out)
     }
 
     pub fn to_json(&self) -> Json {
         let p: Vec<(String, Json)> = self.placements.iter().map(|(k, v)| (k.clone(), Json::Str(v.clone()))).collect();
-        Json::obj()
+        let mut j: Json = Json::obj()
             .with("format", FORMAT.into())
             .with("version", Json::Int(FORMAT_VERSION as i64))
             .with("generator", self.generator.as_str().into())
             .with("seed", self.seed.as_str().into())
             .with("settings", self.settings_string.as_str().into())
             .with("game", self.game.as_str().into())
-            .with("placements", Json::Obj(p))
-            .with("checksum", self.checksum().into())
+            .with("placements", Json::Obj(p));
+        if !self.shops.is_empty() {
+            j = j.with("shops", self.shops_json());
+        }
+        j.with("checksum", self.checksum().into())
+    }
+
+    fn shops_from(j: &Json) -> Res<Map<String, ShopEntry>> {
+        let mut out: Map<String, ShopEntry> = Map::new();
+        let Some(v) = j.get("shops") else {
+            return Ok(out);
+        };
+        let m: &[(String, Json)] = v.as_obj().ok_or_else(|| bad("field shops must be an object"))?;
+        if m.len() > MAX_PLACEMENTS {
+            return Err(bad("too many shop slots"));
+        }
+        for (k, e) in m {
+            let item: &str = e.get("item").and_then(|x| x.as_str()).ok_or_else(|| bad(&format!("shop slot {k:?} must name an item")))?;
+            let price: i64 = e.get("price").and_then(|x| x.as_i64()).ok_or_else(|| bad(&format!("shop slot {k:?} must have an integer price")))?;
+            let deal: bool = match e.get("deal") {
+                None => false,
+                Some(Json::Bool(b)) => *b,
+                Some(_) => return Err(bad(&format!("shop slot {k:?} has a deal field that is not true or false"))),
+            };
+            let pool: String = e.get("pool").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            out.insert(k.clone(), ShopEntry { item: item.to_string(), price, deal, pool });
+        }
+        Ok(out)
     }
 
     pub fn to_text(&self) -> String {
@@ -165,6 +223,7 @@ impl SeedFile {
                 Some(_) => return Err(bad("field generator must be a string")),
             },
             placements,
+            shops: SeedFile::shops_from(j)?,
         };
         f.check_fields()?;
         let want: String = field(j, "checksum")?.to_string();
@@ -224,6 +283,24 @@ mod tests {
         let l: Loaded = back.settings().unwrap();
         assert_eq!(l.settings.text("shuffle_smallkeys").unwrap(), "keysanity");
         assert!(l.warnings.is_empty());
+    }
+
+    #[test]
+    fn shop_slots_round_trip_and_count_in_the_checksum() {
+        let plain: SeedFile = sample();
+        assert!(!plain.to_text().contains("\"shops\""));
+        let mut f: SeedFile = plain.clone();
+        f.shops.insert("KF Shop Item 1".into(), ShopEntry { item: "Boomerang".into(), price: 85, deal: true, pool: "Rupees (20)".into() });
+        f.shops.insert("GC Shop Item 5".into(), ShopEntry { item: "Buy Heart".into(), price: 5, deal: false, pool: String::new() });
+        let t: String = f.to_text();
+        assert!(t.contains("\"shops\"") && t.contains("\"deal\": true"));
+        let back: SeedFile = SeedFile::parse(&t).unwrap();
+        assert_eq!(back, f);
+        assert_ne!(f.checksum(), plain.checksum());
+        let e: String = SeedFile::parse(&edit(&t, "\"price\": 85", "\"price\": 86")).unwrap_err().to_string();
+        assert!(e.contains("checksum"), "{e}");
+        assert!(SeedFile::parse(&edit(&t, "\"price\": 85", "\"price\": 0")).is_err());
+        assert!(SeedFile::parse(&edit(&t, "\"deal\": true", "\"deal\": 1")).is_err());
     }
 
     #[test]

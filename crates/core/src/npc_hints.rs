@@ -647,6 +647,7 @@ mod tests {
             game: String::new(),
             generator: String::new(),
             placements: p.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect::<BTreeMap<_, _>>(),
+            shops: BTreeMap::new(),
         }
     }
 

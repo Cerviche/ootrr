@@ -34,7 +34,13 @@ pub fn add(d: &Data, p: &Plan, w: &mut World, seed: &str) -> Res<()> {
 pub fn rebuild(d: &Data, seed: &SeedFile) -> Res<(World, Placement)> {
     let loaded: Loaded = seed.settings()?;
     let mut p: Plan = plan(&loaded.settings)?;
-    let mut w: World = world_with(d, &p.logic())?;
+    let lay: Option<crate::shops::Layout> = crate::shops::seed::layout(seed)?;
+    let owned: Option<Data> = lay.as_ref().map(|l| crate::shops::logic::data_with(d, l)).transpose()?;
+    let d: &Data = owned.as_ref().unwrap_or(d);
+    let mut w: World = match &lay {
+        Some(l) => crate::shops::logic::world(d, &p.logic(), l)?,
+        None => world_with(d, &p.logic())?,
+    };
     add(d, &p, &mut w, &seed.seed)?;
     let mut place: Placement = vanilla_place(&w, d)?;
     if crate::start_items::pool::active(&p) {

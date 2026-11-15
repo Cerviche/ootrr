@@ -475,6 +475,7 @@ pub fn build() -> Schema {
         Setting::toggle(73, "shuffle_treasure_reward", "shuffle", "Treasure Chest Game reward", false)
             .tip("Whether the final reward of the Market Treasure Chest Game, a Piece of Heart, holds a random item. Only the first win gives it, later wins give the usual red rupee. The five rooms keep their keys and rupees. Only unique items that do nothing when found twice can be placed there, so no upgrades, ammo, bottles or keys."),
     );
+    s.extend(crate::shops::plan::settings());
     s.push(starting_items());
     s.push(starting_songs());
     s.sort_by_key(|x| x.num);

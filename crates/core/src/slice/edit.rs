@@ -106,7 +106,7 @@ fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
     let mut pool: BM<String, Vec<String>> = BM::new();
     let mut dests: BM<String, Vec<String>> = BM::new();
     for (loc, item) in &seed.placements {
-        if crate::pot_slice::targets::is_loc(d, loc) {
+        if crate::pot_slice::targets::is_loc(d, loc) || crate::shops::seed::skip(loc) {
             continue;
         }
         let vanilla: &str = d.vanilla_of(loc).ok_or_else(|| E::Msg(format!("{loc} has no vanilla item")))?;
@@ -118,6 +118,7 @@ fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
     for (item, locs) in &dests {
         let mut acts: Vec<String> = pool.get(item).cloned().unwrap_or_default();
         crate::pot_slice::targets::balance(d, seed, item, &mut acts);
+        crate::shops::seed::balance(d, seed, item, &mut acts);
         if stripped {
             crate::start_items::pool::fit_actors(d, item, locs.len(), &mut acts);
         }
@@ -149,7 +150,7 @@ fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<String, String
     let given: BM<String, String> = actors_for(d, seed)?;
     let wrapped: BM<String, &'static str> = flow_wraps(d, seed);
     for (loc, item) in &seed.placements {
-        if crate::pot_slice::targets::is_loc(d, loc) || crate::slice::skulls::is_skull(d, loc) {
+        if crate::pot_slice::targets::is_loc(d, loc) || crate::slice::skulls::is_skull(d, loc) || crate::shops::seed::skip(loc) {
             continue;
         }
         if is_sale(d, loc) {
@@ -446,7 +447,8 @@ pub fn skipped_locations(p: &crate::slice::support::Plan) -> Vec<&'static str> {
 }
 
 pub fn build_for(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -> Res<Built> {
-    crate::slice::seed_packs::build(seed, romfs, load, mod_name, host)
+    let b: Built = crate::slice::seed_packs::build(seed, romfs, load, mod_name, host)?;
+    crate::shelf::seed::after(seed, romfs, load, mod_name, host, b)
 }
 
 pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, extra: &Extra) -> Res<Built> {
@@ -687,7 +689,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         pk.write_romfs(rsizetable::TABLE_PATH, &t.to_zs()?)?;
     }
     let chests: Vec<ChestLine> = lines(&ts, &edits);
-    let side: usize = seed.placements.keys().filter(|k| crate::pot_slice::targets::is_loc(&d, k) || crate::slice::skulls::is_skull(&d, k)).count();
+    let side: usize = seed.placements.keys().filter(|k| crate::pot_slice::targets::is_loc(&d, k) || crate::slice::skulls::is_skull(&d, k) || crate::shops::seed::skip(k)).count();
     let counts: BuildCounts = BuildCounts {
         placed: seed.placements.len() - side,
         changed: chests.len(),
