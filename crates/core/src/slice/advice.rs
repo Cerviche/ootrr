@@ -17,7 +17,7 @@ pub fn changes(p: &Plan) -> Vec<&'static str> {
     if !p.excluded.is_empty() {
         out.push("exclude fewer locations");
     }
-    if p.drops.any() {
+    if p.drops.any() || p.drops.remake != crate::slice::support::Mode::Off {
         out.push("shuffle fewer pots and crates");
     }
     if p.drops.wild() {

@@ -106,6 +106,7 @@ const USAGE: &str = "usage:
   ootrr slice-scan <romfs_root> <out_json>
   ootrr pot-scan <romfs_root> <out_json>
   ootrr rock-scan <romfs_root> <out_json>
+  ootrr remake-pot-scan <romfs_root> <out_json>
   ootrr pot-variants <romfs_root> <load_dir> <mod_name> [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--dry]
   ootrr pots-persist <romfs_root> <load_dir> <mod_name>
   ootrr pack-add <romfs_root> <load_dir> <mod_name> <Item_Actor> [--name <Obj_Actor>] [--press] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--place <ActorHash>]... [--tag <TagName>]... [--ammo] [--magic] [--model-from <Actor>] [--dry]
@@ -394,6 +395,7 @@ fn main() -> ExitCode {
         Some("slice-scan") => slice_cmd::scan_cmd(&a[1..]),
         Some("pot-scan") => pot_scan_cmd::run(&a[1..]),
         Some("rock-scan") => pot_scan_cmd::run_rocks(&a[1..]),
+        Some("remake-pot-scan") => pot_scan_cmd::run_remake(&a[1..]),
         Some("pot-variants") => pot_variants_cmd::run(&a[1..]),
         Some("pots-persist") => pots_persist_cmd::run(&a[1..]),
         Some("pack-add") => pack_add_cmd::run(&a[1..]),

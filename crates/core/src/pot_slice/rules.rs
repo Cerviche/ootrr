@@ -8,7 +8,7 @@ use crate::world::{LocId, Placement, World};
 pub fn at(d: &Data, name: &str, item: &str) -> Option<bool> {
     if d.pots.has(name) {
         let known: bool = pickup::of(item).is_some() || crate::slice::key_spots::placeable(d, item, crate::slice::key_spots::Spot::Pot);
-        let can: bool = d.pots.kind_of(name) == Some(crate::pot_slice::data::Kind::Pot);
+        let can: bool = d.pots.kind_of(name) == Some(crate::pot_slice::data::Kind::Pot) && !d.pots.is_remake(name);
         let safe: bool = can || !pickup::holds(item) || d.vanilla_of(name) == Some(item);
         return Some(known && safe && crate::slice::copies::fits(d, name, item));
     }

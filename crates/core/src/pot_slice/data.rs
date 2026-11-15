@@ -3,7 +3,7 @@ use std::collections::{HashMap as HM, HashSet as HS};
 use crate::catalog::{Catalog, Loc};
 use crate::error::{Error as E, Res};
 use crate::json::{self, Json};
-use crate::pot_slice::{pickup, rocks};
+use crate::pot_slice::{pickup, remake, rocks};
 use crate::slice::data::{Data, State};
 
 pub const CATALOG_JSON: &str = include_str!("../../../../data/pots_catalog.json");
@@ -65,6 +65,9 @@ pub struct PotData {
     pub files: Vec<String>,
     pub rock_game: String,
     pub rock_files: Vec<String>,
+    pub remake: HS<String>,
+    pub remake_game: String,
+    pub remake_files: Vec<String>,
 }
 
 impl PotData {
@@ -86,6 +89,10 @@ impl PotData {
 
     pub fn is_empty(&self) -> bool {
         self.locs.is_empty()
+    }
+
+    pub fn is_remake(&self, name: &str) -> bool {
+        self.remake.contains(name)
     }
 }
 
@@ -159,24 +166,29 @@ impl PotData {
     pub fn load(d: &Data) -> Res<PotData> {
         let mut locs: Vec<Loc> = merged(d)?;
         locs.extend(rocks::locs()?);
+        let fresh: Vec<Loc> = remake::locs()?;
+        let remake: HS<String> = fresh.iter().map(|l| l.name.clone()).collect();
+        locs.extend(fresh);
         let (game, files, mut rows): (String, Vec<String>, Vec<(String, State)>) = parse_scan(SCAN_JSON)?;
         let (rock_game, rock_files, more): (String, Vec<String>, Vec<(String, State)>) = parse_scan(rocks::SCAN_JSON)?;
         rows.extend(more);
+        let (remake_game, remake_files, late): (String, Vec<String>, Vec<(String, State)>) = parse_scan(remake::SCAN_JSON)?;
+        rows.extend(late);
         let mut ix: HM<String, usize> = HM::new();
         for (i, l) in locs.iter().enumerate() {
             if ix.insert(l.name.clone(), i).is_some() {
                 return Err(E::Msg(format!("pot catalog: {} is listed twice", l.name)));
             }
         }
-        let pots: Vec<Loc> = locs.iter().filter(|l| !Kind::of(&l.kind).is_some_and(Kind::wild)).cloned().collect();
+        let pots: Vec<Loc> = locs.iter().filter(|l| !Kind::of(&l.kind).is_some_and(Kind::wild) && !remake.contains(&l.name)).cloned().collect();
         let only: HS<String> = pot_only(d, &pots);
-        Ok(PotData { locs, ix, state: rows.into_iter().collect(), only, game, files, rock_game, rock_files })
+        Ok(PotData { locs, ix, state: rows.into_iter().collect(), only, game, files, rock_game, rock_files, remake, remake_game, remake_files })
     }
 }
 
 impl Data {
     pub fn with_pots(mut self) -> Res<Data> {
-        for l in rocks::locs()? {
+        for l in rocks::locs()?.into_iter().chain(remake::locs()?) {
             self.remake.entry(l.name).or_insert(l.vanilla);
         }
         self.pots = PotData::load(&self)?;

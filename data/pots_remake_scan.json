@@ -1,0 +1,92 @@
+{
+  "format": 1,
+  "game": "oot-remake:572c114c43ce413c",
+  "files": [
+    "Banc/DodongoCavern/DodongoCavern_Dynamic.bcett.byml.zs",
+    "Banc/FireTemple/FireTemple_Dynamic.bcett.byml.zs",
+    "Banc/ForestTemple/ForestTemple_Dynamic.bcett.byml.zs",
+    "Banc/ForestTemple/ForestTemple_Static.bcett.byml.zs",
+    "Banc/GerudoValley/GerudoValley_Adult_Dynamic.bcett.byml.zs",
+    "Banc/IceCavern/IceCavern_Static.bcett.byml.zs",
+    "Banc/ShadowTemple/ShadowTemple_Static.bcett.byml.zs",
+    "Banc/WaterTemple/WaterTemple_Static.bcett.byml.zs"
+  ],
+  "locations": [
+    {
+      "name": "Dodongos Cavern Upper Lizalfos Remake Pot 1",
+      "state": "eligible"
+    },
+    {
+      "name": "Dodongos Cavern Upper Lizalfos Remake Pot 2",
+      "state": "eligible"
+    },
+    {
+      "name": "Fire Temple Narrow Path Room Remake Pot",
+      "state": "eligible"
+    },
+    {
+      "name": "Fire Temple Near Boss Remake Pot 1",
+      "state": "eligible"
+    },
+    {
+      "name": "Fire Temple Near Boss Remake Pot 2",
+      "state": "eligible"
+    },
+    {
+      "name": "Fire Temple Near Boss Remake Pot 3",
+      "state": "eligible"
+    },
+    {
+      "name": "Forest Temple Outdoors High Balconies Remake Pot 1",
+      "state": "eligible"
+    },
+    {
+      "name": "Forest Temple Outdoors High Balconies Remake Pot 2",
+      "state": "eligible"
+    },
+    {
+      "name": "GV Storms Grotto Adult Remake Pot 1",
+      "state": "eligible"
+    },
+    {
+      "name": "GV Storms Grotto Adult Remake Pot 2",
+      "state": "eligible"
+    },
+    {
+      "name": "GV Storms Grotto Adult Remake Pot 3",
+      "state": "eligible"
+    },
+    {
+      "name": "GV Storms Grotto Adult Remake Pot 4",
+      "state": "eligible"
+    },
+    {
+      "name": "Ice Cavern Behind Ice Walls Remake Pot 1",
+      "state": "eligible"
+    },
+    {
+      "name": "Ice Cavern Behind Ice Walls Remake Pot 2",
+      "state": "eligible"
+    },
+    {
+      "name": "Shadow Temple Invisible Spikes Remake Pot 1",
+      "state": "eligible"
+    },
+    {
+      "name": "Shadow Temple Invisible Spikes Remake Pot 2",
+      "state": "eligible"
+    },
+    {
+      "name": "Shadow Temple Wind Tunnel Remake Pot",
+      "state": "eligible"
+    },
+    {
+      "name": "Water Temple Before Boss Remake Pot 1",
+      "state": "eligible"
+    },
+    {
+      "name": "Water Temple Before Boss Remake Pot 2",
+      "state": "eligible"
+    }
+  ]
+}

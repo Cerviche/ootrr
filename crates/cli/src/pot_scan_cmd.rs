@@ -12,6 +12,10 @@ pub fn run_rocks(a: &[String]) -> Res<()> {
     run_with(a, ootrr_core::pot_slice::rocks::scan)
 }
 
+pub fn run_remake(a: &[String]) -> Res<()> {
+    run_with(a, ootrr_core::pot_slice::remake::scan)
+}
+
 fn run_with(a: &[String], f: fn(&P) -> Res<PotScan>) -> Res<()> {
     let root: &str = a.first().map(|s| s.as_str()).ok_or(Error::Format("missing romfs_root"))?;
     let out: &str = a.get(1).map(|s| s.as_str()).ok_or(Error::Format("missing out file"))?;

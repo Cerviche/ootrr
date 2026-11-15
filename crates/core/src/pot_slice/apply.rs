@@ -79,6 +79,17 @@ pub fn check_rocks(rf: &Romfs, d: &Data) -> Res<()> {
     Ok(())
 }
 
+pub fn check_remake(rf: &Romfs, d: &Data) -> Res<()> {
+    let have: String = fingerprint(rf, &d.pots.remake_files)?;
+    if have != d.pots.remake_game {
+        return Err(E::Msg(format!(
+            "the remake only pot data was made for the game {} but this folder is {}",
+            d.pots.remake_game, have
+        )));
+    }
+    Ok(())
+}
+
 pub fn apply(rf: &mut Romfs, d: &Data, ts: &[Give], edits: &mut Vec<Edited>) -> Res<usize> {
     if ts.is_empty() {
         return Ok(0);
@@ -88,6 +99,9 @@ pub fn apply(rf: &mut Romfs, d: &Data, ts: &[Give], edits: &mut Vec<Edited>) -> 
     }
     if ts.iter().any(|t| t.kind.wild()) {
         check_rocks(rf, d)?;
+    }
+    if ts.iter().any(|t| d.pots.is_remake(&t.name)) {
+        check_remake(rf, d)?;
     }
     let mut by: BM<&str, Vec<&Give>> = BM::new();
     for t in ts {

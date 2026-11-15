@@ -223,6 +223,9 @@ impl Plan {
         if self.drops.wild() {
             out.push((crate::pot_slice::rocks::KEY, crate::pot_slice::rocks::ON));
         }
+        if self.drops.remake != Mode::Off {
+            out.push((crate::pot_slice::remake::KEY, crate::pot_slice::remake::ON));
+        }
         out
     }
 

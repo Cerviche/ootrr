@@ -11,6 +11,7 @@ pub struct Drops {
     pub hives: Mode,
     pub rocks: Mode,
     pub grass: Mode,
+    pub remake: Mode,
 }
 
 pub const HIVES: &str = "shuffle_beehives";
@@ -47,12 +48,13 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Drops {
         hives,
         rocks: mode_of(s, ROCKS, bad),
         grass: mode_of(s, GRASS, bad),
+        remake: mode_of(s, crate::pot_slice::remake::SETTING, bad),
     }
 }
 
 impl Drops {
     pub fn off() -> Drops {
-        Drops { pots: Mode::Off, crates: Mode::Off, hives: Mode::Off, rocks: Mode::Off, grass: Mode::Off }
+        Drops { pots: Mode::Off, crates: Mode::Off, hives: Mode::Off, rocks: Mode::Off, grass: Mode::Off, remake: Mode::Off }
     }
 
     pub fn any(&self) -> bool {
@@ -79,6 +81,9 @@ impl Drops {
         }
         if self.grass != Mode::Off {
             out.push("Grass tufts hold shuffled items. The adult and the child copy of a tuft are two checks. Grass takes only rupees, hearts, ammo and other refills. A shuffled tuft gives its item once and stays cut. Bug grass in the Lost Woods is left alone. Experimental and untested in the game.".to_string());
+        }
+        if self.remake != Mode::Off {
+            out.push("19 pots that only the remake has hold shuffled items, in Dodongo's Cavern, the Fire, Forest, Shadow and Water Temples, the Ice Cavern and, as an adult, the Gerudo Valley storms grotto. They take only rupees, hearts, ammo and other refills, because their logic region comes from the room data and was never checked in the game. A shuffled pot gives its item once, its saved row is made permanent. Experimental and untested in the game.".to_string());
         }
         out
     }

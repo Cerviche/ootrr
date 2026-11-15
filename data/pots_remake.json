@@ -1,0 +1,485 @@
+{
+ "format": 1,
+ "revision": 1,
+ "note": "Identifiers only. Remake only pots: placed base pots whose actor hash no catalog row holds, that use the drop and saved row of the pot slice (base actor, no Presence flag, no boss door resupply table, a supply row of reset type 88, an own drop or own table of one shipped pickup or no own drop at all) and whose logic region is clear from the data. In a dungeon the region is the one region of every known check with the same DefaultDungeonRoomIndex, and rule is the one rule of the known pots of that room, else True. Overworld rows take the one region of at least two known checks within 12 units in the same layer. A row is left out when its region still holds an OoTR pot or crate name without a hash, so no OoTR pot is counted twice, and when it sits in a boss room. vanilla is the own drop, the item of the own table, else Rupee (1). The adult and the child copy of a spot are two rows. Names are made up for this tool. These spots take refill pickups only, so a region error cannot lock a seed.",
+ "retire": [],
+ "locations": [
+  {
+   "name": "Dodongos Cavern Upper Lizalfos Remake Pot 1",
+   "area": "Dodongos Cavern",
+   "kind": "pot",
+   "vanilla": "Recovery Heart",
+   "item": "",
+   "conf": "forced",
+   "folder": "DodongoCavern",
+   "via": "drop",
+   "age": "both",
+   "region": "Dodongos Cavern Upper Lizalfos",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "12436656290806750367",
+     "files": [
+      "Banc/DodongoCavern/DodongoCavern_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Dodongos Cavern Upper Lizalfos Remake Pot 2",
+   "area": "Dodongos Cavern",
+   "kind": "pot",
+   "vanilla": "Rupee (1)",
+   "item": "",
+   "conf": "forced",
+   "folder": "DodongoCavern",
+   "via": "drop",
+   "age": "both",
+   "region": "Dodongos Cavern Upper Lizalfos",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "6763794341906819086",
+     "files": [
+      "Banc/DodongoCavern/DodongoCavern_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Fire Temple Narrow Path Room Remake Pot",
+   "area": "Fire Temple",
+   "kind": "pot",
+   "vanilla": "Recovery Heart",
+   "item": "",
+   "conf": "forced",
+   "folder": "FireTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Fire Temple Narrow Path Room",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "11945600822575070219",
+     "files": [
+      "Banc/FireTemple/FireTemple_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Fire Temple Near Boss Remake Pot 1",
+   "area": "Fire Temple",
+   "kind": "pot",
+   "vanilla": "Rupees (5)",
+   "item": "Obj_Rupee_Blue",
+   "conf": "forced",
+   "folder": "FireTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Fire Temple Near Boss",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "13720304619349543095",
+     "files": [
+      "Banc/FireTemple/FireTemple_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Fire Temple Near Boss Remake Pot 2",
+   "area": "Fire Temple",
+   "kind": "pot",
+   "vanilla": "Rupees (20)",
+   "item": "Obj_Rupee_Red",
+   "conf": "forced",
+   "folder": "FireTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Fire Temple Near Boss",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "2839526458267949318",
+     "files": [
+      "Banc/FireTemple/FireTemple_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Fire Temple Near Boss Remake Pot 3",
+   "area": "Fire Temple",
+   "kind": "pot",
+   "vanilla": "Rupees (5)",
+   "item": "Obj_Rupee_Blue",
+   "conf": "forced",
+   "folder": "FireTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Fire Temple Near Boss",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "12275059645282086381",
+     "files": [
+      "Banc/FireTemple/FireTemple_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Forest Temple Outdoors High Balconies Remake Pot 1",
+   "area": "Forest Temple",
+   "kind": "pot",
+   "vanilla": "Rupee (1)",
+   "item": "",
+   "conf": "forced",
+   "folder": "ForestTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Forest Temple Outdoors High Balconies",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "6916546705775293667",
+     "files": [
+      "Banc/ForestTemple/ForestTemple_Static.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Forest Temple Outdoors High Balconies Remake Pot 2",
+   "area": "Forest Temple",
+   "kind": "pot",
+   "vanilla": "Recovery Heart",
+   "item": "",
+   "conf": "forced",
+   "folder": "ForestTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Forest Temple Outdoors High Balconies",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "9611679337718327541",
+     "files": [
+      "Banc/ForestTemple/ForestTemple_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "GV Storms Grotto Adult Remake Pot 1",
+   "area": "Gerudo Valley",
+   "kind": "pot",
+   "vanilla": "Rupee (1)",
+   "item": "Obj_Rupee_Green",
+   "conf": "forced",
+   "folder": "GerudoValley",
+   "via": "drop",
+   "age": "adult",
+   "region": "GV Storms Grotto",
+   "rule": "is_adult",
+   "refs": [
+    {
+     "hash": "6896071498853277403",
+     "files": [
+      "Banc/GerudoValley/GerudoValley_Adult_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "GV Storms Grotto Adult Remake Pot 2",
+   "area": "Gerudo Valley",
+   "kind": "pot",
+   "vanilla": "Rupee (1)",
+   "item": "Obj_Rupee_Green",
+   "conf": "forced",
+   "folder": "GerudoValley",
+   "via": "drop",
+   "age": "adult",
+   "region": "GV Storms Grotto",
+   "rule": "is_adult",
+   "refs": [
+    {
+     "hash": "3407692112799570510",
+     "files": [
+      "Banc/GerudoValley/GerudoValley_Adult_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "GV Storms Grotto Adult Remake Pot 3",
+   "area": "Gerudo Valley",
+   "kind": "pot",
+   "vanilla": "Rupee (1)",
+   "item": "Obj_Rupee_Green",
+   "conf": "forced",
+   "folder": "GerudoValley",
+   "via": "drop",
+   "age": "adult",
+   "region": "GV Storms Grotto",
+   "rule": "is_adult",
+   "refs": [
+    {
+     "hash": "15334540056586068351",
+     "files": [
+      "Banc/GerudoValley/GerudoValley_Adult_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "GV Storms Grotto Adult Remake Pot 4",
+   "area": "Gerudo Valley",
+   "kind": "pot",
+   "vanilla": "Rupee (1)",
+   "item": "Obj_Rupee_Green",
+   "conf": "forced",
+   "folder": "GerudoValley",
+   "via": "drop",
+   "age": "adult",
+   "region": "GV Storms Grotto",
+   "rule": "is_adult",
+   "refs": [
+    {
+     "hash": "10851977283896645114",
+     "files": [
+      "Banc/GerudoValley/GerudoValley_Adult_Dynamic.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Ice Cavern Behind Ice Walls Remake Pot 1",
+   "area": "Ice Cavern",
+   "kind": "pot",
+   "vanilla": "Rupees (5)",
+   "item": "Obj_Rupee_Blue",
+   "conf": "forced",
+   "folder": "IceCavern",
+   "via": "drop",
+   "age": "both",
+   "region": "Ice Cavern Behind Ice Walls",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "17314383705983097019",
+     "files": [
+      "Banc/IceCavern/IceCavern_Static.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Ice Cavern Behind Ice Walls Remake Pot 2",
+   "area": "Ice Cavern",
+   "kind": "pot",
+   "vanilla": "Rupees (5)",
+   "item": "Obj_Rupee_Blue",
+   "conf": "forced",
+   "folder": "IceCavern",
+   "via": "drop",
+   "age": "both",
+   "region": "Ice Cavern Behind Ice Walls",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "15011057361189787608",
+     "files": [
+      "Banc/IceCavern/IceCavern_Static.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Shadow Temple Invisible Spikes Remake Pot 1",
+   "area": "Shadow Temple",
+   "kind": "pot",
+   "vanilla": "Rupee (1)",
+   "item": "",
+   "conf": "forced",
+   "folder": "ShadowTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Shadow Temple Invisible Spikes",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "9863928399380026377",
+     "files": [
+      "Banc/ShadowTemple/ShadowTemple_Static.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Shadow Temple Invisible Spikes Remake Pot 2",
+   "area": "Shadow Temple",
+   "kind": "pot",
+   "vanilla": "Rupee (1)",
+   "item": "",
+   "conf": "forced",
+   "folder": "ShadowTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Shadow Temple Invisible Spikes",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "15429078377557359609",
+     "files": [
+      "Banc/ShadowTemple/ShadowTemple_Static.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Shadow Temple Wind Tunnel Remake Pot",
+   "area": "Shadow Temple",
+   "kind": "pot",
+   "vanilla": "Recovery Heart",
+   "item": "",
+   "conf": "forced",
+   "folder": "ShadowTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Shadow Temple Wind Tunnel",
+   "rule": "True",
+   "refs": [
+    {
+     "hash": "1252191464782579179",
+     "files": [
+      "Banc/ShadowTemple/ShadowTemple_Static.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "guess"
+  },
+  {
+   "name": "Water Temple Before Boss Remake Pot 1",
+   "area": "Water Temple",
+   "kind": "pot",
+   "vanilla": "Rupee (1)",
+   "item": "",
+   "conf": "forced",
+   "folder": "WaterTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Water Temple Before Boss",
+   "rule": "can_use(Longshot)",
+   "refs": [
+    {
+     "hash": "1279554567131519582",
+     "files": [
+      "Banc/WaterTemple/WaterTemple_Static.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "likely"
+  },
+  {
+   "name": "Water Temple Before Boss Remake Pot 2",
+   "area": "Water Temple",
+   "kind": "pot",
+   "vanilla": "Rupee (1)",
+   "item": "",
+   "conf": "forced",
+   "folder": "WaterTemple",
+   "via": "drop",
+   "age": "both",
+   "region": "Water Temple Before Boss",
+   "rule": "can_use(Longshot)",
+   "refs": [
+    {
+     "hash": "4025608826386451139",
+     "files": [
+      "Banc/WaterTemple/WaterTemple_Static.bcett.byml.zs"
+     ]
+    }
+   ],
+   "ev": [
+    "remake"
+   ],
+   "grade": "likely"
+  }
+ ],
+ "unmatched_oot": [],
+ "unmatched_remake": []
+}

@@ -240,7 +240,7 @@ pub fn build() -> Schema {
     s.push(
         where_checks(
             Setting::choice(9, "shuffle_pots", "shuffle", "Pots", "off")
-                .tip("Which pots, including flying pots, hold random items. Key items whose pickup pack is built can sit in a pot. A pot item that is not picked up, falls into a pit or is left behind on a room change is lost for good."),
+                .tip("Which pots, including flying pots, hold random items. Key items whose pickup pack is built can sit in a pot. A pot that holds a key item is saved as broken only when its item is picked up, so if the item falls into a pit, lands out of reach or is left behind, the pot is back with it the next time the area loads. Rupees, hearts and ammo from a pot are given once and are gone if they are not picked up. Flying pots only hold items that can be replaced."),
         ),
     );
     s.push(
@@ -263,6 +263,12 @@ pub fn build() -> Schema {
         where_checks(
             Setting::choice(87, "shuffle_grass", "shuffle", "Grass", "off")
                 .tip("Which grass tufts hold random items, in the overworld and in the Deku Tree and the Bottom of the Well. Grass holds only rupees, hearts and ammo. The bug grass of the Lost Woods is left alone. Experimental, untested in the game."),
+        ),
+    );
+    s.push(
+        where_checks(
+            Setting::choice(92, crate::pot_slice::remake::SETTING, "shuffle", "Remake only pots", "off")
+                .tip("Which of the 19 pots that only the remake has, with no pot of the original game at their spot, hold random items. They sit in Dodongo's Cavern, the Fire, Forest, Shadow and Water Temples, the Ice Cavern and, as an adult, the Gerudo Valley storms grotto. They hold only rupees, hearts and ammo, because their logic region comes from the room data. Experimental, untested in the game."),
         ),
     );
     s.push(
