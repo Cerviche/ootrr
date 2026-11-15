@@ -2,6 +2,7 @@ use crate::byml::{Byml, Node};
 use crate::error::{Error as E, Res};
 use crate::pickup_pack::closure::{actor_file, chain, local, norm, work, Chain, Pool, COMPONENTS, PARENT};
 use crate::pickup_pack::magic;
+use crate::pickup_pack::meter;
 use crate::pickup_pack::model;
 use crate::pickup_pack::{is_actor_name, Layers, Spec, Style, BASE, DONOR};
 
@@ -148,6 +149,9 @@ pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
         comps.set(ATTENTION_REF, Node::Str(need(&donor, DONOR, ATTENTION_REF)?.to_string()));
     }
     if l.magic {
+        if meter::applies(&s.item) {
+            return Err(E::Msg(format!("{} gives no magic meter, the magic layer would add the raise back", s.item)));
+        }
         let (f, d, r): (String, Vec<u8>, String) = magic::make(p, &item, &chain(p, BASE)?, &s.item, &s.name)?;
         comps.set(magic::TABLE_REF, Node::Str(r));
         extra.push((f, d));

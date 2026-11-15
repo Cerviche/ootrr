@@ -114,6 +114,28 @@ mod tests {
     }
 
     #[test]
+    fn the_two_fountains_follow_their_flows_and_the_remake_items() {
+        let d: Data = Data::load().unwrap();
+        for (loc, file, item, vanilla) in [
+            ("DMT Great Fairy Reward", "Dm_FairyFountain_Din.bfevfl", "Item_DinFire", "Dins Fire"),
+            ("HC Great Fairy Reward", "Dm_FairyFountain_Power.bfevfl", "Item_FairyBless_MP", "Magic Meter"),
+        ] {
+            let l: &Loc = d.flow.by_name(loc).unwrap();
+            assert_eq!(l.edits.len(), 1, "{loc}");
+            assert_eq!(l.edits[0].file, file, "{loc}");
+            assert_eq!(l.item.as_deref(), Some(item), "{loc}");
+            assert_eq!(l.vanilla, vanilla, "{loc}");
+            assert_eq!(d.vanilla_of(loc), Some(vanilla), "{loc}");
+            assert!(d.flow_ok(loc), "{loc}");
+        }
+        assert_eq!(d.vanilla_of("DMC Great Fairy Reward"), Some("Magic Meter"));
+        let skull: &Loc = d.flow.by_name("Kak 40 Gold Skulltula Reward").unwrap();
+        assert_eq!(skull.vanilla, "Bombchus (20)");
+        assert_eq!(d.vanilla_of("Kak 40 Gold Skulltula Reward"), Some("Bombchus (20)"));
+        assert_eq!(d.item("Bombchus (20)").and_then(|i| i.actor.as_deref()), skull.item.as_deref());
+    }
+
+    #[test]
     fn tiered_locations_name_the_lower_tier_and_hold_a_junk_vanilla_item() {
         let d: Data = Data::load().unwrap();
         for n in ["LW Target in Woods", "Market Shooting Gallery Reward", "Kak Shooting Gallery Reward", "Market Bombchu Bowling First Prize", "GF HBA 1500 Points"] {

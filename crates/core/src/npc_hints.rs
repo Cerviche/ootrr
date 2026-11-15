@@ -98,8 +98,8 @@ pub const SKULL_REWARDS: [(&str, &str); 6] = [
 /// Each fountain asks its own price, so the offer lines with that price
 /// belong to one fountain even though they live in the shared Din file.
 pub const FAIRIES: [(&str, &str, &str); 6] = [
-    ("HC Great Fairy Reward", "0304", "Dm_FairyFountain_0009_01"),
-    ("DMT Great Fairy Reward", "0305", "Dm_FairyFountain_0010"),
+    ("DMT Great Fairy Reward", "0304", "Dm_FairyFountain_0009_01"),
+    ("HC Great Fairy Reward", "0305", "Dm_FairyFountain_0010"),
     ("ZF Great Fairy Reward", "0306", "Dm_FairyFountain_0011"),
     ("DMC Great Fairy Reward", "0307", "Dm_FairyFountain_0012"),
     ("Colossus Great Fairy Reward", "0308", "Dm_FairyFountain_0013"),
@@ -639,6 +639,19 @@ mod tests {
     use super::*;
     use crate::settings::seed::SeedFile;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn each_fairy_price_line_names_the_fountain_that_asks_it() {
+        let by: Vec<(&str, &str)> = FAIRIES.iter().map(|f| (f.0, f.1)).collect();
+        assert_eq!(by[0], ("DMT Great Fairy Reward", "0304"));
+        assert_eq!(by[1], ("HC Great Fairy Reward", "0305"));
+        assert_eq!(FAIRIES[0].2, "Dm_FairyFountain_0009_01");
+        assert_eq!(FAIRIES[1].2, "Dm_FairyFountain_0010");
+        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        for (loc, _, _) in FAIRIES {
+            assert!(d.flow.by_name(loc).is_some_and(|l| l.cat == "great_fairy"), "{loc}");
+        }
+    }
 
     fn seed(p: &[(&str, &str)]) -> SeedFile {
         SeedFile {

@@ -2,6 +2,8 @@
 "format": 1,
 "note": "Where the remake chest holds a different item than the OoTR vanilla item, the item the remake chest really holds. Only entries whose remake item has an item definition are listed.",
 "locations": {
+"HC Great Fairy Reward":"Magic Meter",
+"DMT Great Fairy Reward":"Dins Fire",
 "Bottom of the Well Invisible Chest":"Rupees (50)",
 "Deku Tree Compass Room Side Chest":"Deku Nuts (5)",
 "Deku Tree Slingshot Room Side Chest":"Deku Nuts (5)",

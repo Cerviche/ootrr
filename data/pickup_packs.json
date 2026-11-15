@@ -326,18 +326,7 @@
       ],
       "status": "built",
       "identity": "Item_DinFire",
-      "notes": "Plain, 40 files, heap 199928, MPMaxUP 24, variation frame 0, no Tag row. M1 control, a cast needs a meter. Takes the magic layer too if M1 fails",
-      "variants": [
-        {
-          "args": [
-            "--host",
-            "hookshot",
-            "--magic"
-          ],
-          "status": "built",
-          "notes": "Optional magic layer of ENGINE. Only needed if the plain pack fails the magic bar test M1."
-        }
-      ]
+      "notes": "Plain, 40 files, heap 199928, MPMaxUP 24, variation frame 0, no Tag row. The pack row and the item row carry no magic raise (pickup_pack/meter.rs), so this pickup gives no magic meter. The magic layer is refused"
     },
     {
       "group": "C",
@@ -372,18 +361,7 @@
       ],
       "status": "built",
       "identity": "Item_Arrow_Ice",
-      "notes": "Plain, 40 files, heap 199928, PouchCategory Bow, MPMaxUP 24, no Tag row so no Fire Arrow challenge. Magic layer applies if M1 fails",
-      "variants": [
-        {
-          "args": [
-            "--host",
-            "hookshot",
-            "--magic"
-          ],
-          "status": "dry_ok",
-          "notes": "Optional magic layer of ENGINE. Only needed if the plain pack fails the magic bar test M1."
-        }
-      ]
+      "notes": "Plain, 40 files, heap 199928, PouchCategory Bow, MPMaxUP 24, no Tag row so no Fire Arrow challenge. The pack row and the item row carry no magic raise (pickup_pack/meter.rs), so this pickup gives no magic meter. The magic layer is refused"
     },
     {
       "group": "C",

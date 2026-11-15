@@ -462,7 +462,7 @@ pub fn generate(s: &Settings, seed: &str) -> Res<Generated> {
 mod tests {
     use super::*;
     use crate::settings::Value;
-    use crate::slice::data::{CATALOG_JSON, ITEMS_JSON, VANILLA_JSON};
+    use crate::slice::data::{CATALOG_JSON, ITEMS_JSON, REMAKE_JSON, VANILLA_JSON};
     use crate::slice::logic::world;
 
     const BIG: [&str; 6] = [
@@ -483,7 +483,7 @@ mod tests {
             "{{\"format\":1,\"game\":\"oot-remake:synthetic\",\"files\":[],\"chests\":[{}]}}",
             rows.join(",")
         );
-        Data::new(ITEMS_JSON, VANILLA_JSON, &scan, CATALOG_JSON).unwrap()
+        Data::new(ITEMS_JSON, VANILLA_JSON, &scan, CATALOG_JSON).unwrap().with_remake(REMAKE_JSON).unwrap()
     }
 
     fn all_chests() -> Settings {
@@ -1020,7 +1020,7 @@ mod tests {
     #[test]
     fn an_empty_scan_is_refused() {
         let scan: &str = "{\"format\":1,\"game\":\"g\",\"files\":[],\"chests\":[]}";
-        let d: Data = Data::new(ITEMS_JSON, VANILLA_JSON, scan, CATALOG_JSON).unwrap();
+        let d: Data = Data::new(ITEMS_JSON, VANILLA_JSON, scan, CATALOG_JSON).unwrap().with_remake(REMAKE_JSON).unwrap();
         assert!(generate_data(&d, &all_chests(), "x", &GenOpts::default()).is_err());
     }
 
@@ -1118,10 +1118,10 @@ mod tests {
             (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "56f528719dfd82b1134f739fabd7f222f00a68f54634037b14246ee7a5be1aa3"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "dbbde2ae945e2e8eb27f8fe74e85b432bc1612f02b1f629a822e47f8cf49cc79"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "a131002f74c6dd72eb9e521304f3cb01205103b640d91df77e6ddf6e760fd180"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "096fe109ab0f25832732d6ed072e7f036a1f79ecebfa2e1bea9046483f6b0a3d"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "dd873178d8ba402bb27da1c02d738846cc6631d6c753be11301e310ea10f31ca"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "08af4f2c33b304f53cc74e27b9f35d74952b7e5ea9c940cd054cd03dcca80877"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "088f4d52a51d0fabd2965efd8ff5815e80393ca91ddb81c3afb93f44c7baa81f"),
             (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "7fcaeeecc81ae7ebb375b4e96a3bd7a718b9fbcf29988b9c80aab4845baee22f"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "f11163c886134346d67c2af0f690c0e42c940757a2cfec33f5bb534a93fb361f"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "d0a29f28f8898fc06fd7a7efbda258cbcbd5740a957a65a81e42ad4336efb6f4"),
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();

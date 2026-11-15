@@ -6,6 +6,7 @@ pub mod closure;
 pub mod guard;
 pub mod kit;
 pub mod magic;
+pub mod meter;
 pub mod model;
 pub mod pot_kit;
 pub mod place;

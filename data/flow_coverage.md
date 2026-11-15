@@ -83,7 +83,7 @@ Confidence levels in the `conf` field:
 | ToT Light Arrows Cutscene | cutscene_gift | item | supported | Light Arrows | Dm_TimeTemple_0130 8, Dm_TimeTemple_0130 14, Dm_TimeTemple_0130 25 |
 | HC Malon Egg | trade | item | supported | Weird Egg | Goto_HyruleCastle 149 |
 | HC Zeldas Letter | trade | item | supported | Zeldas Letter | Dm_HrlCastle_0050 238 |
-| HC Great Fairy Reward | great_fairy | item | supported | Dins Fire | Dm_FairyFountain_Din 308 |
+| DMT Great Fairy Reward | great_fairy | item | supported | Dins Fire | Dm_FairyFountain_Din 308 |
 | LLR Talons Chickens | bottle | scene | unsupported | Bottle with Milk | Minigame_FindOutCucco 190, Minigame_FindOutCucco 261, Minigame_FindOutCucco 262 |
 | Kak Anju as Child | minigame | scene | supported | Bottle | Minigame_CatchCucco 124 |
 | Kak Anju as Adult | trade | item | supported | Pocket Egg | Npc_Hylia_049_Adult 223 |
@@ -95,10 +95,10 @@ Confidence levels in the `conf` field:
 | Kak 10 Gold Skulltula Reward | gs_reward | scene | supported | Progressive Wallet | GatheringTokenGold 245 |
 | Kak 20 Gold Skulltula Reward | gs_reward | scene | unsupported | Stone of Agony | GatheringTokenGold 246 |
 | Kak 30 Gold Skulltula Reward | gs_reward | scene | supported | Progressive Wallet | GatheringTokenGold 247 |
-| Kak 40 Gold Skulltula Reward | gs_reward | scene | supported | Bombchus (10) | GatheringTokenGold 248 |
+| Kak 40 Gold Skulltula Reward | gs_reward | scene | supported | Bombchus (20) | GatheringTokenGold 248 |
 | Kak 50 Gold Skulltula Reward | gs_reward | scene | supported | Piece of Heart | GatheringTokenGold 249 |
 | Kak 100 Gold Skulltula Reward | gs_reward | scene | supported | Rupees (200) | GatheringTokenGold 250 |
-| DMT Great Fairy Reward | great_fairy | scene | supported | Magic Meter | Dm_FairyFountain_Power 108 |
+| HC Great Fairy Reward | great_fairy | scene | supported | Magic Meter | Dm_FairyFountain_Power 108 |
 | DMT Biggoron | trade | item | unsupported | Biggoron Sword | Npc_Goron_Biggoron_Adult 95 |
 | DMT Trade Broken Sword | trade | item | supported | Prescription | Npc_Goron_Biggoron_Adult 266 |
 | DMT Trade Eyedrops | trade | item | supported | Claim Check | Dm_DeathMtTrail_0050 5 |

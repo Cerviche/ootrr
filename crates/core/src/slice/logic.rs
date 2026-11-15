@@ -238,6 +238,23 @@ mod tests {
     }
 
     #[test]
+    fn five_fountains_and_the_summit_owl_wait_for_dins_fire() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let all: Search = explore(&w, &vanilla_place(&w, &d).unwrap(), &gauntlets(&w));
+        let cut: Search = explore(&w, &vanilla_without(&w, &d, &["Dins Fire"]), &gauntlets(&w));
+        for n in ["HC Great Fairy Reward", "ZF Great Fairy Reward", "DMC Great Fairy Reward", "Colossus Great Fairy Reward", "OGC Great Fairy Reward"] {
+            assert!(seen(&all, &w, n), "{n}");
+            assert!(!seen(&cut, &w, n), "{n}");
+        }
+        assert!(seen(&cut, &w, "DMT Great Fairy Reward"));
+        let owl: &str = "Death Mountain Summit -> DMT Owl Flight";
+        assert!(exit_open(&all, &w, owl, Age::Child));
+        assert!(!exit_open(&cut, &w, owl, Age::Child));
+        assert!(!exit_open(&all, &w, owl, Age::Adult));
+    }
+
+    #[test]
     fn the_wallet_and_hookshot_gates_bind() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();

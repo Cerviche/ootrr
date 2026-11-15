@@ -259,6 +259,33 @@ mod tests {
     }
 
     #[test]
+    fn the_din_fountain_never_waits_on_a_magic_gauge_for_another_item() {
+        let Some(r) = root() else { return };
+        let flag: &str = "GreatFairy_HasNoMPOnDinDemo";
+        let gauge = |s: &Sim| s.assumed.keys().any(|k| k.contains("MPGauge"));
+        for mp in ["0", "240"] {
+            let sc: Scene = scene("Dm_FairyFountain_Din", "FirstTime_Din", &[("PlayerStatus.CurrentRupee", "100"), ("PlayerStatus.MPMax", mp)], &[]);
+            let mut rf: Romfs = Romfs::open(&r).unwrap();
+            let fl: HM<String, Flow> = edited(&mut rf, "DMT Great Fairy Reward", NEW).unwrap();
+            let mut sa: Sim = sim(&r, HM::new()).unwrap();
+            let mut sb: Sim = sim(&r, fl).unwrap();
+            let a: Vec<Fin> = run(&mut sa, &sc).unwrap();
+            let b: Vec<Fin> = run(&mut sb, &sc).unwrap();
+            let gave = |v: &[Fin]| -> Vec<usize> { v.iter().enumerate().filter(|(_, f)| f.end == End::Done && granted(f, "Item_DinFire") + granted(f, NEW) > 0).map(|(i, _)| i).collect() };
+            assert!(!gave(&a).is_empty() && !gave(&b).is_empty(), "{mp}");
+            assert!(gave(&a).iter().all(|i| granted(&a[*i], "Item_DinFire") == 1 && granted(&a[*i], NEW) == 0), "{mp}");
+            assert!(gave(&b).iter().all(|i| granted(&b[*i], NEW) == 1 && granted(&b[*i], "Item_DinFire") == 0), "{mp}");
+            assert_eq!(a.iter().any(|f| f.m.writes.get(flag).map(|s| s.as_str()) == Some("true")), mp == "0", "{mp}");
+            assert_eq!(gauge(&sa), mp == "0", "{mp}");
+            assert!(b.iter().all(|f| !f.m.writes.contains_key(flag)), "{mp}");
+            assert!(!gauge(&sb), "{mp}");
+            assert_eq!(broken(&b), broken(&a), "{mp}");
+        }
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        assert!(edited(&mut rf, "DMT Great Fairy Reward", "Item_DinFire").unwrap().is_empty());
+    }
+
+    #[test]
     fn medigoron_sells_once_even_with_the_biggoron_sword() {
         let Some(r) = root() else { return };
         let flag: &str = "HaveTalked_Special.Npc_Goron_Medigoron_Adult_Talk_Event26";

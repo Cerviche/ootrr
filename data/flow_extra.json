@@ -129,6 +129,14 @@
 {"kind": "once_grant", "file": "Animal_Cow.bfevfl", "index": 106, "event": "Event113", "entry": "PushToBottleMilk_LinkHouse0", "flag": "HavePlayedEvent.Dm_StaffCredit_0028", "child": true,
  "sub": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "$item"], ["IsNpcEventStarter", false]]}
 ]
+},
+{
+"name": "DMT Great Fairy Reward",
+"why": "the Din gift sub waits on the magic gauge when the player has none (GreatFairy_HasNoMPOnDinDemo, set by event 579 when PlayerStatus.MPMax is 0), a gift that is not Din's Fire may never create the gauge the sub waits for, so both cases of that check go to event 42 and the flag is never set, the gift sub then takes its no gauge branch",
+"ops": [
+{"kind": "retarget", "file": "Dm_FairyFountain_Din.bfevfl", "index": 579, "event": "Event52", "case": 0, "old": 580, "new": 42},
+{"kind": "retarget", "file": "Dm_FairyFountain_Din.bfevfl", "index": 579, "event": "Event52", "case": 1, "old": 580, "new": 42}
+]
 }
 ]
 }

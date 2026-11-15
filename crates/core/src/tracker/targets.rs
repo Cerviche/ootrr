@@ -252,6 +252,20 @@ mod tests {
     }
 
     #[test]
+    fn the_fairy_gifts_sit_in_the_scene_that_holds_their_item() {
+        let t: &[Target] = all().unwrap();
+        for (loc, scene, flag) in [
+            ("DMT Great Fairy Reward", "DeathMountainTrail", "HavePlayedGetEvent.Item_DinFire"),
+            ("HC Great Fairy Reward", "HyruleCastle", "HavePlayedGetEvent.Item_FairyBless_MP"),
+        ] {
+            let x: &Target = t.iter().find(|x| x.ootr.as_deref() == Some(loc)).unwrap();
+            assert_eq!(x.scene.as_deref(), Some(scene), "{loc}");
+            assert_eq!(x.flags, vec![flag.to_string()], "{loc}");
+            assert_eq!(x.id, format!("gift:{}", loc.replace(' ', "_")), "{loc}");
+        }
+    }
+
+    #[test]
     fn the_table_holds_no_positions() {
         for k in ["\"pos\"", "\"x\"", "Translate", "\"stand"] {
             assert!(!JSON.contains(k), "{k}");

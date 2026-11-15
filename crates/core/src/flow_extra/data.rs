@@ -136,7 +136,7 @@ mod tests {
         assert!(!x.specs.is_empty());
         for s in &x.specs {
             let l: &Loc = d.by_name(&s.name).unwrap();
-            assert!(l.gated && !l.supported, "{}", s.name);
+            assert!((l.gated && !l.supported) || (l.supported && l.cat == "great_fairy"), "{}", s.name);
             assert!(!s.ops.is_empty() && !s.why.is_empty(), "{}", s.name);
         }
         for l in d.locs.iter().filter(|l| l.gated && !crate::scrubs_a::is_a(l) && !crate::scrubs_b::is_b(l) && !crate::open_world::skips::is_bean_sale(&l.name)) {
