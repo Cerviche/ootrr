@@ -309,6 +309,10 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             return Err(E::Msg(format!("plando: {} cannot be placed at {} under these settings", w.items.names[*i], w.locs[*l].name)));
         }
     }
+    let hand: usize = plan.len();
+    let lock: Vec<(LocId, ItemId)> = crate::slice::entry_key::forced(&w, &p, &pk.free, &base, &plan, &ok)?;
+    let mut plan: Vec<(LocId, ItemId)> = plan;
+    plan.extend(lock.iter().copied());
     let mut rng: Rng = Rng::from_text(seed);
     let pinned: Vec<&str> = if lay.is_some() { crate::slice::tier_order::pinned(d, &w, &pk.free) } else { Vec::new() };
     let shelf = |it: ItemId, l: LocId| ok(it, l) && !(crate::shops::is_loc(&w.locs[l].name) && d.family(&w.items.names[it]).is_some_and(|f| pinned.contains(&f)));
@@ -429,8 +433,11 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         (None, Vec::new())
     };
     let mut rep: String = report(seed, &p, &pk, &counts, &moved);
-    if !plan.is_empty() {
-        let _ = writeln!(rep, "Plandomizer: {} placements were fixed by hand.", plan.len());
+    if hand > 0 {
+        let _ = writeln!(rep, "Plandomizer: {hand} placements were fixed by hand.");
+    }
+    if !lock.is_empty() {
+        let _ = writeln!(rep, "{}", crate::slice::entry_key::NOTE);
     }
     if let Some(l) = &gates {
         rep.push_str(&crate::entr::text::report(l));
@@ -655,7 +662,7 @@ mod tests {
     #[test]
     fn excluded_locations_hold_only_items_the_seed_does_not_need() {
         let d: Data = Data::load().unwrap();
-        let names: Vec<String> = eligible_names(&d).into_iter().filter(|n| d.vanilla_of(n).and_then(|v| d.item(v)).is_some_and(|i| i.adv)).take(12).collect();
+        let names: Vec<String> = eligible_names(&d).into_iter().filter(|n| n != crate::slice::entry_key::CHEST && d.vanilla_of(n).and_then(|v| d.item(v)).is_some_and(|i| i.adv)).take(12).collect();
         assert!(names.len() >= 8);
         let list: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         let mut s: Settings = all_chests();
@@ -941,10 +948,10 @@ mod tests {
     fn seeds_that_generated_before_keep_their_exact_placements() {
         let d: Data = Data::load().unwrap();
         let cases: [(&[(&str, &str)], &str, usize, u64); 4] = [
-            (&[], "default 0", 76, 0xbc18_fb15_41fc_c024),
-            (&[], "default 1", 76, 0xe1b7_fd01_310f_0432),
+            (&[], "default 0", 76, 0xbba8_13b2_c136_00aa),
+            (&[], "default 1", 76, 0x5a81_86d2_e68c_1a6e),
             (&[("shuffle_chests", "overworld")], "chests_ow 0", 9, 0xd58f_c0a7_a752_4655),
-            (&[("shuffle_chests", "dungeons")], "dungeons 0", 67, 0x169a_7c8a_d12b_3980),
+            (&[("shuffle_chests", "dungeons")], "dungeons 0", 67, 0x6a73_a11e_4463_bd5a),
         ];
         for (pairs, seed, n, want) in cases {
             let mut all: Vec<(&str, &str)> = vec![("shuffle_rewards", "off")];
@@ -1136,14 +1143,14 @@ mod tests {
         pots.set("shuffle_pots", Value::s("all")).unwrap();
         pots.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str, &str); 8] = [
-            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin a", "0238bc06819a88a9297b21fea4847cf5efab454b7234a1fcfb6b9c1fa39eebdc"),
-            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "56f528719dfd82b1134f739fabd7f222f00a68f54634037b14246ee7a5be1aa3"),
+            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin a", "a2eb6be39d800ff24bd359b272dd6009cde55da11064399cde9bde0dbfcd8ac1"),
+            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "fb7413b271d949ca4064a38f5e3d1bb3ea120953fb22a030f6260f21e89c04b2"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "dbbde2ae945e2e8eb27f8fe74e85b432bc1612f02b1f629a822e47f8cf49cc79"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "a131002f74c6dd72eb9e521304f3cb01205103b640d91df77e6ddf6e760fd180"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "08af4f2c33b304f53cc74e27b9f35d74952b7e5ea9c940cd054cd03dcca80877"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "088f4d52a51d0fabd2965efd8ff5815e80393ca91ddb81c3afb93f44c7baa81f"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "7fcaeeecc81ae7ebb375b4e96a3bd7a718b9fbcf29988b9c80aab4845baee22f"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "d0a29f28f8898fc06fd7a7efbda258cbcbd5740a957a65a81e42ad4336efb6f4"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "f28ca1b1c5c10a57ddfe32a35a3a70f1078c02a410fb1abaf16062330b7f079a"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "b373ae515687d18bd42b8b4954af787026e5b3b9fafff00e0315b799979a70ba"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "a3b53f9d89f1e66a00e3ad2460d3a7120a4d74edfe56c8976f212de025fe716f"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "8d66fa158870b855c387e6b88ec2918862b2de3ee2f57dd6f5ee6cb230b5300c"),
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
@@ -1180,10 +1187,10 @@ mod tests {
         both.set("shuffle_pots", Value::s("all")).unwrap();
         both.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str); 4] = [
-            (hives.clone(), "pin a", "55b1c60718920d2aa29d01cf79df0a5979ae060bff1e5e2c3f9753e9e1d198f3"),
-            (hives.clone(), "pin b", "15ff149372255fa9210fa84fca11d1cbcf90a777b7ff18f70486bbc21b78bc08"),
-            (both.clone(), "pin a", "81cd061948e41114239ea657d4d71e47042dc9d9aff2acff7c389df4af741cd8"),
-            (both.clone(), "pin b", "7cdbbe628f10ee6955474955e1a79af123c647a4d665c8b35ba8ee1b4537ab73"),
+            (hives.clone(), "pin a", "d0adea81fde784f657e003f893d0a3d7dc04fa9f7156bb1434011d36e393fac5"),
+            (hives.clone(), "pin b", "aae3950fa18bc4d30c4c668f035b4216f9243ab29957240e9f2fd3fe11c19f3f"),
+            (both.clone(), "pin a", "163f3a9f4ad94da1b67611fc4542556728dc0b11ea6c665fef3b7eabe8211e8b"),
+            (both.clone(), "pin b", "70988646b115e3467cde2e8f8b00015bf7763d5cd962cff03531bb0bb7fdda22"),
         ];
         for (s, seed, sum) in cases {
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();

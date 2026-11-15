@@ -10,7 +10,8 @@
         },
         "exits": {
             "SFM Forest Temple Entrance Ledge": "True",
-            "Forest Temple Central Area": "is_adult or can_child_attack or Nuts",
+            "Forest Temple Central Area": "
+                (Small_Key_Forest_Temple, 1) and (is_adult or can_child_attack or Nuts)",
             "Farores Wind Warp": "can_use(Farores_Wind)"
         }
     },
@@ -33,7 +34,7 @@
         "exits": {
             "Forest Temple NW Outdoors": "can_play(Song_of_Time) or is_child",
             "Forest Temple NE Outdoors": "can_use(Bow) or can_use(Slingshot)",
-            "Forest Temple Block Push Room": "(Small_Key_Forest_Temple, 1)",
+            "Forest Temple Block Push Room": "(Small_Key_Forest_Temple, 2)",
             "Forest Temple Basement": "
                 (Forest_Temple_Jo_and_Beth and Forest_Temple_Amy_and_Meg) or forest_temple_shortcuts"
         }
@@ -112,7 +113,7 @@
             "Forest Temple Bow Region": "
                 Progressive_Strength_Upgrade and (Small_Key_Forest_Temple, 3) and is_adult",
             "Forest Temple Straightened Hall": "
-                Progressive_Strength_Upgrade and (Small_Key_Forest_Temple, 2) and can_use(Bow)"
+                Progressive_Strength_Upgrade and (Small_Key_Forest_Temple, 3) and can_use(Bow)"
             # Child cannot climb these large blocks
         }
     },

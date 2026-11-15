@@ -5,6 +5,7 @@ pub mod copies;
 pub mod data;
 pub mod dungeon_items;
 pub mod edit;
+pub mod entry_key;
 pub mod fill;
 pub mod fit;
 pub mod flow_pool;

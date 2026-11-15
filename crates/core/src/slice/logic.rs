@@ -358,7 +358,49 @@ mod tests {
         assert!(s.region_reached(w.region("Water Temple Boss Key Chest Room").unwrap(), None));
     }
 
-    fn final_count(w: &World, d: &Data, placed: &std::collections::BTreeMap<String, String>, item: &str) -> usize {
+    fn opens_with(d: &Data, lay: &str, key: &str, n: usize, at: &str) -> bool {
+        let w: World = world_with(d, &[("fire_key_layout", lay), ("water_key_layout", lay), ("spirit_key_layout", lay)]).unwrap();
+        let k: ItemId = w.item(key).unwrap();
+        let mut p: Placement = vanilla_place(&w, d).unwrap();
+        for l in &w.real {
+            if p.get(*l) == Some(k) {
+                p.item[*l] = None;
+            }
+        }
+        let mut extra: Vec<ItemId> = all_but(&w, key);
+        extra.extend(vec![k; n]);
+        let s: Search = explore(&w, &p, &extra);
+        match w.loc(at) {
+            Some(l) => s.loc_access(l),
+            None => s.region_reached(w.region(at).unwrap(), None),
+        }
+    }
+
+    #[test]
+    fn every_remake_small_key_door_costs_its_place_in_the_chain() {
+        let d: Data = Data::load().unwrap();
+        let locks: [(&str, usize, &str); 10] = [
+            ("Small Key (Forest Temple)", 1, "Forest Temple First Stalfos Chest"),
+            ("Small Key (Forest Temple)", 1, "Forest Temple Central Area"),
+            ("Small Key (Forest Temple)", 2, "Forest Temple Eye Switch Chest"),
+            ("Small Key (Forest Temple)", 3, "Forest Temple Boss Key Chest"),
+            ("Small Key (Forest Temple)", 3, "Forest Temple Bow Chest"),
+            ("Small Key (Shadow Temple)", 5, "Shadow Temple Boss Key Chest"),
+            ("Small Key (Shadow Temple)", 5, "Shadow Temple Spike Walls Left Chest"),
+            ("Small Key (Fire Temple)", 8, "Fire Temple Boss Key Chest"),
+            ("Small Key (Fire Temple)", 8, "Fire Temple Flare Dancer Chest"),
+            ("Small Key (Water Temple)", 4, "Water Temple North Basement"),
+        ];
+        for lay in ["vanilla", "shuffled"] {
+            for (key, n, at) in locks {
+                assert!(!opens_with(&d, lay, key, n - 1, at), "{lay} {at} opens with {}", n - 1);
+                assert!(opens_with(&d, lay, key, n, at), "{lay} {at} stays shut with {n}");
+            }
+            assert!(opens_with(&d, lay, "Small Key (Shadow Temple)", 4, "Bongo Bongo Boss Room"), "{lay}");
+        }
+    }
+
+    fn final_count(w: &World, d: &Data, placed:&std::collections::BTreeMap<String, String>, item: &str) -> usize {
         let v: Placement = vanilla_place(w, d).unwrap();
         let i: ItemId = w.item(item).unwrap();
         let kept: usize = w.real.iter().filter(|l| v.get(**l) == Some(i) && !placed.contains_key(&w.locs[**l].name)).count();

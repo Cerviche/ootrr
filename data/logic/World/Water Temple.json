@@ -64,7 +64,7 @@
             "Water Temple North Basement": "
                 (Iron_Boots or can_play(Zeldas_Lullaby)) and
                 (Longshot or (logic_water_north_basement and Hover_Boots)) and
-                water_keys(4)"
+                (Small_Key_Water_Temple, 4)"
         }
     },
     {
