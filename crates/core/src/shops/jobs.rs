@@ -25,6 +25,11 @@ pub fn deal(d: &Data, item: &str, tier: Option<&str>, price: i32) -> Res<What> {
             let a: &str = tier.ok_or_else(|| E::Msg(format!("{item} is an upgrade, the tier order names no tier for its shelf")))?;
             What::Deal { item: a.to_string(), price, model: donor(t, a) }
         }
+        Class::Gear => {
+            let f: &str = d.family(item).ok_or_else(|| E::Msg(format!("{item} has no tier family")))?;
+            let h: &crate::shelf::hook::Hook = crate::shelf::hook::by_family(f).ok_or_else(|| E::Msg(format!("{item} has no shelf hook")))?;
+            What::Deal { item: h.shelf.to_string(), price, model: None }
+        }
         Class::Song => What::Deal { item: actor()?, price, model: t.song_models.first().cloned() },
         Class::Unique | Class::Heart => What::Deal { item: actor()?, price, model: None },
     })
@@ -62,7 +67,7 @@ pub fn parse(d: &Data, spec: &str) -> Res<Job> {
     let tier: Option<&str> = FAMILIES.iter().find(|(_, ts)| ts.contains(&item)).map(|_| item);
     let what: What = match (t.slots.iter().find(|x| x.item == item), tier) {
         (Some(g), _) => What::Goods { actor: g.actor.clone(), price },
-        (None, Some(a)) => What::Deal { item: a.to_string(), price, model: donor(t, a) },
+        (None, Some(a)) => What::Deal { item: crate::shelf::hook::shelf_item(a).to_string(), price, model: donor(t, a) },
         (None, None) => deal(d, item, None, price)?,
     };
     job(t, s, what)
@@ -102,6 +107,11 @@ mod tests {
         assert_eq!(parse(&d, "Kak Bazaar Item 1=Piece of Heart@30").unwrap().what, What::Deal { item: "Obj_Heart_Piece".into(), price: 30, model: None });
         assert_eq!(parse(&d, "GC Shop Item 6=Buy Heart@5").unwrap().what, What::Goods { actor: "Shop_Heart".into(), price: 5 });
         assert!(parse(&d, "GC Shop Item 6=Progressive Hookshot@50").is_err());
+        assert_eq!(parse(&d, "GC Shop Item 5=Bow@40").unwrap().what, What::Deal { item: "Item_Range_Bow".into(), price: 40, model: None });
+        assert_eq!(parse(&d, "GC Shop Item 5=Item_Quiver_Large@40").unwrap().what, What::Deal { item: "Item_Range_Bow".into(), price: 40, model: None });
+        assert_eq!(parse(&d, "GC Shop Item 5=Magic Meter@40").unwrap().what, What::Deal { item: "Item_FairyBless_MP".into(), price: 40, model: None });
+        assert_eq!(deal(&d, "Bomb Bag", Some("Item_BombBag_Large"), 25).unwrap(), What::Deal { item: "Item_BombBag_Small".into(), price: 25, model: None });
+        assert_eq!(deal(&d, "Slingshot", None, 25).unwrap(), What::Deal { item: "Item_Range_SlingShot".into(), price: 25, model: None });
         assert!(parse(&d, "GC Shop Item 6=Small Key (Forest Temple)@50").is_err());
         assert!(parse(&d, "Nowhere=Boomerang@5").is_err());
         assert!(parse(&d, "KF Shop Item 1=Boomerang@0").is_err());

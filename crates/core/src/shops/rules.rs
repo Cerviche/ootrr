@@ -18,6 +18,7 @@ pub enum Class {
     Unique,
     Stack,
     Upgrade,
+    Gear,
     Heart,
     Song,
 }
@@ -32,6 +33,7 @@ impl Class {
             Class::Unique => true,
             Class::Stack => o.kinds.stacks,
             Class::Upgrade => o.kinds.upgrades,
+            Class::Gear => o.kinds.gear,
             Class::Heart => o.kinds.hearts,
             Class::Song => o.kinds.songs && songs,
         }
@@ -48,6 +50,9 @@ pub fn class(d: &Data, item: &str) -> Option<Class> {
     }
     if t.hearts.iter().any(|i| i == item) {
         return Some(Class::Heart);
+    }
+    if d.family(item).is_some_and(|f| crate::shelf::hook::by_family(f).is_some()) {
+        return Some(Class::Gear);
     }
     if d.family(item).is_some_and(|f| t.upgrades.iter().any(|u| u == f)) {
         return Some(Class::Upgrade);
@@ -149,7 +154,9 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let off: Opts = Opts::default();
         let on: Opts = Opts { level: Level::Deals(2), prices: Prices::Weighted, min: 10, max: 200, kinds: Kinds::default() };
-        let all: Opts = Opts { kinds: Kinds { stacks: true, upgrades: true, hearts: true, songs: true }, ..on };
+        let all: Opts = Opts { kinds: Kinds { stacks: true, upgrades: true, hearts: true, songs: true, gear: false }, ..on };
+        let gear: Opts = Opts { kinds: Kinds { gear: true, ..Kinds::default() }, ..on };
+        let both: Opts = Opts { kinds: Kinds { gear: true, ..all.kinds }, ..on };
         let plain: Opts = Opts { level: Level::Shuffle, ..on };
         assert_eq!(at(&d, &off, true, "KF Shop Item 1", "Boomerang"), None);
         assert_eq!(at(&d, &on, true, "KF Midos Top Left Chest", "Boomerang"), None);
@@ -172,5 +179,16 @@ mod tests {
         }
         assert_eq!(class(&d, "Progressive Wallet"), Some(Class::Upgrade));
         assert_eq!(class(&d, "Recovery Heart"), Some(Class::Stack));
+        for g in ["Bow", "Slingshot", "Bomb Bag", "Magic Meter"] {
+            assert_eq!(class(&d, g), Some(Class::Gear), "{g}");
+            assert_eq!(at(&d, &on, true, "GC Shop Item 5", g), Some(false), "{g}");
+            assert_eq!(at(&d, &all, true, "GC Shop Item 5", g), Some(false), "{g}");
+            assert_eq!(at(&d, &gear, true, "GC Shop Item 5", g), Some(true), "{g}");
+            assert_eq!(at(&d, &gear, true, "Market Bazaar Item 1", g), Some(true), "{g}");
+            assert_eq!(at(&d, &both, true, "Market Bazaar Item 1", g), Some(false), "{g}");
+        }
+        for bad in ["Small Key (Forest Temple)", "Boss Key (Forest Temple)", "Map (Forest Temple)", "Compass (Forest Temple)", "Progressive Hookshot", "Bottle"] {
+            assert_eq!(at(&d, &gear, true, "GC Shop Item 5", bad), Some(false), "{bad}");
+        }
     }
 }

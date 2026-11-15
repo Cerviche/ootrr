@@ -1,0 +1,4 @@
+Slingshot sells Item_Range_SlingShot as Weapon_Range_SlingShot
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BulletBag_Small IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=1
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_DekuSeed IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=30
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BulletBag_Large IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=1

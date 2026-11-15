@@ -88,6 +88,32 @@ mod tests {
         }
     }
 
+    #[test]
+    fn gear_deals_generate_win_and_become_hooked_shelf_jobs() {
+        use crate::shelf::{hook, What};
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = with(&[("shuffle_shops", "deals_4"), ("shuffle_chests", "all")]);
+        s.set("shop_price_max", Value::Int(300)).unwrap();
+        s.set("shop_deal_gear", Value::Bool(true)).unwrap();
+        let mut seen: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+        for n in 0..6 {
+            let g: Generated = generate_data(&d, &s, &format!("gear {n}"), &GenOpts::default()).unwrap_or_else(|e| panic!("{n}: {e}"));
+            let back: SeedFile = SeedFile::parse(&g.seed_file.to_text()).unwrap();
+            let a: Audit = audit(&d, &back).unwrap();
+            assert!(a.won && a.bad.is_empty(), "{n}: {:?}", a.bad);
+            let l: crate::shops::layout::Layout = crate::shops::seed::layout(&back).unwrap().unwrap();
+            let tiers: std::collections::BTreeMap<String, String> = crate::slice::tier_order::fixed_actors(&d, &back).unwrap().assign;
+            for j in crate::shops::jobs::of(&d, &l, &tiers).unwrap() {
+                if let What::Deal { item, .. } = &j.what {
+                    if let Some(h) = hook::by_shelf(item) {
+                        seen.insert(h.family);
+                        assert_eq!(tiers.get(&j.label).map(|t| hook::shelf_item(t)), Some(h.shelf), "{}", j.label);
+                    }
+                }
+            }
+        }
+        assert!(!seen.is_empty());
+    }
 
     #[test]
     fn the_same_seed_text_gives_the_same_shops_and_the_main_fill_does_not_follow_the_shop_draw() {

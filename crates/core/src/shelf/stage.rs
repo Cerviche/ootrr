@@ -16,7 +16,7 @@ use crate::rsizetable::{self, Rst, TABLE_PATH};
 use crate::sarc::{self, Entry};
 use crate::shelf::actor::{self, int, Shelf};
 use crate::shelf::goods::{self, Edit};
-use crate::shelf::{banc, counters, inner, text, Job, What, BASE, KEEPER_PACKS};
+use crate::shelf::{banc, counters, hook, inner, text, Job, What, BASE, KEEPER_PACKS};
 use crate::staging::{BANC_DICT, MARGIN};
 use crate::zs;
 use crate::TITLE_ID;
@@ -224,6 +224,28 @@ fn table_files(c: &mut Ctx, made: &[Shelf]) -> Res<Vec<File>> {
     Ok(out)
 }
 
+fn hook_file(c: &mut Ctx, made: &[Shelf]) -> Res<Option<File>> {
+    let mut want: BS<String> = BS::new();
+    for sh in made {
+        let Some(h) = hook::by_shelf(&sh.item) else {
+            continue;
+        };
+        if sh.who != h.name {
+            return Err(E::Msg(format!("the shelf actor {} reports {} and not {}, the game files differ", sh.name, sh.who, h.name)));
+        }
+        want.insert(h.name.to_string());
+    }
+    if want.is_empty() {
+        return Ok(None);
+    }
+    let vanilla: Vec<u8> = c.rf.read_zs(hook::FLOW)?;
+    let first: Vec<u8> = c.read(hook::FLOW)?;
+    want.extend(hook::names(&first)?);
+    let raw: Vec<u8> = hook::edit(&vanilla, &want)?;
+    let old: usize = c.old(hook::FLOW, &first)?;
+    Ok(Some(File { path: hook::FLOW.to_string(), raw, old, inner: Vec::new() }))
+}
+
 fn counter_file(c: &mut Ctx, jobs: &[Job]) -> Res<Option<File>> {
     let names: Vec<String> = jobs.iter().filter(|j| j.once()).flat_map(|j| j.counters.iter().cloned()).collect();
     if names.is_empty() {
@@ -280,6 +302,7 @@ pub fn run(romfs: &P, base: Option<&P>, load: &P, mod_name: &str, host: Host, jo
     let mut rst: Rst = size_table(&mut c)?;
     let made: Vec<Shelf> = shelves(&mut c, jobs)?;
     let mut files: Vec<File> = table_files(&mut c, &made)?;
+    files.extend(hook_file(&mut c, &made)?);
     let (keepers, refs): (Vec<File>, BM<String, String>) = keeper_files(&mut c, jobs)?;
     files.extend(keepers);
     files.extend(banc_files(&mut c, jobs)?);
@@ -302,6 +325,9 @@ pub fn run(romfs: &P, base: Option<&P>, load: &P, mod_name: &str, host: Host, jo
         pk.write_romfs(&f.path, &zs::compress_raw(&f.raw, dict(&c.rf, &f.path)?)?)?;
         if f.raw.len() > f.old {
             rst.grow(&f.path, f.old as u64, f.raw.len() as u64, MARGIN)?;
+        }
+        if f.path == hook::FLOW {
+            let _ = writeln!(note, "  shop flow {}: post purchase hook, {} -> {} bytes", f.path, f.old, f.raw.len());
         }
         for (p, old, new) in &f.inner {
             let n: u32 = inner::grow(&mut rst, p, *old, *new)?;
@@ -364,6 +390,38 @@ mod tests {
     }
 
     #[test]
+    fn gear_deals_write_the_shop_hook_and_read_it_back_from_the_mod() {
+        let Some(root) = real() else {
+            return;
+        };
+        let d: Data = Data::load().unwrap();
+        let js: Vec<Job> = jobs(&d, &["KF Shop Item 1=Bow@10", "KF Shop Item 2=Item_BulletBag_Large@10", "KF Shop Item 3=Bomb Bag@10", "KF Shop Item 8=Magic Meter@10"]);
+        assert_eq!(js.iter().map(|j| j.shelf_actor()).collect::<Vec<String>>(), vec!["Shop_OOTRR_Item_Range_Bow_10", "Shop_OOTRR_Item_Range_SlingShot_10", "Shop_OOTRR_Item_BombBag_Small_10", "Shop_OOTRR_Item_FairyBless_MP_10"]);
+        let load: PB = std::env::temp_dir().join(format!("ootrr_shelf_hook_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&load);
+        let done: Done = run(&root, None, &load, "hook", Host::Hookshot, &js).unwrap();
+        assert!(done.report.contains("post purchase hook"), "{}", done.report);
+        let back: PB = done.root.join("romfs");
+        let lines: Vec<String> = audit::run(&root, &back, &js).unwrap();
+        assert!(lines.iter().any(|l| l.contains("shelf hook")), "{lines:?}");
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let raw: Vec<u8> = rf.zs.decompress(&fs::read(back.join(hook::FLOW)).unwrap()).unwrap();
+        let all: BS<String> = hook::HOOKS.iter().map(|h| h.name.to_string()).collect();
+        assert!(hook::check(&raw, &all).is_empty());
+        let vanilla: usize = rf.read_zs(hook::FLOW).unwrap().len();
+        let rst: Rst = Rst::parse(&rf.zs.decompress(&fs::read(back.join(TABLE_PATH)).unwrap()).unwrap()).unwrap();
+        let stock: Rst = rsizetable::load(&mut rf).unwrap();
+        assert!(hook::sized(rst.get(hook::FLOW), stock.get(hook::FLOW), vanilla, raw.len()));
+        run(&root, Some(&back), &load, "hook", Host::Hookshot, &jobs(&d, &["ZD Shop Item 1=Iron Boots@60"])).unwrap();
+        let kept: Vec<u8> = rf.zs.decompress(&fs::read(back.join(hook::FLOW)).unwrap()).unwrap();
+        assert_eq!(kept, raw);
+        let _ = fs::remove_dir_all(&load);
+        let plain: Done = run(&root, None, &load, "plain", Host::Hookshot, &jobs(&d, &["KF Shop Item 1=Boomerang@20"])).unwrap();
+        assert!(!plain.root.join("romfs").join(hook::FLOW).exists());
+        let _ = fs::remove_dir_all(&load);
+    }
+
+    #[test]
     fn two_goods_for_one_shared_potion_slot_are_refused() {
         let Some(root) = real() else {
             return;
@@ -389,6 +447,7 @@ mod tests {
             match crate::shops::rules::class(&d, &i.name).unwrap() {
                 crate::shops::rules::Class::Upgrade => want.extend(i.tiers.iter().map(|a| (a.clone(), crate::shops::jobs::donor(t, a)))),
                 crate::shops::rules::Class::Song => want.push((i.actor.clone().unwrap(), t.song_models.first().cloned())),
+                crate::shops::rules::Class::Gear => want.push((hook::by_family(d.family(&i.name).unwrap()).unwrap().shelf.to_string(), None)),
                 crate::shops::rules::Class::Stack => assert!(rf.root.join(pack_of(&t.stack.iter().find(|s| s.0 == i.name).unwrap().1)).is_file(), "{}", i.name),
                 _ => want.push((i.actor.clone().unwrap(), None)),
             }

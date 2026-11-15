@@ -9,6 +9,7 @@ pub const STACKS: &str = "stacks";
 pub const UPGRADES: &str = "upgrades";
 pub const HEARTS: &str = "hearts";
 pub const SONGS: &str = "songs";
+pub const GEAR: &str = "shop_deal_gear";
 pub const LOW: i32 = 5;
 pub const HIGH: i32 = 995;
 
@@ -46,6 +47,7 @@ pub struct Kinds {
     pub upgrades: bool,
     pub hearts: bool,
     pub songs: bool,
+    pub gear: bool,
 }
 
 impl Kinds {
@@ -111,6 +113,9 @@ pub fn settings() -> Vec<Setting> {
             Setting::multi(62, ITEMS, "shuffle", "More items on deals")
                 .tip("Special deals always take items that cannot be held twice. These classes can be added. Ammo, refills and hearts only go to the shops with one keeper (the two Bazaars and the Bombchu Shop), since only there one purchase closes the slot for good. Experimental, untested in the game.")
                 .opts(&[(STACKS, "Ammo and refills, sold once. The Bazaars and the Bombchu Shop then keep their deals for these and for hearts"), (UPGRADES, "Upgrades at the tier the player needs"), (HEARTS, "Pieces of Heart and Heart Containers, sold once in the Bazaars and the Bombchu Shop"), (SONGS, "Songs on a harp model, when songs can go anywhere")]),
+        ),
+        with_deals(
+            Setting::toggle(63, GEAR, "shuffle", "Bow, Slingshot, Bomb Bag and Magic on deals", false).tip("Lets the Bow, the Slingshot, the Bomb Bag and the Magic Meter stand on special deals. The shelf shows the first item of the family. After the purchase the shop flow adds what the chest or the Great Fairy would add, the small quiver and 30 arrows, the small bullet bag and 30 seeds, 20 bombs, or the double magic bar, then the top tier of the family, as for every upgrade on a shelf. A player who already owns the first item is told the bag is full, as for any deal. Experimental, untested in the game."),
         ),
         with_deals(Setting::number(61, MIN, "shuffle", "Lowest deal price", 10, LOW as i64, HIGH as i64).tip("The lowest price a special deal can have, in steps of 5 rupees.").max_by(MAX)),
     ]
@@ -180,6 +185,10 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
                 }
             }
         }
+        Err(e) => bad.push(e.to_string()),
+    }
+    match s.flag(GEAR) {
+        Ok(v) => o.kinds.gear = v,
         Err(e) => bad.push(e.to_string()),
     }
     o

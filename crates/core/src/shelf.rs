@@ -3,6 +3,7 @@ pub mod audit;
 pub mod banc;
 pub mod counters;
 pub mod goods;
+pub mod hook;
 pub mod inner;
 pub mod seed;
 pub mod stage;
