@@ -250,6 +250,10 @@ pub fn build() -> Schema {
         ),
     );
     s.push(
+        Setting::toggle(67, crate::pot_slice::plan::HIVES, "shuffle", "Beehives", false)
+            .tip("Whether the seven beehives in the covered hole of Kakariko Village hold random items. They are the only beehives in the remake that drop an item. Only refill items such as rupees, hearts and ammo can be placed in one, and each gives its item once. A hive needs an explosive to open the hole and then the Boomerang, the Hookshot or a bow to bring down. Experimental, untested in the game."),
+    );
+    s.push(
         Setting::choice(11, "shuffle_scrubs", "shuffle", "Business Scrubs", "off")
             .tip("Whether Business Scrub sales hold random items, and what they cost.")
             .opt("off", "Vanilla", "Only the three scrubs that give one-time items are shuffled.")

@@ -19,6 +19,7 @@ pub fn why(s: State) -> &'static str {
 fn mode_of(p: &Plan, k: Kind) -> Mode {
     match k {
         Kind::Crate => p.drops.crates,
+        Kind::Hive => p.drops.hives,
         _ => p.drops.pots,
     }
 }
@@ -108,5 +109,30 @@ mod tests {
         assert!(only.1 >= 1);
         let d: Data = Data::load().unwrap();
         assert!(only.2.iter().all(|n| d.pots.kind_of(n) == Some(Kind::Crate)));
+    }
+
+    fn hive_run() -> (usize, Vec<LocId>, BM<String, usize>) {
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = Settings::default();
+        s.set(crate::pot_slice::plan::HIVES, Value::Bool(true)).unwrap();
+        let p: Plan = plan(&s).unwrap();
+        let w: World = world(&d).unwrap();
+        let mut free: Vec<LocId> = Vec::new();
+        let mut left: BM<String, usize> = BM::new();
+        let seen: usize = add(&d, &w, &p, &mut free, &mut left);
+        (seen, free, left)
+    }
+
+    #[test]
+    fn the_seven_beehives_follow_their_own_setting() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let (seen, free, left): (usize, Vec<LocId>, BM<String, usize>) = hive_run();
+        assert_eq!((seen, free.len()), (7, 7), "{left:?}");
+        assert!(free.iter().all(|i| d.pots.kind_of(&w.locs[*i].name) == Some(Kind::Hive)));
+        assert!(free.iter().all(|i| w.locs[*i].name.starts_with("Kak Hole Beehive ")));
+        assert!(left.is_empty());
+        assert_eq!(run("off", "off").0, 0);
+        assert!(run("all", "all").2.iter().all(|n| d.pots.kind_of(n) != Some(Kind::Hive)));
     }
 }

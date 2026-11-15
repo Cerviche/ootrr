@@ -5,7 +5,10 @@ use crate::slice::support::Mode;
 pub struct Drops {
     pub pots: Mode,
     pub crates: Mode,
+    pub hives: Mode,
 }
+
+pub const HIVES: &str = "shuffle_beehives";
 
 fn mode_of(s: &Settings, id: &str, bad: &mut Vec<String>) -> Mode {
     match s.text(id) {
@@ -25,16 +28,24 @@ fn mode_of(s: &Settings, id: &str, bad: &mut Vec<String>) -> Mode {
 }
 
 pub fn read(s: &Settings, bad: &mut Vec<String>) -> Drops {
-    Drops { pots: mode_of(s, "shuffle_pots", bad), crates: mode_of(s, "shuffle_crates", bad) }
+    let hives: Mode = match s.flag(HIVES) {
+        Ok(true) => Mode::All,
+        Ok(false) => Mode::Off,
+        Err(e) => {
+            bad.push(e.to_string());
+            Mode::Off
+        }
+    };
+    Drops { pots: mode_of(s, "shuffle_pots", bad), crates: mode_of(s, "shuffle_crates", bad), hives }
 }
 
 impl Drops {
     pub fn off() -> Drops {
-        Drops { pots: Mode::Off, crates: Mode::Off }
+        Drops { pots: Mode::Off, crates: Mode::Off, hives: Mode::Off }
     }
 
     pub fn any(&self) -> bool {
-        self.pots != Mode::Off || self.crates != Mode::Off
+        self.pots != Mode::Off || self.crates != Mode::Off || self.hives != Mode::Off
     }
 
     pub fn notes(&self) -> Vec<String> {
@@ -44,6 +55,9 @@ impl Drops {
         }
         if self.crates != Mode::Off {
             out.push("Crates hold shuffled items, only the few crates matched with confidence. A shuffled crate gives its item once and never refills. Experimental and untested in the game.".to_string());
+        }
+        if self.hives != Mode::Off {
+            out.push("The seven beehives in the covered hole of Kakariko Village hold shuffled items, only refill items such as rupees and ammo. A shuffled beehive gives its item once and never refills, its saved row is made permanent. The remake has no other beehive that drops an item. Experimental and untested in the game.".to_string());
         }
         out
     }
@@ -66,7 +80,16 @@ mod tests {
         t.set("shuffle_crates", Value::s("overworld")).unwrap();
         let d: Drops = read(&t, &mut bad);
         assert_eq!((d.pots, d.crates), (Mode::Dungeons, Mode::Overworld));
+        assert_eq!(d.hives, Mode::Off);
         assert_eq!(d.notes().len(), 2);
+        t.set(HIVES, Value::Bool(true)).unwrap();
+        let h: Drops = read(&t, &mut bad);
+        assert_eq!(h.hives, Mode::All);
+        assert!(h.any() && h.notes().len() == 3);
+        let mut only: Settings = Settings::default();
+        only.set(HIVES, Value::Bool(true)).unwrap();
+        assert!(read(&only, &mut bad).any());
+        assert!(bad.is_empty());
         assert!(Drops::off().notes().is_empty());
     }
 }

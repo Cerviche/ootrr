@@ -166,4 +166,67 @@ mod tests {
         e.pots = Default::default();
         assert_eq!(probe(&e, &w, "Deku Nuts (5)", "KF Midos Top Left Chest"), None);
     }
+
+    #[test]
+    fn a_beehive_takes_only_refill_items_and_never_a_kit() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let hive: &str = "Kak Hole Beehive 3";
+        assert_eq!(crate::slice::copies::copies(&d, hive), 3);
+        assert_eq!(probe(&d, &w, "Rupees (20)", hive), Some(true));
+        assert_eq!(probe(&d, &w, "Recovery Heart", hive), Some(true));
+        assert_eq!(probe(&d, &w, "Rupees (5)", hive), Some(true));
+        assert_eq!(probe(&d, &w, "Arrows (10)", hive), Some(true));
+        assert_eq!(probe(&d, &w, "Fire Arrows", hive), Some(false));
+        assert_eq!(probe(&d, &w, "Megaton Hammer", hive), Some(false));
+        assert_eq!(probe(&d, &w, "Gold Skulltula Token", hive), Some(false));
+        assert_eq!(probe(&d, &w, "Piece of Heart", hive), Some(false));
+        assert_eq!(probe(&d, &w, "Heart Container", hive), Some(false));
+        assert_eq!(probe(&d, &w, "Small Key (Forest Temple)", hive), Some(false));
+        assert_eq!(probe(&d, &w, "Progressive Hookshot", hive), Some(false));
+    }
+
+    #[test]
+    fn beehive_seeds_are_beatable_and_hold_only_refills() {
+        let d: Data = Data::load().unwrap();
+        let mut moved: usize = 0;
+        for chests in ["all", "off"] {
+            let mut s: Settings = with(&[("shuffle_chests", chests), ("shuffle_pots", "all"), ("shuffle_crates", "all")]);
+            s.set(crate::pot_slice::plan::HIVES, Value::Bool(true)).unwrap();
+            for n in 0..3 {
+                let g: Generated = generate_data(&d, &s, &format!("hives {chests} {n}"), &GenOpts::default()).unwrap();
+                assert!(beatable(&d, &s, &g), "{chests} {n}");
+                let hives: Vec<(&String, &String)> = g.seed_file.placements.iter().filter(|(k, _)| d.pots.kind_of(k) == Some(crate::pot_slice::data::Kind::Hive)).collect();
+                assert_eq!(hives.len(), 7, "{chests} {n}");
+                for (loc, item) in hives {
+                    assert!(pickup::of(item).is_some() && !pickup::holds(item) && crate::slice::copies::fits(&d, loc, item), "{loc} holds {item}");
+                    if d.vanilla_of(loc) != Some(item.as_str()) {
+                        moved += 1;
+                    }
+                }
+            }
+        }
+        assert!(moved > 0, "{moved}");
+    }
+
+    #[test]
+    fn beehives_alone_never_move_a_pot_or_a_crate() {
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = Settings::default();
+        s.set(crate::pot_slice::plan::HIVES, Value::Bool(true)).unwrap();
+        let g: Generated = generate_data(&d, &s, "hives only", &GenOpts::default()).unwrap();
+        assert!(beatable(&d, &s, &g));
+        assert!(g.seed_file.placements.keys().filter(|k| d.pots.has(k)).all(|k| d.pots.kind_of(k) == Some(crate::pot_slice::data::Kind::Hive)));
+        assert!(g.seed_file.placements.keys().any(|k| d.pots.has(k)));
+    }
+
+    #[test]
+    fn the_default_settings_never_touch_a_beehive() {
+        let d: Data = Data::load().unwrap();
+        let g: Generated = generate_data(&d, &Settings::default(), "default hives", &GenOpts::default()).unwrap();
+        assert!(g.seed_file.placements.keys().all(|k| !k.starts_with("Kak Hole Beehive")));
+        let s: Settings = with(&[("shuffle_pots", "all"), ("shuffle_crates", "all")]);
+        let g: Generated = generate_data(&d, &s, "pots no hives", &GenOpts::default()).unwrap();
+        assert!(g.seed_file.placements.keys().all(|k| !k.starts_with("Kak Hole Beehive")));
+    }
 }

@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "game": "oot-remake:3360376728bece20",
+  "game": "oot-remake:0114637707256d3c",
   "files": [
     "Banc/BottomOfTheWell/BottomOfTheWell_Dynamic.bcett.byml.zs",
     "Banc/BottomOfTheWell/BottomOfTheWell_Static.bcett.byml.zs",
@@ -25,6 +25,9 @@
     "Banc/InsideGanonCastle/InsideGanonCastle_Static.bcett.byml.zs",
     "Banc/InsideJabuJabuBelly/InsideJabuJabuBelly_Dynamic.bcett.byml.zs",
     "Banc/InsideJabuJabuBelly/InsideJabuJabuBelly_Static.bcett.byml.zs",
+    "Banc/KakarikoVillage/KakarikoVillage_Adult_Alternative_Dynamic.bcett.byml.zs",
+    "Banc/KakarikoVillage/KakarikoVillage_Adult_Dynamic.bcett.byml.zs",
+    "Banc/KakarikoVillage/KakarikoVillage_Child_Dynamic.bcett.byml.zs",
     "Banc/KokiriForest/KokiriForest_Adult_Dynamic.bcett.byml.zs",
     "Banc/KokiriForest/KokiriForest_Child_Dynamic.bcett.byml.zs",
     "Banc/Market/Market_Adult_Static.bcett.byml.zs",
@@ -452,6 +455,34 @@
     },
     {
       "name": "KF Know it All House Pot 2",
+      "state": "eligible"
+    },
+    {
+      "name": "Kak Hole Beehive 1",
+      "state": "eligible"
+    },
+    {
+      "name": "Kak Hole Beehive 2",
+      "state": "eligible"
+    },
+    {
+      "name": "Kak Hole Beehive 3",
+      "state": "eligible"
+    },
+    {
+      "name": "Kak Hole Beehive 4",
+      "state": "eligible"
+    },
+    {
+      "name": "Kak Hole Beehive 5",
+      "state": "eligible"
+    },
+    {
+      "name": "Kak Hole Beehive 6",
+      "state": "eligible"
+    },
+    {
+      "name": "Kak Hole Beehive 7",
       "state": "eligible"
     },
     {

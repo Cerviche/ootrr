@@ -1137,4 +1137,27 @@ mod tests {
             assert_eq!(f.checksum(), sum, "{old} {seed}");
         }
     }
+
+    #[test]
+    fn beehives_on_seeds_are_pinned() {
+        let d: Data = Data::load().unwrap();
+        let mut hives: Settings = Settings::default();
+        hives.set(crate::pot_slice::plan::HIVES, Value::Bool(true)).unwrap();
+        let mut both: Settings = hives.clone();
+        both.set("shuffle_pots", Value::s("all")).unwrap();
+        both.set("shuffle_crates", Value::s("all")).unwrap();
+        let cases: [(Settings, &str, &str); 4] = [
+            (hives.clone(), "pin a", "5abd6d9db6ae786bc5b18df6c262bc2323c74458fe13efadc3d367f9527b95c4"),
+            (hives.clone(), "pin b", "2fcf955b4ae1b2d7e36b25d2a87d7bc6ec89660a84b00329fcdf319e77dd965a"),
+            (both.clone(), "pin a", "1fb907baeaa4deade3249338aeed259be18852ebfb98528c9b625a59ad015201"),
+            (both.clone(), "pin b", "1a95859ea06b4c9335663acb01de3c4b2c67983decdb32d649f07cfe7f3c6ef3"),
+        ];
+        for (s, seed, sum) in cases {
+            let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
+            let mut f: SeedFile = g.seed_file.clone();
+            f.settings_string = "pinned".to_string();
+            assert_eq!(f.placements.keys().filter(|k| k.starts_with("Kak Hole")).count(), 7);
+            assert_eq!(f.checksum(), sum, "{seed}");
+        }
+    }
 }

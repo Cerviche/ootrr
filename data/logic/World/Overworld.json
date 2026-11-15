@@ -1712,6 +1712,13 @@
         },
         "locations": {
             "Kak Windmill Roof Chest": "can_use(Longshot)",
+            "Kak Hole Beehive 1": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 2": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 3": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 4": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 5": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 6": "can_open_bomb_grotto and can_break_hole_beehive",
+            "Kak Hole Beehive 7": "can_open_bomb_grotto and can_break_hole_beehive",
             "Sheik in Kakariko": "
                 is_adult and Forest_Medallion and Fire_Medallion and Water_Medallion",
             "Kak Anju as Adult": "is_adult and at_day",

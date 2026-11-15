@@ -14,6 +14,7 @@ pub enum Kind {
     Pot,
     Crate,
     Flying,
+    Hive,
 }
 
 impl Kind {
@@ -22,6 +23,7 @@ impl Kind {
             "pot" => Some(Kind::Pot),
             "crate" => Some(Kind::Crate),
             "flying_pot" => Some(Kind::Flying),
+            "beehive" => Some(Kind::Hive),
             _ => None,
         }
     }
@@ -37,6 +39,7 @@ impl Kind {
         match self {
             Kind::Pot => g.strip_prefix("Obj_Pot_A_0").is_some_and(|t| matches!(t, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8")),
             Kind::Crate => matches!(g, "Obj_BrokenBox_A_01" | "Obj_BrokenBox_A_03"),
+            Kind::Hive => g == "Obj_Kokiri_Beehive_A_01",
             Kind::Flying => matches!(g, "Enemy_FlyingPot_SpiritTemple" | "Enemy_FlyingPot_ShadowTemple" | "Enemy_FlyingPot_IceCavern"),
         }
     }
@@ -178,7 +181,10 @@ mod tests {
         assert!(!Kind::Crate.gyaml("Obj_BrokenBox_A_02"));
         assert!(Kind::Flying.gyaml("Enemy_FlyingPot_IceCavern"));
         assert!(!Kind::Flying.gyaml("Enemy_FlyingPot_Dictionary"));
-        assert_eq!((Kind::Pot.reset(), Kind::Flying.reset()), (88, 280));
+        assert_eq!(Kind::of("beehive"), Some(Kind::Hive));
+        assert!(Kind::Hive.gyaml("Obj_Kokiri_Beehive_A_01"));
+        assert!(!Kind::Hive.gyaml("Obj_Pot_A_01"));
+        assert_eq!((Kind::Pot.reset(), Kind::Flying.reset(), Kind::Hive.reset()), (88, 280, 88));
     }
 
     #[test]

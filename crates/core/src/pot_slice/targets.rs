@@ -55,7 +55,7 @@ pub fn targets_with(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Re
         }
         let (actor, kit): (String, bool) = actor_of(d, loc, item, fixed)?;
         if kit && k != Kind::Pot {
-            return Err(E::Msg(format!("{loc} is a crate or a flying pot, it has no variant that keeps {item} until it is picked up")));
+            return Err(E::Msg(format!("{loc} is a crate, a flying pot or a beehive, it has no variant that keeps {item} until it is picked up")));
         }
         for r in &l.refs {
             out.push(Give { name: loc.clone(), kind: k, hash: r.hash, files: r.files.clone(), was: l.item.clone(), item: item.clone(), actor: actor.clone(), kit });
@@ -145,5 +145,17 @@ mod tests {
         balance(&d, &none, "Rupees (5)", &mut same);
         assert_eq!(same.len(), 1);
         assert!(any(&d, &moved) && !any(&d, &none));
+    }
+
+    #[test]
+    fn a_placed_beehive_becomes_three_gives_and_refuses_a_kit() {
+        let d: Data = Data::load().unwrap();
+        let t: Vec<Give> = targets(&d, &seed(&[("Kak Hole Beehive 1", "Rupees (20)")])).unwrap();
+        assert_eq!(t.len(), 3);
+        assert!(t.iter().all(|g| g.kind == Kind::Hive && g.actor == "Obj_Rupee_Red" && !g.kit && g.was.is_empty()));
+        assert_eq!(t.iter().map(|g| g.hash).collect::<std::collections::BTreeSet<u64>>().len(), 3);
+        let blue: Vec<Give> = targets(&d, &seed(&[("Kak Hole Beehive 3", "Recovery Heart")])).unwrap();
+        assert!(blue.iter().all(|g| g.was == "Obj_Rupee_Blue" && g.actor == "Obj_Heart"));
+        assert!(targets(&d, &seed(&[("Kak Hole Beehive 1", "Megaton Hammer")])).is_err());
     }
 }
