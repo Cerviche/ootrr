@@ -148,6 +148,7 @@ pub fn files() -> Vec<String> {
     out.push(navi_return::FILE.to_string());
     out.push(navi_return::SEQ.to_string());
     out.push(bunny::FILE.to_string());
+    out.push(bunny::ADULT_FILE.to_string());
     out.extend(chest_anim::files().iter().map(|s| s.to_string()));
     out
 }

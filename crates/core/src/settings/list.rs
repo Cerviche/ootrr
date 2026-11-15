@@ -507,10 +507,10 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::choice(79, crate::qol::BUNNY, "world", "Bunny Hood effect", "off")
-            .tip("Gives the Bunny Hood the speed boost it has in Majora's Mask, like the OoTR option of the same name. Only child Link can wear it. Done in the player's AI graphs, with no code patch: while the hood is worn, Link's forward speed is multiplied by 1.5 each frame. Experimental.")
+            .tip("Gives the Bunny Hood the speed boost it has in Majora's Mask, like the OoTR option of the same name. Works for child and adult Link. Done in the player's AI graphs, with no code patch: while the hood is worn, Link's forward speed is multiplied by 1.5 each frame, up to a cap that is higher for adult Link. Experimental.")
             .opt("off", "No effect", "The Bunny Hood is only a mask, as in the original game.")
-            .opt("speed", "Faster running", "Child Link runs 1.5 times as fast while wearing the Bunny Hood.")
-            .opt("jump", "Faster running and longer jumps", "Child Link also leaves the ground 1.5 times as fast when jumping, so jumps go further."),
+            .opt("speed", "Faster running", "Link runs 1.5 times as fast while wearing the Bunny Hood.")
+            .opt("jump", "Faster running and longer jumps", "Link also leaves the ground 1.5 times as fast when jumping, so jumps go further."),
     );
     s.push(
         Setting::toggle(81, crate::open_world::EPONA, "world", "Skip Epona's race", false)

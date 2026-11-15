@@ -32,9 +32,17 @@ const NONE: u16 = 0xFFFF;
 
 /// Sheik stands on the temple's centre line right next to the pedestal's sword, between the
 /// player and the prompt. She is moved sideways by this much so the prompt is easy to reach.
+///
+/// Her placement only sets where she spawns. Her AI schedule walks her to the two anchors
+/// her placement links to (AnchorAction1 and AnchorAction2, about 1 m in front of the
+/// pedestal), so moving her alone put her straight back on the centre line. Her placement
+/// and both anchors move together; nothing else in the scene links to the anchors.
 pub const SHEIK_FILE: &str = "Banc/Market/Market_Adult_Static.bcett.byml.zs";
 pub const SHEIK_HASH: u64 = 2669233513522124871;
+pub const SHEIK_ANCHORS: [u64; 2] = [3082534610608980032, 9054844105649494018];
 pub const SHEIK_SHIFT: f32 = -3.0;
+/// The temple's centre line, where Sheik and her anchors sit in the unpatched map.
+const SHEIK_Z: f32 = -34.0;
 
 const BOOL: usize = 1;
 
@@ -185,21 +193,46 @@ pub fn patch_return(b: &mut Bf) -> Res<usize> {
     Ok(4)
 }
 
-/// Moves Sheik sideways off the temple's centre line.
+/// The Links targets of an actor.
+fn link_dsts(a: &Node) -> Vec<u64> {
+    let Some(links) = a.get("Links").and_then(|n| n.as_arr()) else { return Vec::new() };
+    links.iter().filter_map(|l| if let Some(Node::U64(d)) = l.get("Dst") { Some(*d) } else { None }).collect()
+}
+
+/// Moves Sheik and the anchors her schedule walks her to sideways off the temple's centre line.
 pub fn patch_sheik(y: &mut Byml) -> Res<()> {
     let actors: &mut Vec<Node> = y.root.get_mut("Actors").and_then(|n| n.as_arr_mut()).ok_or(Error::Format("door open: the adult Market map has no actors"))?;
-    let a: &mut Node = actors
-        .iter_mut()
+    let sheik: &Node = actors
+        .iter()
         .find(|a| matches!(a.get("Hash"), Some(Node::U64(h)) if *h == SHEIK_HASH))
         .ok_or(Error::Format("door open: the adult Market map has no Sheik"))?;
-    let t: &mut Vec<Node> = a.get_mut("Translate").and_then(|n| n.as_arr_mut()).ok_or(Error::Format("door open: Sheik has no position"))?;
-    let Some(Node::F32(z)) = t.get(2).cloned() else {
-        return Err(Error::Format("door open: Sheik's position is not three floats"));
-    };
-    if (z - -34.0).abs() > 0.01 {
-        return Err(Error::Format("door open: Sheik is not at her vanilla spot, the map is not the unpatched one"));
+    let mut linked: Vec<u64> = link_dsts(sheik);
+    linked.sort_unstable();
+    let mut want: Vec<u64> = SHEIK_ANCHORS.to_vec();
+    want.sort_unstable();
+    if linked != want {
+        return Err(Error::Format("door open: Sheik no longer links to just her two anchors, the map is not the unpatched one"));
     }
-    t[2] = Node::F32(z + SHEIK_SHIFT);
+    let group: [u64; 3] = [SHEIK_HASH, SHEIK_ANCHORS[0], SHEIK_ANCHORS[1]];
+    let mut moved: usize = 0;
+    for a in actors.iter_mut() {
+        let Some(Node::U64(h)) = a.get("Hash") else { continue };
+        if !group.contains(h) {
+            continue;
+        }
+        let t: &mut Vec<Node> = a.get_mut("Translate").and_then(|n| n.as_arr_mut()).ok_or(Error::Format("door open: Sheik or an anchor has no position"))?;
+        let Some(Node::F32(z)) = t.get(2).cloned() else {
+            return Err(Error::Format("door open: a Sheik position is not three floats"));
+        };
+        if (z - SHEIK_Z).abs() > 0.01 {
+            return Err(Error::Format("door open: Sheik or an anchor is not at its vanilla spot, the map is not the unpatched one"));
+        }
+        t[2] = Node::F32(z + SHEIK_SHIFT);
+        moved += 1;
+    }
+    if moved != group.len() {
+        return Err(Error::Format("door open: the adult Market map is missing one of Sheik's anchors"));
+    }
     Ok(())
 }
 
@@ -303,6 +336,23 @@ mod tests {
         assert_eq!(Bf::parse(&bytes).unwrap(), b);
     }
 
+    fn placed(gyaml: &str, hash: u64, x: f32, z: f32, links: &[u64]) -> Node {
+        let mut m: Vec<(String, Node)> = vec![("Gyaml".to_string(), Node::Str(gyaml.to_string())), ("Hash".to_string(), Node::U64(hash))];
+        if !links.is_empty() {
+            let ls: Vec<Node> = links
+                .iter()
+                .map(|d| Node::Map(vec![("Dst".to_string(), Node::U64(*d)), ("Gyaml".to_string(), Node::Str("Reference".to_string())), ("Src".to_string(), Node::U64(hash))]))
+                .collect();
+            m.push(("Links".to_string(), Node::Arr(ls)));
+        }
+        m.push(("Translate".to_string(), Node::Arr(vec![Node::F32(x), Node::F32(106.35), Node::F32(z)])));
+        Node::Map(m)
+    }
+
+    fn z_of(y: &Byml, i: usize) -> Node {
+        y.root.get("Actors").unwrap().as_arr().unwrap()[i].get("Translate").unwrap().as_arr().unwrap()[2].clone()
+    }
+
     fn real() -> Option<PB> {
         let p: PB = std::env::var("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|_| PB::from("C:/o/nup dump/updates/131072/romfs"));
         if p.join("Pack").join("ZsDic.pack.zs").is_file() {
@@ -358,21 +408,46 @@ mod tests {
     }
 
     #[test]
-    fn sheik_moves_sideways_only_from_her_vanilla_spot() {
-        let sheik = |z: f32| {
-            Node::Map(vec![
-                ("Gyaml".to_string(), Node::Str("Npc_Hylia_Sheik_Adult".to_string())),
-                ("Hash".to_string(), Node::U64(SHEIK_HASH)),
-                ("Translate".to_string(), Node::Arr(vec![Node::F32(139.0), Node::F32(106.35), Node::F32(z)])),
-            ])
-        };
-        let mut y: Byml = Byml { root: Node::Map(vec![("Actors".to_string(), Node::Arr(vec![sheik(-34.0)]))]), version: 7, big: false };
+    fn sheik_and_her_anchors_move_sideways_only_from_their_vanilla_spots() {
+        let actors: Vec<Node> = vec![
+            placed("Npc_Hylia_Sheik_Adult", SHEIK_HASH, 139.0, -34.0, &SHEIK_ANCHORS),
+            placed("AnchorAction1", SHEIK_ANCHORS[0], 136.87, -34.0, &[]),
+            placed("Obj_TimeTemple_MasterSword_A_01", 7, 137.6, -34.0, &[]),
+            placed("AnchorAction2", SHEIK_ANCHORS[1], 136.4, -34.0, &[]),
+        ];
+        let mut y: Byml = Byml { root: Node::Map(vec![("Actors".to_string(), Node::Arr(actors))]), version: 7, big: false };
         patch_sheik(&mut y).unwrap();
-        let t: &[Node] = y.root.get("Actors").unwrap().as_arr().unwrap()[0].get("Translate").unwrap().as_arr().unwrap();
-        assert_eq!(t[2], Node::F32(-37.0));
+        for i in [0, 1, 3] {
+            assert_eq!(z_of(&y, i), Node::F32(-37.0), "actor {i} moves");
+        }
+        assert_eq!(z_of(&y, 2), Node::F32(-34.0), "the sword stays");
         assert!(patch_sheik(&mut y).is_err());
         let back: Byml = Byml::parse(&y.write().unwrap()).unwrap();
         assert_eq!(back.root, y.root);
+    }
+
+    #[test]
+    fn sheik_refuses_a_map_missing_an_anchor() {
+        let actors: Vec<Node> = vec![placed("Npc_Hylia_Sheik_Adult", SHEIK_HASH, 139.0, -34.0, &SHEIK_ANCHORS), placed("AnchorAction1", SHEIK_ANCHORS[0], 136.87, -34.0, &[])];
+        let mut y: Byml = Byml { root: Node::Map(vec![("Actors".to_string(), Node::Arr(actors))]), version: 7, big: false };
+        assert!(patch_sheik(&mut y).is_err());
+    }
+
+    #[test]
+    fn the_real_map_moves_sheik_with_her_anchors() {
+        let p: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
+        if !p.is_dir() {
+            eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", p.display());
+            return;
+        }
+        let mut rf: Romfs = Romfs::open(&p).unwrap();
+        let mut y: Byml = rf.read_byml(SHEIK_FILE).unwrap();
+        patch_sheik(&mut y).unwrap();
+        let actors: &[Node] = y.root.get("Actors").unwrap().as_arr().unwrap();
+        for h in [SHEIK_HASH, SHEIK_ANCHORS[0], SHEIK_ANCHORS[1]] {
+            let a: &Node = actors.iter().find(|a| a.get("Hash") == Some(&Node::U64(h))).unwrap();
+            assert_eq!(a.get("Translate").unwrap().as_arr().unwrap()[2], Node::F32(SHEIK_Z + SHEIK_SHIFT), "{h}");
+        }
     }
 }
 
