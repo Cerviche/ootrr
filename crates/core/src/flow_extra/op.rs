@@ -5,6 +5,9 @@ use crate::flow_locations::{set_param, Req};
 pub const ITEM: &str = "$item";
 const HOLDER: &str = "GameDataActor";
 const SET: &str = "EventTriggerSetGameDataBool";
+const ASK: &str = "EventQueryIsGameDataBool";
+const PLAYER: &str = "Player_Event";
+const CHILD: &str = "EventQueryPlayerIsChild";
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum How {
@@ -15,6 +18,16 @@ pub enum How {
     Insert { flag: String },
     Rename { old: String, new: String },
     Clone { param: String, old: String, new: String },
+    Once(Once),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Once {
+    pub entry: String,
+    pub flag: String,
+    pub child: bool,
+    pub sub: String,
+    pub params: Vec<(String, Val)>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -49,6 +62,7 @@ impl Op {
             How::Set { param, old, new } => How::Set { param: param.clone(), old: old.clone(), new: sub_item(new, item) },
             How::Rename { old, new } => How::Rename { old: old.clone(), new: sub_item(new, item) },
             How::Clone { param, old, new } => How::Clone { param: param.clone(), old: old.clone(), new: sub_item(new, item) },
+            How::Once(w) => How::Once(Once { params: bind_params(&w.params, item), ..w.clone() }),
             x => x.clone(),
         };
         Op { file: self.file.clone(), index: self.index, event: self.event.clone(), how }
@@ -63,6 +77,7 @@ impl Op {
             How::Insert { .. } => "insert_set",
             How::Rename { .. } => "rename_actor",
             How::Clone { .. } => "clone_sub",
+            How::Once(_) => "once_grant",
         }
     }
 }
@@ -206,6 +221,42 @@ fn insert(f: &mut Flow, o: &Op, flag: &str) -> Res<()> {
     Ok(())
 }
 
+fn push(f: &mut Flow, kind: Kind) -> Res<u16> {
+    let at: u16 = idx(f.events.len())?;
+    f.events.push(Event { name: format!("Extra{at}"), kind });
+    Ok(at)
+}
+
+fn flag_ask(flag: &str) -> Cont {
+    Cont { items: vec![("Index".to_string(), Val::Int(-1)), ("GameDataName".to_string(), Val::Str(flag.to_string()))] }
+}
+
+fn once(f: &mut Flow, o: &Op, w: &Once) -> Res<()> {
+    let at: usize = f
+        .entries
+        .iter()
+        .position(|e| e.name == w.entry)
+        .ok_or_else(|| E::Msg(format!("the flow has no entry {}, the game files differ", w.entry)))?;
+    let main: u16 = f.entries[at].main;
+    if usize::from(main) != o.index {
+        return Err(E::Msg(format!("entry {} starts at event {main} and not {}, the game files differ", w.entry, o.index)));
+    }
+    event(f, o.index, &o.event)?;
+    let (tf, te): (&str, &str) = split(&w.sub, ':')?;
+    let (qa, qi): (u16, u16) = slot(f, HOLDER, ASK, true)?;
+    let (sa, si): (u16, u16) = slot(f, HOLDER, SET, false)?;
+    let grant: u16 = push(f, Kind::Sub { next: main, params: Some(Cont { items: w.params.clone() }), flow: tf.to_string(), entry: te.to_string() })?;
+    let set: u16 = push(f, Kind::Action { next: grant, actor: sa, act: si, params: Some(set_bool(&w.flag)) })?;
+    let mut head: u16 = push(f, Kind::Switch { actor: qa, query: qi, cases: vec![Case { val: 0, ev: main }, Case { val: 1, ev: set }], params: Some(flag_ask(&w.flag)) })?;
+    if w.child {
+        let (pa, pi): (u16, u16) = slot(f, PLAYER, CHILD, true)?;
+        head = push(f, Kind::Switch { actor: pa, query: pi, cases: vec![Case { val: 0, ev: head }, Case { val: 1, ev: main }], params: None })?;
+    }
+    f.entries[at].main = head;
+    f.entries[at].subs.push(grant);
+    Ok(())
+}
+
 fn rename(f: &mut Flow, old: &str, new: &str) -> Res<()> {
     if f.actors.iter().any(|a| a.name == new && a.sub.is_empty()) {
         return Ok(());
@@ -231,6 +282,7 @@ pub fn apply(b: &mut Bf, o: &Op) -> Res<()> {
         How::Insert { flag } => insert(f, o, flag),
         How::Rename { old, new } => rename(f, old, new),
         How::Clone { param, old, new } => crate::flow_extra::clone::clone_sub(f, o.index, &o.event, param, old, new),
+        How::Once(w) => once(f, o, w),
         How::Set { .. } => Ok(()),
     }
 }
@@ -357,5 +409,74 @@ mod tests {
         let mut twice: Bf = sample();
         apply(&mut twice, &op(0, How::Rename { old: "Item_A".to_string(), new: "PouchSystemActor".to_string() })).unwrap();
         assert_eq!(twice, sample());
+    }
+
+    fn once_op(child: bool) -> Op {
+        let w: Once = Once {
+            entry: "Start".to_string(),
+            flag: "Flag_Once".to_string(),
+            child,
+            sub: "G:Grant".to_string(),
+            params: vec![("ActorName".to_string(), Val::Str(ITEM.to_string())), ("IsNpcEventStarter".to_string(), Val::Bool(0))],
+        };
+        op(0, How::Once(w)).bind("Item_C")
+    }
+
+    #[test]
+    fn once_puts_a_flag_gate_in_front_of_the_entry() {
+        let mut b: Bf = sample();
+        apply(&mut b, &once_op(false)).unwrap();
+        let f: &Flow = &round(&b).flows[0];
+        assert_eq!(f.events.len(), 6);
+        assert_eq!(f.entries[0].main, 5);
+        assert_eq!(f.entries[0].subs, vec![1, 2, 3]);
+        let Kind::Switch { actor, query, cases, params } = &f.events[5].kind else { panic!("switch") };
+        assert_eq!(f.actors[*actor as usize].name, HOLDER);
+        assert_eq!(f.actors[*actor as usize].queries[*query as usize], ASK);
+        assert_eq!(cases, &vec![Case { val: 0, ev: 0 }, Case { val: 1, ev: 4 }]);
+        assert_eq!(params.as_ref().and_then(|c| c.get("GameDataName")), Some(&Val::Str("Flag_Once".to_string())));
+        let Kind::Action { next, actor, act, params } = &f.events[4].kind else { panic!("action") };
+        assert_eq!(*next, 3);
+        assert_eq!(f.actors[*actor as usize].actions[*act as usize], SET);
+        assert_eq!(params.as_ref().and_then(|c| c.get("Value")), Some(&Val::Bool(1)));
+        let Kind::Sub { next, params, flow, entry } = &f.events[3].kind else { panic!("sub") };
+        assert_eq!((*next, flow.as_str(), entry.as_str()), (0, "G", "Grant"));
+        assert_eq!(params.as_ref().and_then(|c| c.get("ActorName")), Some(&Val::Str("Item_C".to_string())));
+        assert_eq!(f.events[0].kind, sample().flows[0].events[0].kind);
+    }
+
+    #[test]
+    fn once_with_the_child_check_leaves_adults_on_the_old_path() {
+        let mut b: Bf = sample();
+        apply(&mut b, &once_op(true)).unwrap();
+        let f: &Flow = &round(&b).flows[0];
+        assert_eq!(f.events.len(), 7);
+        assert_eq!(f.entries[0].main, 6);
+        let Kind::Switch { actor, query, cases, params } = &f.events[6].kind else { panic!("switch") };
+        assert_eq!(f.actors[*actor as usize].name, PLAYER);
+        assert_eq!(f.actors[*actor as usize].queries[*query as usize], CHILD);
+        assert_eq!(cases, &vec![Case { val: 0, ev: 5 }, Case { val: 1, ev: 0 }]);
+        assert!(params.is_none());
+    }
+
+    #[test]
+    fn once_refuses_a_moved_entry_a_wrong_name_and_a_second_run() {
+        let mut b: Bf = sample();
+        apply(&mut b, &once_op(false)).unwrap();
+        let after: Bf = b.clone();
+        assert!(apply(&mut b, &once_op(false)).is_err());
+        assert_eq!(b, after);
+        let mut o: Op = once_op(false);
+        o.event = "Event9".to_string();
+        assert!(apply(&mut sample(), &o).is_err());
+        let mut o: Op = once_op(false);
+        o.index = 1;
+        o.event = "Event1".to_string();
+        assert!(apply(&mut sample(), &o).is_err());
+        let mut o: Op = once_op(false);
+        if let How::Once(w) = &mut o.how {
+            w.entry = "Missing".to_string();
+        }
+        assert!(apply(&mut sample(), &o).is_err());
     }
 }

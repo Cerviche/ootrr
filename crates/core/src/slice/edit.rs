@@ -99,7 +99,7 @@ fn vanilla_actor(d: &Data, loc: &str) -> Res<String> {
 }
 
 pub fn is_sale(d: &Data, loc: &str) -> bool {
-    d.flow.by_name(loc).is_some() && d.cat.by_name(loc).is_none_or(|c| c.kind == "scrub")
+    d.flow.by_name(loc).is_some() && d.cat.by_name(loc).is_none_or(|c| c.kind == "scrub" || (c.kind == "cow" && crate::flow_extra::cows::is(loc)))
 }
 
 fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {

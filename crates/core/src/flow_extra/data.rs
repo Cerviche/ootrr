@@ -1,6 +1,6 @@
 use crate::bfevfl::Val;
 use crate::error::{Error as E, Res};
-use crate::flow_extra::op::{How, Op};
+use crate::flow_extra::op::{How, Once, Op};
 use crate::json::{self, Json};
 
 pub const JSON: &str = include_str!("../../../../data/flow_extra.json");
@@ -81,6 +81,13 @@ fn op(j: &Json) -> Res<Op> {
         "set" => How::Set { param: text(j, "param")?, old: text(j, "old")?, new: text(j, "new")? },
         "insert_set" => How::Insert { flag: text(j, "flag")? },
         "clone_sub" => How::Clone { param: text(j, "param")?, old: text(j, "old")?, new: text(j, "new")? },
+        "once_grant" => How::Once(Once {
+            entry: text(j, "entry")?,
+            flag: text(j, "flag")?,
+            child: j.get("child").and_then(|v| v.as_bool()).unwrap_or(false),
+            sub: text(j, "sub")?,
+            params: params(j)?,
+        }),
         _ => return Err(E::Msg(format!("flow_extra json: unknown edit kind {kind}"))),
     };
     Ok(Op { file, index, event, how })

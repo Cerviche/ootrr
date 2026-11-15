@@ -61,6 +61,7 @@ pub struct Plan {
     pub dungeon_rewards: bool,
     pub extra: bool,
     pub trade: bool,
+    pub cows: bool,
     pub scrubs: bool,
     pub scrubs_b: bool,
     pub hearts: bool,
@@ -288,6 +289,11 @@ pub fn plan(s: &Settings) -> Res<Plan> {
             bad.push(e.to_string());
             false
         });
+    let cows: bool = rewards
+        && s.flag(crate::flow_extra::cows::SETTING).unwrap_or_else(|e| {
+            bad.push(e.to_string());
+            false
+        });
     let scrubs: bool = crate::scrubs_a::read(s, rewards, &mut bad);
     let scrubs_b: bool = crate::scrubs_b::read(s, rewards, &mut bad);
     let hearts: bool = s.flag("shuffle_boss_hearts").unwrap_or_else(|e| {
@@ -422,6 +428,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (hints, "Gossip stones give hints. Their text is replaced in every language."),
         (extra, "Kak 20 Gold Skulltula Reward, DMT Biggoron and GC Medigoron are shuffled with structural event edits."),
         (trade, "The ten adult trade quest hand ins each give one extra shuffled item the first time. The trade chain itself stays vanilla."),
+        (cows, crate::flow_extra::cows::NOTE),
     ] {
         if on {
             notes.push(text.to_string());
@@ -465,7 +472,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::deku_bridge::NOTE.to_string());
     }
     notes.extend(shops.notes());
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, scrubs, scrubs_b, hearts, world, songs, hints, fast, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, scrubs, scrubs_b, hearts, world, songs, hints, fast, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge })
 }
 
 #[cfg(test)]

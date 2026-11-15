@@ -119,6 +119,14 @@ pub fn plan(d: &Data, cs: &[Choice], o: &Opts) -> Res<(Vec<Change>, usize, Vec<S
             }
             continue;
         }
+        if crate::flow_extra::cows::is(&l.name) {
+            if l.item.as_deref() == Some(c.item.as_str()) {
+                same += 1;
+            } else {
+                out.extend(crate::flow_extra::cows::changes(l, &c.item)?);
+            }
+            continue;
+        }
         if !o.untested && crate::flow_extra::trade::chain(&c.item) && l.item.as_deref() != Some(c.item.as_str()) {
             return Err(E::Msg(format!(
                 "{} is a trade quest item, it shares one menu slot with the chain and may only stay at its own location, so {} refuses it. Pass the untested option to try it anyway",

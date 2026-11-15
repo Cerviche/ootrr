@@ -113,6 +113,22 @@
 "ops": [
 {"kind": "clone_sub", "file": "Dm_DeathMtTrail_0050.bfevfl", "index": 5, "event": "Event21", "param": "ActorName", "old": "Item_ClaimCheck", "new": "$item"}
 ]
+},
+{
+"name": "KF Links House Cow",
+"why": "cow milk is repeatable and the grant pushes into an empty bottle, so the entry that starts the milk scene (PushToBottleMilk_LinkHouse, only this cow uses it) first asks a spare persistent flag, and while it is clear sets it and hands out the shuffled item with a plain get scene, then runs the vanilla milk path unchanged",
+"ops": [
+{"kind": "once_grant", "file": "Animal_Cow.bfevfl", "index": 136, "event": "Event2", "entry": "PushToBottleMilk_LinkHouse", "flag": "HavePlayedEvent.Dm_StaffCredit_0027", "child": false,
+ "sub": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "$item"], ["IsNpcEventStarter", false]]}
+]
+},
+{
+"name": "GV Cow",
+"why": "same once flag gate in front of the shared Gerudo milk entry (PushToBottleMilk_LinkHouse0) with a child check first, the Gerudo Valley cow stands only in the child valley and the Gerudo Fortress cow only in the adult fortress, so adults keep the vanilla path",
+"ops": [
+{"kind": "once_grant", "file": "Animal_Cow.bfevfl", "index": 106, "event": "Event113", "entry": "PushToBottleMilk_LinkHouse0", "flag": "HavePlayedEvent.Dm_StaffCredit_0028", "child": true,
+ "sub": "Dm_SY_GetInEvent:GetInEvent_NotTurn_NotNpc", "params": [["ActorName", "$item"], ["IsNpcEventStarter", false]]}
+]
 }
 ]
 }

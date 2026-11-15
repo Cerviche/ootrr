@@ -22,12 +22,28 @@ pub fn rule_for(t: &Target, item: &str, copies: usize, tbl: &Table) -> Rule {
     rule_of(&o)
 }
 
+pub fn cow_rule(t: &Target, item: &str) -> Option<Rule> {
+    let flag: String = crate::flow_extra::cows::flag_of(t.ootr.as_deref()?).filter(|_| item != crate::flow_extra::cows::VANILLA)?;
+    let mut o: Target = t.clone();
+    o.how = How::Flag;
+    o.flags = vec![flag];
+    o.weak = false;
+    Some(rule_of(&o))
+}
+
 pub fn rules(ts: &[Target], placed: &BM<String, String>, tbl: &Table) -> Vec<Option<Rule>> {
     ts.iter()
         .map(|t| {
-            let item: &String = placed.get(t.ootr.as_deref()?).filter(|_| t.kind == "gift")?;
-            let n: usize = placed.values().filter(|v| *v == item).count();
-            Some(rule_for(t, item, n, tbl))
+            let name: &str = t.ootr.as_deref()?;
+            let item: &String = placed.get(name)?;
+            match t.kind.as_str() {
+                "gift" | "cow" if crate::flow_extra::cows::is(name) => cow_rule(t, item),
+                "gift" => {
+                    let n: usize = placed.values().filter(|v| *v == item).count();
+                    Some(rule_for(t, item, n, tbl))
+                }
+                _ => None,
+            }
         })
         .collect()
 }
@@ -96,6 +112,23 @@ mod tests {
         let o: Vec<Option<Rule>> = rules(ts, &placed(&[("Song from Impa", "Minuet of Forest")]), &load::load().unwrap());
         assert_eq!(rewired(&o), 1);
         assert!(gift("Song from Saria").how == How::Flag);
+    }
+
+    #[test]
+    fn a_shuffled_cow_is_seen_by_its_once_flag_and_a_milk_cow_keeps_the_old_rule() {
+        let ts: &[Target] = all().unwrap();
+        let tbl: Table = load::load().unwrap();
+        let ix = |n: &str| ts.iter().position(|t| t.kind == "cow" && t.ootr.as_deref() == Some(n)).unwrap();
+        let (home, gv, other): (usize, usize, usize) = (ix("KF Links House Cow"), ix("GV Cow"), ix("Kak Impas House Cow"));
+        let o: Vec<Option<Rule>> = rules(ts, &placed(&[("KF Links House Cow", "Hookshot"), ("GV Cow", "Milk"), ("Kak Impas House Cow", "Hookshot")]), &tbl);
+        let flag: String = crate::flow_extra::cows::flag_of("KF Links House Cow").unwrap();
+        assert_eq!(eval(o[home].as_ref().unwrap(), &peek(&flag)), Hit::On);
+        assert_eq!(eval(o[home].as_ref().unwrap(), &peek("HavePlayedEvent.Animal_Cow_LinkHouse_GiveMilk")), Hit::Off);
+        assert!(o[gv].is_none() && o[other].is_none());
+        let gift_home: usize = ts.iter().position(|t| t.kind == "gift" && t.ootr.as_deref() == Some("KF Links House Cow")).unwrap();
+        assert_eq!(eval(o[gift_home].as_ref().unwrap(), &peek(&flag)), Hit::On);
+        assert_eq!(rewired(&o), 2);
+        assert_eq!(rewired(&rules(ts, &placed(&[]), &tbl)), 0);
     }
 
     #[test]

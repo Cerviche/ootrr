@@ -21,6 +21,9 @@ pub fn ok(d: &Data, name: &str) -> bool {
     if crate::flow_extra::trade::is(name) {
         return l.gated && d.vanilla_of(name).is_some_and(|v| l.item.as_deref() != d.item(v).and_then(|i| i.actor.as_deref()));
     }
+    if crate::flow_extra::cows::is(name) {
+        return l.gated && l.item.is_some() && d.vanilla_of(name).is_some();
+    }
     if crate::scrubs_b::is_b(l) {
         return crate::scrubs_b::ok(d, l);
     }

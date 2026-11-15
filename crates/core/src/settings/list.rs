@@ -354,6 +354,11 @@ pub fn build() -> Schema {
             .when("shuffle_rewards", "supported"),
     );
     s.push(
+        Setting::toggle(65, "shuffle_cows", "shuffle", "Link's House and Gerudo Valley cows", false)
+            .tip("The cow in Link's House and the cow in Gerudo Valley each give one extra shuffled item the first time their milk scene starts, with or without a bottle. The milk stays vanilla and stays repeatable. The other cows are not shuffled yet.")
+            .when("shuffle_rewards", "supported"),
+    );
+    s.push(
         Setting::toggle(54, "shuffle_scrubs_a", "shuffle", "One time scrub sales", false)
             .tip("Also shuffle the Business Scrubs that already sell one item once: the Death Mountain Crater heart scrub and the Lost Woods stick and nut bag scrubs. The price stays and the sale text still names the old item.")
             .when("shuffle_rewards", "supported"),
