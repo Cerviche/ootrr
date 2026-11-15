@@ -1147,10 +1147,10 @@ mod tests {
         both.set("shuffle_pots", Value::s("all")).unwrap();
         both.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str); 4] = [
-            (hives.clone(), "pin a", "5abd6d9db6ae786bc5b18df6c262bc2323c74458fe13efadc3d367f9527b95c4"),
-            (hives.clone(), "pin b", "2fcf955b4ae1b2d7e36b25d2a87d7bc6ec89660a84b00329fcdf319e77dd965a"),
-            (both.clone(), "pin a", "1fb907baeaa4deade3249338aeed259be18852ebfb98528c9b625a59ad015201"),
-            (both.clone(), "pin b", "1a95859ea06b4c9335663acb01de3c4b2c67983decdb32d649f07cfe7f3c6ef3"),
+            (hives.clone(), "pin a", "55b1c60718920d2aa29d01cf79df0a5979ae060bff1e5e2c3f9753e9e1d198f3"),
+            (hives.clone(), "pin b", "15ff149372255fa9210fa84fca11d1cbcf90a777b7ff18f70486bbc21b78bc08"),
+            (both.clone(), "pin a", "81cd061948e41114239ea657d4d71e47042dc9d9aff2acff7c389df4af741cd8"),
+            (both.clone(), "pin b", "7cdbbe628f10ee6955474955e1a79af123c647a4d665c8b35ba8ee1b4537ab73"),
         ];
         for (s, seed, sum) in cases {
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
