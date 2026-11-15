@@ -312,7 +312,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     let mut rng: Rng = Rng::from_text(seed);
     let pinned: Vec<&str> = if lay.is_some() { crate::slice::tier_order::pinned(d, &w, &pk.free) } else { Vec::new() };
     let shelf = |it: ItemId, l: LocId| ok(it, l) && !(crate::shops::is_loc(&w.locs[l].name) && d.family(&w.items.names[it]).is_some_and(|f| pinned.contains(&f)));
-    let mut run = |careful: bool| -> Res<Placement> {
+    let mut run = |careful: bool, reach: bool| -> Res<Placement> {
         let ok: &dyn Fn(ItemId, LocId) -> bool = if careful { &shelf } else { &ok };
         let fix: bool = crate::slice::tier_fix::active(d, &w, &pk.free);
         let narrow = |it: ItemId, l: LocId| ok(it, l) && !crate::slice::key_spots::widened(d, &w.locs[l].name, &w.items.names[it]);
@@ -323,7 +323,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         }
         let rank = |l: LocId| caps.get(&l).copied().unwrap_or(0);
         let r: Option<&dyn Fn(LocId) -> usize> = if caps.is_empty() { None } else { Some(&rank) };
-        let mut sr: Rng = Rng::from_text(&format!("{seed} songs first{}", if careful { " careful" } else { "" }));
+        let mut sr: Rng = Rng::from_text(&format!("{seed} songs first{}{}", if careful { " careful" } else { "" }, if reach { " reach" } else { "" }));
         let mut fixed: Vec<(LocId, ItemId)> = plan.clone();
         if p.songs == Songs::Anywhere {
             fixed.extend(crate::slice::song_spots::first_with(d, &w, &base, &pk.free, &plan, ok, &mut sr, careful)?);
@@ -334,7 +334,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         loop {
             let quick: bool = p.songs == Songs::Anywhere && redo + 1 < crate::slice::song_spots::TRIES;
             let (tries, switch): (u32, u32) = if quick { (o.tries.min(crate::slice::song_spots::QUICK_TRIES), o.switch.min(crate::slice::song_spots::QUICK_SWITCH)) } else { (o.tries, o.switch) };
-            let g: Placement = match fill_ordered(&w, &base, &pk.free, ok, order, &mut rng, tries, &fixed, !p.keys_roam() && gates.is_none(), r, switch, &watch) {
+            let g: Placement = match fill_ordered(&w, &base, &pk.free, ok, order, &mut rng, tries, &fixed, !p.keys_roam() && gates.is_none(), r, reach, switch, &watch) {
                 Ok(g) => g,
                 Err(_) if quick => {
                     redo += 1;
@@ -370,13 +370,14 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     let got: Placement = if pk.free.is_empty() {
         base.clone()
     } else {
-        match run(false) {
+        let anywhere: bool = p.songs == Songs::Anywhere;
+        match run(false, false) {
             Ok(g) => g,
-            Err(e) if p.songs != Songs::Anywhere || watch.check().is_err() => return Err(e),
-            Err(e) => match run(true) {
-                Ok(g) => g,
-                Err(x) if watch.check().is_err() => return Err(x),
-                Err(_) => return Err(e),
+            Err(e) if watch.check().is_err() => return Err(e),
+            Err(_) => match anywhere.then(|| run(true, false)) {
+                Some(Ok(g)) => g,
+                Some(Err(x)) if watch.check().is_err() => return Err(x),
+                _ => run(anywhere, true)?,
             },
         }
     };
@@ -1136,6 +1137,17 @@ mod tests {
             f.settings_string = old.to_string();
             assert_eq!(f.checksum(), sum, "{old} {seed}");
         }
+    }
+
+    #[test]
+    fn keysanity_with_crates_leaves_the_kokiri_sword_a_forest_chest() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = with(&[("shuffle_smallkeys", "keysanity"), ("shuffle_crates", "all")]);
+        let o: GenOpts = GenOpts { tries: 20, ..GenOpts::default() };
+        let g: Generated = generate_data(&d, &s, "a", &o).unwrap_or_else(|e| panic!("{e}"));
+        let at: Vec<&String> = g.seed_file.placements.iter().filter(|(_, i)| i.as_str() == "Kokiri Sword").map(|(l, _)| l).collect();
+        assert_eq!(at.len(), 1, "{at:?}");
+        assert!(at[0].starts_with("KF "), "{at:?}");
     }
 
     #[test]

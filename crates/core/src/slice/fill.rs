@@ -33,13 +33,19 @@ struct Job<'a> {
     fixed: &'a Placement,
     free: &'a [LocId],
     pool: &'a [ItemId],
-    allow: &'a dyn Fn(ItemId, LocId) -> bool,
+    g: &'a Grid,
+    at: &'a [usize],
+    kind: &'a [usize],
     keys: &'a HM<ItemId, usize>,
-    rank: Option<&'a dyn Fn(LocId) -> usize>,
+    rank: Option<&'a [usize]>,
 }
 
 fn key(j: &Job, i: ItemId) -> usize {
     j.keys.get(&i).copied().unwrap_or(0)
+}
+
+fn fits(j: &Job, i: ItemId, l: LocId) -> bool {
+    j.g.ok[j.kind[i]][j.at[l]]
 }
 
 fn once(j: &Job, rng: &mut Rng) -> Res<Placement> {
@@ -57,15 +63,15 @@ fn once(j: &Job, rng: &mut Rng) -> Res<Placement> {
     for it in items {
         rng.shuffle(&mut open);
         if let Some(r) = j.rank {
-            open.sort_by_key(|l| r(*l));
+            open.sort_by_key(|l| r[*l]);
         }
         let pick: Option<usize> = if w.items.adv[it] {
             assumed.remove(it);
             let mut mx: Search = assumed.clone();
             mx.settle(&place, true);
-            open.iter().position(|l| (j.allow)(it, *l) && mx.loc_access(*l))
+            open.iter().position(|l| fits(j, it, *l) && mx.loc_access(*l))
         } else {
-            open.iter().position(|l| (j.allow)(it, *l))
+            open.iter().position(|l| fits(j, it, *l))
         };
         match pick {
             Some(k) => {
@@ -107,7 +113,7 @@ fn once_fit(j: &Job, g: &Grid, rng: &mut Rng) -> Res<Placement> {
         let it: ItemId = j.pool[p];
         rng.shuffle(&mut open);
         if let Some(r) = j.rank {
-            open.sort_by_key(|x| r(j.free[*x]));
+            open.sort_by_key(|x| r[j.free[*x]]);
         }
         let mx: Option<Search> = if w.items.adv[it] {
             assumed.remove(it);
@@ -186,7 +192,27 @@ pub fn fill_ranked(
     check_vanilla: bool,
     rank: Option<&dyn Fn(LocId) -> usize>,
 ) -> Res<Placement> {
-    fill_ordered(w, vanilla, free, allow, None, rng, tries, plan, check_vanilla, rank, SWITCH, &Watch::idle())
+    fill_ordered(w, vanilla, free, allow, None, rng, tries, plan, check_vanilla, rank, false, SWITCH, &Watch::idle())
+}
+
+fn reach_keys(w: &World, fixed: &Placement, open: &[LocId], pool: &[ItemId], kinds: &[ItemId], allow: &dyn Fn(ItemId, LocId) -> bool, keys: &mut HM<ItemId, usize>) {
+    let prog: Vec<ItemId> = pool.iter().copied().filter(|i| w.items.adv[*i]).collect();
+    let mut base: Search = Search::new(w);
+    base.settle(fixed, true);
+    for i in kinds.iter().filter(|i| w.items.adv[**i]) {
+        let mut s: Search = base.clone();
+        let mut skip: bool = true;
+        for x in &prog {
+            if skip && x == i {
+                skip = false;
+                continue;
+            }
+            s.add(*x, 1);
+        }
+        s.settle(fixed, true);
+        let n: usize = open.iter().filter(|l| allow(*i, **l) && s.loc_access(**l)).count();
+        keys.insert(*i, n);
+    }
 }
 
 pub fn fill_ordered(
@@ -200,6 +226,7 @@ pub fn fill_ordered(
     plan: &[(LocId, ItemId)],
     check_vanilla: bool,
     rank: Option<&dyn Fn(LocId) -> usize>,
+    reach: bool,
     switch: u32,
     watch: &Watch,
 ) -> Res<Placement> {
@@ -235,7 +262,25 @@ pub fn fill_ordered(
     for i in &g.kinds {
         keys.insert(*i, open.iter().filter(|l| sorter(*i, **l)).count());
     }
-    let j: Job = Job { w, fixed: &fixed, free: &open, pool: &pool, allow, keys: &keys, rank };
+    if reach {
+        reach_keys(w, &fixed, &open, &pool, &g.kinds, sorter, &mut keys);
+    }
+    let mut at: Vec<usize> = vec![usize::MAX; w.locs.len()];
+    for (k, l) in open.iter().enumerate() {
+        at[*l] = k;
+    }
+    let mut kind: Vec<usize> = vec![usize::MAX; w.items.len()];
+    for (k, i) in g.kinds.iter().enumerate() {
+        kind[*i] = k;
+    }
+    let rk: Option<Vec<usize>> = rank.map(|r| {
+        let mut v: Vec<usize> = vec![0; w.locs.len()];
+        for l in &open {
+            v[*l] = r(*l);
+        }
+        v
+    });
+    let j: Job = Job { w, fixed: &fixed, free: &open, pool: &pool, g: &g, at: &at, kind: &kind, keys: &keys, rank: rk.as_deref() };
     let mut won: Vec<Placement> = Vec::new();
     let mut last: E = E::Format("no fill attempts were made");
     let base: u32 = tries.max(1);
