@@ -7,6 +7,7 @@ pub mod calibrate;
 pub mod cosmetic;
 pub mod sfx;
 pub mod catalog;
+pub mod catalog_free;
 pub mod colors;
 pub mod catalog_json;
 pub mod chest_size;

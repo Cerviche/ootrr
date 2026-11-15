@@ -347,9 +347,9 @@ mod tests {
         };
         let (all, seen): (usize, usize) = count_of("all");
         assert_eq!(seen, 33);
-        assert!(all >= 30, "{all}");
+        assert_eq!(all, 33);
         let (pieces, _): (usize, usize) = count_of("pieces");
-        assert!((14..=17).contains(&pieces), "{pieces}");
+        assert_eq!(pieces, 17);
         let p: Plan = plan(&on("pieces")).unwrap();
         let mut free: Vec<LocId> = Vec::new();
         let mut left: BM<String, usize> = BM::new();
