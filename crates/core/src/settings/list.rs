@@ -274,10 +274,11 @@ pub fn build() -> Schema {
             .opt("random", "Random prices", "Each scrub gets a random price."),
     );
     s.push(
-        where_checks(
-            Setting::choice(12, "shuffle_freestanding_items", "shuffle", "Freestanding items", "off")
-                .tip("Which rupees, hearts and heart pieces lying on the ground hold random items. Rupees, hearts, heart pieces, the two shields and every key item whose pickup pack is built can be placed there. A spot that exists once per age only takes items that can be found twice."),
-        ),
+        Setting::choice(12, "shuffle_freestanding_items", "shuffle", "Freestanding items", "off")
+            .tip("Which items lying on the ground hold random items. Rupees, hearts, heart pieces, the two shields and every key item whose pickup pack is built can be placed there. A spot that exists once per age only takes items that can be found twice.")
+            .opt("off", "Vanilla", "Every freestanding item keeps its original item.")
+            .opt("pieces", "Only Pieces of Heart", "Heart pieces on the ground and the three heart piece chests are shuffled. Rupees and recovery hearts on the ground stay as they are.")
+            .opt("all", "Every Freestanding Item", "Heart pieces, rupees and recovery hearts on the ground are all shuffled."),
     );
     s.push(
         Setting::list(13, "disabled_locations", "shuffle", "Excluded locations", 500)
@@ -416,7 +417,11 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(42, "faster_chests", "world", "Faster item pickups", false)
-            .tip("Shortens the waiting time in chest openings and item pickup scenes. The text and the item are the same, only the pauses are shorter."),
+            .tip("Shortens the waiting time in chest openings and item pickup scenes, and big chests open with the short small chest animation instead of the long big chest cutscene, like the OoTR option Fast Chest Cutscenes. The text, the item and the dungeon map, compass and boss key credit are the same."),
+    );
+    s.push(
+        Setting::toggle(45, crate::chest_size::SETTING, "world", "Chest size matches contents", false)
+            .tip("Chests holding major items, the items that can unlock progress, and boss keys become big chests, and chests holding anything else (rupees, ammo, hearts, maps, compasses and small keys) become small chests, like the OoTR option Chest Appearance Matches Contents. Only the plain wooden chests change; chests that run a story scene, invisible chests and the minigame chests keep their size. A big chest is wider than a small one, so a chest that grows may stand closer to a wall. Experimental, untested in the game."),
     );
     s.push(
         Setting::toggle(44, "skip_intro", "world", "Skip the opening cutscenes", true)

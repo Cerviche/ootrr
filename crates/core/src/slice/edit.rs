@@ -478,11 +478,35 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let gr: crate::dungeon_grant::Grants = crate::slice::dungeon_items::grants(&d, seed, &p)?;
     let mut marks: crate::dungeon_grant::Marks = crate::dungeon_grant::Marks::default();
     let mut edits: Vec<Edited> = Vec::new();
+    let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, p.chus) } else { BM::new() };
+    let mut resized_n: usize = 0;
     for f in banc_files(&rf)? {
-        let raw: Vec<u8> = rf.read_zs(&f)?;
-        let e: Option<Edited> = edit_file_with(&f, &raw, &ts, roam)?;
-        let e: Option<Edited> = crate::slice::dungeon_items::apply(&f, &raw, e, &gr, &mut marks)?;
-        if let Some(e) = crate::slice::skull_edit::apply(&f, &raw, e, &skull_drops, &mut skull_hit)? {
+        let vanilla: Vec<u8> = rf.read_zs(&f)?;
+        let resized: Option<Vec<u8>> = crate::chest_size::resize(&vanilla, &sizes)?.map(|(b, n)| {
+            resized_n += n;
+            b
+        });
+        let raw: &[u8] = resized.as_deref().unwrap_or(&vanilla);
+        let e: Option<Edited> = edit_file_with(&f, raw, &ts, roam)?;
+        let e: Option<Edited> = match (e, &resized) {
+            (Some(mut e), Some(_)) => {
+                e.old_len = vanilla.len();
+                Some(e)
+            }
+            (None, Some(b)) => Some(Edited {
+                file: f.clone(),
+                old_len: vanilla.len(),
+                bytes: b.clone(),
+                hits: Vec::new(),
+                used: Vec::new(),
+                hearts: Vec::new(),
+                wraps: Vec::new(),
+                touched: Vec::new(),
+            }),
+            (e, None) => e,
+        };
+        let e: Option<Edited> = crate::slice::dungeon_items::apply(&f, raw, e, &gr, &mut marks)?;
+        if let Some(e) = crate::slice::skull_edit::apply(&f, raw, e, &skull_drops, &mut skull_hit)? {
             edits.push(e);
         }
     }
@@ -704,8 +728,11 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         flows: flows.len() + placed.len(),
     };
     let mut notes: Vec<String> = p.notes.clone();
-    if p.world != crate::slice::support::Mode::Off && !seed.placements.keys().any(|k| pu::listed(&d, k)) {
-        notes.retain(|n| n != pu::NOTE);
+    if p.chest_sizes {
+        notes.push(crate::chest_size::report(resized_n));
+    }
+    if p.world.on() && !seed.placements.keys().any(|k| pu::listed(&d, k)) {
+        notes.retain(|n| !pu::is_note(n));
     }
     if !state.is_empty() {
         notes.push(format!(

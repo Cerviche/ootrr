@@ -157,7 +157,7 @@ mod tests {
         let mut packs: usize = 0;
         let sets: [(&str, &str, &str, &str, usize); 4] = [
             ("all", "all", "off", "off", 15),
-            ("overworld", "off", "all", "off", 15),
+            ("overworld", "pieces", "all", "off", 15),
             ("all", "all", "all", "off", 10),
             ("dungeons", "off", "off", "matched", 10),
         ];

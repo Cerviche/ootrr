@@ -11,7 +11,7 @@ use crate::settings::Settings;
 use crate::slice::data::Data;
 use crate::slice::edit::Target;
 use crate::slice::key_spots as ks;
-use crate::slice::support::{Mode, Plan};
+use crate::slice::support::Plan;
 use crate::world::{LocId, World};
 
 pub const SETTING: &str = "shuffle_freestanding_items";
@@ -21,6 +21,8 @@ pub const HELD: [(&str, bool); 3] = [
     ("GV Crate Freestanding PoH", false),
     ("Graveyard Dampe Race Freestanding PoH", true),
 ];
+
+pub const PIECES_NOTE: &str = "Freestanding heart pieces are shuffled. Heart pieces on the ground swap their actor for another world pickup, and three heart piece chests join the chest pool. Rupees and recovery hearts on the ground keep their items. Rupees, heart pieces, the two shields and every item with a built pickup pack can lie on the ground.";
 
 pub const NOTE: &str = "Freestanding items are shuffled. Heart pieces, rupees and recovery hearts on the ground swap their actor for another world pickup, and three heart piece chests join the chest pool. Rupees, recovery hearts, heart pieces, the two shields and every item with a built pickup pack can lie on the ground.";
 
@@ -61,19 +63,51 @@ pub fn keeps_out(d: &Data, name: &str, item: &str) -> bool {
     UNSURE.contains(&name) && d.vanilla_of(name) != Some(item) && d.item(item).is_some_and(|i| i.adv)
 }
 
-pub fn mode(s: &Settings, bad: &mut Vec<String>) -> Mode {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Free {
+    Off,
+    Pieces,
+    All,
+}
+
+impl Free {
+    pub fn on(self) -> bool {
+        self != Free::Off
+    }
+
+    pub fn note(self) -> Option<&'static str> {
+        match self {
+            Free::Off => None,
+            Free::Pieces => Some(PIECES_NOTE),
+            Free::All => Some(NOTE),
+        }
+    }
+
+    fn covers(self, l: &Loc) -> bool {
+        match self {
+            Free::Off => false,
+            Free::Pieces => l.kind == "heart" || is_held(&l.name),
+            Free::All => true,
+        }
+    }
+}
+
+pub fn is_note(n: &str) -> bool {
+    n == NOTE || n == PIECES_NOTE
+}
+
+pub fn mode(s: &Settings, bad: &mut Vec<String>) -> Free {
     match s.text(SETTING) {
-        Ok("off") => Mode::Off,
-        Ok("overworld") => Mode::Overworld,
-        Ok("dungeons") => Mode::Dungeons,
-        Ok("all") => Mode::All,
+        Ok("off") => Free::Off,
+        Ok("pieces") => Free::Pieces,
+        Ok("all") => Free::All,
         Ok(v) => {
             bad.push(format!("{SETTING} is {v}, which is not a known choice"));
-            Mode::Off
+            Free::Off
         }
         Err(e) => {
             bad.push(e.to_string());
-            Mode::Off
+            Free::Off
         }
     }
 }
@@ -161,17 +195,8 @@ fn count(left: &mut BM<String, usize>, why: &str) {
     *left.entry(why.to_string()).or_insert(0) += 1;
 }
 
-fn mode_ok(m: Mode, dungeon: bool) -> bool {
-    match m {
-        Mode::Off => false,
-        Mode::Overworld => !dungeon,
-        Mode::Dungeons => dungeon,
-        Mode::All => true,
-    }
-}
-
 pub fn select(d: &Data, w: &World, p: &Plan, free: &mut Vec<LocId>, left: &mut BM<String, usize>, flow: &mut usize) {
-    if p.world == Mode::Off {
+    if !p.world.on() {
         return;
     }
     let mut names: Vec<&Loc> = d.cat.locs.iter().filter(|l| is_world(l) || is_held(&l.name)).collect();
@@ -182,9 +207,8 @@ pub fn select(d: &Data, w: &World, p: &Plan, free: &mut Vec<LocId>, left: &mut B
             count(left, "location is not in the logic world");
             continue;
         };
-        let dungeon: bool = w.regions[w.locs[x].region].dungeon.is_some();
-        if !mode_ok(p.world, dungeon) {
-            count(left, "freestanding item shuffle does not cover its area");
+        if !p.world.covers(l) {
+            count(left, "freestanding item shuffle does not cover its kind");
         } else if held(&l.name) == Some(true) && !d.event_ok(&l.name) {
             count(left, "chest runs a story event that can grant its own item");
         } else if !pool_ready(d, w, l) {
@@ -324,8 +348,17 @@ mod tests {
         let (all, seen): (usize, usize) = count_of("all");
         assert_eq!(seen, 33);
         assert!(all >= 30, "{all}");
-        assert_eq!(count_of("overworld").0, all);
-        assert_eq!(count_of("dungeons").0, 0);
+        let (pieces, _): (usize, usize) = count_of("pieces");
+        assert!((14..=17).contains(&pieces), "{pieces}");
+        let p: Plan = plan(&on("pieces")).unwrap();
+        let mut free: Vec<LocId> = Vec::new();
+        let mut left: BM<String, usize> = BM::new();
+        let mut flow: usize = 0;
+        select(&d, &w, &p, &mut free, &mut left, &mut flow);
+        for l in &free {
+            let name: &str = &w.locs[*l].name;
+            assert!(is_held(name) || d.vanilla_of(name).is_some_and(|v| v.starts_with("Piece of Heart")), "{name}");
+        }
     }
 
     #[test]
@@ -410,8 +443,20 @@ mod tests {
             }
             assert!(g.report.contains(NOTE));
         }
-        let g: Generated = generate_data(&d, &on("dungeons"), "unsure dungeons", &GenOpts::default()).unwrap();
-        let any: bool = g.seed_file.placements.keys().any(|k| listed(&d, k));
-        assert_eq!(g.report.contains(NOTE), any);
+    }
+
+    #[test]
+    fn heart_pieces_only_leaves_rupees_and_recovery_hearts_alone() {
+        let d: Data = Data::load().unwrap();
+        for n in 0..4 {
+            let g: Generated = generate_data(&d, &on("pieces"), &format!("pieces {n}"), &GenOpts::default()).unwrap();
+            for (loc, item) in &g.seed_file.placements {
+                if let Some(l) = d.cat.by_name(loc).filter(|l| is_world(l)) {
+                    assert_eq!(l.kind, "heart", "{loc} holds {item}");
+                }
+                assert_ne!(item, "Recovery Heart", "{loc}");
+            }
+            assert!(g.report.contains(PIECES_NOTE) && !g.report.contains(NOTE));
+        }
     }
 }

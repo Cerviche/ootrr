@@ -33,7 +33,8 @@ Everything is optional and off unless noted. All of these are experimental and s
 - Boss heart containers as chests, and songs shuffled among the song teachers or anywhere.
 - Gossip stones that tell you where an important item lies, without the Mask of Truth.
 - Start with one random Spiritual Stone or Medallion.
-- Faster chest and item pickup scenes.
+- Faster chest and item pickup scenes. Big chests also open with the short small chest scene: the big chest flow hands over to a copy of the small chest flow that lifts the big lid, then gives the dungeon map, compass and boss key credit the big chest flow would. `ootrr qol-mod <romfs> <load> <name> big-chest-anim` writes a test mod with only that change.
+- Chest size matches contents (experimental, untested in the game): plain wooden chests holding major items and boss keys become big chests, the rest become small ones. Chests that run a story scene, invisible chests and minigame chests keep their model.
 - Skip the opening cutscenes (on by default): a new game goes straight to the first moment you control Link, and the first-visit scenes of eighteen areas that only show the place are marked as played. The arrival scenes that advance a quest step (the Deku Tree, Zora's Domain, the Lost Woods, the Desert Colossus) and the Water Temple's are left alone.
 - Small keys in any dungeon or anywhere, counted for the dungeon each key belongs to (experimental).
 - Kokiri Forest can start open (open, or open exit with the Deku Tree still closed). An open Kakariko gate needs the forest exit open: its story state takes Mido away while the exit wall would stay, so with a closed forest the gate setting falls back to Zelda's Letter, and a seed that starts with Zelda's Letter or her Lullaby next to an open gate is refused.

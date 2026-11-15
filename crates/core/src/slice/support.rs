@@ -65,10 +65,11 @@ pub struct Plan {
     pub scrubs: bool,
     pub scrubs_b: bool,
     pub hearts: bool,
-    pub world: Mode,
+    pub world: pu::Free,
     pub songs: Songs,
     pub hints: bool,
     pub fast: bool,
+    pub chest_sizes: bool,
     pub intro: bool,
     pub start: Reward,
     pub forest: Forest,
@@ -259,7 +260,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         Err(e) => bad.push(e.to_string()),
     }
     let chests: Mode = chest_mode(s, &mut bad);
-    let world: Mode = pu::mode(s, &mut bad);
+    let world: pu::Free = pu::mode(s, &mut bad);
     let drops: crate::pot_slice::Drops = crate::pot_slice::plan::read(s, &mut bad);
     let small: Keep = keep(s, "shuffle_smallkeys", &SMALL_OK, &mut bad);
     let boss: Keep = keep(s, "shuffle_bosskeys", &di::BOSS_OK, &mut bad);
@@ -394,6 +395,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let skulls: crate::slice::skulls::Mode = crate::slice::skulls::mode(s, &mut bad);
     let remake: bool = crate::slice::remake_chests::mode(s, &mut bad);
     let chus: bool = crate::slice::bombchus::mode(s, &mut bad);
+    let chest_sizes: bool = crate::chest_size::mode(s, &mut bad);
     let qol: crate::qol::Opts = crate::qol::read(s, &mut bad);
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
@@ -418,7 +420,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     for (on, text) in [
         (hearts, "Boss Heart Containers are shuffled. Each becomes a chest."),
         (songs != Songs::Off, "Songs are shuffled. The song lessons are edited."),
-        (world != Mode::Off, pu::NOTE),
+        (world.on(), world.note().unwrap_or_default()),
         (fast, "Chest and item pickup scenes are sped up."),
         (intro, "The new game intro is skipped. The opening movie and the wake up scene are bypassed, and the harmless first-visit scenes of the areas are marked as played."),
         (start != Reward::Off, "You start the game with one random Stone or Medallion."),
@@ -445,7 +447,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if skulls != crate::slice::skulls::Mode::Off {
         notes.push(crate::slice::skulls::NOTE.to_string());
     }
-    if world != Mode::Off || drops.any() || skulls != crate::slice::skulls::Mode::Off {
+    if world.on() || drops.any() || skulls != crate::slice::skulls::Mode::Off {
         notes.push(crate::slice::key_spots::NOTE.to_string());
     }
     if drops.pots != Mode::Off {
@@ -464,6 +466,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if chus {
         notes.push(crate::slice::bombchus::NOTE.to_string());
     }
+    if chest_sizes {
+        notes.push(crate::chest_size::NOTE.to_string());
+    }
     notes.extend(qol.notes());
     notes.extend(crate::npc_hints::note(&npc));
     notes.extend(kit.notes.iter().cloned());
@@ -475,7 +480,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::deku_bridge::NOTE.to_string());
     }
     notes.extend(shops.notes());
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, scrubs, scrubs_b, hearts, world, songs, hints, fast, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge })
 }
 
 #[cfg(test)]
