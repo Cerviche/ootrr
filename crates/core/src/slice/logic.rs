@@ -379,12 +379,13 @@ mod tests {
     #[test]
     fn every_remake_small_key_door_costs_its_place_in_the_chain() {
         let d: Data = Data::load().unwrap();
-        let locks: [(&str, usize, &str); 10] = [
+        let locks: [(&str, usize, &str); 11] = [
             ("Small Key (Forest Temple)", 1, "Forest Temple First Stalfos Chest"),
             ("Small Key (Forest Temple)", 1, "Forest Temple Central Area"),
             ("Small Key (Forest Temple)", 2, "Forest Temple Eye Switch Chest"),
             ("Small Key (Forest Temple)", 3, "Forest Temple Boss Key Chest"),
             ("Small Key (Forest Temple)", 3, "Forest Temple Bow Chest"),
+            ("Small Key (Forest Temple)", 4, "Forest Temple Blue Poe Chest"),
             ("Small Key (Shadow Temple)", 5, "Shadow Temple Boss Key Chest"),
             ("Small Key (Shadow Temple)", 5, "Shadow Temple Spike Walls Left Chest"),
             ("Small Key (Fire Temple)", 8, "Fire Temple Boss Key Chest"),
