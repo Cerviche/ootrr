@@ -144,7 +144,7 @@ mod tests {
     fn the_committed_catalog_lists_every_freestanding_age_by_its_files() {
         let d: Data = Data::load().unwrap();
         let mut n: usize = 0;
-        for l in d.cat.locs.iter().filter(|l| matches!(l.kind.as_str(), "heart" | "freestanding")) {
+        for l in d.cat.locs.iter().filter(|l| matches!(l.kind.as_str(), "heart" | "freestanding") && !crate::spots::free::is(&d, &l.name)) {
             let fs: Vec<&str> = l.refs.iter().flat_map(|r| r.files.iter().map(|f| f.as_str())).collect();
             let a: bool = fs.iter().any(|f| f.contains("_Adult"));
             let c: bool = fs.iter().any(|f| f.contains("_Child"));
@@ -162,7 +162,8 @@ mod tests {
     #[test]
     fn the_freestanding_catalog_counts_are_pinned() {
         let d: Data = Data::load().unwrap();
-        let by = |k: &str, c: Conf| d.cat.locs.iter().filter(|l| l.kind == k && l.conf == c).count();
+        let by = |k: &str, c: Conf| d.cat.locs.iter().filter(|l| l.kind == k && l.conf == c && !crate::spots::free::is(&d, &l.name)).count();
+        assert_eq!(d.cat.locs.iter().filter(|l| crate::spots::free::is(&d, &l.name)).count(), 98);
         assert_eq!((by("heart", Conf::Item), by("heart", Conf::Forced), by("heart", Conf::Pool)), (6, 8, 0));
         assert_eq!((by("freestanding", Conf::Item), by("freestanding", Conf::Forced), by("freestanding", Conf::Pool)), (0, 1, 15));
         let gap: Vec<&crate::catalog::GapRem> = d.cat.gap_rem.iter().filter(|g| g.kind == "freestanding").collect();

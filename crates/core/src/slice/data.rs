@@ -279,7 +279,7 @@ impl Data {
     }
 
     pub fn load() -> Res<Data> {
-        Data::new(ITEMS_JSON, VANILLA_JSON, SLICE_JSON, CATALOG_JSON)?.with_events(EVENTS_JSON)?.with_remake(REMAKE_JSON)?.with_flow()?.with_pots()
+        Data::new(ITEMS_JSON, VANILLA_JSON, SLICE_JSON, CATALOG_JSON)?.with_events(EVENTS_JSON)?.with_remake(REMAKE_JSON)?.with_flow()?.with_pots()?.with_free()
     }
 
     pub fn event_mode(&self, hash: u64) -> Option<Ev> {

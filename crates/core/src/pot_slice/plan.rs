@@ -83,7 +83,7 @@ impl Drops {
             out.push("Grass tufts hold shuffled items. The adult and the child copy of a tuft are two checks. Grass takes only rupees, hearts, ammo and other refills. A shuffled tuft gives its item once and stays cut. Bug grass in the Lost Woods is left alone. Experimental and untested in the game.".to_string());
         }
         if self.remake != Mode::Off {
-            out.push("19 pots that only the remake has hold shuffled items, in Dodongo's Cavern, the Fire, Forest, Shadow and Water Temples, the Ice Cavern and, as an adult, the Gerudo Valley storms grotto. They take only rupees, hearts, ammo and other refills, because their logic region comes from the room data and was never checked in the game. A shuffled pot gives its item once, its saved row is made permanent. Experimental and untested in the game.".to_string());
+            out.push("Pots, crates and flying pots that only the remake has hold shuffled items, key items included. Their logic region comes from the room data and the nearest known checks, the harder one where two fit, and was never checked in the game, so report a spot that the logic expects too early. A shuffled pot gives its item once, its saved row is made permanent. Experimental and untested in the game.".to_string());
         }
         out
     }

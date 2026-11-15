@@ -58,9 +58,6 @@ pub fn targets_with(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Re
         if kit && k != Kind::Pot {
             return Err(E::Msg(format!("{loc} is a crate, a flying pot or a beehive, it has no variant that keeps {item} until it is picked up")));
         }
-        if kit && d.pots.is_remake(loc) {
-            return Err(E::Msg(format!("{loc} is a remake only pot whose logic region is not checked in the game, it takes refills only")));
-        }
         for r in &l.refs {
             out.push(Give { name: loc.clone(), kind: k, hash: r.hash, files: r.files.clone(), was: l.item.clone(), item: item.clone(), actor: actor.clone(), kit });
         }

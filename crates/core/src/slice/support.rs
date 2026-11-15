@@ -231,6 +231,9 @@ impl Plan {
         if self.drops.remake != Mode::Off {
             out.push((crate::pot_slice::remake::KEY, crate::pot_slice::remake::ON));
         }
+        if self.world == crate::slice::pickups::Free::All {
+            out.push((crate::spots::free::KEY, crate::spots::free::ON));
+        }
         if self.dungeon_rewards {
             out.push((crate::medal_gate::LOGIC_KEY, "true"));
         }

@@ -268,7 +268,7 @@ pub fn build() -> Schema {
     s.push(
         where_checks(
             Setting::choice(92, crate::pot_slice::remake::SETTING, "shuffle", "Remake only pots", "off")
-                .tip("Which of the 19 pots that only the remake has, with no pot of the original game at their spot, hold random items. They sit in Dodongo's Cavern, the Fire, Forest, Shadow and Water Temples, the Ice Cavern and, as an adult, the Gerudo Valley storms grotto. They hold only rupees, hearts and ammo, because their logic region comes from the room data. Experimental, untested in the game."),
+                .tip("Which of the 213 pots, crates and flying pots that only the remake has, with no spot of the original game matched to them, hold random items. They sit in every dungeon but the Deku Tree and the Gerudo Training Ground, and in Kakariko, the Market, the hideout, the fortress, Lon Lon Ranch, Zora's River and Fountain and more. Their logic region comes from the room data and the nearest known checks, the harder one where two fit, so a few may be logically placed too early. They hold the same items as the other pots and crates, key items included. Experimental, untested in the game."),
         ),
     );
     s.push(
@@ -284,7 +284,7 @@ pub fn build() -> Schema {
             .tip("Which items lying on the ground hold random items. Rupees, hearts, heart pieces, the two shields and every key item whose pickup pack is built can be placed there. A spot that exists once per age only takes items that can be found twice.")
             .opt("off", "Vanilla", "Every freestanding item keeps its original item.")
             .opt("pieces", "Only Pieces of Heart", "Heart pieces on the ground and the three heart piece chests are shuffled. Rupees and recovery hearts on the ground stay as they are.")
-            .opt("all", "Every Freestanding Item", "Heart pieces, rupees and recovery hearts on the ground are all shuffled."),
+            .opt("all", "Every Freestanding Item", "Heart pieces, rupees and recovery hearts on the ground are all shuffled, also the 98 rupees and hearts that only the remake has, whose logic region comes from the nearest known checks."),
     );
     s.push(
         Setting::list(13, "disabled_locations", "shuffle", "Excluded locations", 500)

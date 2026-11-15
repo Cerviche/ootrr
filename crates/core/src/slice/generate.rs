@@ -1153,8 +1153,8 @@ mod tests {
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "a131002f74c6dd72eb9e521304f3cb01205103b640d91df77e6ddf6e760fd180"),
             (on.clone(), "OOTRR1-EYAQD32I", "pin a", "4dbd24d29adf7f22243e98aed0233645e24860fd66a0059ee46f5091e25f1a6b"),
             (on.clone(), "OOTRR1-EYAQD32I", "pin b", "ef0ec2ba2e06aa59dba24d17b68c57367b7b8ae131263432d57c6fb62a551ec7"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "6484abf46790795a8d65afa76e2e78bac07a00413e7a5991461c2eab508cdbe7"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "80ad5e165800efe84e47fe39df0dcbca301861519292c1290532dde04f4d27ca"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "eb874f8f560f97a243e6cc23ab09ef5a7548991fc3c0ca808123338685d3e433"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "4a2cc8fa5abd3e70e0b599d0fb4afb600feb08e132324635ed6e13edeb27d9a9"),
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
@@ -1191,10 +1191,10 @@ mod tests {
         both.set("shuffle_pots", Value::s("all")).unwrap();
         both.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str); 4] = [
-            (hives.clone(), "pin a", "952e0c00515fbbf923194eb906910b661ea9bc9e39b6594c1728042adc449b5e"),
-            (hives.clone(), "pin b", "c3da904b4607f1e516df4338f39ae408c0ee8129da38a62426529896a05d272f"),
-            (both.clone(), "pin a", "2c0fae7b1e447c580e07e0eaee85d646d6caaa1bf175e606603bc19f9a452cbe"),
-            (both.clone(), "pin b", "b52c95f21d2eff934bf929a95d90247b8b3f5c11607d33dd4164ebf4b43f0ee0"),
+            (hives.clone(), "pin a", "9006546997b051c3fe823fd1d6f897af4f783998015bf9c84c19188ee64912a3"),
+            (hives.clone(), "pin b", "baea14e72b432a90e67269301bd369ac0645ee76b38086ae7f9d6142c423452a"),
+            (both.clone(), "pin a", "87b5b9804393c0406b76e4f1bf75f94da3823ad5137281316f2f1e40abd55097"),
+            (both.clone(), "pin b", "c36eef92d72f5dfa3b9a9b0c38b278a5573b993f6e511761a3e0b93ea8d57f01"),
         ];
         for (s, seed, sum) in cases {
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();

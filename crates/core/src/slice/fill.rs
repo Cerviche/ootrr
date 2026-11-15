@@ -62,7 +62,7 @@ fn once(j: &Job, rng: &mut Rng) -> Res<Placement> {
     assumed.add_all(&prog);
     for it in items {
         rng.shuffle(&mut open);
-        if let Some(r) = j.rank {
+        if let Some(r) = j.rank.filter(|_| !w.items.adv[it]) {
             open.sort_by_key(|l| r[*l]);
         }
         let pick: Option<usize> = if w.items.adv[it] {
@@ -112,7 +112,7 @@ fn once_fit(j: &Job, g: &Grid, rng: &mut Rng) -> Res<Placement> {
     for p in items {
         let it: ItemId = j.pool[p];
         rng.shuffle(&mut open);
-        if let Some(r) = j.rank {
+        if let Some(r) = j.rank.filter(|_| !w.items.adv[it]) {
             open.sort_by_key(|x| r[j.free[*x]]);
         }
         let mx: Option<Search> = if w.items.adv[it] {

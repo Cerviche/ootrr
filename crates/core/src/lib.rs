@@ -88,6 +88,7 @@ pub mod start_reward;
 pub mod start_state;
 pub mod songs;
 pub mod spoiler;
+pub mod spots;
 pub mod staging;
 pub mod teleport;
 pub mod teleport_dest;

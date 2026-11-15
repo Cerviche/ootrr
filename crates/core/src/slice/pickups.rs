@@ -288,7 +288,7 @@ mod tests {
     #[test]
     fn every_world_location_is_in_the_logic_with_a_pickup_for_its_vanilla_item() {
         let d: Data = Data::load().unwrap();
-        let w: World = world(&d).unwrap();
+        let w: World = crate::slice::logic::world_with(&d, &crate::spots::FULL).unwrap();
         let mut n: usize = 0;
         for l in d.cat.locs.iter().filter(|l| is_world(l)) {
             n += 1;
@@ -297,7 +297,7 @@ mod tests {
             assert!(world_actor(v).is_some(), "{} holds {v}", l.name);
             assert!(!l.refs.is_empty() && l.refs.iter().all(|r| !r.files.is_empty()), "{}", l.name);
         }
-        assert_eq!(n, 14 + 7 + 8 + 1);
+        assert_eq!(n, 14 + 7 + 8 + 1 + 98);
         for (name, _) in HELD {
             let l: &Loc = d.cat.by_name(name).unwrap();
             assert_eq!((l.kind.as_str(), l.via), ("chest", Via::Drop), "{name}");
@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn the_setting_opens_the_checks_by_area_and_pool() {
         let d: Data = Data::load().unwrap();
-        let w: World = world(&d).unwrap();
+        let w: World = crate::slice::logic::world_with(&d, &crate::spots::FULL).unwrap();
         let count_of = |v: &str| {
             let p: Plan = plan(&on(v)).unwrap();
             let mut free: Vec<LocId> = Vec::new();
@@ -346,8 +346,8 @@ mod tests {
             (free.len(), flow)
         };
         let (all, seen): (usize, usize) = count_of("all");
-        assert_eq!(seen, 33);
-        assert_eq!(all, 33);
+        assert_eq!(seen, 33 + 98);
+        assert_eq!(all, 33 + 98);
         let (pieces, _): (usize, usize) = count_of("pieces");
         assert_eq!(pieces, 17);
         let p: Plan = plan(&on("pieces")).unwrap();
@@ -366,7 +366,7 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let s: Settings = on("all");
         let p: Plan = plan(&s).unwrap();
-        let w: World = world(&d).unwrap();
+        let w: World = crate::slice::logic::world_with(&d, &p.logic()).unwrap();
         let mut hearts: usize = 0;
         for n in 0..5 {
             let g: Generated = generate_data(&d, &s, &format!("world {n}"), &GenOpts::default()).unwrap();

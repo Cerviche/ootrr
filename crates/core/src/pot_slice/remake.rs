@@ -21,8 +21,8 @@ pub const MARK: &str = "remake";
 pub fn locs() -> Res<Vec<Loc>> {
     let c: Catalog = Catalog::parse(CATALOG_JSON)?;
     for l in &c.locs {
-        if !matches!(Kind::of(&l.kind), Some(Kind::Pot | Kind::Crate)) {
-            return Err(E::Msg(format!("remake pot catalog: {} has the kind {}, which is not pot or crate", l.name, l.kind)));
+        if !matches!(Kind::of(&l.kind), Some(Kind::Pot | Kind::Crate | Kind::Flying)) {
+            return Err(E::Msg(format!("remake pot catalog: {} has the kind {}, which is not pot, crate or flying pot", l.name, l.kind)));
         }
         if l.refs.len() != 1 || l.refs.iter().any(|r| r.files.len() != 1) {
             return Err(E::Msg(format!("remake pot catalog: {} must own exactly one actor in one file", l.name)));
@@ -104,15 +104,20 @@ mod tests {
     fn the_catalog_counts_are_pinned_and_no_hash_is_held_twice() {
         let d: Data = Data::load().unwrap();
         let ls: Vec<Loc> = locs().unwrap();
-        assert_eq!(ls.len(), 19);
-        assert!(ls.iter().all(|l| l.kind == "pot" && l.conf == crate::catalog::Conf::Forced));
+        assert_eq!(ls.len(), 213);
+        assert!(ls.iter().all(|l| l.conf == crate::catalog::Conf::Forced));
         let mut by: BM<&str, usize> = BM::new();
+        let mut kinds: BM<&str, usize> = BM::new();
         for l in &ls {
             *by.entry(l.area.as_str()).or_insert(0) += 1;
+            *kinds.entry(l.kind.as_str()).or_insert(0) += 1;
         }
+        assert_eq!((kinds["pot"], kinds["crate"], kinds["flying_pot"]), (173, 30, 10));
         assert_eq!(by.get("Gerudo Valley"), Some(&4));
-        assert_eq!(by.get("Fire Temple"), Some(&4));
-        assert_eq!(by.get("Shadow Temple"), Some(&3));
+        assert_eq!(by.get("Fire Temple"), Some(&10));
+        assert_eq!(by.get("Shadow Temple"), Some(&18));
+        assert_eq!(by.get("Kakariko Village"), Some(&31));
+        assert_eq!(ls[..19].iter().filter(|l| l.kind == "pot").count(), 19);
         let mine: HS<u64> = ls.iter().map(|l| l.refs[0].hash).collect();
         assert_eq!(mine.len(), ls.len());
         for l in d.cat.locs.iter().chain(d.pots.locs.iter().filter(|l| !d.pots.is_remake(&l.name))) {
@@ -167,26 +172,30 @@ mod tests {
             assert!(s.loc_access(w.loc(&sp.name).unwrap()), "{}", sp.name);
         }
         let sp: Vec<Spot> = spots().unwrap();
-        assert!(sp.iter().all(|s| !s.name.contains(" Child ")));
-        assert!(sp.iter().filter(|s| s.name.contains(" Adult ")).all(|s| s.rule == "is_adult"));
+        assert!(sp.iter().filter(|s| s.name.contains(" Child ")).all(|s| s.rule.starts_with("is_child")));
+        assert!(sp.iter().filter(|s| s.name.contains(" Adult ")).all(|s| s.rule.starts_with("is_adult")));
+        assert!(sp.iter().filter(|s| s.name.contains(" Remake Crate ")).all(|s| s.rule.contains("can_break_crate")));
     }
 
     #[test]
-    fn remake_pots_take_refills_only() {
+    fn remake_spots_take_what_a_matched_spot_of_their_kind_takes() {
         let d: Data = Data::load().unwrap();
-        let w: World = on_world(&d);
-        let p: Plan = plan(&with(&[(SETTING, "all"), ("shuffle_pots", "all")])).unwrap();
+        let w: World = world_with(&d, &crate::spots::FULL).unwrap();
+        let p: Plan = plan(&with(&[(SETTING, "all"), ("shuffle_pots", "all"), ("shuffle_crates", "all")])).unwrap();
         let ok = |item: &str, loc: &str| allowed(&d, &w, &p, w.item(item).unwrap(), w.loc(loc).unwrap());
-        for loc in ["Fire Temple Near Boss Remake Pot 1", "GV Storms Grotto Adult Remake Pot 1"] {
-            assert!(ok("Rupees (20)", loc), "{loc}");
-            assert!(ok("Recovery Heart", loc), "{loc}");
-            assert!(!ok("Progressive Hookshot", loc), "{loc}");
-            assert!(!ok("Megaton Hammer", loc), "{loc}");
-            assert!(!ok("Fire Arrows", loc), "{loc}");
-            assert!(!ok("Gold Skulltula Token", loc), "{loc}");
-            assert!(!ok("Small Key (Fire Temple)", loc), "{loc}");
+        let items: [&str; 8] = ["Rupees (20)", "Recovery Heart", "Progressive Hookshot", "Megaton Hammer", "Fire Arrows", "Gold Skulltula Token", "Heart Container", "Small Key (Fire Temple)"];
+        for (mine, theirs) in [
+            ("Fire Temple Near Boss Remake Pot 1", "Dodongos Cavern Right Side Pot 1"),
+            ("GV Storms Grotto Adult Remake Pot 1", "Dodongos Cavern Right Side Pot 1"),
+            ("Kakariko Village Adult Remake Pot 1", "Dodongos Cavern Right Side Pot 1"),
+            ("Gerudo Fortress Adult Remake Crate 1", "GC Boulder Maze Crate"),
+        ] {
+            for i in items {
+                assert_eq!(ok(i, mine), ok(i, theirs), "{i} at {mine}");
+            }
         }
-        assert!(ok("Megaton Hammer", "Dodongos Cavern Right Side Pot 1"));
+        assert!(ok("Megaton Hammer", "Fire Temple Near Boss Remake Pot 1"));
+        assert!(ok("Rupees (20)", "Hideout Break Room Adult Remake Flying Pot 1"));
     }
 
     #[test]
@@ -212,6 +221,7 @@ mod tests {
     fn remake_pot_seeds_are_beatable_and_keep_to_the_rules() {
         let d: Data = Data::load().unwrap();
         let mut moved: usize = 0;
+        let mut keys: usize = 0;
         for (remake, pots) in [("all", "off"), ("dungeons", "all"), ("overworld", "off")] {
             let s: Settings = with(&[(SETTING, remake), ("shuffle_pots", pots)]);
             let p: Plan = plan(&s).unwrap();
@@ -225,7 +235,10 @@ mod tests {
                         continue;
                     }
                     here += 1;
-                    assert!(!crate::pot_slice::pickup::holds(item), "{loc} holds {item}");
+                    assert_eq!(crate::pot_slice::rules::at(&d, loc, item), Some(true), "{loc} holds {item}");
+                    if d.item(item).is_some_and(|i| i.adv) {
+                        keys += 1;
+                    }
                     let dungeon: bool = w.regions[w.locs[w.loc(loc).unwrap()].region].dungeon.is_some();
                     assert!(remake == "all" || (remake == "dungeons") == dungeon, "{loc} under {remake}");
                     if d.vanilla_of(loc) != Some(item.as_str()) {
@@ -233,14 +246,15 @@ mod tests {
                     }
                 }
                 let want: usize = match remake {
-                    "all" => 19,
-                    "dungeons" => 15,
-                    _ => 4,
+                    "all" => 213,
+                    "dungeons" => 113,
+                    _ => 100,
                 };
                 assert_eq!(here, want, "{remake} {pots} {n}");
             }
         }
-        assert!(moved > 5, "{moved}");
+        assert!(moved > 50, "{moved}");
+        assert!(keys > 0, "{keys}");
     }
 
     #[test]
@@ -253,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn a_remake_pot_never_gets_a_pot_kit() {
+    fn a_remake_pot_gets_the_pot_kit_like_any_pot() {
         use crate::settings::seed::SeedFile;
         let d: Data = Data::load().unwrap();
         let one = |item: &str| {
@@ -263,7 +277,8 @@ mod tests {
         let t = one("Rupees (50)").unwrap();
         assert_eq!(t.len(), 1);
         assert!(!t[0].kit && t[0].actor == "Obj_Rupee_Purple");
-        assert!(one("Megaton Hammer").is_err());
+        let k = one("Megaton Hammer").unwrap();
+        assert!(k.len() == 1 && k[0].kit && k[0].actor == "Obj_Hammer_GS", "{k:?}");
     }
 
     fn real() -> Option<std::path::PathBuf> {
