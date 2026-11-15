@@ -31,8 +31,10 @@ pub mod song_spots;
 pub mod starts;
 pub mod support;
 pub mod swap_guard;
+pub mod tier_census;
 pub mod tier_fix;
 pub mod tier_order;
+pub mod tier_sim;
 pub mod treasure;
 pub mod watch;
 
