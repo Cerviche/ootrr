@@ -9,6 +9,7 @@ pub mod sfx;
 pub mod catalog;
 pub mod colors;
 pub mod catalog_json;
+pub mod chest_size;
 pub mod chest_slot;
 pub mod door_fix;
 pub mod door_open;

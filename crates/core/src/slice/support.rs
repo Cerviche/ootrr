@@ -68,6 +68,7 @@ pub struct Plan {
     pub songs: Songs,
     pub hints: bool,
     pub fast: bool,
+    pub chest_sizes: bool,
     pub intro: bool,
     pub start: Reward,
     pub forest: Forest,
@@ -383,6 +384,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let skulls: crate::slice::skulls::Mode = crate::slice::skulls::mode(s, &mut bad);
     let remake: bool = crate::slice::remake_chests::mode(s, &mut bad);
     let chus: bool = crate::slice::bombchus::mode(s, &mut bad);
+    let chest_sizes: bool = crate::chest_size::mode(s, &mut bad);
     let qol: crate::qol::Opts = crate::qol::read(s, &mut bad);
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
@@ -450,6 +452,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if chus {
         notes.push(crate::slice::bombchus::NOTE.to_string());
     }
+    if chest_sizes {
+        notes.push(crate::chest_size::NOTE.to_string());
+    }
     notes.extend(qol.notes());
     notes.extend(crate::npc_hints::note(&npc));
     notes.extend(kit.notes.iter().cloned());
@@ -457,7 +462,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::slice::treasure::NOTE.to_string());
     }
     notes.extend(open.notes()?);
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, scrubs, scrubs_b, hearts, world, songs, hints, fast, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc })
 }
 
 #[cfg(test)]
