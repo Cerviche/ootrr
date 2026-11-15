@@ -162,18 +162,17 @@ pub fn verify(romfs: &P, root: &P, want: Option<&[Diff]>) -> Res<Checked> {
     for n in flow_files(&dir)? {
         let path: String = format!("Event/EventFlow/{n}");
         let z: Vec<u8> = fs::read(dir.join(&n))?;
-        let oz: Vec<u8> = rf.read(&path)?;
-        if dict_id(&z) != dict_id(&oz) {
+        let base: String = n.trim_end_matches(".zs").to_string();
+        let (ro, oid): (Vec<u8>, Option<u32>) = crate::cow_clone::read(&mut rf, &base)?;
+        if dict_id(&z) != oid {
             c.problems.push(format!("{n}: the zstd dictionary id differs from the original"));
         }
         let rb: Vec<u8> = rf.zs.decompress(&z)?;
-        let ro: Vec<u8> = rf.zs.decompress(&oz)?;
         let b: Bf = Bf::parse(&rb)?;
         let a: Bf = Bf::parse(&ro)?;
         if b.write()? != rb {
             c.problems.push(format!("{n}: the file is not in the canonical layout"));
         }
-        let base: String = n.trim_end_matches(".zs").to_string();
         let (d, bad): (Vec<Diff>, Vec<String>) = compare(&base, &a, &b);
         c.diffs.extend(d);
         c.problems.extend(bad);

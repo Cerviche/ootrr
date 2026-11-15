@@ -142,6 +142,10 @@ pub fn spec(item: &str, a: &[String]) -> Res<(Spec, Layers)> {
                 }
                 2
             }
+            ("--model-from", Some(v)) => {
+                l.model = Some(v.to_string());
+                2
+            }
             ("--heap", Some(v)) => {
                 s.heap = Some(v.parse().map_err(|_| E::Msg(format!("pickup pack catalog: {v} is not a heap size")))?);
                 2
@@ -203,7 +207,7 @@ mod tests {
         let all: Vec<Entry> = load().unwrap();
         assert!(all.len() >= 60, "{}", all.len());
         for e in &all {
-            assert!(["A", "B", "C", "D", "E"].contains(&e.group.as_str()), "{}", e.item);
+            assert!(["A", "B", "C", "D", "E", "S"].contains(&e.group.as_str()), "{}", e.item);
             for (a, st) in e.builds() {
                 if !st.ready() {
                     continue;
@@ -227,7 +231,7 @@ mod tests {
         assert!(l.plain());
         let (s, l): (Spec, Layers) = spec("Item_Bottle_Letter", &strs(&["--name", "Obj_Bottle_LetterLand", "--tag", "LetterBottle", "--tag", "LetterBottle"])).unwrap();
         assert_eq!(s.name, "Obj_Bottle_LetterLand");
-        assert_eq!(l, Layers { tags: strs(&["LetterBottle"]), ammo: false, magic: false });
+        assert_eq!(l, Layers { tags: strs(&["LetterBottle"]), ammo: false, magic: false, model: None });
         let (s, l): (Spec, Layers) = spec("Item_Range_Bow", &strs(&["--ammo", "--magic", "--press"])).unwrap();
         assert_eq!(s.style, Style::Press);
         assert!(l.ammo && l.magic);

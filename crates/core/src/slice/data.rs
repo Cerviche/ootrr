@@ -4,7 +4,7 @@ use crate::catalog::Catalog;
 use crate::flow_locations::Data as FlowData;
 use crate::error::{Error as E, Res};
 use crate::json::{self, Json};
-use crate::progressive::{family_of, Grant};
+use crate::progressive::{family_of, Grant, Wrap};
 
 pub const ITEMS_JSON: &str = include_str!("../../../../data/items.json");
 pub const VANILLA_JSON: &str = include_str!("../../../../data/logic/vanilla.json");
@@ -17,7 +17,7 @@ pub const HELD: [u64; 0] = [];
 
 pub const SEP: &str = " @ ";
 
-pub const SONG_KEPT: [&str; 2] = ["Song from Windmill", "Sheik in Crater"];
+pub const SONG_KEPT: [&str; 1] = ["Sheik in Crater"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
@@ -279,7 +279,7 @@ impl Data {
     }
 
     pub fn load() -> Res<Data> {
-        Data::new(ITEMS_JSON, VANILLA_JSON, SLICE_JSON, CATALOG_JSON)?.with_events(EVENTS_JSON)?.with_remake(REMAKE_JSON)?.with_flow()?.with_pots()
+        Data::new(ITEMS_JSON, VANILLA_JSON, SLICE_JSON, CATALOG_JSON)?.with_events(EVENTS_JSON)?.with_remake(REMAKE_JSON)?.with_flow()?.with_pots()?.with_free()
     }
 
     pub fn event_mode(&self, hash: u64) -> Option<Ev> {
@@ -332,7 +332,7 @@ impl Data {
                 continue;
             }
             for e in l.edits.iter().filter(|e| e.role == "grant") {
-                out.push(Grant { file: e.file.clone(), index: e.index, event: e.event.clone(), param: e.param.clone(), family });
+                out.push(Grant { file: e.file.clone(), index: e.index, event: e.event.clone(), param: e.param.clone(), family, wrap: Wrap::Chain });
             }
         }
         out

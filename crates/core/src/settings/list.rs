@@ -88,7 +88,7 @@ fn ganon_key() -> Vec<Setting> {
 
 fn starting_items() -> Setting {
     Setting::multi(36, "starting_items", "starting", "Starting items")
-        .tip("Items you begin the game with. One copy of each is taken out of the item pool and replaced by Rupee (1). Upgrades are ticked by tier and the highest ticked tier counts: Longshot means two progressive Hookshots, Big Quiver means the Bow and one quiver upgrade, Giant's Wallet means two wallet upgrades, Double Magic means two magic upgrades, Ocarina of Time means both ocarinas, Golden Gauntlets means all three strength upgrades. Bags start full. Bombchus need a bomb bag. Zelda's Letter cannot be given.")
+        .tip("Items you begin the game with. One copy of each is taken out of the item pool and replaced by Rupee (1). Upgrades are ticked by tier and the highest ticked tier counts: Longshot means two progressive Hookshots, Big Quiver means the Bow and one quiver upgrade, Big Bullet Bag means the Slingshot and one bullet bag upgrade, Giant's Wallet means two wallet upgrades, Double Magic means two magic upgrades, Ocarina of Time means both ocarinas, Golden Gauntlets means all three strength upgrades. Bags start full. Bombchus need a bomb bag. Zelda's Letter cannot be given.")
         .opts(&[
             ("ocarina", "Ocarina"),
             ("slingshot", "Slingshot"),
@@ -200,7 +200,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(5, "open_door_of_time", "world", "Open Door of Time", false)
-            .tip("Start with the Door of Time already open, so the Ocarina and the Song of Time are not needed to reach the Master Sword. The Door of Time quest is left alone, so Zelda's escape and the Song of Time stay checks, and the adult pedestal works before the Forest Sage."),
+            .tip("Start with the Door of Time already open, so the Ocarina and the Song of Time are not needed to reach the Master Sword. The Door of Time quest is left alone, so Zelda's escape and the Song of Time stay checks. The adult pedestal works before the Forest Sage in every seed, with or without this setting."),
     );
     s.push(
         Setting::choice(6, "zora_fountain", "world", "Zora's Fountain", "closed")
@@ -240,13 +240,35 @@ pub fn build() -> Schema {
     s.push(
         where_checks(
             Setting::choice(9, "shuffle_pots", "shuffle", "Pots", "off")
-                .tip("Which pots, including flying pots, hold random items. Key items whose pickup pack is built can sit in a pot. A pot item that is not picked up, falls into a pit or is left behind on a room change is lost for good."),
+                .tip("Which pots, including flying pots, hold random items. Key items whose pickup pack is built can sit in a pot. A pot that holds a key item is saved as broken only when its item is picked up, so if the item falls into a pit, lands out of reach or is left behind, the pot is back with it the next time the area loads. Rupees, hearts and ammo from a pot are given once and are gone if they are not picked up. Flying pots work the same way."),
         ),
     );
     s.push(
         where_checks(
             Setting::choice(10, "shuffle_crates", "shuffle", "Crates", "off")
-                .tip("Which crates hold random items. Key items whose pickup pack is built can sit in a crate, given once."),
+                .tip("Which crates hold random items. Key items whose pickup pack is built can sit in a crate. A crate that holds a key item is saved as broken only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once."),
+        ),
+    );
+    s.push(
+        Setting::toggle(67, crate::pot_slice::plan::HIVES, "shuffle", "Beehives", false)
+            .tip("Whether the seven beehives in the covered hole of Kakariko Village hold random items. They are the only beehives in the remake that drop an item. Key items whose pickup pack is built can sit in a hive. A hive that holds a key item is saved as fallen only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once. A hive needs an explosive to open the hole and then the Boomerang, the Hookshot or a bow to bring down. Experimental, untested in the game."),
+    );
+    s.push(
+        where_checks(
+            Setting::choice(86, "shuffle_rocks", "shuffle", "Small Rocks", "off")
+                .tip("Which small liftable rocks hold random items. The adult and the child copy of a rock are separate checks. Key items whose pickup pack is built can sit under a rock. A rock that holds a key item is saved as broken only when its item is picked up, so if a thrown rock drops it out of reach it is back with the item the next time the area loads. Rupees, hearts and ammo are given once. Experimental, untested in the game."),
+        ),
+    );
+    s.push(
+        where_checks(
+            Setting::choice(87, "shuffle_grass", "shuffle", "Grass", "off")
+                .tip("Which grass tufts hold random items, in the overworld and in the Deku Tree and the Bottom of the Well. Key items whose pickup pack is built can sit in grass. A tuft that holds a key item is saved as cut only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once. The bug grass of the Lost Woods is left alone. Experimental, untested in the game."),
+        ),
+    );
+    s.push(
+        where_checks(
+            Setting::choice(92, crate::pot_slice::remake::SETTING, "shuffle", "Remake only pots", "off")
+                .tip("Which of the 213 pots, crates and flying pots that only the remake has, with no spot of the original game matched to them, hold random items. They sit in every dungeon but the Deku Tree and the Gerudo Training Ground, and in Kakariko, the Market, the hideout, the fortress, Lon Lon Ranch, Zora's River and Fountain and more. Their logic region comes from the room data and the nearest known checks, the harder one where two fit, so a few may be logically placed too early. They hold the same items as the other pots and crates, key items included. Experimental, untested in the game."),
         ),
     );
     s.push(
@@ -258,10 +280,11 @@ pub fn build() -> Schema {
             .opt("random", "Random prices", "Each scrub gets a random price."),
     );
     s.push(
-        where_checks(
-            Setting::choice(12, "shuffle_freestanding_items", "shuffle", "Freestanding items", "off")
-                .tip("Which rupees, hearts and heart pieces lying on the ground hold random items. Rupees, hearts, heart pieces, the two shields and every key item whose pickup pack is built can be placed there. A spot that exists once per age only takes items that can be found twice."),
-        ),
+        Setting::choice(12, "shuffle_freestanding_items", "shuffle", "Freestanding items", "off")
+            .tip("Which items lying on the ground hold random items. Rupees, hearts, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every key item whose pickup pack is built can be placed there. A spot that exists once per age only takes items that do no harm when found twice, such as rupees, hearts, ammo and gear that a second copy does not change.")
+            .opt("off", "Vanilla", "Every freestanding item keeps its original item.")
+            .opt("pieces", "Only Pieces of Heart", "Heart pieces on the ground and the three heart piece chests are shuffled. Rupees and recovery hearts on the ground stay as they are.")
+            .opt("all", "Every Freestanding Item", "Heart pieces, rupees and recovery hearts on the ground are all shuffled, also the 98 rupees and hearts that only the remake has, whose logic region comes from the nearest known checks."),
     );
     s.push(
         Setting::list(13, "disabled_locations", "shuffle", "Excluded locations", 500)
@@ -354,6 +377,36 @@ pub fn build() -> Schema {
             .when("shuffle_rewards", "supported"),
     );
     s.push(
+        Setting::toggle(65, "shuffle_cows", "shuffle", "Link's House and Gerudo Valley cows", false)
+            .tip("The cow in Link's House and the cow in Gerudo Valley each give one extra shuffled item the first time their milk scene starts, with or without a bottle. The milk stays vanilla and stays repeatable. The other cows have their own setting.")
+            .when("shuffle_rewards", "supported"),
+    );
+    s.push(
+        Setting::toggle(66, "shuffle_cows_other", "shuffle", "Other cows", false)
+            .tip("The six other cows each give one extra shuffled item the first time their milk scene starts, with or without a bottle: the Gerudo Fortress cow, the Death Mountain Trail and Hyrule Field grotto cows, the cow behind Impa's house and the two Lon Lon Ranch stable cows. The five ordinary cows become actor classes of their own. The milk stays vanilla and stays repeatable. Experimental, untested in the game.")
+            .when("shuffle_rewards", "supported"),
+    );
+    s.push(
+        Setting::toggle(93, crate::flow_extra::frogs::SONGS_SETTING, "shuffle", "Zora's River frog songs", false)
+            .tip("The frogs in Zora's River give one shuffled item the first time you play each of Zelda's Lullaby, Epona's Song, Saria's Song, the Sun's Song and the Song of Time to them, in place of the rupees. The Song of Storms Heart Piece is a check of its own as before.")
+            .when("shuffle_rewards", "supported"),
+    );
+    s.push(
+        Setting::toggle(94, crate::flow_extra::frogs::BUG_SETTING, "shuffle", "Zora's River frog bug game Heart Piece", false)
+            .tip("The first win of the frog bug game in Zora's River, which opens after all six frog songs, gives a shuffled item in place of the Heart Piece. Later wins still give a Blue Rupee.")
+            .when("shuffle_rewards", "supported"),
+    );
+    s.push(
+        Setting::toggle(90, crate::slice::silver::SETTING, "shuffle", "Silver rupees", false)
+            .tip("The silver rupees of five rooms become items: the Forest and Light Trials in Ganon's Castle, the Ice Cavern push block room, the Bottom of the Well basement and the Gerudo Training Ground slopes room. Each room has five Silver Rupee items that are found in chests anywhere, and the room opens when you have found all five. The spots where the silver rupees hung hold other rupees. Needs Remake chests on, because the other chests are already full. Experimental, untested in the game.")
+            .when(crate::slice::remake_chests::SETTING, "on"),
+    );
+    s.push(
+        Setting::toggle(46, crate::flow_extra::potion::SETTING, "shuffle", "Market Potion Shop bottle and Red Potion", false)
+            .tip("The free empty bottle the Market Potion Shop keeper gives a child after the meeting with Zelda and the Red Potion he pours as thanks for the escaped bug become two shuffled checks, and one more Bottle joins the pool. While the free bottle holds another item he starts the bug tutorial only for a child who already carries an empty bottle, and his shelves still open after the tutorial.")
+            .when("shuffle_rewards", "supported"),
+    );
+    s.push(
         Setting::toggle(54, "shuffle_scrubs_a", "shuffle", "One time scrub sales", false)
             .tip("Also shuffle the Business Scrubs that already sell one item once: the Death Mountain Crater heart scrub and the Lost Woods stick and nut bag scrubs. The price stays and the sale text still names the old item.")
             .when("shuffle_rewards", "supported"),
@@ -369,10 +422,10 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::choice(40, "shuffle_songs", "shuffle", "Songs", "off")
-            .tip("Whether the songs you learn from NPCs and Sheik are shuffled.")
+            .tip("Whether the songs you learn from NPCs and Sheik are shuffled. The lessons still play the usual melody scene. A song found anywhere else is handed out like an item with its get window and shows Sheik's harp. Scarecrow's Song is never shuffled. Experimental, untested in the game.")
             .opt("off", "Vanilla", "Every song comes from its usual teacher.")
             .opt("own", "Song locations", "The songs are shuffled among the places that teach songs.")
-            .opt("anywhere", "Anywhere", "Songs can appear anywhere and song locations can hold any item."),
+            .opt("anywhere", "Anywhere", "Songs can appear anywhere, also in pots, crates, freestanding spots and at Gold Skulltulas when those are shuffled, and song locations can hold any item."),
     );
     s.push(
         Setting::toggle(41, "gossip_hints", "world", "Gossip stone hints", false)
@@ -395,7 +448,11 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(42, "faster_chests", "world", "Faster item pickups", false)
-            .tip("Shortens the waiting time in chest openings and item pickup scenes. The text and the item are the same, only the pauses are shorter."),
+            .tip("Shortens the waiting time in chest openings and item pickup scenes, and big chests open with the short small chest animation instead of the long big chest cutscene, like the OoTR option Fast Chest Cutscenes. The text, the item and the dungeon map, compass and boss key credit are the same."),
+    );
+    s.push(
+        Setting::toggle(45, crate::chest_size::SETTING, "world", "Chest size matches contents", false)
+            .tip("Chests holding major items, the items that can unlock progress, and boss keys become big chests, and chests holding anything else (rupees, ammo, hearts, maps, compasses and small keys) become small chests, like the OoTR option Chest Appearance Matches Contents. Only the plain wooden chests change; chests that run a story scene, invisible chests and the minigame chests keep their size. A big chest is wider than a small one, so a chest that grows may stand closer to a wall. Experimental, untested in the game."),
     );
     s.push(
         Setting::toggle(44, "skip_intro", "world", "Skip the opening cutscenes", true)
@@ -414,7 +471,7 @@ pub fn build() -> Schema {
             .tip("Whether Gold Skulltulas drop random items and their tokens join the item pool. A skulltula can drop items that the game has a pickup for and key items whose pickup pack is built, as a kit pickup that plays the get window. A killed skulltula stays gone only once its dropped item is picked up, and it comes back if the item is left behind.")
             .opt("off", "Vanilla", "Every skulltula drops its token.")
             .opt("pinned", "Confident matches", "Only the skulltulas whose remake actor is known for sure are shuffled.")
-            .opt("matched", "Confident and pooled", "Also the pools of skulltulas that share the same logic, and the skulltulas that our hash research pairs with their spot."),
+            .opt("matched", "Confident and pooled", "Also the pools of skulltulas that share the same logic, and the skulltulas that our hash research pairs with their spot. The skulltulas whose spot is still unsure only drop minor items such as rupees and hearts."),
     );
     s.push(
         Setting::choice(55, "shuffle_remake_chests", "shuffle", "Remake chests", "off")
@@ -474,6 +531,20 @@ pub fn build() -> Schema {
     s.push(
         Setting::toggle(73, "shuffle_treasure_reward", "shuffle", "Treasure Chest Game reward", false)
             .tip("Whether the final reward of the Market Treasure Chest Game, a Piece of Heart, holds a random item. Only the first win gives it, later wins give the usual red rupee. The five rooms keep their keys and rupees. Only unique items that do nothing when found twice can be placed there, so no upgrades, ammo, bottles or keys."),
+    );
+    s.extend(crate::shops::plan::settings());
+    s.push(
+        Setting::choice(85, "shuffle_entrances", "shuffle", "Entrances", "off")
+            .tip("Which doors and transitions lead somewhere else. Entrances are coupled, so the way back always returns you to the door you came in by. Experimental, untested in the game. Only Off and Dungeons work in this build.")
+            .opt("off", "Vanilla", "Every entrance leads where it always does.")
+            .opt("dungeons", "Dungeons", "The eleven dungeon doors lead to other dungeons: Deku Tree, Dodongo's Cavern, Jabu Jabu's Belly, Bottom of the Well, Ice Cavern, Gerudo Training Ground and the Forest, Fire, Water, Shadow and Spirit Temples. Ganon's Castle, boss rooms, blue warps and warp songs stay. Experimental, untested in the game.")
+            .opt("overworld", "Overworld", "The area to area transitions of the overworld lead to other areas. Not built yet, a seed with this is refused.")
+            .opt("everything", "Everything", "Dungeons, overworld transitions and later interiors and grottos, each kept in its own pool. Not built yet, a seed with this is refused."),
+    );
+    s.push(
+        Setting::toggle(crate::deku_bridge::NUM, crate::deku_bridge::KEY, "world", "Deku Tree bridge never breaks", true)
+            .wire_as(Value::Bool(false))
+            .tip("The wooden bridge in the Deku Tree slingshot room stays up when Link walks, rolls or jumps on it, so you never drop into the pit below it. Nothing else in the dungeon changes and the logic is the same, because the room never needed the bridge to break. Without the Slingshot the jump across has a window of about nine frames, so this keeps the room fair when the chests there hold other items. A bridge that already broke in a save stays broken. Experimental, untested in the game."),
     );
     s.push(starting_items());
     s.push(starting_songs());

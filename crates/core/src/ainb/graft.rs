@@ -116,12 +116,60 @@ pub fn graft(dst: &mut Ainb, src: &Ainb, ids: &[usize], seed: &str) -> Res<Vec<u
 pub const MAKE: &str = "QueryGenericMakeOverwriteParam";
 pub const ADD: &str = "QueryBlackboardOverwriteParamAddNoRespawnGmdHash";
 pub const SET: &str = "OneShotDropSetOverWriteParam";
+pub const SEQUENTIAL: u16 = 2;
+pub const SIMULTANEOUS: u16 = 3;
+pub const SPLIT: u16 = 500;
+pub const ROOT_ROLE: u8 = 4;
 const CHILD: usize = 2;
+const ROOT_AT: usize = 0x14;
 
 pub fn root(a: &Ainb) -> Option<usize> {
-    let c: &[u8] = a.cmds.get(0x14..0x18)?;
+    let c: &[u8] = a.cmds.get(ROOT_AT..ROOT_AT + 4)?;
     let i: usize = u32::from_le_bytes([c[0], c[1], c[2], c[3]]) as usize;
     (i < a.els.len()).then_some(i)
+}
+
+fn runs_all(a: &Ainb, i: usize) -> bool {
+    matches!(a.el_type(i), SEQUENTIAL | SIMULTANEOUS)
+}
+
+pub fn spot(a: &Ainb) -> Option<usize> {
+    let top: usize = root(a)?;
+    if runs_all(a, top) {
+        return Some(top);
+    }
+    if a.el_type(top) != SPLIT {
+        return None;
+    }
+    let enter: usize = a.params[top].group(CHILD).first()?.a as usize;
+    (enter < a.els.len() && runs_all(a, enter)).then_some(enter)
+}
+
+fn wrap(pot: &mut Ainb, skull: &Ainb, set: usize, top: usize) -> Res<usize> {
+    let from: usize = root(skull).filter(|&t| skull.el_type(t) == SIMULTANEOUS).ok_or(Error::Format("ainb graft: the source graph has no parallel root to copy"))?;
+    let mut props: Vec<(usize, String, Vec<u8>)> = Vec::new();
+    for k in 0..6 {
+        let [b, n] = skull.params[from].pe[k];
+        for g in b as usize..(b + n) as usize {
+            if k >= 3 {
+                return Err(Error::Format("ainb graft: the parallel root has a property this copy cannot carry"));
+            }
+            let name: &str = skull.prop_name(k, g).ok_or(Error::Format("ainb graft: a property of the parallel root is out of range"))?;
+            let v: Vec<u8> = skull.props[k].get(g * PSZ[k] + 8..(g + 1) * PSZ[k]).ok_or(Error::Format("ainb graft: a property of the parallel root is out of range"))?.to_vec();
+            props.push((k, name.to_string(), v));
+        }
+    }
+    let mut s: super::build::Spec = super::build::Spec::composite(SIMULTANEOUS, "hand_hash#wrap");
+    for (k, n, v) in &props {
+        s = s.prop(*k, n, v.clone());
+    }
+    let id: usize = pot.add_node(&s.kid(set, "").kid(top, ""))?;
+    pot.els[id][super::build::ROLE] = ROOT_ROLE;
+    pot.cmds[ROOT_AT..ROOT_AT + 2].copy_from_slice(&(id as u16).to_le_bytes());
+    if root(pot) != Some(id) {
+        return Err(Error::Format("ainb graft: the new parallel root did not take"));
+    }
+    Ok(id)
 }
 
 pub fn hand_hash(pot: &mut Ainb, skull: &Ainb) -> Res<Vec<usize>> {
@@ -131,9 +179,15 @@ pub fn hand_hash(pot: &mut Ainb, skull: &Ainb) -> Res<Vec<usize>> {
     if !pot.find_els(SET).is_empty() {
         return Err(Error::Format("ainb graft: the graph already hands its hash to its drops"));
     }
-    let out: Vec<usize> = graft(pot, skull, &ids, "hand_hash")?;
-    let name: u32 = pot.pool.add("");
-    pot.params[top].add_plug(CHILD, 0, Plug { a: out[2] as u32, b: name, extra: Vec::new() })?;
+    let at: Option<usize> = spot(pot);
+    let mut out: Vec<usize> = graft(pot, skull, &ids, "hand_hash")?;
+    match at {
+        Some(at) => {
+            let name: u32 = pot.pool.add("");
+            pot.params[at].add_plug(CHILD, 0, Plug { a: out[2] as u32, b: name, extra: Vec::new() })?;
+        }
+        None => out.push(wrap(pot, skull, out[2], top)?),
+    }
     Ok(out)
 }
 

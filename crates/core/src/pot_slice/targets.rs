@@ -2,6 +2,7 @@ use std::collections::BTreeMap as BM;
 
 use crate::error::{Error as E, Res};
 use crate::pot_slice::data::Kind;
+use crate::pickup_pack::fall::dropped;
 use crate::pickup_pack::kit::name_of;
 use crate::pot_slice::pickup;
 use crate::settings::seed::SeedFile;
@@ -36,7 +37,7 @@ pub fn actor_of(d: &Data, loc: &str, item: &str, fixed: &BM<String, String>) -> 
         return Ok((name_of(a), true));
     }
     if let Some(a) = pickup::of(item) {
-        return Ok((a.to_string(), pickup::holds(item)));
+        return Ok((dropped(a), pickup::holds(item)));
     }
     crate::slice::key_spots::resolve(d, item, fixed.get(loc).map(|s| s.as_str()))
         .map(|p| (p.kit(), true))
@@ -54,8 +55,8 @@ pub fn targets_with(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Re
             return Err(E::Msg(format!("{loc} cannot be placed, its match or its saved row is not safe")));
         }
         let (actor, kit): (String, bool) = actor_of(d, loc, item, fixed)?;
-        if kit && k != Kind::Pot {
-            return Err(E::Msg(format!("{loc} is a crate or a flying pot, it has no variant that keeps {item} until it is picked up")));
+        if kit && !k.kit() {
+            return Err(E::Msg(format!("{loc} is a {}, which has no variant that keeps {item} until it is picked up", l.kind.replace('_', " "))));
         }
         for r in &l.refs {
             out.push(Give { name: loc.clone(), kind: k, hash: r.hash, files: r.files.clone(), was: l.item.clone(), item: item.clone(), actor: actor.clone(), kit });
@@ -123,10 +124,28 @@ mod tests {
         let t: Vec<Give> = targets(&d, &seed(&[(&once, "Megaton Hammer")])).unwrap();
         assert!(t.iter().all(|g| g.kit && g.actor == "Obj_Hammer_GS"));
         assert!(targets(&d, &seed(&[(&once, "Fire Arrows")])).unwrap().iter().all(|g| g.kit && g.actor == "Obj_Arrow_Fire_GS"));
-        assert!(targets(&d, &seed(&[(&once, "Gold Skulltula Token")])).unwrap().iter().all(|g| g.kit && g.actor == "Obj_Token_Gold"));
+        assert!(targets(&d, &seed(&[(&once, "Gold Skulltula Token")])).unwrap().iter().all(|g| g.kit && g.actor == "Obj_Token_Gold_Fall"));
         assert!(targets(&d, &seed(&[(&once, "Rupees (20)")])).unwrap().iter().all(|g| !g.kit));
         let bad: Option<String> = d.pots.state.iter().find(|(_, s)| **s != State::Eligible).map(|(n, _)| n.clone());
         assert!(targets(&d, &seed(&[(&bad.unwrap(), "Rupees (20)")])).is_err());
+    }
+
+    #[test]
+    fn a_token_from_any_container_is_the_falling_twin_and_every_container_takes_it() {
+        let d: Data = Data::load().unwrap();
+        let twins: &str = "KF House of Twins Pot 1";
+        let t: Vec<Give> = targets(&d, &seed(&[(twins, "Gold Skulltula Token")])).unwrap();
+        assert_eq!(t.len(), 2);
+        let files: std::collections::BTreeSet<&str> = t.iter().flat_map(|g| g.files.iter().map(|f| f.as_str())).collect();
+        assert!(files.iter().any(|f| f.contains("_Child_")) && files.iter().any(|f| f.contains("_Adult_")), "{files:?}");
+        assert!(t.iter().all(|g| g.kit && g.actor == "Obj_Token_Gold_Fall" && g.kind == Kind::Pot));
+        let boxes: Option<String> = eligible(&d).into_iter().find(|n| d.pots.kind_of(n).is_some_and(|k| k != Kind::Pot) && !d.pots.is_remake(n));
+        let other: String = boxes.unwrap();
+        let o: Vec<Give> = targets(&d, &seed(&[(&other, "Gold Skulltula Token")])).unwrap();
+        assert!(!o.is_empty() && o.iter().all(|g| g.kit && g.actor == "Obj_Token_Gold_Fall" && g.kind != Kind::Pot), "{o:?}");
+        assert_eq!(actor_of(&d, &other, "Gold Skulltula Token", &BM::new()).unwrap(), ("Obj_Token_Gold_Fall".to_string(), true));
+        assert_eq!(actor_of(&d, &other, "Rupees (20)", &BM::new()).unwrap(), ("Obj_Rupee_Red".to_string(), false));
+        assert_eq!(actor_of(&d, &other, "Fire Arrows", &BM::new()).unwrap(), ("Obj_Arrow_Fire_GS".to_string(), true));
     }
 
     #[test]
@@ -145,5 +164,20 @@ mod tests {
         balance(&d, &none, "Rupees (5)", &mut same);
         assert_eq!(same.len(), 1);
         assert!(any(&d, &moved) && !any(&d, &none));
+    }
+
+    #[test]
+    fn a_placed_beehive_becomes_three_gives_and_takes_a_kit() {
+        let d: Data = Data::load().unwrap();
+        let t: Vec<Give> = targets(&d, &seed(&[("Kak Hole Beehive 1", "Rupees (20)")])).unwrap();
+        assert_eq!(t.len(), 3);
+        assert!(t.iter().all(|g| g.kind == Kind::Hive && g.actor == "Obj_Rupee_Red" && !g.kit && g.was.is_empty()));
+        assert_eq!(t.iter().map(|g| g.hash).collect::<std::collections::BTreeSet<u64>>().len(), 3);
+        let blue: Vec<Give> = targets(&d, &seed(&[("Kak Hole Beehive 3", "Recovery Heart")])).unwrap();
+        assert!(blue.iter().all(|g| g.was == "Obj_Rupee_Blue" && g.actor == "Obj_Heart"));
+        let kit: Vec<Give> = targets(&d, &seed(&[("Kak Hole Beehive 1", "Megaton Hammer")])).unwrap();
+        assert!(kit.len() == 3 && kit.iter().all(|g| g.kit && g.actor == "Obj_Hammer_GS"));
+        let rock: Vec<Give> = targets(&d, &seed(&[("KF Child Rock 1", "Piece of Heart")])).unwrap();
+        assert!(rock.len() == 1 && rock[0].kit && rock[0].kind == Kind::Rock && rock[0].actor == "Obj_Heart_Piece_GS");
     }
 }

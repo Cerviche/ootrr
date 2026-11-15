@@ -42,6 +42,8 @@ const KINDS = {
   flying_pot: ["Flying pot", "pot", "pot"],
   crate: ["Crate", "pot", "pot"],
   beehive: ["Beehive", "pot", "pot"],
+  rock: ["Rock", "pot", "pot"],
+  grass: ["Grass", "pot", "pot"],
   key: ["Small key", "key", "chest"],
   scrub: ["Scrub", "shop", "shop"],
   shop: ["Shop", "shop", "shop"],

@@ -15,7 +15,7 @@ use crate::slice::logic::world_with;
 use crate::slice::pick::{pick, scoped, Pick};
 use crate::slice::pickups as pu;
 use crate::slice::plando::{loc_of, resolve, Entry};
-use crate::slice::support::{plan, Keep, Mode, Plan, Songs};
+use crate::slice::support::{plan, Keep, Plan, Songs};
 use crate::slice::watch::{Live, Watch};
 use crate::spoiler::{playthrough, Spoiler};
 use crate::world::{LocId, Placement, World};
@@ -65,13 +65,19 @@ pub fn is_song(actor: &str) -> bool {
 fn by_place(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> Option<bool> {
     let name: &str = &w.locs[l].name;
     let item: &str = &w.items.names[it];
+    if let Some(ok) = crate::shops::rules::at(d, &p.shops, p.songs == Songs::Anywhere, name, item) {
+        return Some(ok);
+    }
+    if let Some(ok) = crate::slice::song_spots::gate(d, p, name, item) {
+        return Some(ok);
+    }
     if let Some(ok) = crate::slice::treasure::at(p.treasure, name, item) {
         return Some(ok);
     }
     if p.remake && crate::slice::remake_overworld::keeps_out(d, name, item) {
         return Some(false);
     }
-    if p.world != Mode::Off {
+    if p.world.on() {
         if let Some(ok) = pu::at(d, name, item) {
             return Some(ok);
         }
@@ -96,6 +102,12 @@ fn by_place(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> Option<bool>
 pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
     if !p.excluded.is_empty() && w.items.adv[it] && p.excluded.iter().any(|e| *e == w.locs[l].name) {
         return false;
+    }
+    if crate::slice::junk_spots::refuses(d, w, p, it, l) {
+        return false;
+    }
+    if let Some(ok) = crate::slice::silver::at(d, w, p, it, l) {
+        return ok;
     }
     if d.item(&w.items.names[it]).is_some_and(|i| !crate::flow_extra::trade::keeps(d, &w.locs[l].name, i)) {
         return false;
@@ -244,7 +256,15 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     }
     let watch: Watch = Watch::new(o.limit, o.live.clone());
     let mut p: Plan = plan(s)?;
-    let mut w: World = world_with(d, &p.logic())?;
+    let room: crate::shops::layout::Room = crate::shops::rules::room(d, &p)?;
+    let mut lay: Option<crate::shops::Layout> = crate::shops::layout::of(&p.shops, seed, room)?;
+    p.notes.extend(lay.as_ref().and_then(|l| crate::shops::rules::cut_note(l.cut, room)));
+    let owned: Option<Data> = lay.as_ref().map(|l| crate::shops::logic::data_with(d, l)).transpose()?;
+    let d: &Data = owned.as_ref().unwrap_or(d);
+    let mut w: World = match &lay {
+        Some(l) => crate::shops::logic::world(d, &p.logic(), l)?,
+        None => world_with(d, &p.logic())?,
+    };
     let mut named: Vec<String> = Vec::with_capacity(p.excluded.len());
     for e in &p.excluded {
         let l: LocId = loc_of(&w, e).map_err(|x| E::Msg(x.to_string().replacen("plando:", "disabled locations:", 1)))?;
@@ -253,9 +273,13 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     p.excluded = named;
     crate::slice::starts::add(d, &p, &mut w, seed)?;
     let vanilla: Placement = vanilla_place(&w, d)?;
-    let pk: Pick = pick(d, &w, &p);
-    if p.world != Mode::Off && !pk.free.iter().any(|l| pu::listed(d, &w.locs[*l].name)) {
-        p.notes.retain(|n| n != pu::NOTE);
+    let mut pk: Pick = pick(d, &w, &p);
+    if let Some(l) = &lay {
+        l.add_free(&w, &mut pk.free)?;
+    }
+    let gates: Option<crate::entr::Layout> = crate::entr::choose(s, &mut w, seed, &vanilla, &pk.free)?;
+    if p.world.on() && !pk.free.iter().any(|l| pu::listed(d, &w.locs[*l].name)) {
+        p.notes.retain(|n| !pu::is_note(n));
     }
     let (base, gone): (Placement, Vec<String>) = crate::start_items::pool::base(d, &w, &p, &vanilla, &pk.free)?;
     p.notes.extend(gone);
@@ -267,6 +291,9 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             && !p.excluded.contains(&w.locs[*l].name)
             && !ok(i, *l)
             && !d.item(&w.items.names[i]).is_some_and(|x| crate::slice::dungeon_items::exempt(&p, &x.kind))
+            && !(lay.is_some() && crate::shops::is_loc(&w.locs[*l].name))
+            && !crate::slice::junk_spots::only(&p, &w.locs[*l].name)
+            && !(p.silver && crate::slice::silver::is_spot(&w.locs[*l].name))
         {
             return Err(E::Msg(format!(
                 "the vanilla item {} of {} is not allowed there under these settings",
@@ -286,29 +313,54 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             return Err(E::Msg(format!("plando: {} cannot be placed at {} under these settings", w.items.names[*i], w.locs[*l].name)));
         }
     }
+    let hand: usize = plan.len();
+    let lock: Vec<(LocId, ItemId)> = crate::slice::entry_key::forced(&w, &p, &pk.free, &base, &plan, &ok)?;
+    let mut plan: Vec<(LocId, ItemId)> = plan;
+    plan.extend(lock.iter().copied());
     let mut rng: Rng = Rng::from_text(seed);
-    let got: Placement = if pk.free.is_empty() {
-        base.clone()
-    } else {
+    let pinned: Vec<&str> = if lay.is_some() { crate::slice::tier_order::pinned(d, &w, &pk.free) } else { Vec::new() };
+    let shelf = |it: ItemId, l: LocId| ok(it, l) && !(crate::shops::is_loc(&w.locs[l].name) && d.family(&w.items.names[it]).is_some_and(|f| pinned.contains(&f)));
+    let mut run = |careful: bool, reach: bool| -> Res<Placement> {
+        let ok: &dyn Fn(ItemId, LocId) -> bool = if careful { &shelf } else { &ok };
         let fix: bool = crate::slice::tier_fix::active(d, &w, &pk.free);
         let narrow = |it: ItemId, l: LocId| ok(it, l) && !crate::slice::key_spots::widened(d, &w.locs[l].name, &w.items.names[it]);
         let order: Option<&dyn Fn(ItemId, LocId) -> bool> = if fix { Some(&narrow) } else { None };
-        let caps: HM<LocId, usize> = crate::pot_slice::rules::caps(d, &w, &pk.free, &base, order.unwrap_or(&ok));
+        let mut caps: HM<LocId, usize> = crate::pot_slice::rules::caps(d, &w, &pk.free, &base, order.unwrap_or(ok));
+        if caps.is_empty() && lay.is_some() {
+            caps = crate::shops::rules::caps(&w, &pk.free, &base, order.unwrap_or(ok));
+        }
         let rank = |l: LocId| caps.get(&l).copied().unwrap_or(0);
         let r: Option<&dyn Fn(LocId) -> usize> = if caps.is_empty() { None } else { Some(&rank) };
-        let keep: Vec<LocId> = plan.iter().map(|x| x.0).collect();
+        let mut sr: Rng = Rng::from_text(&format!("{seed} songs first{}{}", if careful { " careful" } else { "" }, if reach { " reach" } else { "" }));
+        let mut fixed: Vec<(LocId, ItemId)> = plan.clone();
+        if p.songs == Songs::Anywhere {
+            fixed.extend(crate::slice::song_spots::first_with(d, &w, &base, &pk.free, &plan, ok, &mut sr, careful)?);
+        }
+        let mut keep: Vec<LocId> = fixed.iter().map(|x| x.0).collect();
         let mut n: u32 = 0;
+        let mut redo: u32 = 0;
         loop {
-            let g: Placement = fill_ordered(&w, &base, &pk.free, &ok, order, &mut rng, o.tries, &plan, !p.keys_roam(), r, o.switch, &watch)
-                .map_err(|e| crate::slice::advice::explain(&p, e))?;
+            let quick: bool = p.songs == Songs::Anywhere && redo + 1 < crate::slice::song_spots::TRIES;
+            let (tries, switch): (u32, u32) = if quick { (o.tries.min(crate::slice::song_spots::QUICK_TRIES), o.switch.min(crate::slice::song_spots::QUICK_SWITCH)) } else { (o.tries, o.switch) };
+            let g: Placement = match fill_ordered(&w, &base, &pk.free, ok, order, &mut rng, tries, &fixed, !p.keys_roam() && gates.is_none(), r, reach, switch, &watch) {
+                Ok(g) => g,
+                Err(_) if quick => {
+                    redo += 1;
+                    fixed = plan.clone();
+                    fixed.extend(crate::slice::song_spots::first_with(d, &w, &base, &pk.free, &plan, ok, &mut sr, careful)?);
+                    keep = fixed.iter().map(|x| x.0).collect();
+                    continue;
+                }
+                Err(e) => return Err(crate::slice::advice::explain(&p, e)),
+            };
             if crate::slice::tier_order::fits(d, &w, &g, &pk.free)? {
-                break g;
+                return Ok(g);
             }
             if fix {
                 let mut fr: Rng = Rng::from_text(&format!("{seed} tier repair {n}"));
-                let c: crate::slice::tier_fix::Ctx = crate::slice::tier_fix::Ctx { d, w: &w, free: &pk.free, keep: &keep, ok: &ok };
+                let c: crate::slice::tier_fix::Ctx = crate::slice::tier_fix::Ctx { d, w: &w, free: &pk.free, keep: &keep, ok };
                 if let Some(x) = crate::slice::tier_fix::repair(&c, &g, &mut fr)? {
-                    break x;
+                    return Ok(x);
                 }
             }
             n += 1;
@@ -321,6 +373,20 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
                 let last: Vec<String> = crate::slice::tier_fix::verdict(d, &w, &g, &pk.free)?.bad.into_iter().take(2).collect();
                 return Err(E::Msg(format!("no fill in {TIER_TRIES} tries kept every fixed upgrade tier in order, {hint}. The last fill failed because {}", last.join(", and "))));
             }
+        }
+    };
+    let got: Placement = if pk.free.is_empty() {
+        base.clone()
+    } else {
+        let anywhere: bool = p.songs == Songs::Anywhere;
+        match run(false, false) {
+            Ok(g) => g,
+            Err(e) if watch.check().is_err() => return Err(e),
+            Err(_) => match anywhere.then(|| run(true, false)) {
+                Some(Ok(g)) => g,
+                Some(Err(x)) if watch.check().is_err() => return Err(x),
+                _ => run(anywhere, true)?,
+            },
         }
     };
     if p.skulls != crate::slice::skulls::Mode::Off {
@@ -343,7 +409,14 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         changed: changed(&vanilla, &got, &pk.free),
         fixed_elsewhere: w.real.len() - pk.free.len(),
     };
-    let seed_file: SeedFile = SeedFile::new(seed, s, &d.scan.game, map)?;
+    let mut seed_file: SeedFile = SeedFile::new(seed, s, &d.scan.game, map)?;
+    if let Some(l) = lay.as_mut() {
+        crate::shops::layout::fill_deals(l, &seed_file.placements)?;
+        seed_file.shops = crate::shops::seed::entries(l);
+    }
+    if let Some(l) = &gates {
+        seed_file.entrances = l.to_map();
+    }
     let (sp, spheres): (Option<String>, Steps) = if o.spoiler {
         let (mut t, st): (String, Steps) = spoiler_text(&w, &vanilla, &got, &pk)?;
         let fixed: BM<String, String> = if crate::slice::tier_fix::active(d, &w, &pk.free) {
@@ -353,13 +426,25 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         };
         t.push_str(&crate::slice::skulls::spoiler_with(d, &w, &p, &pk.free, &got, &fixed));
         t.push_str(&crate::slice::key_spots::spoiler(d, &w, &pk.free, &got, &fixed));
+        if let Some(l) = &lay {
+            t.push_str(&crate::shops::spoiler::text(l));
+        }
+        if let Some(l) = &gates {
+            t.insert_str(0, &crate::entr::text::spoiler(l));
+        }
         (Some(t), st)
     } else {
         (None, Vec::new())
     };
     let mut rep: String = report(seed, &p, &pk, &counts, &moved);
-    if !plan.is_empty() {
-        let _ = writeln!(rep, "Plandomizer: {} placements were fixed by hand.", plan.len());
+    if hand > 0 {
+        let _ = writeln!(rep, "Plandomizer: {hand} placements were fixed by hand.");
+    }
+    if !lock.is_empty() {
+        let _ = writeln!(rep, "{}", crate::slice::entry_key::NOTE);
+    }
+    if let Some(l) = &gates {
+        rep.push_str(&crate::entr::text::report(l));
     }
     Ok(Generated { seed_file, counts, report: rep, spoiler: sp, spheres })
 }
@@ -389,7 +474,7 @@ pub fn generate(s: &Settings, seed: &str) -> Res<Generated> {
 mod tests {
     use super::*;
     use crate::settings::Value;
-    use crate::slice::data::{CATALOG_JSON, ITEMS_JSON, VANILLA_JSON};
+    use crate::slice::data::{CATALOG_JSON, ITEMS_JSON, REMAKE_JSON, VANILLA_JSON};
     use crate::slice::logic::world;
 
     const BIG: [&str; 6] = [
@@ -410,7 +495,7 @@ mod tests {
             "{{\"format\":1,\"game\":\"oot-remake:synthetic\",\"files\":[],\"chests\":[{}]}}",
             rows.join(",")
         );
-        Data::new(ITEMS_JSON, VANILLA_JSON, &scan, CATALOG_JSON).unwrap()
+        Data::new(ITEMS_JSON, VANILLA_JSON, &scan, CATALOG_JSON).unwrap().with_remake(REMAKE_JSON).unwrap()
     }
 
     fn all_chests() -> Settings {
@@ -581,7 +666,7 @@ mod tests {
     #[test]
     fn excluded_locations_hold_only_items_the_seed_does_not_need() {
         let d: Data = Data::load().unwrap();
-        let names: Vec<String> = eligible_names(&d).into_iter().filter(|n| d.vanilla_of(n).and_then(|v| d.item(v)).is_some_and(|i| i.adv)).take(12).collect();
+        let names: Vec<String> = eligible_names(&d).into_iter().filter(|n| n != crate::slice::entry_key::CHEST && d.vanilla_of(n).and_then(|v| d.item(v)).is_some_and(|i| i.adv)).take(12).collect();
         assert!(names.len() >= 8);
         let list: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         let mut s: Settings = all_chests();
@@ -676,7 +761,7 @@ mod tests {
                 assert_eq!(song_loc, song_item, "{loc} holds {item}");
             }
             let n_song: usize = g.seed_file.placements.keys().filter(|k| d.flow.by_name(k).is_some_and(|f| f.cat == "song")).count();
-            assert_eq!(n_song, 10);
+            assert_eq!(n_song, 11);
         }
     }
 
@@ -809,10 +894,11 @@ mod tests {
         assert!(!g.report.contains("Kakariko gate starts open"));
         let p: Plan = plan(&off).unwrap();
         assert!(crate::slice::edit::skipped_locations(&p).is_empty());
-        // Only the intro skip's first-visit flags remain: no quest step, state or item.
+        // Only flags remain: the intro skip's first-visit scenes and the always-on child Temple
+        // of Time skip (crate::story_skip::temple). No quest step, state or item.
         let off_state: crate::start_state::Ops = crate::slice::edit::start_state(&d, &g.seed_file, &p).unwrap();
         assert!(off_state.steps.is_empty() && off_state.enums.is_empty() && off_state.items.is_empty());
-        assert_eq!(off_state.flags.len(), crate::start_state::FIRST_VISIT.len());
+        assert_eq!(off_state.flags.len(), crate::start_state::FIRST_VISIT.len() + crate::story_skip::TEMPLE_FLAGS.len() + crate::story_skip::OWL_FLAGS.len());
         let vanilla: Vec<String> = crate::slice::edit::skipped_items(&d, &g.seed_file, &crate::start_state::KAKARIKO_LOCATIONS).unwrap();
         assert_eq!(vanilla, vec!["Item_ZeldaLetter", "Item_Melody_ZeldaLullaby"]);
     }
@@ -867,10 +953,10 @@ mod tests {
     fn seeds_that_generated_before_keep_their_exact_placements() {
         let d: Data = Data::load().unwrap();
         let cases: [(&[(&str, &str)], &str, usize, u64); 4] = [
-            (&[], "default 0", 76, 0xbc18_fb15_41fc_c024),
-            (&[], "default 1", 76, 0xe1b7_fd01_310f_0432),
+            (&[], "default 0", 76, 0xbba8_13b2_c136_00aa),
+            (&[], "default 1", 76, 0x5a81_86d2_e68c_1a6e),
             (&[("shuffle_chests", "overworld")], "chests_ow 0", 9, 0xd58f_c0a7_a752_4655),
-            (&[("shuffle_chests", "dungeons")], "dungeons 0", 67, 0x169a_7c8a_d12b_3980),
+            (&[("shuffle_chests", "dungeons")], "dungeons 0", 67, 0x6a73_a11e_4463_bd5a),
         ];
         for (pairs, seed, n, want) in cases {
             let mut all: Vec<(&str, &str)> = vec![("shuffle_rewards", "off")];
@@ -889,9 +975,30 @@ mod tests {
         let s: Settings = with(&[("shuffle_chests", "dungeons"), ("shuffle_bosskeys", "overworld")]);
         let t0: std::time::Instant = std::time::Instant::now();
         let e: String = generate_data(&d, &s, "x", &GenOpts::default()).err().unwrap().to_string();
-        assert!(e.starts_with("No seed can be made with these settings, the shuffled items cannot all fit"), "{e}");
-        assert!(e.contains("Boss Key") && e.contains("can only go to 0 free locations"), "{e}");
+        assert!(e.contains("shuffle_bosskeys is overworld while shuffle_chests is dungeons"), "{e}");
+        assert!(e.contains("Set Chests to Everywhere"), "{e}");
         assert!(t0.elapsed() < std::time::Duration::from_secs(20));
+    }
+
+    #[test]
+    fn boss_keys_anywhere_with_shuffled_pots_generate_because_the_starting_area_keeps_a_spot() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = with(&[
+            ("shuffle_chests", "all"),
+            ("shuffle_pots", "all"),
+            ("shuffle_crates", "all"),
+            ("shuffle_bosskeys", "keysanity"),
+        ]);
+        let p: Plan = plan(&s).unwrap();
+        let w: World = world_with(&d, &p.logic()).unwrap();
+        let o: GenOpts = GenOpts { tries: 3, ..GenOpts::default() };
+        for seed in ["a", "b", "c"] {
+            let g: Generated = generate_data(&d, &s, seed, &o).unwrap_or_else(|e| panic!("{seed}: {e}"));
+            assert!(rebuilt(&d, &p, &g.seed_file.placements));
+            for (loc, item) in &g.seed_file.placements {
+                assert!(allowed(&d, &w, &p, w.item(item).unwrap(), w.loc(loc).unwrap()), "{item} at {loc}");
+            }
+        }
     }
 
     fn xcykrix() -> Settings {
@@ -947,7 +1054,7 @@ mod tests {
     #[test]
     fn an_empty_scan_is_refused() {
         let scan: &str = "{\"format\":1,\"game\":\"g\",\"files\":[],\"chests\":[]}";
-        let d: Data = Data::new(ITEMS_JSON, VANILLA_JSON, scan, CATALOG_JSON).unwrap();
+        let d: Data = Data::new(ITEMS_JSON, VANILLA_JSON, scan, CATALOG_JSON).unwrap().with_remake(REMAKE_JSON).unwrap();
         assert!(generate_data(&d, &all_chests(), "x", &GenOpts::default()).is_err());
     }
 
@@ -1041,17 +1148,18 @@ mod tests {
         pots.set("shuffle_pots", Value::s("all")).unwrap();
         pots.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str, &str); 8] = [
-            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin a", "0238bc06819a88a9297b21fea4847cf5efab454b7234a1fcfb6b9c1fa39eebdc"),
-            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "56f528719dfd82b1134f739fabd7f222f00a68f54634037b14246ee7a5be1aa3"),
+            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin a", "a2eb6be39d800ff24bd359b272dd6009cde55da11064399cde9bde0dbfcd8ac1"),
+            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "fb7413b271d949ca4064a38f5e3d1bb3ea120953fb22a030f6260f21e89c04b2"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "dbbde2ae945e2e8eb27f8fe74e85b432bc1612f02b1f629a822e47f8cf49cc79"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "a131002f74c6dd72eb9e521304f3cb01205103b640d91df77e6ddf6e760fd180"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "096fe109ab0f25832732d6ed072e7f036a1f79ecebfa2e1bea9046483f6b0a3d"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "dd873178d8ba402bb27da1c02d738846cc6631d6c753be11301e310ea10f31ca"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "7fcaeeecc81ae7ebb375b4e96a3bd7a718b9fbcf29988b9c80aab4845baee22f"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "f11163c886134346d67c2af0f690c0e42c940757a2cfec33f5bb534a93fb361f"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "8a31bac1c7d8577115cda932cd4ce7464dd1f19e0f78040b258cc50a4a17d538"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "7b54ab16a0952f47b01e31b3e86fa2d05b167624c0b812aeacab4cffb68d4505"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "50ca24124a7276bde4b2ad750d44c79829a950487c0ffd16ca652bb7ee9a7e15"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "9bf4cbe96f777b43ab4fb4c8d32bc2ea6b66fc583cbe5329c8f9e14f827cc450"),
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
+            s.set(crate::deku_bridge::KEY, Value::Bool(false)).unwrap();
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
             let mut f: SeedFile = g.seed_file.clone();
             if s.flag("shuffle_dungeon_rewards").unwrap() {
@@ -1061,6 +1169,40 @@ mod tests {
             }
             f.settings_string = old.to_string();
             assert_eq!(f.checksum(), sum, "{old} {seed}");
+        }
+    }
+
+    #[test]
+    fn keysanity_with_crates_leaves_the_kokiri_sword_a_forest_chest() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = with(&[("shuffle_smallkeys", "keysanity"), ("shuffle_crates", "all")]);
+        let o: GenOpts = GenOpts { tries: 20, ..GenOpts::default() };
+        let g: Generated = generate_data(&d, &s, "a", &o).unwrap_or_else(|e| panic!("{e}"));
+        let at: Vec<&String> = g.seed_file.placements.iter().filter(|(_, i)| i.as_str() == "Kokiri Sword").map(|(l, _)| l).collect();
+        assert_eq!(at.len(), 1, "{at:?}");
+        assert!(at[0].starts_with("KF "), "{at:?}");
+    }
+
+    #[test]
+    fn beehives_on_seeds_are_pinned() {
+        let d: Data = Data::load().unwrap();
+        let mut hives: Settings = Settings::default();
+        hives.set(crate::pot_slice::plan::HIVES, Value::Bool(true)).unwrap();
+        let mut both: Settings = hives.clone();
+        both.set("shuffle_pots", Value::s("all")).unwrap();
+        both.set("shuffle_crates", Value::s("all")).unwrap();
+        let cases: [(Settings, &str, &str); 4] = [
+            (hives.clone(), "pin a", "e473fd8ad22f5a976b0bb76fc19f9a7584472bdb3073411bab7feb9345613e9f"),
+            (hives.clone(), "pin b", "422e8bdb6929d61c986cd1c4606d479c0dfbb090afdb6ba14236c764cbc8109f"),
+            (both.clone(), "pin a", "471f43a985ba64194b9c7f8e0aae90c79517264a382fa676ed17670472ef049d"),
+            (both.clone(), "pin b", "eaa2eb16445b82d9d58bba19f2893a528296c1c885a47063f7405b84b7a63e96"),
+        ];
+        for (s, seed, sum) in cases {
+            let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
+            let mut f: SeedFile = g.seed_file.clone();
+            f.settings_string = "pinned".to_string();
+            assert_eq!(f.placements.keys().filter(|k| k.starts_with("Kak Hole")).count(), 7);
+            assert_eq!(f.checksum(), sum, "{seed}");
         }
     }
 }

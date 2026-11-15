@@ -1,6 +1,6 @@
 use crate::bfevfl::Val;
 use crate::error::{Error as E, Res};
-use crate::flow_extra::op::{How, Op};
+use crate::flow_extra::op::{How, Once, Op};
 use crate::json::{self, Json};
 
 pub const JSON: &str = include_str!("../../../../data/flow_extra.json");
@@ -15,6 +15,7 @@ pub struct Spec {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Extra {
     pub specs: Vec<Spec>,
+    pub always: Vec<Spec>,
 }
 
 fn text(j: &Json, k: &str) -> Res<String> {
@@ -34,9 +35,10 @@ fn ev(j: &Json, k: &str) -> Res<u16> {
 
 fn val(j: &Json) -> Res<Val> {
     match j {
-        Json::Str(s) => Ok(match s.strip_prefix("actor:") {
-            Some(a) => Val::Actor(a.to_string(), String::new()),
-            None => Val::Str(s.clone()),
+        Json::Str(s) => Ok(match (s.strip_prefix("actor:"), s.strip_prefix("arg:")) {
+            (Some(a), _) => Val::Actor(a.to_string(), String::new()),
+            (None, Some(a)) => Val::Arg(a.to_string()),
+            (None, None) => Val::Str(s.clone()),
         }),
         Json::Int(n) => i32::try_from(*n).map(Val::Int).map_err(|_| E::Format("flow_extra json: number out of range")),
         Json::Bool(b) => Ok(Val::Bool(u32::from(*b))),
@@ -80,10 +82,35 @@ fn op(j: &Json) -> Res<Op> {
         "query" => How::Query { from: text(j, "from")?, to: text(j, "to")?, params: params(j)? },
         "set" => How::Set { param: text(j, "param")?, old: text(j, "old")?, new: text(j, "new")? },
         "insert_set" => How::Insert { flag: text(j, "flag")? },
+        "next" => How::Next { old: ev(j, "old")?, new: ev(j, "new")? },
         "clone_sub" => How::Clone { param: text(j, "param")?, old: text(j, "old")?, new: text(j, "new")? },
+        "once_grant" => How::Once(Once {
+            entry: text(j, "entry")?,
+            flag: text(j, "flag")?,
+            child: j.get("child").and_then(|v| v.as_bool()).unwrap_or(false),
+            adult: j.get("adult").and_then(|v| v.as_bool()).unwrap_or(false),
+            sub: text(j, "sub")?,
+            params: params(j)?,
+        }),
         _ => return Err(E::Msg(format!("flow_extra json: unknown edit kind {kind}"))),
     };
     Ok(Op { file, index, event, how })
+}
+
+fn specs(a: &[Json]) -> Res<Vec<Spec>> {
+    let mut out: Vec<Spec> = Vec::new();
+    for x in a {
+        let mut ops: Vec<Op> = Vec::new();
+        for o in x.get("ops").and_then(|v| v.as_arr()).ok_or(E::Format("flow_extra json: missing ops"))? {
+            ops.push(op(o)?);
+        }
+        let name: String = text(x, "name")?;
+        if out.iter().any(|s| s.name == name) {
+            return Err(E::Msg(format!("flow_extra json: {name} is listed twice")));
+        }
+        out.push(Spec { name, why: text(x, "why")?, ops });
+    }
+    Ok(out)
 }
 
 impl Extra {
@@ -97,19 +124,8 @@ impl Extra {
             return Err(E::Format("flow_extra json: unsupported format"));
         }
         let a: &[Json] = j.get("locations").and_then(|v| v.as_arr()).ok_or(E::Format("flow_extra json: missing locations"))?;
-        let mut specs: Vec<Spec> = Vec::new();
-        for x in a {
-            let mut ops: Vec<Op> = Vec::new();
-            for o in x.get("ops").and_then(|v| v.as_arr()).ok_or(E::Format("flow_extra json: missing ops"))? {
-                ops.push(op(o)?);
-            }
-            let name: String = text(x, "name")?;
-            if specs.iter().any(|s| s.name == name) {
-                return Err(E::Msg(format!("flow_extra json: {name} is listed twice")));
-            }
-            specs.push(Spec { name, why: text(x, "why")?, ops });
-        }
-        Ok(Extra { specs })
+        let always: &[Json] = j.get("always").and_then(|v| v.as_arr()).unwrap_or(&[]);
+        Ok(Extra { specs: specs(a)?, always: specs(always)? })
     }
 
     pub fn by_name(&self, n: &str) -> Option<&Spec> {
@@ -129,9 +145,16 @@ mod tests {
         assert!(!x.specs.is_empty());
         for s in &x.specs {
             let l: &Loc = d.by_name(&s.name).unwrap();
-            assert!(l.gated && !l.supported, "{}", s.name);
+            assert!((l.gated && !l.supported) || (l.supported && (l.cat == "great_fairy" || l.name == "GC Rolling Goron as Child")), "{}", s.name);
             assert!(!s.ops.is_empty() && !s.why.is_empty(), "{}", s.name);
         }
+        assert_eq!(x.always.iter().map(|s| s.name.as_str()).collect::<Vec<&str>>(), vec!["Din fountain gauge", "Fire Arrow pickup gauge", "Fairy fountains without Din's Fire", "Summit owl without Din's Fire"]);
+        for s in &x.always {
+            assert!(!s.ops.is_empty() && !s.why.is_empty() && d.by_name(&s.name).is_none(), "{}", s.name);
+            assert!(x.by_name(&s.name).is_none(), "{}", s.name);
+        }
+        assert!(x.by_name("DMT Great Fairy Reward").is_none());
+        assert!(x.by_name("DMC Great Fairy Reward").is_some());
         for l in d.locs.iter().filter(|l| l.gated && !crate::scrubs_a::is_a(l) && !crate::scrubs_b::is_b(l) && !crate::open_world::skips::is_bean_sale(&l.name)) {
             assert!(x.by_name(&l.name).is_some(), "{} is gated without edits", l.name);
         }
@@ -141,6 +164,7 @@ mod tests {
     fn values_keep_their_types() {
         assert_eq!(val(&Json::Str("actor:Npc_A".to_string())).unwrap(), Val::Actor("Npc_A".to_string(), String::new()));
         assert_eq!(val(&Json::Str("x".to_string())).unwrap(), Val::Str("x".to_string()));
+        assert_eq!(val(&Json::Str("arg:ActorName".to_string())).unwrap(), Val::Arg("ActorName".to_string()));
         assert_eq!(val(&Json::Int(-1)).unwrap(), Val::Int(-1));
         assert_eq!(val(&Json::Bool(true)).unwrap(), Val::Bool(1));
         assert!(val(&Json::Null).is_err());
@@ -155,5 +179,8 @@ mod tests {
         assert!(Extra::parse(bad_file).is_err());
         let twice: &str = "{\"format\":1,\"locations\":[{\"name\":\"A\",\"why\":\"w\",\"ops\":[]},{\"name\":\"A\",\"why\":\"w\",\"ops\":[]}]}";
         assert!(Extra::parse(twice).is_err());
+        let twice_always: &str = "{\"format\":1,\"locations\":[],\"always\":[{\"name\":\"A\",\"why\":\"w\",\"ops\":[]},{\"name\":\"A\",\"why\":\"w\",\"ops\":[]}]}";
+        assert!(Extra::parse(twice_always).is_err());
+        assert!(Extra::parse("{\"format\":1,\"locations\":[]}").unwrap().always.is_empty());
     }
 }

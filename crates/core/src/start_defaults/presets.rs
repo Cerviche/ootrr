@@ -39,8 +39,9 @@ fn edit(j: &Json) -> Res<Edit> {
             let mut terms: Vec<(i32, String)> = Vec::new();
             for t in v.as_arr().unwrap_or(&[]) {
                 match t.as_arr() {
-                    Some([op, f]) => terms.push((int(op, &name)?, f.as_str().ok_or_else(|| Error::Msg(format!("start presets: {name} names a flag that is not text")))?.to_string())),
-                    _ => return Err(Error::Msg(format!("start presets: {name} needs a list of [op, flag] pairs"))),
+                    Some([op, f]) => terms.push((int(op, &name)?, f.as_str().filter(|s| !s.is_empty()).ok_or_else(|| Error::Msg(format!("start presets: {name} names a flag that is not text")))?.to_string())),
+                    Some([op]) => terms.push((int(op, &name)?, String::new())),
+                    _ => return Err(Error::Msg(format!("start presets: {name} needs a list of [op, flag] pairs and [op] operators"))),
                 }
             }
             if terms.is_empty() {
@@ -113,7 +114,9 @@ mod tests {
     #[test]
     fn the_shipped_book_parses_and_names_known_settings() {
         let b: Book = book().unwrap();
-        assert_eq!(b.presets.len(), 7);
+        assert_eq!(b.presets.len(), 10);
+        assert_eq!(find(&b, "shuffle_dungeon_rewards", "true").unwrap().edits, crate::medal_gate::exps());
+        assert_eq!(find(&b, "open_forest", "open").unwrap().edits, find(&b, "open_forest", "closed_deku").unwrap().edits);
         assert_eq!(find(&b, "skip_epona_race", "true").unwrap().edits, vec![Edit::Exp("Get_Epona_IsCompleted_Exp".to_string(), vec![(0, "IsGet.Item_Melody_EponaSong".to_string())])]);
         assert_eq!(find(&b, "skip_mask_quest", "true").unwrap().edits, vec![Edit::Enum("Step_SubEvent_MaskSalesman".to_string(), "Complete".to_string())]);
         let beans: &Preset = find(&b, "plant_beans", "true").unwrap();
@@ -121,7 +124,7 @@ mod tests {
         assert!(!beans.edits.contains(&Edit::Bool("IsPlantedMagicBean_SmallFarm.9976156629905609191".to_string(), true)));
         assert!(beans.edits.contains(&Edit::Int("Get_MagicBeans".to_string(), 9)));
         let z: &Preset = find(&b, "zora_fountain", "open").unwrap();
-        assert_eq!(z.edits, vec![Edit::Enum("Step_Get_StoneOfWater".to_string(), "Step07".to_string())]);
+        assert_eq!(z.edits, vec![Edit::Enum("Step_Get_StoneOfWater".to_string(), "Step07".to_string()), Edit::Bool("HavePlayedEvent.Dm_Zora_0010".to_string(), true)]);
         assert_eq!(find(&b, "jabu_open", "true").unwrap().edits.len(), 2);
         assert_eq!(find(&b, "time_always_passes", "true").unwrap().edits, vec![Edit::Bool("HyruleField_ArriveEntrance".to_string(), true), Edit::Bool("HavePlayedEvent.Dm_HrlField_0020".to_string(), true)]);
         let p: &Preset = find(&b, "open_kakariko", "open").unwrap();
@@ -144,6 +147,11 @@ mod tests {
         assert!(read(&format!("{{\"format\":1,\"presets\":[{one},{one}]}}")).is_err());
         assert!(read("{\"format\":1,\"presets\":[{\"setting\":\"a\",\"value\":\"b\",\"edits\":[{\"kind\":\"float\",\"name\":\"X\",\"value\":1}],\"note\":\"n\"}]}").is_err());
         assert!(read("{\"format\":1,\"control\":[{\"kind\":\"int\",\"name\":\"X\",\"value\":99999999999}]}").is_err());
+        let exp = |v: &str| read(&format!("{{\"format\":1,\"control\":[{{\"kind\":\"exp\",\"name\":\"X\",\"value\":{v}}}]}}"));
+        assert_eq!(exp("[[0,\"A\"],[0,\"B\"],[3]]").unwrap().control, vec![Edit::Exp("X".to_string(), vec![(0, "A".to_string()), (0, "B".to_string()), (3, String::new())])]);
+        assert!(exp("[[0,\"\"]]").is_err());
+        assert!(exp("[[0,\"A\",1]]").is_err());
+        assert!(exp("[[]]").is_err());
         assert_eq!(read(&format!("{{\"format\":1,\"presets\":[{one}]}}")).unwrap().presets[0].edits, vec![Edit::Bool("X".to_string(), true)]);
     }
 
@@ -161,7 +169,7 @@ mod tests {
                 Edit::Grant(a, _) => vec![(crate::start_defaults::got(a), "Bool"), (crate::start_defaults::stock(a), "Int")],
                 Edit::Exp(n, t) => {
                     assert_eq!(l.find(n).unwrap_or_else(|| panic!("{n} is not in flags.json")).ty, "BoolExp", "{n}");
-                    for (_, f) in t {
+                    for (_, f) in t.iter().filter(|(_, f)| !f.is_empty()) {
                         assert!(l.find(f).is_some(), "{f} is not in flags.json");
                     }
                     continue;

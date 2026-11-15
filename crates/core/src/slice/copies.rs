@@ -24,6 +24,36 @@ pub const REPEAT: [&str; 18] = [
     "Arrows (30)",
 ];
 
+pub const TWICE: [&str; 23] = [
+    "Boomerang",
+    "Lens of Truth",
+    "Megaton Hammer",
+    "Kokiri Sword",
+    "Biggoron Sword",
+    "Deku Shield",
+    "Hylian Shield",
+    "Mirror Shield",
+    "Goron Tunic",
+    "Zora Tunic",
+    "Iron Boots",
+    "Hover Boots",
+    "Stone of Agony",
+    "Gerudo Membership Card",
+    "Fire Arrows",
+    "Ice Arrows",
+    "Light Arrows",
+    "Dins Fire",
+    "Farores Wind",
+    "Nayrus Love",
+    "Bombchus (5)",
+    "Bombchus (10)",
+    "Bombchus (20)",
+];
+
+pub fn twice(item: &str) -> bool {
+    REPEAT.contains(&item) || TWICE.contains(&item)
+}
+
 pub fn hashes(l: &Loc) -> usize {
     l.refs.iter().map(|r| r.hash).collect::<BS<u64>>().len()
 }
@@ -34,7 +64,7 @@ pub fn copies(d: &Data, name: &str) -> usize {
 }
 
 pub fn fits(d: &Data, name: &str, item: &str) -> bool {
-    copies(d, name) < 2 || REPEAT.contains(&item) || d.vanilla_of(name) == Some(item)
+    copies(d, name) < 2 || twice(item) || d.vanilla_of(name) == Some(item)
 }
 
 #[cfg(test)]

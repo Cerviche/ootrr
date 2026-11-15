@@ -6,8 +6,10 @@ mod check_catalog;
 mod check_msbt;
 mod check_rstbl;
 mod check_sarc;
+mod deku_bridge_cmd;
 mod door_fix_cmd;
 mod door_open_cmd;
+mod entr_cmd;
 mod entrance_cmd;
 mod entrance_json;
 mod event_chests_cmd;
@@ -32,10 +34,12 @@ mod qol_cmd;
 mod save_cmd;
 mod serve_cmd;
 mod settings_cmd;
+mod shelf_cmd;
 mod teleport_check;
 mod teleport_cmd;
 mod teleport_merge_cmd;
 mod slice_cmd;
+mod spot_cmd;
 mod start_defaults_cmd;
 mod treasure_cmd;
 
@@ -73,9 +77,10 @@ const USAGE: &str = "usage:
   ootrr flow-scale <romfs_root> <load_dir> <mod_name> <factor> <min_frames> <relative_path>...
   ootrr flow-force <romfs_root> <load_dir> <mod_name> <relative_path> <event_name> <case_value> [<event_name> <case_value>]...
   ootrr intro-skip <romfs_root> <load_dir> <mod_name> [--movie-only | --scene-only | --hold | --hold-and-scene]
-  ootrr qol-mod <romfs_root> <load_dir> <mod_name> <skip-story | skip-all | anju | poe | navi-dungeons | navi-everywhere | bunny-speed | bunny-jump>
+  ootrr qol-mod <romfs_root> <load_dir> <mod_name> <skip-story | skip-all | anju | poe | navi-dungeons | navi-everywhere | bunny-speed | bunny-jump | big-chest-anim>
   ootrr door-fix <romfs_root> <load_dir> <mod_name>
   ootrr door-open <romfs_root> <load_dir> <mod_name>
+  ootrr deku-bridge-testmod <romfs_root> <load_dir> <mod_name>
   ootrr start-defaults <romfs_root> <load_dir> <mod_name> [--preset setting=value]... [--control] [--bool N=v] [--int N=v] [--enum N=v] [--grant Actor:n] [--opening-step S]
   ootrr flow-rewards <romfs_root> <out_json>
   ootrr flow-sim <romfs_root> <flow> <entry> [--set name=value]... [--own Item[:n]]... [--choose n]... [--hour h] [--follow] [--verbose] [--mod dir] [--patch doorfix] [--nodep Challenge] [--never lit,!lit] [--expect rule] [--compare] [--run Flow:Entry]...
@@ -90,6 +95,7 @@ const USAGE: &str = "usage:
   ootrr flow-locations-check <romfs_root> [flags_json]
   ootrr flow-apply <romfs_root> <load_dir> <mod_name> [--untested] <location=Item_Actor>...
   ootrr flow-verify <romfs_root> <mod_folder> [--untested] [location=Item_Actor]...
+  ootrr flow-loads <romfs_root> <mod_romfs_folder>
   ootrr check-catalog <romfs_root> <catalog_json>
   ootrr calibrate <romfs_root> <load_dir> <mod_name> <area> [--catalog <json>] [--dry]
   ootrr check-msbt <romfs_root> [language ... | all]
@@ -101,10 +107,14 @@ const USAGE: &str = "usage:
   ootrr colors-preview <romfs_root> <out_dir> <random|shared> <seed_text>
   ootrr slice-scan <romfs_root> <out_json>
   ootrr pot-scan <romfs_root> <out_json>
-  ootrr pot-variants <romfs_root> <load_dir> <mod_name> [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--dry]
+  ootrr rock-scan <romfs_root> <out_json>
+  ootrr remake-pot-scan <romfs_root> <out_json>
+  ootrr spot-audit <seed.ootrr> [--all]
+  ootrr spot-regions <out_tsv>
+  ootrr pot-variants <romfs_root> <load_dir> <mod_name> [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--all] [--dry]
   ootrr pots-persist <romfs_root> <load_dir> <mod_name>
-  ootrr pack-add <romfs_root> <load_dir> <mod_name> <Item_Actor> [--name <Obj_Actor>] [--press] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--place <ActorHash>]... [--tag <TagName>]... [--ammo] [--magic] [--dry]
-  ootrr pack-kit <romfs_root> <load_dir> <mod_name> <Item_Actor|Obj_Actor> [--name <Obj_Actor_GS>] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--drop <SkulltulaHash>]... [--dry]
+  ootrr pack-add <romfs_root> <load_dir> <mod_name> <Item_Actor> [--name <Obj_Actor>] [--press] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--place <ActorHash>]... [--tag <TagName>]... [--ammo] [--magic] [--model-from <Actor>] [--dry]
+  ootrr pack-kit <romfs_root> <load_dir> <mod_name> <Item_Actor|Obj_Actor> [--name <Obj_Actor_GS>] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--drop <SkulltulaHash>]... [--model-from <Actor>] [--dry]
   ootrr flags-build <romfs_root> <out_json>
   ootrr flags-lookup <flags_json> <name_or_hash> ...
   ootrr flags-check <romfs_root> <flags_json>
@@ -117,6 +127,8 @@ const USAGE: &str = "usage:
   ootrr event-chest-show <romfs_root> <event_name> ...
   ootrr event-chests-testmod <romfs_root> <event_chests_json> <load_dir> <mod_name>
   ootrr treasure-testmod <romfs_root> <load_dir> <mod_name> <item_actor> [keep-view]
+  ootrr shelf-testmod <romfs_root> <load_dir> <mod_name> [--host hookshot|eden|nx2navi] <Shop Location=Item@price>...
+  ootrr shop-audit <seed_file>...
   ootrr find-drop <romfs_root> <item_name_or_star>
   ootrr set-drop <romfs_root> <load_dir> <mod_name> <actor_hash> <item_name> [no-event]
   ootrr hints-show <seed.ootrr> <romfs_root> [--npc]
@@ -131,6 +143,8 @@ const USAGE: &str = "usage:
   ootrr entrance-catalog <romfs_root> <out_json>
   ootrr entrance-list <romfs_root> [filter]
   ootrr swap-entrance <romfs_root> <load_dir> <mod_name> <entrance_a> <entrance_b> [force]
+  ootrr entrance-mod <romfs_root> <load_dir> <mod_name> [--host eden|hookshot|nx2navi] [--age adult|child] [--swap Map/Name Map/Name]... [--dungeon Spot=Dungeon]...
+  ootrr entrance-verify <romfs_root> <mod_folder>
   ootrr save-info <progress.sav> [--flags <flags_json>]
   ootrr save-get <progress.sav> <name_or_hash>... [--flags <flags_json>]
   ootrr save-set <in> <out> <name=value>... [--flags <flags_json>]
@@ -347,6 +361,7 @@ fn main() -> ExitCode {
         Some("qol-mod") => qol_cmd::run(&a[1..]),
         Some("door-fix") => door_fix_cmd::run(&a[1..]),
         Some("door-open") => door_open_cmd::run(&a[1..]),
+        Some("deku-bridge-testmod") => deku_bridge_cmd::testmod(&a[1..]),
         Some("start-defaults") => start_defaults_cmd::run(&a[1..]),
         Some("progressive") => progressive_cmd::run(&a[1..]),
         Some("key-credit") => key_credit_cmd::run(&a[1..]),
@@ -367,6 +382,7 @@ fn main() -> ExitCode {
         Some("flow-locations-check") => flow_cmd::check(&a[1..]),
         Some("flow-apply") => flow_cmd::run_apply(&a[1..]),
         Some("flow-verify") => flow_cmd::run_verify(&a[1..]),
+        Some("flow-loads") => flow_cmd::run_loads(&a[1..]),
         Some("check-catalog") => check_catalog::run(&a[1..]),
         Some("calibrate") => calibrate_cmd::run(&a[1..]),
         Some("check-msbt") => check_msbt::run(&a[1..]),
@@ -383,6 +399,10 @@ fn main() -> ExitCode {
         Some("colors-preview") => slice_cmd::preview(&a[1..]),
         Some("slice-scan") => slice_cmd::scan_cmd(&a[1..]),
         Some("pot-scan") => pot_scan_cmd::run(&a[1..]),
+        Some("rock-scan") => pot_scan_cmd::run_rocks(&a[1..]),
+        Some("remake-pot-scan") => pot_scan_cmd::run_remake(&a[1..]),
+        Some("spot-audit") => spot_cmd::audit(&a[1..]),
+        Some("spot-regions") => spot_cmd::regions(&a[1..]),
         Some("pot-variants") => pot_variants_cmd::run(&a[1..]),
         Some("pots-persist") => pots_persist_cmd::run(&a[1..]),
         Some("pack-add") => pack_add_cmd::run(&a[1..]),
@@ -399,6 +419,8 @@ fn main() -> ExitCode {
         Some("event-chest-show") => event_chests_cmd::show(&a[1..]),
         Some("event-chests-testmod") => event_chests_cmd::testmod(&a[1..]),
         Some("treasure-testmod") => treasure_cmd::testmod(&a[1..]),
+        Some("shelf-testmod") => shelf_cmd::testmod(&a[1..]),
+        Some("shop-audit") => shelf_cmd::audit_seeds(&a[1..]),
         Some("find-drop") => find_drop(&a[1..]),
         Some("set-drop") => set_drop(&a[1..]),
         Some("zs-extract") => zs_extract(&a[1..]),
@@ -407,6 +429,8 @@ fn main() -> ExitCode {
         Some("entrance-catalog") => entrance_cmd::catalog(&a[1..]),
         Some("entrance-list") => entrance_cmd::list(&a[1..]),
         Some("swap-entrance") => entrance_cmd::swap(&a[1..]),
+        Some("entrance-mod") => entr_cmd::make(&a[1..]),
+        Some("entrance-verify") => entr_cmd::verify(&a[1..]),
         Some("save-info") => save_cmd::info(&a[1..]),
         Some("save-get") => save_cmd::get(&a[1..]),
         Some("save-set") => save_cmd::set(&a[1..]),

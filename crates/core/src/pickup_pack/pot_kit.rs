@@ -31,6 +31,7 @@ pub const CELLS: &str = "CellList";
 pub const CELL_TYPE: &str = "game__death__DeathReasonProceduresCell";
 pub const KEEP: &str = "IsSetGmdRespawnFlagToFalse";
 pub const DEFAULT_TABLE: &str = "Default";
+pub const DEFAULT_DEATH: &str = "Component/DeathParam/Default.game__component__DeathParam.bgyml";
 const AI_DIR: &str = "AI/AIInfo/";
 const AI_EXT: &str = ".engine__actor__AIInfo.bgyml";
 const DEATH_DIR: &str = "Component/DeathParam/";
@@ -127,7 +128,15 @@ pub fn plan(packs: &[Vec<Entry>], skull_graph: &[u8], cells: &[String], base: &s
     a.root.set(ROOT_REF, Node::Str(new_root.replace("AI/Root/", "Work/AI/Root/")));
     put(&mut p, &mut fresh, &new_ai, a.write()?)?;
 
-    let mut d: Byml = p.byml(&death)?;
+    let mut d: Byml = match p.get(&death) {
+        Some(_) => p.byml(&death)?,
+        None if death == DEFAULT_DEATH => {
+            let mut n: Node = Node::Map(Vec::new());
+            n.set(PARENT, Node::Str(work(&death)));
+            Byml { root: n, version, big: false }
+        }
+        None => return Err(E::Msg(format!("{death} is not in the source packs"))),
+    };
     d.root.set(PROCEDURES, Node::Str(work(&new_table)));
     put(&mut p, &mut fresh, &new_death, d.write()?)?;
 
@@ -142,7 +151,14 @@ pub fn plan(packs: &[Vec<Entry>], skull_graph: &[u8], cells: &[String], base: &s
     actor.set(COMPONENTS, comps);
     put(&mut p, &mut fresh, &actor_file(&name), byml(actor, version)?)?;
 
-    let files: Vec<String> = select(&p, &name)?;
+    let mut keep: BS<String> = select(&p, &name)?.into_iter().collect();
+    let gone: [&str; 3] = [ai.as_str(), death.as_str(), old_graph.as_str()];
+    for e in packs.last().into_iter().flatten() {
+        if !gone.contains(&e.name.as_str()) {
+            keep.insert(e.name.clone());
+        }
+    }
+    let files: Vec<String> = keep.into_iter().collect();
     if let Some((f, _)) = fresh.iter().find(|f| !files.contains(&f.0)) {
         return Err(E::Msg(format!("{f} did not make it into the pack")));
     }
@@ -161,6 +177,23 @@ pub const SKULL_PACK: &str = "Enemy_Skulltula_Gold";
 pub const SKULL_UTIL: &str = "AI/Enemy_Skulltula_Gold.utility.root.ainb";
 pub const BASE_PACK: &str = "Obj_Pot_A_01";
 pub const ACTORS: [&str; 8] = ["Obj_Pot_A_01", "Obj_Pot_A_02", "Obj_Pot_A_03", "Obj_Pot_A_04", "Obj_Pot_A_05", "Obj_Pot_A_06", "Obj_Pot_A_07", "Obj_Pot_A_08"];
+pub const CRATES: [&str; 2] = ["Obj_BrokenBox_A_01", "Obj_BrokenBox_A_03"];
+pub const FLYING: [&str; 3] = ["Enemy_FlyingPot_SpiritTemple", "Enemy_FlyingPot_ShadowTemple", "Enemy_FlyingPot_IceCavern"];
+pub const HIVES: [&str; 1] = ["Obj_Kokiri_Beehive_A_01"];
+pub const ROCKS: [&str; 1] = ["Obj_LiftRock_A_01"];
+pub const GRASS: [&str; 1] = ["Obj_Plant_Grass_A_01"];
+
+pub fn holders() -> Vec<&'static str> {
+    ACTORS.iter().chain(CRATES.iter()).chain(FLYING.iter()).chain(HIVES.iter()).chain(ROCKS.iter()).chain(GRASS.iter()).copied().collect()
+}
+
+fn sources(base: &[Entry], own: Vec<Entry>, a: &str) -> Vec<Vec<Entry>> {
+    if ACTORS.contains(&a) && a != BASE_PACK {
+        vec![base.to_vec(), own]
+    } else {
+        vec![own]
+    }
+}
 
 fn cells_of(rf: &mut Romfs) -> Res<Vec<String>> {
     let c: Vec<Byml> = death_chain(rf, DEFAULT_TABLE)?;
@@ -193,8 +226,9 @@ pub fn run(romfs: &P, load: &P, mod_name: &str, actors: &[&str], o: &Opts) -> Re
     let skull: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(SKULL_PACK))?)?;
     let util: Vec<u8> = sarc::get(&skull, SKULL_UTIL).ok_or_else(|| E::Msg(format!("{SKULL_UTIL} is not in the skulltula pack")))?.data.clone();
     let cells: Vec<String> = cells_of(&mut rf)?;
-    let peers: Vec<(String, usize)> = loose_peers(&rf);
+    let mut peers: Vec<(String, usize)> = loose_peers(&rf);
     let base: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(BASE_PACK))?)?;
+    peers.extend(base.iter().map(|e| (e.name.clone(), e.data.len())));
     let (mut rst, modded): (Rst, bool) = size_table(&mut rf, o)?;
     let mut note: String = String::new();
     let id: u32 = dict_id(&rf.read(&pack_of(BASE_PACK))?).unwrap_or(PACK_DICT);
@@ -205,8 +239,7 @@ pub fn run(romfs: &P, load: &P, mod_name: &str, actors: &[&str], o: &Opts) -> Re
             return Err(E::Msg(format!("the game already ships {}", name_of(a))));
         }
         let own: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(a))?)?;
-        let packs: Vec<Vec<Entry>> = if *a == BASE_PACK { vec![own] } else { vec![base.clone(), own] };
-        let pl: PotPlan = plan(&packs, &util, &cells, a, &peers)?;
+        let pl: PotPlan = plan(&sources(&base, own, a), &util, &cells, a, &peers)?;
         files.push(File { path: pack_of(&pl.name), z: zs::compress_raw(&pl.sarc, Some(id))?, raw: pl.sarc.clone(), old: 0, fresh: true });
         plans.push(pl);
     }
@@ -283,35 +316,130 @@ mod tests {
         }
     }
 
+
+    fn kit_of(rf: &mut Romfs, n: &str) -> (PotPlan, Vec<String>) {
+        let skull: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(SKULL_PACK)).unwrap()).unwrap();
+        let g: Vec<u8> = sarc::get(&skull, SKULL_UTIL).unwrap().data.clone();
+        let cells: Vec<String> = cells_of(rf).unwrap();
+        let base: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(BASE_PACK)).unwrap()).unwrap();
+        let own: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(n)).unwrap()).unwrap();
+        (plan(&sources(&base, own, n), &g, &cells, n, &[]).unwrap(), cells)
+    }
+
     #[test]
-    fn every_pot_type_gets_a_variant_whose_graph_hands_its_hash_and_whose_table_keeps_nothing() {
-        use crate::pickup_pack::pack_of;
-        use crate::romfs::Romfs;
+    fn every_holder_type_gets_a_variant_whose_graph_hands_its_hash_and_whose_table_keeps_nothing() {
         let Some(root) = real() else {
             return;
         };
         let mut rf: Romfs = Romfs::open(&root).unwrap();
-        let skull: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(SKULL_PACK)).unwrap()).unwrap();
-        let g: Vec<u8> = sarc::get(&skull, SKULL_UTIL).unwrap().data.clone();
-        let cells: Vec<String> = cells_of(&mut rf).unwrap();
-        assert!(cells.len() > 10);
-        let base: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(BASE_PACK)).unwrap()).unwrap();
-        for n in ACTORS {
+        assert_eq!(holders().len(), 16);
+        for n in holders() {
             let own: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(n)).unwrap()).unwrap();
-            let packs: Vec<Vec<Entry>> = if n == BASE_PACK { vec![own] } else { vec![base.clone(), own] };
-            let pl: PotPlan = plan(&packs, &g, &cells, n, &[]).unwrap();
+            for e in own.iter().filter(|e| e.name.ends_with(".ainb")) {
+                assert_eq!(Ainb::parse(&e.data).unwrap().write().unwrap(), e.data, "{n} {}", e.name);
+            }
+            let (pl, cells): (PotPlan, Vec<String>) = kit_of(&mut rf, n);
+            assert!(cells.len() > 10);
             let es: Vec<Entry> = sarc::parse(&pl.sarc).unwrap();
             assert!(sarc::get(&es, &actor_file(&pl.name)).is_some(), "{n}");
             let graph: &Entry = es.iter().find(|e| e.name.ends_with("_GS.root.ainb")).unwrap();
             let a: Ainb = Ainb::parse(&graph.data).unwrap();
-            assert_eq!(a.find_els(crate::ainb::graft::SET).len(), 1, "{n}");
+            let set: Vec<usize> = a.find_els(crate::ainb::graft::SET);
+            assert_eq!(set.len(), 1, "{n}");
             assert!(crate::ainb::audit(&a).is_empty(), "{n}");
+            let top: usize = crate::ainb::graft::root(&a).unwrap();
+            let runs: Vec<usize> = (0..a.els.len()).filter(|i| a.params[*i].group(2).iter().any(|p| p.a as usize == set[0])).collect();
+            assert_eq!(runs.len(), 1, "{n}");
+            assert!(matches!(a.el_type(runs[0]), crate::ainb::graft::SIMULTANEOUS | crate::ainb::graft::SEQUENTIAL), "{n}");
+            assert_eq!(a.params[runs[0]].group(2)[0].a as usize, set[0], "{n}");
+            assert!(runs[0] == top || a.params[top].group(2).first().map(|p| p.a as usize) == Some(runs[0]), "{n}");
+            assert_eq!(Ainb::parse(&a.write().unwrap()).unwrap(), a, "{n}");
             let t: &Entry = es.iter().find(|e| e.name.contains("_GS_game__death__")).unwrap();
             let y: Byml = Byml::parse(&t.data).unwrap();
             let list: &Node = y.root.get(CELLS).unwrap();
             for c in &cells {
                 assert_eq!(list.get(&format!("{c}___Data")).and_then(|x| x.get(KEEP)), Some(&Node::Bool(false)), "{n} {c}");
             }
+            let dp: &Entry = es.iter().find(|e| e.name.starts_with(DEATH_DIR) && e.name.contains("_GS.")).unwrap();
+            let dy: Byml = Byml::parse(&dp.data).unwrap();
+            assert_eq!(dy.root.get(PROCEDURES).and_then(|v| v.as_str()), Some(work(&t.name).as_str()), "{n}");
+            assert_eq!(dy.root.get(PARENT).and_then(|v| v.as_str()), Some(work(DEFAULT_DEATH).as_str()), "{n}");
         }
+    }
+
+    #[test]
+    fn every_variant_carries_its_holder_pack_but_the_three_files_it_replaces() {
+        let Some(root) = real() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        for n in holders() {
+            let own: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(n)).unwrap()).unwrap();
+            let (pl, _): (PotPlan, Vec<String>) = kit_of(&mut rf, n);
+            let miss: Vec<&str> = own.iter().map(|e| e.name.as_str()).filter(|f| !pl.files.iter().any(|g| g == f)).collect();
+            assert!(miss.len() <= 3, "{n} {miss:?}");
+            assert!(miss.iter().all(|f| f.starts_with(AI_DIR) || f.starts_with(DEATH_DIR) || (f.starts_with("AI/") && f.ends_with(".root.ainb"))), "{n} {miss:?}");
+            assert!(miss.iter().all(|f| !f.ends_with(".module.ainb")), "{n} {miss:?}");
+        }
+        let (fly, _): (PotPlan, Vec<String>) = kit_of(&mut rf, "Enemy_FlyingPot_IceCavern");
+        assert!(fly.files.iter().any(|f| f == "AI/Enemy_FlyingPot_root.module.ainb"));
+        let (rock, _): (PotPlan, Vec<String>) = kit_of(&mut rf, "Obj_LiftRock_A_01");
+        assert!(rock.files.iter().any(|f| f == "AI/Obj_Pot.root.ainb"));
+    }
+
+    #[test]
+    fn a_holder_whose_root_runs_one_child_at_a_time_gets_a_new_parallel_root() {
+        let Some(root) = real() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        for (n, old) in [("Obj_Kokiri_Beehive_A_01", "AI/Obj_Beehive.root.ainb"), ("Enemy_FlyingPot_IceCavern", "AI/Enemy_FlyingPot.root.ainb")] {
+            let own: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(n)).unwrap()).unwrap();
+            let was: Ainb = Ainb::parse(&sarc::get(&own, old).unwrap().data).unwrap();
+            let (pl, _): (PotPlan, Vec<String>) = kit_of(&mut rf, n);
+            let es: Vec<Entry> = sarc::parse(&pl.sarc).unwrap();
+            let a: Ainb = Ainb::parse(&es.iter().find(|e| e.name.ends_with("_GS.root.ainb")).unwrap().data).unwrap();
+            let top: usize = crate::ainb::graft::root(&a).unwrap();
+            assert_eq!((a.el_type(top), top, a.els.len()), (crate::ainb::graft::SIMULTANEOUS, was.els.len() + 3, was.els.len() + 4), "{n}");
+            let kids: Vec<usize> = a.params[top].group(2).iter().map(|p| p.a as usize).collect();
+            assert_eq!(kids, vec![a.find_els(crate::ainb::graft::SET)[0], crate::ainb::graft::root(&was).unwrap()], "{n}");
+            assert_eq!(a.els[top][6], crate::ainb::graft::ROOT_ROLE, "{n}");
+            for (x, y) in a.els.iter().zip(was.els.iter()) {
+                assert_eq!((&x[..0x14], &x[0x18..]), (&y[..0x14], &y[0x18..]), "{n}");
+            }
+        }
+    }
+
+    #[test]
+    fn every_holder_variant_builds_with_its_rows_and_size_entries() {
+        let Some(root) = real() else {
+            return;
+        };
+        let o: Opts = Opts { host: crate::modpack::Host::Longshot, base: None, rst_from: None, places: Vec::new(), dry: true };
+        let all: Vec<&str> = holders();
+        let d: Done = run(&root, P::new("unused"), "unused", &all, &o).unwrap();
+        assert!(d.root.is_none());
+        for a in &all {
+            assert!(d.files.iter().any(|f| f.path == pack_of(&name_of(a))), "{a}");
+            assert!(d.report.contains(&format!("{}: ", name_of(a))), "{a}");
+        }
+        assert_eq!(d.files.iter().filter(|f| f.fresh).count(), all.len());
+        let pots: Done = run(&root, P::new("unused"), "unused", &ACTORS, &o).unwrap();
+        let same: Vec<&File> = pots.files.iter().filter(|f| f.fresh).collect();
+        for f in same {
+            assert_eq!(d.files.iter().find(|g| g.path == f.path).map(|g| &g.raw), Some(&f.raw), "{}", f.path);
+        }
+    }
+
+    #[test]
+    fn the_eight_pot_variants_keep_the_bytes_of_the_first_pot_kit() {
+        let Some(root) = real() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let (pl, _): (PotPlan, Vec<String>) = kit_of(&mut rf, "Obj_Pot_A_03");
+        let names: Vec<&str> = pl.fresh.iter().map(|f| f.0.as_str()).collect();
+        assert_eq!(names, vec!["AI/Obj_Pot_GS.root.ainb", "AI/AIInfo/Obj_Pot_GS.engine__actor__AIInfo.bgyml", "Component/DeathParam/Obj_Pot_A_01_GS.game__component__DeathParam.bgyml", "System/CombinationDataTableData/ScrubBusiness_GS_game__death__DeathReasonProcedures.pp__CombinationDataTableData.bgyml", "Actor/Obj_Pot_A_03_GS.engine__actor__ActorParam.bgyml"]);
+        assert_eq!(pl.fresh.iter().map(|f| f.1).collect::<Vec<usize>>(), vec![14654, 192, 356, 808, 320]);
     }
 }

@@ -5,7 +5,7 @@
 //! the A press on to the draw event while the quest is exactly at Step06. Neither happens in a
 //! seed that skips the Ocarina of Time scenes, so both gates are rewritten here.
 
-use std::path::Path as P;
+use std::path::{Path as P, PathBuf as PB};
 
 use crate::ainb::Ainb;
 use crate::bfevfl::{Bf, Case, Cont, Event, Flow, Kind, Val};
@@ -203,8 +203,8 @@ pub fn patch_sheik(y: &mut Byml) -> Res<()> {
     Ok(())
 }
 
-pub fn stage_sheik(rf: &mut Romfs) -> Res<Out> {
-    let raw: Vec<u8> = staging::banc_raw(rf, SHEIK_FILE, None)?;
+pub fn stage_sheik(rf: &mut Romfs, from: Option<&PB>) -> Res<Out> {
+    let raw: Vec<u8> = staging::banc_raw(rf, SHEIK_FILE, from)?;
     let mut y: Byml = Byml::parse(&raw)?;
     patch_sheik(&mut y)?;
     let out: Vec<u8> = y.write()?;
@@ -222,7 +222,11 @@ fn rewrite(rf: &mut Romfs, path: &str, f: impl FnOnce(&mut Ainb) -> Res<()>) -> 
     Ok(Out { path: path.to_string(), old: raw.len(), new: out.len(), z: out })
 }
 
-pub fn stage(rf: &mut Romfs) -> Res<Vec<Out>> {
+pub fn stage_door(rf: &mut Romfs) -> Res<Vec<Out>> {
+    Ok(vec![rewrite(rf, MODULE, |a| patch(a).map(|_| ()))?, rewrite(rf, SWORD_MODULE, patch_sword)?])
+}
+
+pub fn stage_pedestal(rf: &mut Romfs, from: Option<&PB>) -> Res<Vec<Out>> {
     let back: Out = staging::rewrite(rf, RETURN_FILE, |raw| {
         let mut b: Bf = Bf::parse(raw)?;
         patch_return(&mut b)?;
@@ -232,13 +236,13 @@ pub fn stage(rf: &mut Romfs) -> Res<Vec<Out>> {
         }
         Ok(out)
     })?;
-    Ok(vec![
-        rewrite(rf, MODULE, |a| patch(a).map(|_| ()))?,
-        rewrite(rf, SWORD_MODULE, patch_sword)?,
-        rewrite(rf, PEDESTAL_MODULE, patch_pedestal)?,
-        back,
-        stage_sheik(rf)?,
-    ])
+    Ok(vec![rewrite(rf, PEDESTAL_MODULE, patch_pedestal)?, back, stage_sheik(rf, from)?])
+}
+
+pub fn stage(rf: &mut Romfs) -> Res<Vec<Out>> {
+    let mut outs: Vec<Out> = stage_door(rf)?;
+    outs.extend(stage_pedestal(rf, None)?);
+    Ok(outs)
 }
 
 #[cfg(test)]
@@ -297,6 +301,60 @@ mod tests {
         assert!(patch_return(&mut b).is_err());
         let bytes: Vec<u8> = b.write().unwrap();
         assert_eq!(Bf::parse(&bytes).unwrap(), b);
+    }
+
+    fn real() -> Option<PB> {
+        let p: PB = std::env::var("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|_| PB::from("C:/o/nup dump/updates/131072/romfs"));
+        if p.join("Pack").join("ZsDic.pack.zs").is_file() {
+            Some(p)
+        } else {
+            eprintln!("skipped, no RomFS dump at {} (set OOTRR_ROMFS)", p.display());
+            None
+        }
+    }
+
+    fn built(root: &PB, pairs: &[(&str, crate::settings::Value)], seed: &str) -> PB {
+        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        let mut s: crate::settings::Settings = crate::settings::Settings::default();
+        for (k, v) in pairs {
+            s.set(k, v.clone()).unwrap();
+        }
+        let g = crate::slice::generate::generate_data(&d, &s, seed, &crate::slice::GenOpts::default()).unwrap();
+        let load: PB = PB::from(env!("CARGO_MANIFEST_DIR")).join("../../target/door_open_mods");
+        crate::slice::edit::build(&g.seed_file, root, &load, seed).unwrap().root.join("romfs")
+    }
+
+    fn on_disk(out: &PB, f: &str) -> PB {
+        f.split('/').fold(out.clone(), |a, x| a.join(x))
+    }
+
+    #[test]
+    fn every_build_carries_the_pedestal_fix_and_only_the_door_setting_adds_the_door_modules() {
+        let Some(root) = real() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let plain: PB = built(&root, &[], "pedestal default");
+        for f in [PEDESTAL_MODULE, RETURN_FILE, SHEIK_FILE, crate::start_state::FIELD_FLOW_FILE] {
+            assert!(on_disk(&plain, f).is_file(), "{f}");
+        }
+        for f in [MODULE, SWORD_MODULE] {
+            assert!(!on_disk(&plain, f).exists(), "{f}");
+        }
+        let flow: Bf = Bf::parse(&rf.zs.decompress(&std::fs::read(on_disk(&plain, crate::start_state::FIELD_FLOW_FILE)).unwrap()).unwrap()).unwrap();
+        let f: &Flow = flow.flows.iter().find(|x| x.name == crate::start_state::FIELD_FLOW).unwrap();
+        let e: &Event = f.events.iter().find(|e| e.name == crate::start_state::FIELD_FIRST_EVENT).unwrap();
+        assert_eq!(e.kind.params().and_then(|c| c.get("Value")), Some(&Val::Bool(0)));
+        let van: crate::rsizetable::Rst = crate::rsizetable::load(&mut rf).unwrap();
+        let ours: crate::rsizetable::Rst = crate::rsizetable::Rst::parse(&rf.zs.decompress(&std::fs::read(on_disk(&plain, crate::rsizetable::TABLE_PATH)).unwrap()).unwrap()).unwrap();
+        assert_eq!(ours.get(crate::start_state::FIELD_FLOW_FILE), van.get(crate::start_state::FIELD_FLOW_FILE));
+        let off: PB = built(&root, &[(crate::open_world::TIME, crate::settings::Value::Bool(false))], "pedestal clock off");
+        assert!(on_disk(&off, PEDESTAL_MODULE).is_file());
+        assert!(!on_disk(&off, crate::start_state::FIELD_FLOW_FILE).exists());
+        let door: PB = built(&root, &[("open_door_of_time", crate::settings::Value::Bool(true))], "pedestal door");
+        for f in [MODULE, SWORD_MODULE, PEDESTAL_MODULE, RETURN_FILE, SHEIK_FILE] {
+            assert!(on_disk(&door, f).is_file(), "{f}");
+        }
     }
 
     #[test]

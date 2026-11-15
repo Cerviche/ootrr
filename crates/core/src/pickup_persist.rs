@@ -416,7 +416,7 @@ mod tests {
                 assert!(kept(&rs, r.hash), "{} hash {} row {:?}", l.name, r.hash, rs.get(&r.hash));
             }
         }
-        assert_eq!(n, 37);
+        assert_eq!(n, 135);
     }
 
     #[test]

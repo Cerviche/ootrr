@@ -19,7 +19,7 @@ pub const VANILLA: &str = "Obj_Heart_Piece";
 
 pub const NOTE: &str = "The Treasure Chest Game reward is shuffled. The first win gives the shuffled item and every later win gives the vanilla red rupee. Only unique items whose second copy changes nothing can be placed there.";
 
-pub const ITEMS: [&str; 17] = [
+pub const ITEMS: [&str; 29] = [
     "Boomerang",
     "Lens of Truth",
     "Megaton Hammer",
@@ -37,6 +37,18 @@ pub const ITEMS: [&str; 17] = [
     "Piece of Heart",
     "Piece of Heart (Out of Logic)",
     "Piece of Heart (Treasure Chest Game)",
+    "Zeldas Lullaby",
+    "Eponas Song",
+    "Sarias Song",
+    "Suns Song",
+    "Song of Time",
+    "Song of Storms",
+    "Minuet of Forest",
+    "Bolero of Fire",
+    "Serenade of Water",
+    "Requiem of Spirit",
+    "Nocturne of Shadow",
+    "Prelude of Light",
 ];
 
 const VIEWS: [(&str, &str); 1] = [("Obj_Heart_Piece", "Obj_Heart_Piece_MiniGame")];
@@ -197,7 +209,7 @@ mod tests {
         for n in ITEMS {
             let i: &crate::slice::data::Item = d.item(n).unwrap_or_else(|| panic!("{n}"));
             assert!(i.tiers.is_empty() && d.family(n).is_none(), "{n}");
-            assert_eq!(i.kind, "Item", "{n}");
+            assert!(i.kind == "Item" || crate::slice::song_spots::is_song_item(i), "{n}");
             let a: &str = i.actor.as_deref().unwrap();
             assert!(a.starts_with("Item_") || a == "Obj_Heart_Piece", "{n} {a}");
         }

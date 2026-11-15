@@ -1,4 +1,5 @@
 pub mod anju;
+pub mod chest_anim;
 pub mod bunny;
 pub mod navi_return;
 pub mod poe;
@@ -35,13 +36,14 @@ pub struct Opts {
     pub poe: bool,
     pub navi: navi_return::Mode,
     pub bunny: bunny::Mode,
+    pub big_chests: bool,
 }
 
 pub type Have<'a> = &'a dyn Fn(&str) -> Option<Vec<u8>>;
 
 impl Opts {
     pub fn any(&self) -> bool {
-        self.skip != Skip::Off || self.anju || self.poe || self.navi != navi_return::Mode::Off || self.bunny != bunny::Mode::Off
+        self.skip != Skip::Off || self.anju || self.poe || self.navi != navi_return::Mode::Off || self.bunny != bunny::Mode::Off || self.big_chests
     }
 
     pub fn logic(&self) -> Vec<(&'static str, &'static str)> {
@@ -78,6 +80,9 @@ impl Opts {
             bunny::Mode::Speed => out.push(bunny::NOTE_SPEED.to_string()),
             bunny::Mode::Jump => out.push(bunny::NOTE_JUMP.to_string()),
         }
+        if self.big_chests {
+            out.push(chest_anim::NOTE.to_string());
+        }
         out
     }
 }
@@ -104,6 +109,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     };
     let anju: bool = flag(ANJU);
     let poe: bool = flag(POE);
+    let big_chests: bool = flag(chest_anim::SETTING);
     let navi: navi_return::Mode = match s.text(NAVI) {
         Ok("off") => navi_return::Mode::Off,
         Ok("dungeons") => navi_return::Mode::Dungeons,
@@ -130,7 +136,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             bunny::Mode::Off
         }
     };
-    Opts { skip, anju, poe, navi, bunny }
+    Opts { skip, anju, poe, navi, bunny, big_chests }
 }
 
 pub fn files() -> Vec<String> {
@@ -142,6 +148,7 @@ pub fn files() -> Vec<String> {
     out.push(navi_return::FILE.to_string());
     out.push(navi_return::SEQ.to_string());
     out.push(bunny::FILE.to_string());
+    out.extend(chest_anim::files().iter().map(|s| s.to_string()));
     out
 }
 
@@ -177,6 +184,9 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have) -> Res<Vec<Out>> {
     }
     outs.extend(navi_return::stage(rf, o.navi, have)?);
     outs.extend(bunny::stage(rf, o.bunny, have)?);
+    if o.big_chests {
+        outs.extend(chest_anim::stage(rf, have)?);
+    }
     Ok(outs)
 }
 
@@ -221,7 +231,7 @@ mod tests {
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&s, &mut bad);
         assert!(bad.is_empty());
-        assert_eq!(o, Opts { skip: Skip::Story, anju: true, poe: true, navi: navi_return::Mode::Off, bunny: bunny::Mode::Off });
+        assert_eq!(o, Opts { skip: Skip::Story, anju: true, poe: true, navi: navi_return::Mode::Off, bunny: bunny::Mode::Off, big_chests: false });
         s.set(BUNNY, Value::s("jump")).unwrap();
         assert_eq!(read(&s, &mut bad).bunny, bunny::Mode::Jump);
         assert_eq!(read(&s, &mut bad).notes().len(), 4);
@@ -230,6 +240,18 @@ mod tests {
         assert_eq!(o.notes().len(), 3);
         s.set(SKIP, Value::s("all")).unwrap();
         assert_eq!(read(&s, &mut bad).skip, Skip::All);
+    }
+
+    #[test]
+    fn faster_pickups_give_big_chests_the_small_animation() {
+        let mut s: Settings = Settings::default();
+        let mut bad: Vec<String> = Vec::new();
+        assert!(!read(&s, &mut bad).big_chests);
+        s.set(chest_anim::SETTING, Value::Bool(true)).unwrap();
+        let o: Opts = read(&s, &mut bad);
+        assert!(bad.is_empty());
+        assert!(o.big_chests && o.any());
+        assert_eq!(o.notes(), vec![chest_anim::NOTE.to_string()]);
     }
 
     fn dump() -> Option<std::path::PathBuf> {
@@ -267,12 +289,13 @@ mod tests {
         let p: crate::slice::support::Plan = plan(&Settings::default()).unwrap();
         assert!(!p.qol.any());
         assert!(p.logic().is_empty());
-        assert_eq!(p.notes.len(), 3);
+        // Three from the defaults plus the two always-on cutscene skips (crate::story_skip).
+        assert_eq!(p.notes.len(), 5);
         for (k, v, key) in [(ANJU, Value::Bool(true), "chicken_count"), (POE, Value::Bool(true), "big_poe_count")] {
             let p: crate::slice::support::Plan = plan(&with(&[(k, v)])).unwrap();
             assert!(p.qol.any());
             assert_eq!(p.logic(), vec![(key, "1")]);
-            assert_eq!(p.notes.len(), 4);
+            assert_eq!(p.notes.len(), 6);
         }
         let p: crate::slice::support::Plan = plan(&with(&[(SKIP, Value::s("all"))])).unwrap();
         assert_eq!(p.qol.skip, Skip::All);
@@ -305,8 +328,8 @@ mod tests {
         assert!(n1.len() < n0.len(), "{n0} {n1}");
         let (_, p0): (Vec<ItemId>, String) = rule(&w0, "Market 10 Big Poes");
         let (_, p1): (Vec<ItemId>, String) = rule(&w1, "Market 10 Big Poes");
-        assert!(p0.contains("Has(107, 10)"), "{p0}");
-        assert!(p1.contains("Any(") && !p1.contains("Has(107, 10)"), "{p1}");
+        assert!(p0.contains("Has(107, 5)"), "{p0}");
+        assert!(p1.contains("Any(") && !p1.contains("Has(107, 5)"), "{p1}");
         let (q, _): (Vec<ItemId>, String) = rule(&world_with(&d, &[]).unwrap(), "Kak Anju as Child");
         assert!(q.is_empty());
     }
@@ -335,7 +358,7 @@ mod tests {
             return;
         };
         let out: std::path::PathBuf = built(&root, &with(&[("shuffle_rewards", Value::s("off"))]), "qol default", "OOTRR Qol Default Test");
-        for f in files() {
+        for f in files().into_iter().filter(|f| !chest_anim::files().contains(&f.as_str())) {
             assert!(!at(&out, &f).exists(), "{f}");
         }
         let out: std::path::PathBuf = built(&root, &Settings::default(), "qol default", "OOTRR Qol Rewards Default Test");
@@ -345,7 +368,11 @@ mod tests {
                 let z: Vec<u8> = std::fs::read(at(&out, &f)).unwrap();
                 let b: crate::bfevfl::Bf = crate::bfevfl::Bf::parse(&rf.zs.decompress(&z).unwrap()).unwrap();
                 assert_eq!(poe::sites(&b.flows[0], poe::OLD).len(), poe::SITES);
-            } else {
+            } else if f == chest_anim::files()[0] && at(&out, &f).is_file() {
+                let z: Vec<u8> = std::fs::read(at(&out, &f)).unwrap();
+                let b: crate::bfevfl::Bf = crate::bfevfl::Bf::parse(&rf.zs.decompress(&z).unwrap()).unwrap();
+                assert!(!b.flows[0].entries.iter().any(|e| e.name.starts_with(chest_anim::PREFIX)));
+            } else if !chest_anim::files().contains(&f.as_str()) {
                 assert!(!at(&out, &f).exists(), "{f}");
             }
         }
@@ -446,7 +473,7 @@ mod tests {
     #[test]
     fn the_file_list_is_complete_and_unique() {
         let v: Vec<String> = files();
-        assert_eq!(v.len(), 8);
+        assert_eq!(v.len(), 12);
         let mut w: Vec<String> = v.clone();
         w.sort();
         w.dedup();

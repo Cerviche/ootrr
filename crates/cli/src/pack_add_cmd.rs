@@ -44,6 +44,10 @@ pub fn parse(a: &[String]) -> Res<(Spec, Opts, Layers)> {
                 s.name = arg(a, i + 1, "missing pickup actor name")?.to_string();
                 2
             }
+            "--model-from" => {
+                l.model = Some(arg(a, i + 1, "missing model donor actor")?.to_string());
+                2
+            }
             "--heap" => {
                 let v: &str = arg(a, i + 1, "missing heap size")?;
                 s.heap = Some(v.parse().map_err(|_| E::Msg(format!("{v} is not a heap size")))?);
@@ -135,10 +139,10 @@ mod tests {
         let a: Vec<String> = args(&["r", "l", "m", "Item_Bottle_Letter", "--name", "Obj_Bottle_LetterLand", "--tag", "LetterBottle", "--tag", "LetterBottle"]);
         let (s, _, l): (Spec, Opts, Layers) = parse(&a).unwrap();
         assert_eq!(s.name, "Obj_Bottle_LetterLand");
-        assert_eq!(l, Layers { tags: vec!["LetterBottle".to_string()], ammo: false, magic: false });
+        assert_eq!(l, Layers { tags: vec!["LetterBottle".to_string()], ammo: false, magic: false, model: None });
         let (_, _, l): (Spec, Opts, Layers) = parse(&args(&["r", "l", "m", "Item_Range_Bow", "--ammo"])).unwrap();
-        assert_eq!(l, Layers { tags: Vec::new(), ammo: true, magic: false });
+        assert_eq!(l, Layers { tags: Vec::new(), ammo: true, magic: false, model: None });
         let (_, _, l): (Spec, Opts, Layers) = parse(&args(&["r", "l", "m", "Item_FairyBless_MP", "--magic"])).unwrap();
-        assert_eq!(l, Layers { tags: Vec::new(), ammo: false, magic: true });
+        assert_eq!(l, Layers { tags: Vec::new(), ammo: false, magic: true, model: None });
     }
 }

@@ -63,6 +63,7 @@ pub fn native(d: &Data, f: &str, loc: &str) -> Give {
 
 pub fn fixed_spot(d: &Data, loc: &str) -> bool {
     crate::pot_slice::targets::is_loc(d, loc)
+        || crate::shops::is_loc(loc)
         || crate::slice::skulls::is_skull(d, loc)
         || d.cat.by_name(loc).is_some_and(|l| crate::slice::pickups::is_world(l) || l.kind == "bossheart")
 }
@@ -149,6 +150,10 @@ pub fn judge(d: &Data, w: &World, place: &Placement, placed: &BM<String, String>
         let name: &str = mine.iter().find(|s| s.give == Give::Open).map(|s| s.item.as_str()).unwrap_or("");
         let it: ItemId = w.item(name).ok_or_else(|| E::Msg(format!("{name} is not in the logic item list")))?;
         for s in mine.iter().filter(|s| s.give != Give::Flow) {
+            if crate::shops::is_loc(&s.loc) {
+                v.assign.insert(s.loc.clone(), t[t.len() - 1].to_string());
+                continue;
+            }
             let Some(l) = w.loc(&s.loc) else {
                 v.bad.push(format!("{} holds {} but is not a logic location", s.loc, s.item));
                 continue;
@@ -190,6 +195,11 @@ pub fn fits(d: &Data, w: &World, place: &Placement, free: &[LocId]) -> Res<bool>
         return Ok(true);
     }
     Ok(judge(d, w, place, &placed)?.bad.is_empty())
+}
+
+pub fn pinned(d: &Data, w: &World, free: &[LocId]) -> Vec<&'static str> {
+    let names: BS<&str> = free.iter().map(|l| w.locs[*l].name.as_str()).collect();
+    FAMILIES.iter().map(|(f, _)| *f).filter(|f| d.holders(f).iter().any(|h| !names.contains(h))).collect()
 }
 
 pub fn fixed_actors(d: &Data, seed: &SeedFile) -> Res<Verdict> {
@@ -304,6 +314,18 @@ mod tests {
         let p: Plan = plan(&s).unwrap();
         let free: Vec<LocId> = crate::slice::pick::pick(&d, &w, &p).free;
         assert!(!fits(&d, &w, &place, &free).unwrap());
+    }
+
+    #[test]
+    fn a_family_with_a_holder_left_out_of_the_pool_is_pinned() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = with(&[("shuffle_chests", "all")]);
+        let (w, _): (World, Placement) = world_of(&d, &s);
+        let free: Vec<LocId> = crate::slice::pick::pick(&d, &w, &plan(&s).unwrap()).free;
+        let f: Vec<&str> = pinned(&d, &w, &free);
+        assert!(f.contains(&"Strength"), "{f:?}");
+        assert!(!f.contains(&"Hookshot"), "{f:?}");
+        assert!(pinned(&d, &w, &(0..w.locs.len()).collect::<Vec<LocId>>()).is_empty());
     }
 
     #[test]

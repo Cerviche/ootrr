@@ -7,6 +7,7 @@ use crate::error::Hr;
 use crate::pathsafe;
 
 const MARKERS: [(&str, bool); 2] = [("Pack/ZsDic.pack.zs", false), ("Banc", true)];
+const SCAN_LIMIT: usize = 300;
 pub const VERSION: &str = "System/Resource/ResourceSizeTable.Product.111.Nin_Ounce_NVN2.rsizetable.zs";
 
 #[cfg(test)]
@@ -91,11 +92,41 @@ pub fn inspect(p: &P) -> Report {
                 ));
             }
         }
-        None => rep
-            .problems
-            .push("This does not look like an extracted game folder. Pick the folder that contains the Pack and Banc folders.".to_string()),
+        None => rep.problems.push(not_a_game(p)),
     }
     rep
+}
+
+fn subdirs(p: &P) -> Vec<PB> {
+    let mut out: Vec<PB> = match fs::read_dir(p) {
+        Ok(r) => r.filter_map(|e| e.ok()).map(|e| e.path()).filter(|x| x.is_dir()).take(SCAN_LIMIT).collect(),
+        Err(_) => Vec::new(),
+    };
+    out.sort();
+    out
+}
+
+fn named(p: &P, n: &str) -> bool {
+    p.file_name().and_then(|x| x.to_str()).is_some_and(|x| x.eq_ignore_ascii_case(n))
+}
+
+fn shown(p: &P, from: &P) -> String {
+    p.strip_prefix(from).map(|x| x.to_string_lossy().replace('\\', "/")).unwrap_or_else(|_| p.to_string_lossy().to_string())
+}
+
+fn not_a_game(p: &P) -> String {
+    let mut near: Vec<PB> = Vec::new();
+    for a in subdirs(p) {
+        near.push(a.clone());
+        near.extend(subdirs(&a));
+    }
+    if let Some(g) = near.iter().find(|c| complete(c)) {
+        return format!("This folder is not the extracted game, but one that looks like it is inside: {}. Pick that folder instead.", shown(g, p));
+    }
+    if let Some(f) = near.iter().find(|c| named(c, "romfs") || named(c, "exefs")) {
+        return format!("This looks like a mods folder ({} holds a mod's files), not the extracted game. A mod only holds the files it changes, so it cannot be used here. Pick the folder of the extracted game that contains the Pack and Banc folders.", shown(f, p));
+    }
+    "This does not look like an extracted game folder. Pick the folder that contains the Pack and Banc folders.".to_string()
 }
 
 pub fn run(path: Option<&str>) -> Hr<Json> {
@@ -192,6 +223,27 @@ mod tests {
         let r: Report = inspect(&d);
         assert!(!r.ok);
         assert_eq!(r.checks.iter().filter(|c| c.1).count(), 1);
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_mods_tree_is_named_as_one_within_two_levels_and_a_game_next_to_it_is_pointed_at() {
+        let d: PB = tmp("mods");
+        let one: PB = d.join("mods").join("My Mod");
+        fs::create_dir_all(one.join("romfs").join("Event")).unwrap();
+        fs::create_dir_all(one.join("exefs")).unwrap();
+        fs::write(one.join("romfs").join("Event").join("a.zs"), b"").unwrap();
+        let r: Report = inspect(&d.join("mods"));
+        assert!(!r.ok && r.romfs.is_none() && r.problems.len() == 1);
+        assert!(r.problems[0].contains("mods folder") && r.problems[0].contains("My Mod/exefs"), "{}", r.problems[0]);
+        let r: Report = inspect(&one);
+        assert!(r.problems.len() == 1 && r.problems[0].contains("mods folder"), "{:?}", r.problems);
+        let r: Report = inspect(&d);
+        assert!(!r.ok && r.problems.len() == 1 && !r.problems[0].contains("mods folder"), "{:?}", r.problems);
+        fake_romfs(&d.join("dump").join("romfs"));
+        let r: Report = inspect(&d);
+        assert!(!r.ok && r.romfs.is_none());
+        assert!(r.problems[0].contains("dump/romfs") && r.problems[0].contains("Pick that folder"), "{}", r.problems[0]);
         let _ = fs::remove_dir_all(&d);
     }
 

@@ -70,7 +70,7 @@ pub struct Target {
     pub twin: Option<u64>,
 }
 
-pub const KINDS: [&str; 18] = [
+pub const KINDS: [&str; 20] = [
     "chest",
     "skulltula",
     "heart_piece",
@@ -82,6 +82,8 @@ pub const KINDS: [&str; 18] = [
     "flying_pot",
     "crate",
     "beehive",
+    "rock",
+    "grass",
     "key",
     "scrub",
     "shop",
@@ -91,7 +93,7 @@ pub const KINDS: [&str; 18] = [
     "trap_chest",
 ];
 
-pub const OFF_BY_DEFAULT: [&str; 4] = ["pot", "flying_pot", "crate", "shop"];
+pub const OFF_BY_DEFAULT: [&str; 6] = ["pot", "flying_pot", "crate", "rock", "grass", "shop"];
 
 pub const DREAM: &str = "DreamWorld";
 
@@ -234,18 +236,33 @@ mod tests {
     #[test]
     fn the_table_loads_with_every_kind() {
         let t: &[Target] = all().unwrap();
-        assert_eq!(t.len(), 1324);
+        assert_eq!(t.len(), 1562);
         let mut n: BTreeMap<&str, usize> = BTreeMap::new();
         for x in t {
             *n.entry(x.kind.as_str()).or_insert(0) += 1;
         }
         assert_eq!(n["pot"], 469);
+        assert_eq!((n["rock"], n["grass"]), (146, 92));
         assert_eq!(n["chest"], 204);
         assert_eq!(n["shop"], 64);
         assert_eq!(n.len(), KINDS.len());
         assert_eq!(t.iter().filter(|x| x.how == How::None).count(), 28);
         assert_eq!(t.iter().filter(|x| x.weak).count(), 34);
         assert_eq!(t.iter().filter(|x| x.dream()).count(), 52);
+    }
+
+    #[test]
+    fn the_fairy_gifts_sit_in_the_scene_that_holds_their_item() {
+        let t: &[Target] = all().unwrap();
+        for (loc, scene, flag) in [
+            ("DMT Great Fairy Reward", "DeathMountainTrail", "HavePlayedGetEvent.Item_DinFire"),
+            ("HC Great Fairy Reward", "HyruleCastle", "HavePlayedGetEvent.Item_FairyBless_MP"),
+        ] {
+            let x: &Target = t.iter().find(|x| x.ootr.as_deref() == Some(loc)).unwrap();
+            assert_eq!(x.scene.as_deref(), Some(scene), "{loc}");
+            assert_eq!(x.flags, vec![flag.to_string()], "{loc}");
+            assert_eq!(x.id, format!("gift:{}", loc.replace(' ', "_")), "{loc}");
+        }
     }
 
     #[test]
@@ -264,6 +281,24 @@ mod tests {
         assert_eq!(s.hash(), None);
         assert_eq!(s.keeper(), Some("Npc_Kokiri_001_Shop_Child"));
         assert_eq!(t.iter().filter(|x| x.kind == "gift" && x.hash().is_some()).count(), 43);
+    }
+
+    #[test]
+    fn remake_only_chests_read_like_the_catalog_and_the_boss_rush_reads_plainly() {
+        let t: &[Target] = all().unwrap();
+        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        let mut n: usize = 0;
+        for l in d.cat.of_kind("chest").filter(|l| l.ev.iter().any(|e| e == "new")) {
+            let hit: Vec<&Target> = l.refs.iter().filter_map(|r| t.iter().find(|x| x.id == format!("chest:{}", r.hash))).collect();
+            assert!(!hit.is_empty(), "{}", l.name);
+            for x in hit {
+                assert_eq!(x.name, l.name);
+                assert!(x.ootr.is_none(), "{}", l.name);
+                n += 1;
+            }
+        }
+        assert!(n >= 29);
+        assert!(t.iter().all(|x| !x.name.contains("RushInterval") && !x.name.contains("GanondorfStage")));
     }
 
     #[test]
