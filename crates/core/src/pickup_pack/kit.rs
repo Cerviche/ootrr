@@ -8,9 +8,10 @@ use crate::chest_slot::LIST;
 use crate::error::{Error as E, Res};
 use crate::flow_locations::dict_id;
 use crate::modpack::Pack;
-use crate::pickup_pack::actor::{identity, make, pouch_file, Made, ATTENTION_REF, AUTO_GET, POUCH_REF};
+use crate::pickup_pack::actor::{identity, make_with, pouch_file, Made, ATTENTION_REF, AUTO_GET, POUCH_REF};
 use crate::pickup_pack::build::{pool_of, Plan};
 use crate::pickup_pack::closure::{actor_file, chain, dangling_with, is_byml, local, norm, select, work, Chain, Pool, COMPONENTS, PARENT};
+use crate::pickup_pack::meter;
 use crate::pickup_pack::place;
 use crate::pickup_pack::rows::{self, ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO};
 use crate::pickup_pack::sizes;
@@ -201,6 +202,13 @@ fn with_kit(p: &Pool, m: Made) -> Res<Made> {
 }
 
 pub fn plan(packs: &[Vec<Entry>], s: &Spec) -> Res<Plan> {
+    plan_with(packs, s, &Layers::default())
+}
+
+pub fn plan_with(packs: &[Vec<Entry>], s: &Spec, l: &Layers) -> Res<Plan> {
+    if !l.kit_ok() {
+        return Err(E::Format("pickup kit: only the model layer can ride on a kit"));
+    }
     if !is_actor_name(&s.name) || !is_actor_name(&s.item) {
         return Err(E::Msg(format!("{} or {} is not a plain actor name", s.name, s.item)));
     }
@@ -221,11 +229,11 @@ pub fn plan(packs: &[Vec<Entry>], s: &Spec) -> Res<Plan> {
         if let Some(f) = select(&p, &s.item)?.iter().find(|f| !p.get(f).is_some_and(is_byml)) {
             return Err(E::Msg(format!("{f} is not a parameter file, an item whose pack carries graph or binary files needs a hand made template")));
         }
-        make(&p, s)?
+        make_with(&p, s, l)?
     };
     let m: Made = with_kit(&p, first)?;
     let mut fresh: Vec<(String, usize)> = Vec::new();
-    for (f, d) in [&m.actor, &m.pouch] {
+    for (f, d) in [&m.actor, &m.pouch].into_iter().chain(m.extra.iter()) {
         if p.get(f).is_some() {
             return Err(E::Msg(format!("{f} already exists, {} is taken", s.name)));
         }
@@ -464,6 +472,9 @@ pub fn copy_rows(ys: &mut [Byml; 3], pl: &Plan) -> Res<usize> {
         }
         at[i] = rows::insert(&mut ys[i], r)?;
     }
+    if meter::applies(&pl.identity) {
+        meter::strip_all(&mut ys[2])?;
+    }
     if at[0] != at[1] {
         return Err(E::Msg(format!("the new row sits at {} in the actor table and at {} in the game actor table, the two tables no longer line up", at[0], at[1])));
     }
@@ -578,6 +589,10 @@ fn drop_files(rf: &mut Romfs, o: &Opts, modded: bool, name: &str, drops: &[u64],
 }
 
 pub fn run(romfs: &P, load: &P, mod_name: &str, s: &Spec, o: &Opts, drops: &[u64]) -> Res<Done> {
+    run_with(romfs, load, mod_name, s, o, drops, &Layers::default())
+}
+
+pub fn run_with(romfs: &P, load: &P, mod_name: &str, s: &Spec, o: &Opts, drops: &[u64], l: &Layers) -> Res<Done> {
     if !is_actor_name(&s.name) || !is_actor_name(&s.item) {
         return Err(E::Msg(format!("{} or {} is not a plain actor name", s.name, s.item)));
     }
@@ -585,7 +600,7 @@ pub fn run(romfs: &P, load: &P, mod_name: &str, s: &Spec, o: &Opts, drops: &[u64
         return Err(E::Format("pickup kit: a kit pickup is only for skulltula drops, at a placed spot it would write the saved rows of no skulltula"));
     }
     let o: &Opts = &Opts { base: base_dir(o)?, ..o.clone() };
-    let plain: Layers = Layers::default();
+    let plain: Layers = l.clone();
     let mut rf: Romfs = Romfs::open(romfs)?;
     if rf.root.join(pack_of(&s.name)).is_file() {
         return Err(E::Msg(format!("the game already ships {}, use that actor", s.name)));
@@ -595,9 +610,15 @@ pub fn run(romfs: &P, load: &P, mod_name: &str, s: &Spec, o: &Opts, drops: &[u64
     }
     clean_base(&rf, o.base.as_ref())?;
     let token: Vec<Entry> = token_pack(&mut rf)?;
-    let packs: Vec<Vec<Entry>> = sources(&mut rf, &s.item, &token)?;
+    let mut packs: Vec<Vec<Entry>> = sources(&mut rf, &s.item, &token)?;
     let from_pickup: bool = packs.iter().rev().nth(1).is_some_and(|es| shipped(es));
-    let pl: Plan = plan(&packs, s)?;
+    if let Some(m) = &l.model {
+        if from_pickup {
+            return Err(E::Format("pickup kit: a shipped pickup keeps its own model, the model layer is only for an item"));
+        }
+        packs.push(sarc::parse(&rf.read_zs(&pack_of(m))?)?);
+    }
+    let pl: Plan = plan_with(&packs, s, l)?;
     let (mut rst, modded): (Rst, bool) = size_table(&mut rf, o)?;
     let mut note: String = String::new();
     let id: u32 = dict_id(&rf.read(&pack_of(BASE))?).unwrap_or(PACK_DICT);

@@ -261,6 +261,7 @@ pub fn spoiler_with(d: &Data, w: &World, p: &Plan, free: &[LocId], got: &Placeme
             continue;
         }
         let reason: String = match (cat.get(n), t.as_ref()) {
+            _ if crate::slice::junk_spots::only(p, n) && !p.excluded.iter().any(|e| e == n) => crate::slice::junk_spots::SHORT.to_string(),
             (Some(c), Some(t)) => why(d, w, p, t, c).unwrap_or_else(|| "not picked".to_string()),
             (None, _) if p.skulls == Mode::Matched && crate::slice::skull_names::listed(n) => why_extra(w, p, n).unwrap_or_else(|| "not picked".to_string()),
             (None, _) => "no remake actor is matched to it".to_string(),
@@ -337,7 +338,7 @@ mod tests {
         assert_eq!(pin.len(), 44);
         let (all, m): (Vec<LocId>, usize) = pick(&d, &w, &plan(&with("matched")).unwrap(), &mut BM::new());
         assert_eq!(m, 100);
-        assert_eq!(all.len(), 77);
+        assert_eq!(all.len(), 100);
         assert!(pin.iter().all(|l| all.contains(l)));
         for l in &all {
             assert_eq!(d.vanilla_of(&w.locs[*l].name), Some(TOKEN));
@@ -348,7 +349,8 @@ mod tests {
             assert!(!pin.iter().any(|l| w.locs[*l].name == n), "{n}");
         }
         for n in ["Water Temple GS Central Pillar", "Shadow Temple GS Triple Giant Pot", "Colossus GS Tree", "ZR GS Tree", "HF GS Cow Grotto", "Jabu Jabus Belly GS Water Switch Room"] {
-            assert!(!names.contains(&n), "{n}");
+            assert!(names.contains(&n), "{n}");
+            assert!(!pin.iter().any(|l| w.locs[*l].name == n), "{n}");
         }
     }
 
@@ -377,8 +379,12 @@ mod tests {
                 let sp: String = g.spoiler.unwrap();
                 assert!(sp.contains("Gold Skulltulas, 100 in the logic"), "{sp}");
                 assert!(sp.contains("KF GS Know It All House:"));
-                let held: String = if v == "matched" { crate::slice::skull_names::HELD.to_string() } else { "no remake actor".to_string() };
-                assert!(sp.contains(&format!("ZR GS Tree: Gold Skulltula Token (vanilla, {held}")), "{sp}");
+                if v == "matched" {
+                    let short: String = format!("ZR GS Tree: Gold Skulltula Token (vanilla, {}", crate::slice::junk_spots::SHORT);
+                    assert!(sp.contains(&short) || (sp.contains("ZR GS Tree: ") && !sp.contains("ZR GS Tree: Gold Skulltula Token")), "{sp}");
+                } else {
+                    assert!(sp.contains("ZR GS Tree: Gold Skulltula Token (vanilla, no remake actor"), "{sp}");
+                }
             }
             assert!(moved > 0, "{v}");
         }

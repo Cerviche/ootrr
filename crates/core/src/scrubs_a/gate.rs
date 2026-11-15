@@ -112,11 +112,11 @@ mod tests {
     #[test]
     fn a_scrub_sale_takes_pouch_items_and_its_own_vanilla_item_only() {
         let d: Data = Data::load().unwrap();
-        for x in ["Hover Boots", "Lens of Truth", "Dins Fire", "Bottle", "Piece of Heart"] {
+        for x in ["Hover Boots", "Lens of Truth", "Dins Fire", "Bottle", "Piece of Heart", "Zeldas Lullaby"] {
             let i: &Item = d.item(x).unwrap();
             assert!(sells(i) && d.flow_accepts(i) && fits(&d, "LW Deku Scrub Near Bridge", i), "{x}");
         }
-        for x in ["Rupees (50)", "Rupees (200)", "Zeldas Lullaby", "Deku Shield", "Double Defense", "Goron Tunic"] {
+        for x in ["Rupees (50)", "Rupees (200)", "Scarecrow Song", "Deku Shield", "Double Defense", "Goron Tunic"] {
             let i: &Item = d.item(x).unwrap();
             assert!(!sells(i), "{x}");
             assert!(!fits(&d, "DMC Deku Scrub", i), "{x}");

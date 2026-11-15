@@ -88,18 +88,28 @@ mod tests {
         assert!(apply_with(&mut f, &[gone]).is_err());
     }
 
-    fn without(w: &World, d: &Data, item: &str, n: usize) -> Placement {
+    fn lacking(w: &World, d: &Data, gone: &[(&str, usize)]) -> Placement {
         let mut p: Placement = vanilla_place(w, d).unwrap();
-        let it: ItemId = w.item(item).unwrap();
         let junk: ItemId = w.item("Rupees (5)").unwrap();
-        let mut left: usize = n;
-        for l in w.real.iter().rev() {
-            if left > 0 && p.get(*l) == Some(it) {
-                p.put(*l, junk);
-                left -= 1;
+        for (item, n) in gone {
+            let it: ItemId = w.item(item).unwrap();
+            let mut left: usize = *n;
+            for l in w.real.iter().rev() {
+                if left > 0 && p.get(*l) == Some(it) {
+                    p.put(*l, junk);
+                    left -= 1;
+                }
             }
         }
         p
+    }
+
+    fn without(w: &World, d: &Data, item: &str, n: usize) -> Placement {
+        lacking(w, d, &[(item, n)])
+    }
+
+    fn node(w: &World, name: &str) -> String {
+        format!("{:?}", w.locs[w.loc(name).unwrap()].rule.node)
     }
 
     #[test]
@@ -149,5 +159,29 @@ mod tests {
         let lost: Vec<&str> = crate::slice::skulls::token_spots(&strict, &v).into_iter().filter(|l| !s.loc_access(*l)).map(|l| strict.locs[l].name.as_str()).collect();
         assert_eq!(lost, vec!["LW GS Above Theater", "ZR GS Near Raised Grottos"]);
         assert_eq!(crate::slice::skulls::reachable_tokens(&strict, &v), 98);
+    }
+
+    #[test]
+    fn the_deku_tree_back_room_wants_a_web_and_a_shot_and_no_wall_tool() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let spot: LocId = w.loc("Deku Tree GS Basement Back Room").unwrap();
+        let no_wall: Placement = lacking(&w, &d, &[("Bomb Bag", 1), ("Boomerang", 1), ("Progressive Hookshot", 2), ("Megaton Hammer", 1)]);
+        assert!(explore(&w, &no_wall, &[]).loc_access(spot));
+        let no_shot: Placement = lacking(&w, &d, &[("Slingshot", 1), ("Bow", 1)]);
+        assert!(!explore(&w, &no_shot, &[]).loc_access(spot));
+    }
+
+    #[test]
+    fn the_soil_and_tree_spots_read_their_actor_flags() {
+        let d: Data = Data::load().unwrap();
+        let day: World = world(&d).unwrap();
+        let night: World = world_with(&d, &[("gold_skulls_ignore_daytime", "true")]).unwrap();
+        assert_ne!(node(&day, "LLR GS House Window"), node(&night, "LLR GS House Window"));
+        for n in ["LH GS Small Island", "LLR GS Rain Shed", "ZR GS Tree"] {
+            assert_eq!(node(&day, n), node(&night, n), "{n}");
+        }
+        assert_eq!(node(&day, "ZR GS Tree"), node(&day, "KF GS Bean Patch"));
+        assert_eq!(node(&day, "LLR GS Rain Shed"), node(&day, "LLR GS Tree"));
     }
 }

@@ -5,7 +5,7 @@ use std::path::{Path as P, PathBuf as PB};
 use crate::TITLE_ID;
 use crate::error::{Error as E, Res};
 use crate::flow_locations::data::{path_of, Data, Edit, Loc};
-use crate::flow_locations::edit::{dict_id, Req};
+use crate::flow_locations::edit::Req;
 use crate::modpack::Pack;
 use crate::romfs::Romfs;
 use crate::rsizetable::{self, Rst};
@@ -119,11 +119,27 @@ pub fn plan(d: &Data, cs: &[Choice], o: &Opts) -> Res<(Vec<Change>, usize, Vec<S
             }
             continue;
         }
+        if crate::flow_extra::cows::is(&l.name) {
+            if l.item.as_deref() == Some(c.item.as_str()) {
+                same += 1;
+            } else {
+                out.extend(crate::flow_extra::cows::changes(l, &c.item)?);
+            }
+            continue;
+        }
         if !o.untested && crate::flow_extra::trade::chain(&c.item) && l.item.as_deref() != Some(c.item.as_str()) {
             return Err(E::Msg(format!(
                 "{} is a trade quest item, it shares one menu slot with the chain and may only stay at its own location, so {} refuses it. Pass the untested option to try it anyway",
                 c.item, l.name
             )));
+        }
+        if crate::flow_extra::frogs::is(&l.name) {
+            if crate::flow_extra::frogs::is_bug(&l.name) && l.item.as_deref() == Some(c.item.as_str()) {
+                same += 1;
+            } else {
+                out.extend(crate::flow_extra::frogs::changes(l, &c.item)?);
+            }
+            continue;
         }
         for e in &l.edits {
             if e.item == c.item {
@@ -141,6 +157,13 @@ pub fn plan(d: &Data, cs: &[Choice], o: &Opts) -> Res<(Vec<Change>, usize, Vec<S
                     old: e.item.clone(),
                     new: c.item.clone(),
                 });
+            }
+        }
+    }
+    if seen.iter().any(|n| crate::flow_extra::frogs::is_song(n)) {
+        for n in crate::flow_extra::frogs::SONGS.iter().filter(|n| !seen.contains(*n)) {
+            if let Some(l) = d.by_name(n) {
+                out.extend(crate::flow_extra::frogs::changes(l, l.item.as_deref().unwrap_or(crate::flow_extra::frogs::PURPLE))?);
             }
         }
     }
@@ -205,9 +228,8 @@ pub fn stage(rf: &mut Romfs, d: &Data, cs: &[Choice], o: &Opts) -> Res<Stage> {
         let rs: &[Req] = by.get(file).map(|v| v.as_slice()).unwrap_or(&[]);
         let os: &[crate::flow_extra::Op] = extra.get(file).map(|v| v.as_slice()).unwrap_or(&[]);
         let path: String = path_of(file);
-        let z: Vec<u8> = rf.read(&path)?;
-        let id: u32 = dict_id(&z).unwrap_or(FRAME_DICT);
-        let raw: Vec<u8> = rf.zs.decompress(&z)?;
+        let (raw, id): (Vec<u8>, Option<u32>) = crate::cow_clone::read(rf, file)?;
+        let id: u32 = id.unwrap_or(FRAME_DICT);
         let out: Vec<u8> = crate::flow_extra::edit_bytes(&raw, rs, os)?;
         files.push(StagedFile { path, z: zs::compress_raw(&out, Some(id))?, old: raw.len(), new: out.len() });
     }
@@ -234,6 +256,44 @@ pub fn apply(romfs: &P, load: &P, mod_name: &str, cs: &[Choice], o: &Opts) -> Re
             }
         }
     }
+    let staged: Vec<(String, Vec<u8>)> = st.files.iter().map(|s| (s.path.clone(), s.z.clone())).collect();
+    let lens: Vec<(String, usize)> = st.files.iter().map(|s| (s.path.clone(), s.new)).collect();
+    let cows: Vec<crate::cow_clone::Cow> = crate::cow_clone::active(&lens);
+    let mut lines: Vec<String> = Vec::new();
+    let mut made: Vec<crate::staging::Out> = Vec::new();
+    if !cows.is_empty() {
+        if rst.is_none() {
+            rst = Some(rsizetable::load(&mut rf)?);
+        }
+        let t: &mut Rst = rst.as_mut().ok_or(E::Format("flow_locations: no size table"))?;
+        let refs: Vec<&crate::cow_clone::Cow> = cows.iter().collect();
+        let m: crate::cow_clone::Made = crate::cow_clone::stage(&mut rf, &|_: &str| None, &refs, t, &lens)?;
+        for o in &m.outs {
+            pk.write_romfs(&o.path, &o.z)?;
+        }
+        grown += crate::cow_clone::sized(&mut rf, t, &m)?;
+        lines.push(format!("{} cows became actor classes of their own:", cows.len()));
+        lines.extend(m.lines.iter().map(|l| format!("  {l}")));
+        made = m.outs;
+    }
+    let flows = crate::flow_extra::analyzed::flows_of(&mut rf, &staged)?;
+    let have = |p: &str| -> Option<Vec<u8>> { made.iter().find(|o| o.path == p).map(|o| o.z.clone()) };
+    let loads = crate::flow_extra::analyzed::stage(&mut rf, &have, flows)?;
+    if let Some((o, added)) = &loads {
+        pk.write_romfs(&o.path, &o.z)?;
+        if o.new > o.old {
+            if rst.is_none() {
+                rst = Some(rsizetable::load(&mut rf)?);
+            }
+            if let Some(t) = rst.as_mut()
+                && t.grow(&o.path, o.old as u64, o.new as u64, MARGIN)?.is_some()
+            {
+                grown += 1;
+            }
+        }
+        lines.push(format!("{} events now load the flows their edited events call:", added.len()));
+        lines.extend(crate::flow_extra::analyzed::lines(added));
+    }
     if let Some(t) = &rst {
         pk.write_romfs(rsizetable::TABLE_PATH, &t.to_zs()?)?;
     }
@@ -247,7 +307,7 @@ pub fn apply(romfs: &P, load: &P, mod_name: &str, cs: &[Choice], o: &Opts) -> Re
         untested: st.untested,
         report: String::new(),
     };
-    a.report = describe(&a, &[]);
+    a.report = describe(&a, &lines);
     Ok(a)
 }
 
@@ -330,6 +390,27 @@ mod tests {
         let by: BM<String, Vec<Req>> = reqs(&c);
         assert_eq!(by.len(), 1);
         assert_eq!(by.values().next().map(|v| v.len()), Some(2));
+    }
+
+    #[test]
+    fn flow_apply_writes_the_event_rows_and_sizes_a_cow_edit_needs() {
+        let r: PB = std::env::var_os("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|| PB::from("C:/o/nup dump/updates/131072/romfs"));
+        if !r.join("Event/EventFlow").is_dir() {
+            eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", r.display());
+            return;
+        }
+        let load: PB = PB::from(env!("CARGO_MANIFEST_DIR")).join("../../target/flow_loads_mods");
+        let _ = std::fs::remove_dir_all(&load);
+        let a: Applied = apply(&r, &load, "ootrr-flow-loads", &[ch("GV Cow", "Obj_Rupee_Purple")], &Opts::default()).unwrap();
+        let romfs: PB = a.root.join("romfs");
+        assert!(romfs.join(crate::progressive::ANALYZED_TABLE).is_file());
+        assert!(romfs.join(rsizetable::TABLE_PATH).is_file());
+        assert!(a.report.contains("GiveMilk_GerudoValley: loads Dm_SY_Get"), "{}", a.report);
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        assert!(crate::flow_extra::analyzed::worked(&mut rf, &romfs).unwrap().is_none());
+        let plain: Applied = apply(&r, &load, "ootrr-flow-loads-plain", &[ch("Volvagia", "Item_Medal_Water")], &Opts::default()).unwrap();
+        assert!(!plain.root.join("romfs").join(crate::progressive::ANALYZED_TABLE).exists());
+        let _ = std::fs::remove_dir_all(&load);
     }
 
     #[test]

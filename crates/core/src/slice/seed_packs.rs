@@ -8,8 +8,9 @@ use crate::error::{Error as E, Res};
 use crate::modpack::Host;
 use crate::pickup_pack::rows::{self, ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO};
 use crate::pickup_pack::write::{run_with, Done, Opts};
-use crate::pickup_pack::{guard, kit, pack_of, pot_kit, sizes, Layers, Spec, Style};
+use crate::pickup_pack::{fall, guard, kit, pack_of, pot_kit, sizes, Layers, Spec, Style};
 use crate::pickup_persist::{check_swaps_with, Extra};
+use crate::pot_slice::data::Kind as PotKind;
 use crate::romfs::Romfs;
 use crate::rsizetable::{Rst, TABLE_PATH};
 use crate::settings::seed::SeedFile;
@@ -44,7 +45,7 @@ impl Want {
     pub fn spec(&self) -> Res<(Spec, Layers)> {
         match self.kind {
             Kind::Held => Ok((Spec { item: self.pick.pack.clone(), name: self.pick.kit(), style: Style::Touch, heap: None }, Layers::default())),
-            k if k.kit() => Ok((self.pick.kit_spec()?, Layers::default())),
+            k if k.kit() => self.pick.kit_with(),
             _ => self.pick.spec(),
         }
     }
@@ -63,7 +64,7 @@ fn kind_of(d: &Data, loc: &str, item: &str) -> Option<Kind> {
         return crate::pot_slice::pickup::shipped_kit(item).map(|_| Kind::Held);
     }
     if d.cat.by_name(loc).is_some_and(crate::slice::pickups::is_world) {
-        let shipped: bool = crate::slice::pickups::world_actor(item).is_some() || shield(item).is_some();
+        let shipped: bool = crate::slice::pickups::ground_actor(item).is_some() || shield(item).is_some();
         return (!shipped).then_some(Kind::Free);
     }
     None
@@ -92,6 +93,16 @@ pub fn need(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Res<BM<Str
     Ok(out)
 }
 
+pub fn variants_for(ts: &[crate::pot_slice::targets::Give]) -> Vec<&'static str> {
+    let mut out: Vec<&'static str> = Vec::new();
+    for k in [PotKind::Pot, PotKind::Crate, PotKind::Flying, PotKind::Hive, PotKind::Rock, PotKind::Grass] {
+        if ts.iter().any(|t| t.kit && t.kind == k) {
+            out.extend(k.actors().iter().copied());
+        }
+    }
+    out
+}
+
 fn opts(host: Host, base: Option<PB>, dry: bool) -> Opts {
     Opts { host, base, rst_from: None, places: Vec::new(), dry }
 }
@@ -99,7 +110,7 @@ fn opts(host: Host, base: Option<PB>, dry: bool) -> Opts {
 fn run_one(romfs: &P, load: &P, mod_name: &str, w: &Want, o: &Opts) -> Res<Done> {
     let (s, l): (Spec, Layers) = w.spec()?;
     if w.kind.kit() {
-        return kit::run(romfs, load, mod_name, &s, o, &[]);
+        return kit::run_with(romfs, load, mod_name, &s, o, &[], &l);
     }
     run_with(romfs, load, mod_name, &s, o, &l)
 }
@@ -149,11 +160,30 @@ pub fn audit(rf: &mut Romfs, base: &P, wants: &BM<String, Want>) -> Res<Vec<Stri
     Ok(out)
 }
 
+pub fn audit_holders(rf: &mut Romfs, base: &P, holders: &[&str]) -> Res<()> {
+    let ys: Vec<Byml> = [ACTOR_INFO, GAME_ACTOR_INFO].iter().map(|t| table(rf, base, t)).collect::<Res<Vec<Byml>>>()?;
+    let rst: Rst = Rst::parse(&rf.zs.decompress(&fs::read(base.join(TABLE_PATH))?)?)?;
+    for h in holders {
+        let name: String = kit::name_of(h);
+        let raw: Vec<u8> = rf.zs.decompress(&fs::read(base.join(pack_of(&name)))?)?;
+        if ys.iter().any(|y| rows::find(y, &name).is_none()) {
+            return Err(E::Msg(format!("audit: the holder variant {name} lacks a row in the actor tables")));
+        }
+        if rst.get(&pack_of(&name)) != Some(sizes::pack_size(raw.len())?) {
+            return Err(E::Msg(format!("audit: the holder variant {name} has the wrong size table entry")));
+        }
+    }
+    Ok(())
+}
+
 pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -> Res<Built> {
     let d: Data = Data::load()?;
     let order: Verdict = fixed_actors(&d, seed)?;
     let wants: BM<String, Want> = need(&d, seed, &order.assign)?;
-    let held: bool = crate::pot_slice::apply::variants(&crate::pot_slice::targets::targets_with(&d, seed, &order.assign)?);
+    let gives: Vec<crate::pot_slice::targets::Give> = crate::pot_slice::targets::targets_with(&d, seed, &order.assign)?;
+    let holders: Vec<&str> = variants_for(&gives);
+    let held: bool = !holders.is_empty();
+    let twins: Vec<&str> = fall::wanted(gives.iter().map(|g| g.actor.as_str()));
     if wants.is_empty() && !held {
         return build_with(seed, romfs, load, mod_name, host, &Extra::default());
     }
@@ -172,13 +202,27 @@ pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -
         }
     }
     if held {
-        let done: Done = pot_kit::run(romfs, load, mod_name, &pot_kit::ACTORS, &opts(host, Some(base.clone()), false))?;
+        let done: Done = pot_kit::run(romfs, load, mod_name, &holders, &opts(host, Some(base.clone()), false))?;
         if done.root.as_deref() != Some(b.root.as_path()) {
             return Err(E::Msg("the pot variants went to another folder than the seed mod".to_string()));
         }
-        b.counts.files += pot_kit::ACTORS.len();
-        let _ = writeln!(b.report, "{} pot variants were added to this mod. A pot that holds a key item or a Gold Skulltula Token is saved as broken only when the item is picked up, so it returns with the item until then. Not tested in the game yet.", pot_kit::ACTORS.len());
+        b.counts.files += holders.len();
+        if holders == pot_kit::ACTORS {
+            let _ = writeln!(b.report, "{} pot variants were added to this mod. A pot that holds a key item or a Gold Skulltula Token is saved as broken only when the item is picked up, so it returns with the item until then. Not tested in the game yet.", holders.len());
+        } else {
+            let _ = writeln!(b.report, "{} holder variants were added to this mod ({}). A pot, crate, flying pot, beehive, rock or grass tuft that holds a key item or a Gold Skulltula Token is saved as used only when the item is picked up, so it returns with the item until then. Not tested in the game yet.", holders.len(), holders.join(", "));
+        }
     }
+    if !twins.is_empty() {
+        let done: Done = fall::run(romfs, load, mod_name, &twins, &opts(host, Some(base.clone()), false))?;
+        if done.root.as_deref() != Some(b.root.as_path()) {
+            return Err(E::Msg("the falling pickups went to another folder than the seed mod".to_string()));
+        }
+        b.counts.files += twins.len();
+        let names: Vec<String> = twins.iter().map(|t| fall::name_of(t)).collect();
+        let _ = writeln!(b.report, "Falling pickups were added to this mod for items dropped by pots ({}): {}. They fall to the ground like a rupee instead of hanging where the pot broke. Not tested in the game yet.", names.len(), names.join(", "));
+    }
+    audit_holders(&mut rf, &base, &holders)?;
     let lines: Vec<String> = audit(&mut rf, &base, &wants)?;
     b.counts.files += wants.len();
     let _ = writeln!(b.report, "{} pickup packs for key items at pickup spots were added to this mod with their actor rows and size table entries, all audited. None of them is tested in the game yet:", wants.len());
@@ -330,11 +374,20 @@ mod tests {
         let _ = fs::remove_dir_all(&load);
         let b: Built = crate::slice::edit::build_for(&g.seed_file, &root, &load, "wp4 keys", Host::Hookshot).unwrap();
         assert!(b.report.contains("pickup packs for key items"), "{}", b.report);
-        assert!(b.report.contains("pot variants"), "{}", b.report);
+        assert!(b.report.contains("variants were added to this mod"), "{}", b.report);
         let romfs: PB = b.root.join("romfs");
         for a in pot_kit::ACTORS {
             assert!(romfs.join(pack_of(&kit::name_of(a))).is_file(), "{a}");
         }
+        let tokened: bool = list.iter().any(|x| x.split_once('=').is_some_and(|(l, i)| i == "Gold Skulltula Token" && at_of(&d, l) == Some(At::Pot)));
+        assert!(tokened, "{list:?}");
+        assert!(b.report.contains("Falling pickups were added"), "{}", b.report);
+        let twin: String = fall::name_of(kit::TOKEN);
+        let mut rt: Romfs = Romfs::open(&root).unwrap();
+        let es: Vec<crate::sarc::Entry> = crate::sarc::parse(&rt.zs.decompress(&fs::read(romfs.join(pack_of(&twin))).unwrap()).unwrap()).unwrap();
+        assert_eq!(fall::verify(&es, &twin, &kit::token_pack(&mut rt).unwrap()).unwrap().len(), 2);
+        let tag: crate::pickup_pack::tag::Table = crate::pickup_pack::tag::Table::parse(&rt.zs.decompress(&fs::read(romfs.join(crate::pickup_pack::tag::TAG)).unwrap()).unwrap()).unwrap();
+        assert_eq!(tag.tags_of(&twin), vec!["Token_Gold".to_string()]);
         let held: usize = list.iter().filter(|x| x.split_once('=').is_some_and(|(l, _)| at_of(&d, l) == Some(At::Pot))).count();
         assert!(held >= 2, "{list:?}");
         let mut swapped: usize = 0;

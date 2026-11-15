@@ -1,7 +1,7 @@
 use crate::error::Error as E;
 use crate::slice::fill::SHORT;
 use crate::slice::skulls::Mode as Skulls;
-use crate::slice::support::{Mode, Plan};
+use crate::slice::support::Plan;
 use crate::slice::watch::{OVER, STOPPED};
 
 pub fn changes(p: &Plan) -> Vec<&'static str> {
@@ -17,10 +17,13 @@ pub fn changes(p: &Plan) -> Vec<&'static str> {
     if !p.excluded.is_empty() {
         out.push("exclude fewer locations");
     }
-    if p.drops.any() {
+    if p.drops.any() || p.drops.remake != crate::slice::support::Mode::Off {
         out.push("shuffle fewer pots and crates");
     }
-    if p.world != Mode::Off {
+    if p.drops.wild() {
+        out.push("shuffle fewer rocks and grass");
+    }
+    if p.world.on() {
         out.push("shuffle fewer freestanding items");
     }
     out

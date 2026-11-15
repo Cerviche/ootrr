@@ -5,7 +5,7 @@ use std::path::Path as P;
 use ootrr_core::bfevfl::{Bf, Cont, Event, Val};
 use ootrr_core::error::{Error, Res};
 use ootrr_core::flow_locations::{
-    apply, check_list, coverage, markdown, path_of, plan, verify, Applied, Change, Checked, Choice, Data, Diff, Edit, Loc,
+    apply, check_list, coverage, markdown, plan, verify, Applied, Change, Checked, Choice, Data, Diff, Edit, Loc,
     Opts,
 };
 use ootrr_core::json::{self, Json};
@@ -109,8 +109,8 @@ pub fn check(a: &[String]) -> Res<()> {
             for f in v {
                 n += 1;
                 files.insert(f.to_string());
-                let raw: Vec<u8> = match rf.read_zs(&path_of(f)) {
-                    Ok(r) => r,
+                let raw: Vec<u8> = match ootrr_core::cow_clone::read(&mut rf, f) {
+                    Ok(r) => r.0,
                     Err(x) => {
                         bad.push(format!("{} {f}: {x}", l.name));
                         continue;
@@ -198,4 +198,23 @@ pub fn run_verify(a: &[String]) -> Res<()> {
     let c: Checked = verify(P::new(root), P::new(modf), want.as_deref())?;
     print_checked(&c);
     if c.problems.is_empty() { Ok(()) } else { Err(Error::Msg(format!("{} problems", c.problems.len()))) }
+}
+
+pub fn run_loads(a: &[String]) -> Res<()> {
+    let root: &str = arg(a, 0, "missing romfs_root")?;
+    let modf: &str = arg(a, 1, "missing mod romfs folder")?;
+    let mut rf: Romfs = Romfs::open(P::new(root))?;
+    match ootrr_core::flow_extra::analyzed::worked(&mut rf, P::new(modf))? {
+        None => {
+            println!("every event of the edited flows lists the flows it calls");
+            Ok(())
+        }
+        Some((_, added)) => {
+            println!("{} events call flows their analyzed event row does not list:", added.len());
+            for l in ootrr_core::flow_extra::analyzed::lines(&added) {
+                println!("{l}");
+            }
+            Err(Error::Msg(format!("{} events miss flows", added.len())))
+        }
+    }
 }

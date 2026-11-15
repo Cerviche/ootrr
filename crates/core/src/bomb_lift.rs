@@ -17,14 +17,17 @@ pub const PACKS: [&str; 5] = [
     "Obj_BombFlower_Fruit_For_Break_Obj_DeathMtTrail_BrokenRock_A_01",
 ];
 
+pub const FLOWERS: [&str; 3] = [PACKS[2], PACKS[3], PACKS[4]];
+pub const BOMB_PARAM: &str = "Component/LiftableParam/Item_Bomb.";
+
 pub fn pack_of(name: &str) -> String {
     format!("Pack/Actor/{name}.pack.zs")
 }
 
-pub fn lower(raw: &[u8]) -> Res<(Vec<u8>, usize)> {
+pub fn lower(raw: &[u8], prefix: &str) -> Res<(Vec<u8>, usize)> {
     let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
     let mut n: usize = 0;
-    for e in es.iter_mut().filter(|e| e.name.starts_with(PARAM)) {
+    for e in es.iter_mut().filter(|e| e.name.starts_with(prefix)) {
         let mut y: Byml = Byml::parse(&e.data)?;
         if y.root.get(KEY) == Some(&Node::U32(LOW)) {
             y.root.set(KEY, Node::U32(NONE));
@@ -40,7 +43,8 @@ pub fn stage(rf: &mut Romfs) -> Res<Vec<Out>> {
     for p in PACKS {
         let mut n: usize = 0;
         let o: Out = rewrite(rf, &pack_of(p), |raw| {
-            let (b, c): (Vec<u8>, usize) = lower(raw)?;
+            let prefix: &str = if FLOWERS.contains(&p) { BOMB_PARAM } else { PARAM };
+            let (b, c): (Vec<u8>, usize) = lower(raw, prefix)?;
             n = c;
             Ok(b)
         })?;
@@ -73,7 +77,7 @@ mod tests {
             sarc::Entry { name: "Other/File.bin".to_string(), data: vec![1, 2, 3] },
         ];
         let raw: Vec<u8> = sarc::write(&es).unwrap();
-        let (out, n) = lower(&raw).unwrap();
+        let (out, n) = lower(&raw, PARAM).unwrap();
         assert_eq!(n, 1);
         let back: Vec<sarc::Entry> = sarc::parse(&out).unwrap();
         let a: Byml = Byml::parse(&sarc::get(&back, &format!("{PARAM}A.bgyml")).unwrap().data).unwrap();
@@ -82,5 +86,24 @@ mod tests {
         assert_eq!(a.root.get("LiftableType"), Some(&Node::U32(7)));
         assert_eq!(b.root.get(KEY), Some(&Node::U32(5)));
         assert_eq!(sarc::get(&back, "Other/File.bin").unwrap().data, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn a_flower_pack_lowers_the_bomb_param_and_leaves_a_low_fruit_param_low() {
+        let es: Vec<sarc::Entry> = vec![
+            sarc::Entry { name: format!("{BOMB_PARAM}game__component__LiftableParam.bgyml"), data: param(LOW) },
+            sarc::Entry { name: format!("{PARAM}Obj_BombFlower_Fruit.game__component__LiftableParam.bgyml"), data: param(LOW) },
+        ];
+        let raw: Vec<u8> = sarc::write(&es).unwrap();
+        let (out, n) = lower(&raw, BOMB_PARAM).unwrap();
+        assert_eq!(n, 1);
+        let back: Vec<sarc::Entry> = sarc::parse(&out).unwrap();
+        let grade = |name: &str| -> Option<Node> { Byml::parse(&sarc::get(&back, name).unwrap().data).unwrap().root.get(KEY).cloned() };
+        assert_eq!(grade(&format!("{BOMB_PARAM}game__component__LiftableParam.bgyml")), Some(Node::U32(NONE)));
+        assert_eq!(grade(&format!("{PARAM}Obj_BombFlower_Fruit.game__component__LiftableParam.bgyml")), Some(Node::U32(LOW)));
+        let (all, m) = lower(&raw, PARAM).unwrap();
+        assert_eq!(m, 2);
+        assert_eq!(sarc::parse(&all).unwrap().len(), 2);
+        assert!(FLOWERS.iter().all(|f| PACKS.contains(f)) && !FLOWERS.contains(&PACKS[0]));
     }
 }

@@ -84,6 +84,7 @@
     "can_break_heated_crate": "deadly_bonks != 'ohko' or (Fairy and (can_use(Goron_Tunic) or damage_multiplier != 'ohko')) or can_use(Nayrus_Love) or can_blast_or_smash",
     "can_break_lower_beehive": "can_use(Boomerang) or can_use(Hookshot) or Bombs or (logic_beehives_bombchus and has_bombchus)",
     "can_break_upper_beehive": "can_use(Boomerang) or can_use(Hookshot) or (logic_beehives_bombchus and has_bombchus)",
+    "can_break_hole_beehive": "can_use(Boomerang) or can_use(Hookshot) or can_use(Bow)",
     "can_mow_the_lawn": "is_adult or (is_child and (Sticks or Kokiri_Sword or Progressive_Strength_Upgrade or Boomerang or has_explosives))",
 
     # can_use and helpers
@@ -187,7 +188,8 @@
         (bridge == 'tokens' and (Gold_Skulltula_Token, bridge_tokens)) or
         (bridge == 'hearts' and has_hearts(bridge_hearts)))",
     "can_trigger_lacs": "(
-        (lacs_condition == 'vanilla' and 'Defeat Bongo Bongo' and 'Defeat Twinrova') or
+        (lacs_condition == 'vanilla' and medallion_gates and Shadow_Medallion and Spirit_Medallion) or
+        (lacs_condition == 'vanilla' and not medallion_gates and 'Defeat Bongo Bongo' and 'Defeat Twinrova') or
         (lacs_condition == 'stones' and has_stones(lacs_stones)) or
         (lacs_condition == 'medallions' and has_medallions(lacs_medallions)) or
         (lacs_condition == 'dungeons' and has_dungeon_rewards(lacs_rewards)) or

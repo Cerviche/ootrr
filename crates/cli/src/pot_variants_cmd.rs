@@ -2,7 +2,7 @@ use std::path::Path as P;
 
 use ootrr_core::error::{Error as E, Res};
 use ootrr_core::modpack::Host;
-use ootrr_core::pickup_pack::pot_kit::{run as add, ACTORS};
+use ootrr_core::pickup_pack::pot_kit::{holders, run as add, ACTORS};
 use ootrr_core::pickup_pack::write::{Done, Opts};
 
 fn arg<'a>(a: &'a [String], i: usize, what: &'static str) -> Res<&'a str> {
@@ -18,6 +18,7 @@ pub fn parse(a: &[String]) -> Res<Opts> {
                 o.dry = true;
                 1
             }
+            "--all" => 1,
             "--host" => {
                 let v: &str = arg(a, i + 1, "missing host")?;
                 o.host = Host::parse(v).ok_or_else(|| E::Msg(format!("{v} is not a known host")))?;
@@ -43,7 +44,8 @@ pub fn run(a: &[String]) -> Res<()> {
     let load: &str = arg(a, 1, "missing load_dir")?;
     let name: &str = arg(a, 2, "missing mod_name")?;
     let o: Opts = parse(a)?;
-    let d: Done = add(P::new(root), P::new(load), name, &ACTORS, &o)?;
+    let all: Vec<&str> = if a.iter().any(|x| x == "--all") { holders() } else { ACTORS.to_vec() };
+    let d: Done = add(P::new(root), P::new(load), name, &all, &o)?;
     print!("{}", d.report);
     if o.dry {
         println!("dry run, nothing was written");
@@ -64,5 +66,6 @@ mod tests {
         let l: Vec<String> = ["r", "l", "m", "--host", "longshot"].iter().map(|s| s.to_string()).collect();
         assert_eq!(parse(&l).unwrap().host, Host::Longshot);
         assert!(parse(&["r".to_string(), "l".to_string(), "m".to_string(), "--what".to_string()]).is_err());
+        assert!(parse(&["r".to_string(), "l".to_string(), "m".to_string(), "--all".to_string()]).is_ok());
     }
 }

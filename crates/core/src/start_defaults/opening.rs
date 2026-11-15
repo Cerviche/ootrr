@@ -32,7 +32,9 @@ pub fn patch(b: &mut Bf, step: &str) -> Res<usize> {
         return Err(Error::Msg(format!("opening: {QUEST} has no step {step}")));
     }
     let f: &mut Flow = b.flows.iter_mut().find(|x| x.name == FLOW).ok_or(Error::Format("opening: no OpeningEvent flow"))?;
-    let hits: Vec<usize> = (0..f.events.len()).filter(|&i| is_step(f, &f.events[i])).collect();
+    // The game's own request; the start state's spliced requests (crate::start_state::PREFIX,
+    // e.g. the open forest's Meet_DekuTree Complete) are left alone.
+    let hits: Vec<usize> = (0..f.events.len()).filter(|&i| is_step(f, &f.events[i]) && !f.events[i].name.starts_with(crate::start_state::PREFIX)).collect();
     let i: usize = match hits.as_slice() {
         [i] => *i,
         _ => return Err(Error::Msg(format!("opening: expected one {QUEST} step request in {FLOW}, found {}", hits.len()))),

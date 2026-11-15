@@ -159,8 +159,8 @@
         "dungeon": "Shadow Temple",
         "locations": {
             "Shadow Temple Invisible Floormaster Chest": "True",
-            "Shadow Temple Spike Walls Left Chest": "can_use(Dins_Fire)",
-            "Shadow Temple Boss Key Chest": "can_use(Dins_Fire)",
+            "Shadow Temple Spike Walls Left Chest": "(Small_Key_Shadow_Temple, 5) and can_use(Dins_Fire)",
+            "Shadow Temple Boss Key Chest": "(Small_Key_Shadow_Temple, 5) and can_use(Dins_Fire)",
             "Shadow Temple After Boat Pot 1": "True",
             "Shadow Temple After Boat Pot 2": "True",
             "Shadow Temple Invisible Floormaster Pot 1": "True",
@@ -224,7 +224,7 @@
         },
         "exits": {
             "Shadow Temple Beyond Boat SoT Block": "can_play(Song_of_Time)",
-            "Bongo Bongo Boss Room": "(Small_Key_Shadow_Temple, 5) and Boss_Key_Shadow_Temple"
+            "Bongo Bongo Boss Room": "Boss_Key_Shadow_Temple"
         }
     }
 ]

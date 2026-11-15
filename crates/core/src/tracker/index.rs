@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path as P;
 
 use crate::byml::{Byml, Node};
+use crate::catalog::Catalog;
 use crate::error::{Error, Res};
 use crate::json::{self, Json};
 use crate::placement::hash_of;
@@ -11,7 +12,7 @@ use crate::settings::digest::sha256_hex;
 use crate::tracker::project::{self, Cap, Floors};
 use crate::tracker::targets::{self, Target};
 
-pub const FORMAT: i64 = 2;
+pub const FORMAT: i64 = 3;
 pub const GRID_W: usize = 100;
 pub const GRID_H: usize = 72;
 pub const CAPTURE: &str = "Game/MapCaptureInfo/MapCaptureInfo.game__MapCaptureInfo.bgyml";
@@ -268,6 +269,24 @@ fn age_of(map: &str) -> Option<&'static str> {
     }
 }
 
+fn ages_of(map: &str, own: Option<&'static str>) -> Vec<&'static str> {
+    match age_of(map).or(own) {
+        Some(a) => vec![a],
+        None => vec!["child", "adult"],
+    }
+}
+
+fn fixed_ages(c: &Catalog) -> Map<String, &'static str> {
+    c.locs
+        .iter()
+        .filter_map(|l| match l.age.as_str() {
+            "child" => Some((l.name.clone(), "child")),
+            "adult" => Some((l.name.clone(), "adult")),
+            _ => None,
+        })
+        .collect()
+}
+
 fn base(map: &str) -> &str {
     map.strip_suffix("_Alternative").unwrap_or(map)
 }
@@ -361,6 +380,7 @@ pub fn build(root: &P) -> Res<Index> {
     }
     let (by_h, by_g, every): Found = spots(&mut rf, ts)?;
     let cx: Ctx = Ctx { caps, params: ps };
+    let fixed: Map<String, &'static str> = fixed_ages(&Catalog::parse(crate::slice::data::CATALOG_JSON)?);
     let mut locs: Vec<Loc> = Vec::with_capacity(ts.len());
     let mut seen: Set<String> = maps.iter().map(|m| m.id.clone()).collect();
     for (i, t) in ts.iter().enumerate() {
@@ -381,16 +401,11 @@ pub fn build(root: &P) -> Res<Index> {
         if let Some(pm) = &t.map {
             sp.sort_by_key(|x| x.0 != *pm);
         }
+        let own: Option<&'static str> = t.ootr.as_deref().and_then(|n| fixed.get(n).copied());
         let mut ages: Vec<String> = Vec::new();
         let mut pins: Vec<Pin> = Vec::new();
         for (m, pos) in &sp {
-            match age_of(m) {
-                Some(a) => ages.push(a.to_string()),
-                None => {
-                    ages.push("child".to_string());
-                    ages.push("adult".to_string());
-                }
-            }
+            ages.extend(ages_of(m, own).into_iter().map(|a| a.to_string()));
             let p: Pin = pin(&cx, m, *pos, t.room);
             if seen.insert(p.map.clone()) {
                 maps.push(MapInfo {
@@ -649,6 +664,19 @@ mod tests {
         assert_eq!(map_of_file("Banc/X/readme.txt"), None);
         assert_eq!(age_of("KakarikoVillage_Adult_Alternative"), Some("adult"));
         assert_eq!(age_of("FireTemple"), None);
+    }
+
+    #[test]
+    fn a_shared_map_takes_the_age_of_its_location_and_only_then_both() {
+        assert_eq!(ages_of("FireTemple", Some("child")), vec!["child"]);
+        assert_eq!(ages_of("KokiriForest_Adult", Some("child")), vec!["adult"]);
+        assert_eq!(ages_of("FireTemple", None), vec!["child", "adult"]);
+        let c: Catalog = Catalog::parse(crate::slice::data::CATALOG_JSON).unwrap();
+        let fixed: Map<String, &'static str> = fixed_ages(&c);
+        assert_eq!(fixed.get("KF GS Know It All House"), Some(&"child"));
+        assert_eq!(fixed.get("KF GS House of Twins"), Some(&"adult"));
+        assert_eq!(fixed.get("KF Midos Top Left Chest"), None);
+        assert_eq!(fixed.len(), c.locs.iter().filter(|l| l.age != "both").count());
     }
 
     #[test]

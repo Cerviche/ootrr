@@ -295,7 +295,7 @@ mod tests {
     fn default_string_is_tiny_and_stable() {
         let t: String = Settings::default().encode().unwrap();
         assert_eq!(t, Settings::default().encode().unwrap());
-        assert!(t.len() < 24, "{t}");
+        assert!(t.len() < 32, "{t}");
         assert_eq!(Settings::decode(&t).unwrap().settings, Settings::default());
     }
 
@@ -349,11 +349,13 @@ mod tests {
     fn rewards_off_writes_the_old_default_string_and_the_new_toggle_round_trips() {
         let mut s: Settings = Settings::default();
         s.set("time_always_passes", Value::Bool(false)).unwrap();
+        s.set("deku_bridge_safe", Value::Bool(false)).unwrap();
         assert_eq!(s.encode().unwrap(), "OOTRR1-EYAQD32I");
         s.set("shuffle_rewards", Value::s("off")).unwrap();
         assert_eq!(s.encode().unwrap(), "OOTRR1-XZLA");
         let mut s: Settings = Settings::default();
         s.set("time_always_passes", Value::Bool(false)).unwrap();
+        s.set("deku_bridge_safe", Value::Bool(false)).unwrap();
         s.set("shuffle_dungeon_rewards", Value::Bool(true)).unwrap();
         let t: String = s.encode().unwrap();
         assert_ne!(t, "OOTRR1-EYAQD32I");
@@ -368,6 +370,7 @@ mod tests {
         for t in ["OOTRR1-XZLA", "OOTRR1-EYAQD32I", "OOTRR1-BAAQFSMI", "OOTRR1-BEAQGGABAUOACZBEAMBAABWEOQ"] {
             let s: Settings = Settings::decode(t).unwrap().settings;
             assert!(!s.flag("time_always_passes").unwrap(), "{t}");
+            assert!(!s.flag("deku_bridge_safe").unwrap(), "{t}");
             assert!(!s.flag("open_door_of_time").unwrap(), "{t}");
             assert!(!s.flag("jabu_open").unwrap(), "{t}");
             assert_eq!(s.text("zora_fountain").unwrap(), "closed", "{t}");

@@ -13,6 +13,7 @@ use crate::pickup_pack::build::{plan_with, pool_of, Plan};
 use crate::pickup_pack::closure::{actor_file, chain, select, texts, Pool};
 use crate::pickup_pack::guard;
 use crate::pickup_pack::magic;
+use crate::pickup_pack::meter;
 use crate::pickup_pack::place;
 use crate::pickup_pack::rows::{self, ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO};
 use crate::pickup_pack::sizes;
@@ -110,7 +111,10 @@ pub(crate) fn tables(rf: &mut Romfs, o: &Opts, modded: bool, s: &Spec, l: &Layer
     };
     let mut at: [usize; 2] = [0, 0];
     let a: File = table(rf, o, modded, ACTOR_INFO, |y: &mut Byml| {
-        let r: Node = rows::actor_row(rows::need(y, &s.item, ACTOR_INFO)?, &s.name, heap);
+        let mut r: Node = rows::actor_row(rows::need(y, &s.item, ACTOR_INFO)?, &s.name, heap);
+        if let Some(m) = &l.model {
+            crate::pickup_pack::model::row(&mut r, rows::need(y, m, ACTOR_INFO)?)?;
+        }
         at[0] = rows::insert(y, r)?;
         Ok(())
     })?;
@@ -127,6 +131,9 @@ pub(crate) fn tables(rf: &mut Romfs, o: &Opts, modded: bool, s: &Spec, l: &Layer
         rows::insert(y, r)?;
         if l.ammo {
             ammo::apply(y, &s.name, identity)?;
+        }
+        if meter::applies(identity) {
+            meter::apply(y, &s.name, identity)?;
         }
         Ok(())
     })?;
@@ -368,7 +375,7 @@ pub fn audit(rf: &mut Romfs, s: &Spec, pl: &Plan, files: &[File], rst_z: &[u8], 
         if !rows::sorted(&y)? || n + had != m + 1 {
             return Err(E::Msg(format!("audit: {t} is not the table it started from plus one sorted row")));
         }
-        let eased = |x: &Node| t == POUCH_INFO && sc.layers.ammo && rows::id(x) == Some(pl.identity.as_str());
+        let eased = |x: &Node| t == POUCH_INFO && ((sc.layers.ammo && rows::id(x) == Some(pl.identity.as_str())) || (meter::applies(&pl.identity) && meter::loses(x)));
         let kept: usize = was
             .root
             .as_arr()
@@ -391,6 +398,9 @@ pub fn audit(rf: &mut Romfs, s: &Spec, pl: &Plan, files: &[File], rst_z: &[u8], 
         out.push(format!("{t}: {m} -> {n} rows, {kept} earlier rows unchanged, new row {fact}"));
         if t == POUCH_INFO && sc.layers.ammo {
             out.push(ammo::audit(&was, &y, &s.name, &pl.identity)?);
+        }
+        if t == POUCH_INFO && meter::applies(&pl.identity) {
+            out.push(meter::audit(&was, &y, &s.name, &pl.identity)?);
         }
         now.push(y);
     }
@@ -427,7 +437,7 @@ pub fn run_with(romfs: &P, load: &P, mod_name: &str, s: &Spec, o: &Opts, l: &Lay
         return Err(E::Msg(format!("the game has no actor pack for {}", s.item)));
     }
     let mut packs: Vec<Vec<Entry>> = Vec::new();
-    for n in [BASE, DONOR, s.item.as_str()] {
+    for n in [BASE, DONOR, s.item.as_str()].into_iter().chain(l.model.as_deref()) {
         packs.push(sarc::parse(&start(&mut rf, o.base.as_ref(), &pack_of(n))?)?);
     }
     let pl: Plan = plan_with(&packs, s, l)?;
@@ -1011,8 +1021,6 @@ mod tests {
         for (item, name, n, raise) in [
             ("Item_FairyBless_MP", "Obj_FairyBless_MP", 41, "Item_FairyBless_MP"),
             ("Item_FairyBless_MPDouble", "Obj_FairyBless_MPDouble", 41, "Item_FairyBless_MPDouble"),
-            ("Item_DinFire", "Obj_DinFire", 40, "Item_FairyBless_MP"),
-            ("Item_Arrow_Ice", "Obj_Arrow_Ice", 40, "Item_FairyBless_MP"),
         ] {
             let s: Spec = spec_of(item, name);
             let own: String = magic::table_file(name);
@@ -1037,5 +1045,58 @@ mod tests {
             assert!(d.report.contains(&format!("{name} stays collected once taken")), "{item}");
         }
         assert!(run_with(&root, P::new("unused"), "unused", &hookshot(), &opts(Vec::new()), &on).unwrap_err().to_string().contains("only for the magic meter"));
+    }
+
+    #[test]
+    fn the_seven_magic_items_give_no_magic_meter_and_the_meter_items_do() {
+        let Some(root) = real() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let was: Byml = rf.read_byml(POUCH_INFO).unwrap();
+        let cut: Vec<String> = was.root.as_arr().unwrap().iter().filter(|r| meter::loses(r)).map(|r| rows::id(r).unwrap().to_string()).collect();
+        assert_eq!(cut.len(), 21);
+        assert_eq!(meter::left(&was).len(), 25);
+        let on: Layers = Layers { magic: true, ..Layers::default() };
+        for (item, name) in [
+            ("Item_GlassTruth", "Obj_GlassTruth"),
+            ("Item_DinFire", "Obj_DinFire"),
+            ("Item_FaroreWind", "Obj_FaroreWind"),
+            ("Item_NayruLove", "Obj_NayruLove"),
+            ("Item_Arrow_Fire", "Obj_Arrow_Fire2"),
+            ("Item_Arrow_Ice", "Obj_Arrow_Ice"),
+            ("Item_Arrow_Light", "Obj_Arrow_Light"),
+        ] {
+            let s: Spec = spec_of(item, name);
+            let d: Done = run(&root, P::new("unused"), "unused", &s, &opts(Vec::new())).unwrap();
+            let mut rows_changed: Vec<String> = changed(&mut rf, &d, POUCH_INFO);
+            rows_changed.sort();
+            let mut want: Vec<String> = cut.clone();
+            want.push(name.to_string());
+            want.sort();
+            assert_eq!(rows_changed, want, "{item}");
+            let now: Byml = Byml::parse(&file(&d, POUCH_INFO).raw).unwrap();
+            assert_eq!(meter::left(&now), vec!["Item_FairyBless_MP", "Item_FairyBless_MPDouble", "Pouch_FairyBless_MP", "Pouch_FairyBless_MPDouble"], "{item}");
+            for r in now.root.as_arr().unwrap() {
+                if !meter::keeps(rows::id(r).unwrap()) {
+                    assert!(!meter::raises(r), "{item} {:?}", rows::id(r));
+                    assert_eq!(r.get(meter::AMOUNT), None, "{item} {:?}", rows::id(r));
+                }
+            }
+            assert!(d.report.contains("magic raise: 21 rows"), "{item} {}", d.report);
+            let again: Done = run(&root, P::new("unused"), "unused", &s, &opts(Vec::new())).unwrap();
+            assert_eq!(file(&again, POUCH_INFO).raw, file(&d, POUCH_INFO).raw, "{item}");
+            let e: String = run_with(&root, P::new("unused"), "unused", &s, &opts(Vec::new()), &on).unwrap_err().to_string();
+            assert!(e.contains("gives no magic meter"), "{item} {e}");
+        }
+        for (item, name) in [("Item_FairyBless_MP", "Obj_FairyBless_MP"), ("Item_FairyBless_MPDouble", "Obj_FairyBless_MPDouble")] {
+            let d: Done = run(&root, P::new("unused"), "unused", &spec_of(item, name), &opts(Vec::new())).unwrap();
+            assert_eq!(changed(&mut rf, &d, POUCH_INFO), vec![name.to_string()], "{item}");
+            let now: Byml = Byml::parse(&file(&d, POUCH_INFO).raw).unwrap();
+            assert!(meter::raises(rows::find(&now, name).unwrap()), "{item}");
+            assert!(meter::raises(rows::find(&now, item).unwrap()), "{item}");
+            assert_eq!(meter::left(&now).len(), 26, "{item}");
+            assert!(!d.report.contains("magic raise:"), "{item}");
+        }
     }
 }

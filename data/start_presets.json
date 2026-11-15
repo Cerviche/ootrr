@@ -14,9 +14,10 @@
       "setting": "zora_fountain",
       "value": "open",
       "edits": [
-        {"kind": "enum", "name": "Step_Get_StoneOfWater", "value": "Step07"}
+        {"kind": "enum", "name": "Step_Get_StoneOfWater", "value": "Step07"},
+        {"kind": "bool", "name": "HavePlayedEvent.Dm_Zora_0010", "value": true}
       ],
-      "note": "The Zora quest starts at the step King Zora reaches after reading Ruto's Letter (Get_StoneOfWater Step07). Impa's hint about the Zoras in the castle garden no longer appears and some Zora talk may assume the letter was read. The new game value is set in the flag list."
+      "note": "The Zora quest starts at the step King Zora reaches after reading Ruto's Letter (Get_StoneOfWater Step07), and the scene of King Zora moving counts as played so the wall beside him is gone. Impa's hint about the Zoras in the castle garden no longer appears and some Zora talk may assume the letter was read. The new game value is set in the flag list."
     },
     {
       "setting": "jabu_open",
@@ -69,6 +70,38 @@
         {"kind": "int", "name": "Get_MagicBeans", "value": 9}
       ],
       "note": "Every magic bean patch starts planted, so the adult bean platforms are there from the start and no Magic Bean is needed. The Magic Bean is taken out of the item pool and the bean salesman in Zora's River has one sale left, for 60 rupees, which holds a random item when NPC rewards are shuffled. The new game values are set in the flag list, experimental and untested in the game."
+    },
+    {
+      "setting": "open_forest",
+      "value": "open",
+      "edits": [
+        {"kind": "bool", "name": "HavePlayedEvent.NaviHint_Trial", "value": true},
+        {"kind": "bool", "name": "HaveTalked.Npc_Navi", "value": true},
+        {"kind": "bool", "name": "ActionGuide_IsEnd.Navi", "value": true},
+        {"kind": "bool", "name": "ActionGuide_IsNew.Navi", "value": true}
+      ],
+      "note": "Navi's monster lesson from the Deku Tree's first room is marked as seen when a new game starts, so the D-pad calls Navi and targeting gives enemy information even if the Deku Tree is skipped. The new game values are set in the flag list, experimental and untested in the game."
+    },
+    {
+      "setting": "open_forest",
+      "value": "closed_deku",
+      "edits": [
+        {"kind": "bool", "name": "HavePlayedEvent.NaviHint_Trial", "value": true},
+        {"kind": "bool", "name": "HaveTalked.Npc_Navi", "value": true},
+        {"kind": "bool", "name": "ActionGuide_IsEnd.Navi", "value": true},
+        {"kind": "bool", "name": "ActionGuide_IsNew.Navi", "value": true}
+      ],
+      "note": "Navi's monster lesson from the Deku Tree's first room is marked as seen when a new game starts, so the D-pad calls Navi and targeting gives enemy information even if the Deku Tree is skipped. The new game values are set in the flag list, experimental and untested in the game."
+    },
+    {
+      "setting": "shuffle_dungeon_rewards",
+      "value": "true",
+      "edits": [
+        {"kind": "exp", "name": "SageOfShadow_Kakariko_Burning", "value": [[0, "IsGet.Item_Medal_Forest"], [0, "IsGet.Item_Medal_Fire"], [0, "IsGet.Item_Medal_Water"], [3], [3]]},
+        {"kind": "exp", "name": "AllSage_IsAfter_Step01_02_Exp", "value": [[0, "IsGet.Item_Medal_Forest"]]},
+        {"kind": "exp", "name": "AllSage_IsAfter_Step02_Exp", "value": [[0, "IsGet.Item_Medal_Shadow"], [0, "IsGet.Item_Medal_Spirit"], [3], [0, "HavePlayedEvent.Dm_TimeTemple_0130"], [5], [3]]}
+      ],
+      "note": "With Stones and Medallions shuffled, the story scenes that stand for a medallion check the medallion items instead of the sage quests. The Kakariko fire and Sheik's Nocturne of Shadow need the Forest, Fire and Water Medallions (SageOfShadow_Kakariko_Burning is rewritten). Sheik's Prelude of Light in the Temple of Time needs the Forest Medallion and the Light Arrows scene needs the Shadow and Spirit Medallions. Those two read the computed flags AllSage_IsAfter_Step01_02_Exp and AllSage_IsAfter_Step02_Exp, which nothing in the game read before and which are rewritten here, through two logic module edits and one map edit in the Temple of Time. Experimental and untested in the game."
     }
   ],
   "control": [

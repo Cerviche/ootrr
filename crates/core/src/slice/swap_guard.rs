@@ -165,9 +165,13 @@ mod tests {
         key.flags.insert("Obj_Hammer".to_string(), true);
         assert!(check(&mut rf, &d, &ts, &key).is_err());
         let twin: &Loc = d.cat.by_name(TWIN).unwrap();
-        let two: Vec<Target> = targets_with(&d, twin, "Megaton Hammer", &good, None).unwrap();
+        let mut two: Vec<Target> = targets_with(&d, twin, "Megaton Hammer", &good, None).unwrap();
+        for t in two.iter_mut() {
+            t.new_item = "Piece of Heart".to_string();
+        }
         let e: String = check(&mut rf, &d, &two, &good).unwrap_err().to_string();
         assert!(e.contains("once per age"), "{e}");
+        assert!(fits(&d, TWIN, "Megaton Hammer"));
         let mut moved: Vec<Target> = ts.clone();
         moved[0].hash = 1;
         let e: String = check(&mut rf, &d, &moved, &good).unwrap_err().to_string();

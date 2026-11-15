@@ -3,7 +3,7 @@ use std::collections::{HashMap as HM, HashSet as HS};
 use crate::catalog::{Catalog, Loc};
 use crate::error::{Error as E, Res};
 use crate::json::{self, Json};
-use crate::pot_slice::pickup;
+use crate::pot_slice::{pickup, remake, rocks};
 use crate::slice::data::{Data, State};
 
 pub const CATALOG_JSON: &str = include_str!("../../../../data/pots_catalog.json");
@@ -14,6 +14,9 @@ pub enum Kind {
     Pot,
     Crate,
     Flying,
+    Hive,
+    Rock,
+    Grass,
 }
 
 impl Kind {
@@ -22,8 +25,15 @@ impl Kind {
             "pot" => Some(Kind::Pot),
             "crate" => Some(Kind::Crate),
             "flying_pot" => Some(Kind::Flying),
+            "beehive" => Some(Kind::Hive),
+            "rock" => Some(Kind::Rock),
+            "grass" => Some(Kind::Grass),
             _ => None,
         }
+    }
+
+    pub fn wild(self) -> bool {
+        matches!(self, Kind::Rock | Kind::Grass)
     }
 
     pub fn reset(self) -> i64 {
@@ -33,11 +43,30 @@ impl Kind {
         }
     }
 
+    pub fn kit(self) -> bool {
+        matches!(self, Kind::Pot | Kind::Crate | Kind::Flying | Kind::Hive | Kind::Rock | Kind::Grass)
+    }
+
+    pub fn actors(self) -> &'static [&'static str] {
+        use crate::pickup_pack::pot_kit as k;
+        match self {
+            Kind::Pot => &k::ACTORS,
+            Kind::Crate => &k::CRATES,
+            Kind::Flying => &k::FLYING,
+            Kind::Hive => &k::HIVES,
+            Kind::Rock => &k::ROCKS,
+            Kind::Grass => &k::GRASS,
+        }
+    }
+
     pub fn gyaml(self, g: &str) -> bool {
         match self {
             Kind::Pot => g.strip_prefix("Obj_Pot_A_0").is_some_and(|t| matches!(t, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8")),
             Kind::Crate => matches!(g, "Obj_BrokenBox_A_01" | "Obj_BrokenBox_A_03"),
+            Kind::Hive => g == "Obj_Kokiri_Beehive_A_01",
             Kind::Flying => matches!(g, "Enemy_FlyingPot_SpiritTemple" | "Enemy_FlyingPot_ShadowTemple" | "Enemy_FlyingPot_IceCavern"),
+            Kind::Rock => g == rocks::ROCK,
+            Kind::Grass => g == rocks::GRASS,
         }
     }
 }
@@ -50,6 +79,11 @@ pub struct PotData {
     pub only: HS<String>,
     pub game: String,
     pub files: Vec<String>,
+    pub rock_game: String,
+    pub rock_files: Vec<String>,
+    pub remake: HS<String>,
+    pub remake_game: String,
+    pub remake_files: Vec<String>,
 }
 
 impl PotData {
@@ -71,6 +105,10 @@ impl PotData {
 
     pub fn is_empty(&self) -> bool {
         self.locs.is_empty()
+    }
+
+    pub fn is_remake(&self, name: &str) -> bool {
+        self.remake.contains(name)
     }
 }
 
@@ -142,21 +180,33 @@ pub fn parse_scan(t: &str) -> Res<(String, Vec<String>, Vec<(String, State)>)> {
 
 impl PotData {
     pub fn load(d: &Data) -> Res<PotData> {
-        let locs: Vec<Loc> = merged(d)?;
-        let (game, files, rows): (String, Vec<String>, Vec<(String, State)>) = parse_scan(SCAN_JSON)?;
+        let mut locs: Vec<Loc> = merged(d)?;
+        locs.extend(rocks::locs()?);
+        let fresh: Vec<Loc> = remake::locs()?;
+        let remake: HS<String> = fresh.iter().map(|l| l.name.clone()).collect();
+        locs.extend(fresh);
+        let (game, files, mut rows): (String, Vec<String>, Vec<(String, State)>) = parse_scan(SCAN_JSON)?;
+        let (rock_game, rock_files, more): (String, Vec<String>, Vec<(String, State)>) = parse_scan(rocks::SCAN_JSON)?;
+        rows.extend(more);
+        let (remake_game, remake_files, late): (String, Vec<String>, Vec<(String, State)>) = parse_scan(remake::SCAN_JSON)?;
+        rows.extend(late);
         let mut ix: HM<String, usize> = HM::new();
         for (i, l) in locs.iter().enumerate() {
             if ix.insert(l.name.clone(), i).is_some() {
                 return Err(E::Msg(format!("pot catalog: {} is listed twice", l.name)));
             }
         }
-        let only: HS<String> = pot_only(d, &locs);
-        Ok(PotData { locs, ix, state: rows.into_iter().collect(), only, game, files })
+        let pots: Vec<Loc> = locs.iter().filter(|l| !Kind::of(&l.kind).is_some_and(Kind::wild) && !remake.contains(&l.name)).cloned().collect();
+        let only: HS<String> = pot_only(d, &pots);
+        Ok(PotData { locs, ix, state: rows.into_iter().collect(), only, game, files, rock_game, rock_files, remake, remake_game, remake_files })
     }
 }
 
 impl Data {
     pub fn with_pots(mut self) -> Res<Data> {
+        for l in rocks::locs()?.into_iter().chain(remake::locs()?) {
+            self.remake.entry(l.name).or_insert(l.vanilla);
+        }
         self.pots = PotData::load(&self)?;
         Ok(self)
     }
@@ -178,7 +228,19 @@ mod tests {
         assert!(!Kind::Crate.gyaml("Obj_BrokenBox_A_02"));
         assert!(Kind::Flying.gyaml("Enemy_FlyingPot_IceCavern"));
         assert!(!Kind::Flying.gyaml("Enemy_FlyingPot_Dictionary"));
-        assert_eq!((Kind::Pot.reset(), Kind::Flying.reset()), (88, 280));
+        assert_eq!(Kind::of("beehive"), Some(Kind::Hive));
+        assert!(Kind::Hive.gyaml("Obj_Kokiri_Beehive_A_01"));
+        assert!(!Kind::Hive.gyaml("Obj_Pot_A_01"));
+        assert_eq!((Kind::Pot.reset(), Kind::Flying.reset(), Kind::Hive.reset()), (88, 280, 88));
+    }
+
+    #[test]
+    fn every_kind_has_a_variant_for_each_actor_type_it_accepts() {
+        for k in [Kind::Pot, Kind::Crate, Kind::Flying, Kind::Hive, Kind::Rock, Kind::Grass] {
+            assert!(!k.actors().is_empty());
+            assert!(k.actors().iter().all(|a| k.gyaml(a)), "{k:?}");
+        }
+        assert_eq!(Kind::Pot.actors().len() + Kind::Crate.actors().len() + Kind::Flying.actors().len() + Kind::Hive.actors().len() + Kind::Rock.actors().len() + Kind::Grass.actors().len(), crate::pickup_pack::pot_kit::holders().len());
     }
 
     #[test]

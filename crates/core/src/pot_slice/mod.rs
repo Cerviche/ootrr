@@ -4,6 +4,8 @@ pub mod persist;
 pub mod pick;
 pub mod pickup;
 pub mod plan;
+pub mod remake;
+pub mod rocks;
 pub mod rows;
 pub mod rules;
 pub mod scan;

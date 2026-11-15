@@ -159,7 +159,7 @@ pub fn set_exp(y: &mut Byml, name: &str, terms: &[(i32, String)]) -> Res<bool> {
     if terms.is_empty() {
         return Err(Error::Msg(format!("start defaults: the new formula of {name} is empty")));
     }
-    for (_, f) in terms {
+    for (_, f) in terms.iter().filter(|(_, f)| !f.is_empty()) {
         if kind_of(y, key(f)).is_none() {
             return Err(Error::Msg(format!("start defaults: the formula of {name} names {f}, which the flag list does not have")));
         }
@@ -170,7 +170,14 @@ pub fn set_exp(y: &mut Byml, name: &str, terms: &[(i32, String)]) -> Res<bool> {
     let [op_t, val_t] = first.as_slice() else {
         return Err(Error::Msg(format!("start defaults: the formula of {name} is not a list of [op, value] pairs")));
     };
-    let new: Node = Node::Arr(terms.iter().map(|(op, f)| Node::Arr(vec![retype(op_t, *op as i64), retype(val_t, key(f) as i64)])).collect());
+    let term = |op: i32, f: &str| -> Node {
+        if f.is_empty() {
+            Node::Arr(vec![retype(op_t, op as i64)])
+        } else {
+            Node::Arr(vec![retype(op_t, op as i64), retype(val_t, key(f) as i64)])
+        }
+    };
+    let new: Node = Node::Arr(terms.iter().map(|(op, f)| term(*op, f)).collect());
     r.set("Values", new.clone());
     Ok(old != new)
 }
@@ -382,6 +389,8 @@ mod tests {
         edits.extend(b.control.clone());
         edits.push(Edit::Enum("Step_Meet_DekuTree".to_string(), "Step03".to_string()));
         edits.push(Edit::Grant("Item_Ocarina_Fairy".to_string(), 1));
+        let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        edits.retain(|e| seen.insert(format!("{e:?}")));
         let mut y: Byml = orig.clone();
         assert_eq!(apply(&mut y, &edits).unwrap(), edits.len());
         let out: Vec<u8> = y.write().unwrap();
@@ -399,16 +408,30 @@ mod tests {
             ("Int".to_string(), key("PouchData.Item_Ocarina_Fairy.StockNum")),
             ("Enum".to_string(), key("Step_Meet_DekuTree")),
             ("Enum".to_string(), key("Step_Get_StoneOfWater")),
+            ("Bool".to_string(), key("HavePlayedEvent.Dm_Zora_0010")),
             ("Bool".to_string(), key("GaveFishToJabJab")),
             ("Bool".to_string(), key("JabJabOpenedMouth")),
             ("Bool".to_string(), key("HyruleField_ArriveEntrance")),
             ("Bool".to_string(), key("HavePlayedEvent.Dm_HrlField_0020")),
             ("Enum".to_string(), key("Step_SubEvent_MaskSalesman")),
             ("BoolExp".to_string(), key("Get_Epona_IsCompleted_Exp")),
+            ("BoolExp".to_string(), key(crate::medal_gate::KAKARIKO_EXP)),
+            ("BoolExp".to_string(), key(crate::medal_gate::PRELUDE_EXP)),
+            ("BoolExp".to_string(), key(crate::medal_gate::LACS_EXP)),
             ("Int".to_string(), key("Get_MagicBeans")),
         ];
         for e in &find_beans() {
             want.push(("Bool".to_string(), key(e)));
+        }
+        for p in b.presets.iter().filter(|p| p.setting == "open_forest") {
+            for e in &p.edits {
+                if let Edit::Bool(n, _) = e {
+                    let row: (String, u32) = ("Bool".to_string(), key(n));
+                    if !want.contains(&row) {
+                        want.push(row);
+                    }
+                }
+            }
         }
         let mut got: Vec<(String, u32)> = changed_rows(&orig, &back);
         want.sort();
