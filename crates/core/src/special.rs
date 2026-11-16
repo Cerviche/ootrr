@@ -7,6 +7,7 @@ use crate::romfs::Romfs;
 use crate::staging::{rewrite, Out};
 
 pub const BASE: &str = "Dm_SY_Treasurebox";
+pub const SMALL_BASE: &str = "Dm_SY_TreasureboxSmall";
 pub const PARAM: &str = "EventName";
 pub const QUERY: &str = "EventQueryIsGameDataBool";
 pub const HOLDER: &str = "GameDataActor";
@@ -15,6 +16,12 @@ pub const GATES: [(usize, &str); 2] = [(422, "Event442"), (90, "Event129")];
 pub const DAMPE_HOOK: u64 = 16041366920820397198;
 pub const DAMPE_HEART: u64 = 5534919361313859554;
 pub const SPIRIT: u64 = 2490063409521505179;
+pub const ICE_ARROWS: u64 = 1941083939696166170;
+pub const IRON_BOOTS: u64 = 6859289214373847284;
+pub const JABU_BOOMERANG: u64 = 5527401621172639818;
+/// The two Dampe race rupee chests open through one shared transition, so they only change
+/// size together.
+pub const DAMPE_RUPEES: [u64; 2] = [234006393181394602, 4322670163630771947];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Hook {
@@ -30,6 +37,8 @@ pub struct Spot {
     pub index: usize,
     pub name: &'static str,
     pub hook: Hook,
+    /// The chest open event the transition starts in the vanilla game.
+    pub base: &'static str,
 }
 
 pub const SPOTS: [Spot; 3] = [
@@ -40,6 +49,7 @@ pub const SPOTS: [Spot; 3] = [
         index: 82,
         name: "Event66",
         hook: Hook::Clone { switch: 153, name: "Event241" },
+        base: BASE,
     },
     Spot {
         hash: DAMPE_HEART,
@@ -48,6 +58,7 @@ pub const SPOTS: [Spot; 3] = [
         index: 82,
         name: "Event66",
         hook: Hook::Clone { switch: 152, name: "Event240" },
+        base: BASE,
     },
     Spot {
         hash: SPIRIT,
@@ -56,11 +67,71 @@ pub const SPOTS: [Spot; 3] = [
         index: 12,
         name: "Event64",
         hook: Hook::Place,
+        base: BASE,
+    },
+];
+
+/// Summoned chests whose story flow starts the chest open event itself. They take no
+/// progressive wrapper, but chest size matches contents retargets their transition.
+pub const MORE: [Spot; 5] = [
+    Spot {
+        hash: ICE_ARROWS,
+        flow: "Event/EventFlow/SubEvent_GetIceArrow.bfevfl.zs",
+        parent: "SubEvent_GetIceArrow_OpenTBox",
+        index: 1,
+        name: "Event1",
+        hook: Hook::Place,
+        base: BASE,
+    },
+    Spot {
+        hash: IRON_BOOTS,
+        flow: "Event/EventFlow/SageOfWater.bfevfl.zs",
+        parent: "SageOfWater_MelodyGet_Water",
+        index: 18,
+        name: "Event60",
+        hook: Hook::Place,
+        base: BASE,
+    },
+    Spot {
+        hash: JABU_BOOMERANG,
+        flow: "Event/EventFlow/InsideJabuJabuBelly_FocusGimmick.bfevfl.zs",
+        parent: "InsideJabuJabuBelly_TreasureBoxWithRuto09",
+        index: 136,
+        name: "Event84",
+        hook: Hook::Place,
+        base: BASE,
+    },
+    Spot {
+        hash: DAMPE_RUPEES[0],
+        flow: "Event/EventFlow/MiniGame_DampeRace.bfevfl.zs",
+        parent: "MiniGame_DampeRace_OpenGoalTBox",
+        index: 154,
+        name: "Event242",
+        hook: Hook::Place,
+        base: SMALL_BASE,
+    },
+    Spot {
+        hash: DAMPE_RUPEES[1],
+        flow: "Event/EventFlow/MiniGame_DampeRace.bfevfl.zs",
+        parent: "MiniGame_DampeRace_OpenGoalTBox",
+        index: 154,
+        name: "Event242",
+        hook: Hook::Place,
+        base: SMALL_BASE,
     },
 ];
 
 pub fn of(hash: u64) -> Option<&'static Spot> {
     SPOTS.iter().find(|s| s.hash == hash)
+}
+
+/// Every chest whose story flow names its open event: the special chests and MORE.
+pub fn sized(hash: u64) -> Option<&'static Spot> {
+    of(hash).or_else(|| MORE.iter().find(|s| s.hash == hash))
+}
+
+pub fn base_size(s: &Spot) -> Size {
+    if s.base == BASE { Size::Big } else { Size::Small }
 }
 
 pub fn open_flag(hash: u64) -> String {
@@ -91,8 +162,8 @@ fn text(v: &Val) -> Option<&str> {
     }
 }
 
-pub fn point(f: &mut Flow, s: &Spot, family: &str) -> Res<()> {
-    let wrapper: String = event_name(family, Size::Big);
+/// Points the chest's transition at `wrapper` (a progressive wrapper or a chest open event).
+pub fn point(f: &mut Flow, s: &Spot, wrapper: &str) -> Res<()> {
     let e: &Event = f.events.get(s.index).ok_or(Error::Format("special: the transition index is out of range"))?;
     if e.name != s.name || !matches!(e.kind, Kind::Action { .. }) {
         return Err(Error::Msg(format!("event {} is not the {} transition, the game files differ", s.index, s.name)));
@@ -107,12 +178,12 @@ pub fn point(f: &mut Flow, s: &Spot, family: &str) -> Res<()> {
     if have == wrapper {
         return Ok(());
     }
-    if have != BASE {
-        return Err(Error::Msg(format!("the transition {} starts {have} and not {BASE}, the game files differ", s.name)));
+    if have != s.base {
+        return Err(Error::Msg(format!("the transition {} starts {have} and not {}, the game files differ", s.name, s.base)));
     }
     match s.hook {
         Hook::Place => {
-            *name_slot(&mut f.events[s.index].kind)? = Val::Str(wrapper);
+            *name_slot(&mut f.events[s.index].kind)? = Val::Str(wrapper.to_string());
         }
         Hook::Clone { switch, name } => {
             let sw: &Event = f.events.get(switch).ok_or(Error::Format("special: the switch index is out of range"))?;
@@ -130,7 +201,7 @@ pub fn point(f: &mut Flow, s: &Spot, family: &str) -> Res<()> {
                 return Err(Error::Msg(format!("case 0 of {name} does not lead to the transition, the game files differ")));
             }
             let mut kind: Kind = f.events[s.index].kind.clone();
-            *name_slot(&mut kind)? = Val::Str(wrapper);
+            *name_slot(&mut kind)? = Val::Str(wrapper.to_string());
             let at: u16 = idx(f.events.len())?;
             f.events.push(Event { name: format!("OOTRR_Wrap_{}", s.hash), kind });
             if let Kind::Switch { cases, .. } = &mut f.events[switch].kind {
@@ -201,11 +272,11 @@ pub fn open_gate(f: &mut Flow, hash: u64) -> Res<usize> {
     Ok(n)
 }
 
-pub fn edit_flow(raw: &[u8], wraps: &[(&Spot, &str)], gate: Option<u64>) -> Res<Vec<u8>> {
+pub fn edit_flow(raw: &[u8], wraps: &[(&Spot, String)], gate: Option<u64>) -> Res<Vec<u8>> {
     let mut b: Bf = Bf::parse(raw)?;
     let f: &mut Flow = flow_of(&mut b)?;
-    for (s, fam) in wraps {
-        point(f, s, fam)?;
+    for (s, to) in wraps {
+        point(f, s, to)?;
     }
     if let Some(h) = gate {
         open_gate(f, h)?;
@@ -217,13 +288,35 @@ pub fn edit_flow(raw: &[u8], wraps: &[(&Spot, &str)], gate: Option<u64>) -> Res<
     Ok(out)
 }
 
-pub fn stage(rf: &mut Romfs, wraps: &[(u64, String)], touched: &[u64]) -> Res<(Vec<Out>, Vec<(String, String)>)> {
-    let mut by: BM<&str, Vec<(&Spot, &str)>> = BM::new();
+/// The event a chest's transition should start: its progressive wrapper when it holds an
+/// upgrade, else the open event of its (maybe resized) model.
+pub fn target(family: Option<&str>, size: Size) -> String {
+    match family {
+        Some(f) => event_name(f, size),
+        None => size.template().to_string(),
+    }
+}
+
+/// `wraps` are special chests holding an upgrade, `sizes` chests whose model changed size.
+pub fn stage(rf: &mut Romfs, wraps: &[(u64, String)], sizes: &[(u64, Size)], touched: &[u64]) -> Res<(Vec<Out>, Vec<(String, String)>)> {
+    let mut by: BM<&str, Vec<(&Spot, String)>> = BM::new();
     let mut kids: Vec<(String, String)> = Vec::new();
-    for (h, fam) in wraps {
-        let s: &Spot = of(*h).ok_or(Error::Format("special: a wrapped chest is not a known special chest"))?;
-        by.entry(s.flow).or_default().push((s, fam.as_str()));
-        kids.push((s.parent.to_string(), event_name(fam, Size::Big)));
+    let mut hashes: Vec<u64> = wraps.iter().map(|w| w.0).chain(sizes.iter().map(|s| s.0)).collect();
+    hashes.sort_unstable();
+    hashes.dedup();
+    for h in hashes {
+        let s: &Spot = sized(h).ok_or(Error::Format("special: a wrapped chest is not a known special chest"))?;
+        let fam: Option<&str> = wraps.iter().find(|w| w.0 == h).map(|w| w.1.as_str());
+        if fam.is_some() && of(h).is_none() {
+            return Err(Error::Format("special: only the special chests take a progressive wrapper"));
+        }
+        let size: Size = sizes.iter().find(|x| x.0 == h).map(|x| x.1).unwrap_or_else(|| base_size(s));
+        let to: String = target(fam, size);
+        if to == s.base {
+            continue;
+        }
+        kids.push((s.parent.to_string(), to.clone()));
+        by.entry(s.flow).or_default().push((s, to));
     }
     let gate: Option<u64> = touched.contains(&DAMPE_HOOK).then_some(DAMPE_HOOK);
     if gate.is_some() {
@@ -330,7 +423,7 @@ mod tests {
     #[test]
     fn the_hookshot_chest_gets_its_own_wrapper_transition_and_the_heart_piece_chest_keeps_the_original() {
         let raw: Vec<u8> = flow().write().unwrap();
-        let out: Vec<u8> = edit_flow(&raw, &[(of(DAMPE_HOOK).unwrap(), "Hookshot")], None).unwrap();
+        let out: Vec<u8> = edit_flow(&raw, &[(of(DAMPE_HOOK).unwrap(), event_name("Hookshot", Size::Big))], None).unwrap();
         let b: Bf = Bf::parse(&out).unwrap();
         let Kind::Switch { cases, .. } = &ev(&b, 153).kind else { panic!() };
         let to: usize = cases.iter().find(|c| c.val == 0).unwrap().ev as usize;
@@ -339,7 +432,7 @@ mod tests {
         assert_eq!(ev(&b, 82).kind.params().and_then(|c| c.get(PARAM)), Some(&Val::Str(BASE.to_string())));
         let Kind::Switch { cases, .. } = &ev(&b, 152).kind else { panic!() };
         assert_eq!(cases.iter().find(|c| c.val == 0).unwrap().ev, 82);
-        let again: Vec<u8> = edit_flow(&out, &[(of(DAMPE_HOOK).unwrap(), "Hookshot")], None).unwrap();
+        let again: Vec<u8> = edit_flow(&out, &[(of(DAMPE_HOOK).unwrap(), event_name("Hookshot", Size::Big))], None).unwrap();
         assert_eq!(Bf::parse(&again).unwrap().flows[0].events.len(), 431);
     }
 
@@ -348,7 +441,7 @@ mod tests {
         let mut b: Bf = flow();
         b.flows[0].events[12] = transition("Event64", BASE);
         let raw: Vec<u8> = b.write().unwrap();
-        let out: Vec<u8> = edit_flow(&raw, &[(of(SPIRIT).unwrap(), "Strength")], None).unwrap();
+        let out: Vec<u8> = edit_flow(&raw, &[(of(SPIRIT).unwrap(), event_name("Strength", Size::Big))], None).unwrap();
         let b: Bf = Bf::parse(&out).unwrap();
         assert_eq!(ev(&b, 12).kind.params().and_then(|c| c.get(PARAM)), Some(&Val::Str("OOTRR_Prog_Strength_Big".to_string())));
     }
@@ -374,7 +467,32 @@ mod tests {
         let mut b: Bf = flow();
         b.flows[0].events[82].name = "Other".to_string();
         let raw: Vec<u8> = b.write().unwrap();
-        assert!(edit_flow(&raw, &[(of(DAMPE_HOOK).unwrap(), "Hookshot")], None).is_err());
+        assert!(edit_flow(&raw, &[(of(DAMPE_HOOK).unwrap(), event_name("Hookshot", Size::Big))], None).is_err());
+    }
+
+    #[test]
+    fn a_resized_chest_starts_the_open_event_of_its_model() {
+        let mut b: Bf = flow();
+        b.flows[0].events[12] = transition("Event64", BASE);
+        b.flows[0].events[154] = transition("Event242", SMALL_BASE);
+        let raw: Vec<u8> = b.write().unwrap();
+        let spirit: &Spot = sized(SPIRIT).unwrap();
+        let low: &Spot = sized(DAMPE_RUPEES[0]).unwrap();
+        let high: &Spot = sized(DAMPE_RUPEES[1]).unwrap();
+        assert_eq!(target(None, Size::Small), SMALL_BASE);
+        assert_eq!(target(Some("Hookshot"), Size::Small), "OOTRR_Prog_Hookshot_Small");
+        let out: Vec<u8> = edit_flow(&raw, &[(spirit, SMALL_BASE.to_string()), (low, BASE.to_string()), (high, BASE.to_string())], None).unwrap();
+        let b: Bf = Bf::parse(&out).unwrap();
+        assert_eq!(ev(&b, 12).kind.params().and_then(|c| c.get(PARAM)), Some(&Val::Str(SMALL_BASE.to_string())));
+        assert_eq!(ev(&b, 154).kind.params().and_then(|c| c.get(PARAM)), Some(&Val::Str(BASE.to_string())));
+        let raw: Vec<u8> = flow().write().unwrap();
+        let out: Vec<u8> = edit_flow(&raw, &[(of(DAMPE_HEART).unwrap(), SMALL_BASE.to_string())], None).unwrap();
+        let b: Bf = Bf::parse(&out).unwrap();
+        let Kind::Switch { cases, .. } = &ev(&b, 152).kind else { panic!() };
+        let to: usize = cases.iter().find(|c| c.val == 0).unwrap().ev as usize;
+        assert_eq!(ev(&b, to).kind.params().and_then(|c| c.get(PARAM)), Some(&Val::Str(SMALL_BASE.to_string())));
+        assert_eq!(ev(&b, 82).kind.params().and_then(|c| c.get(PARAM)), Some(&Val::Str(BASE.to_string())));
+        assert!(of(ICE_ARROWS).is_none() && sized(ICE_ARROWS).is_some());
     }
 
     #[test]

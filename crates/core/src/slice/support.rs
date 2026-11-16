@@ -74,6 +74,8 @@ pub struct Plan {
     pub hints: bool,
     pub fast: bool,
     pub chest_sizes: bool,
+    /// Logic names of the starting items (chest size matches contents reads them).
+    pub owned: Vec<&'static str>,
     pub intro: bool,
     pub start: Reward,
     pub forest: Forest,
@@ -438,6 +440,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         }
     }
     let kit: crate::start_items::Kit = crate::start_items::read(s, &mut bad);
+    let owned: Vec<&'static str> = chosen.iter().filter_map(|id| crate::start_items::table::opt(id)).filter_map(|o| crate::start_items::table::group(o.group)).map(|g| g.logic).collect();
     // Settings that would hand out the same check twice.
     // The schema disables the open gate behind a closed forest (the page greys it out and a
     // settings string decodes it as zelda); a value set directly falls back the same way.
@@ -550,7 +553,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if silver {
         notes.push(crate::slice::silver::NOTE.to_string());
     }
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, potion, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, story, endings })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, potion, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, owned, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, story, endings })
 }
 
 #[cfg(test)]

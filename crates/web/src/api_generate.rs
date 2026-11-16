@@ -102,11 +102,11 @@ fn spoiler(g: &Generated, wanted: bool) -> Json {
             .with("locations", Json::Arr(Vec::new()))
             .with("playthrough", Json::Arr(Vec::new()));
     }
-    let locs: Vec<Json> = g.seed_file.placements.iter().map(|(k, v)| pair(k, v)).collect();
+    let locs: Vec<Json> = g.seed_file.placements.iter().map(|(k, v)| pair(k, ootrr_core::spoiler::shown(v))).collect();
     let steps: Vec<Json> = g
         .spheres
         .iter()
-        .map(|sp| Json::Arr(sp.iter().map(|(l, i)| pair(l, i)).collect()))
+        .map(|sp| Json::Arr(sp.iter().map(|(l, i)| pair(l, ootrr_core::spoiler::shown(i))).collect()))
         .collect();
     Json::obj()
         .with("available", true.into())

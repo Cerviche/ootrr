@@ -158,6 +158,7 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
                 && (!p.scrubs_b || crate::scrubs_b::fits(d, name, i))
                 && (!crate::open_world::skips::is_bean_sale(name) || crate::flow_extra::pouch(i))
                 && !(up && ((d.keeps_event(name) && !d.special(name)) || heart_loc))
+                && !(d.keeps_event(name) && i.actor.as_deref().is_some_and(crate::progressive::guarded))
         }
         None => false,
     }
@@ -180,21 +181,22 @@ fn spoiler_text(w: &World, vanilla: &Placement, got: &Placement, pk: &Pick) -> R
         .map(|sphere| sphere.iter().map(|(l, i)| (w.locs[*l].name.clone(), w.items.names[*i].clone())).collect())
         .collect();
     let mut out: String = String::new();
+    out.push_str(crate::spoiler::LEGEND);
     let _ = writeln!(out, "Randomized chests");
     for l in &pk.free {
         let _ = writeln!(
             out,
             "  {}: {} (vanilla {})",
             w.locs[*l].name,
-            item_name(w, got, *l),
-            item_name(w, vanilla, *l)
+            crate::spoiler::shown(&item_name(w, got, *l)),
+            crate::spoiler::shown(&item_name(w, vanilla, *l))
         );
     }
     let _ = writeln!(out, "Playthrough, {} required locations in {} spheres", sp.required.len(), sp.spheres.len());
     for (n, sphere) in sp.spheres.iter().enumerate() {
         let _ = writeln!(out, "Sphere {}", n + 1);
         for (l, i) in sphere {
-            let _ = writeln!(out, "  {}: {}", w.locs[*l].name, w.items.names[*i]);
+            let _ = writeln!(out, "  {}: {}", w.locs[*l].name, crate::spoiler::shown(&w.items.names[*i]));
         }
     }
     Ok((out, steps))
@@ -227,6 +229,36 @@ fn report(s: &str, p: &Plan, pk: &Pick, c: &Counts, moved: &[String]) -> String 
         out,
         "Logic: OoTR glitchless rules for the vanilla world, small keys counted for real, with the Fire, Water and Spirit keys kept in their vanilla chests, every other location holds its vanilla item."
     );
+    out
+}
+
+/// The pool placement: the vanilla placement with each shuffled location holding its
+/// Data::pool_item, so the tiered minigame prizes add their OoTR progressive item to the pool.
+/// The location itself keeps its junk vanilla item for the rules and the spoiler log. The copies
+/// come back only when the shuffled locations have room for them (twice as many chests and reward
+/// events that take one of these items as there are copies, pots and other pickups do not count), so a seed with few shuffled chests keeps the junk.
+pub fn restore_upgrades(w: &World, d: &Data, vanilla: &Placement, free: &[LocId], ok: &dyn Fn(ItemId, LocId) -> bool) -> Placement {
+    let mut out: Placement = vanilla.clone();
+    let mut back: Vec<ItemId> = Vec::new();
+    for l in free {
+        let name: &str = &w.locs[*l].name;
+        if let Some(i) = d.pool_item(name).filter(|p| Some(*p) != d.vanilla_of(name)).and_then(|p| w.item(p)) {
+            out.put(*l, i);
+            back.push(i);
+        }
+    }
+    if back.is_empty() {
+        return out;
+    }
+    let copies: usize = free.iter().filter(|l| out.get(**l).is_some_and(|i| back.contains(&i))).count();
+    let holds = |l: LocId| {
+        let name: &str = &w.locs[l].name;
+        d.cat.by_name(name).is_some_and(|c| c.kind == "chest") || d.flow.by_name(name).is_some()
+    };
+    let room: usize = free.iter().filter(|l| holds(**l) && back.iter().any(|i| ok(*i, **l))).count();
+    if room < 2 * copies {
+        return vanilla.clone();
+    }
     out
 }
 
@@ -281,7 +313,8 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     if p.world.on() && !pk.free.iter().any(|l| pu::listed(d, &w.locs[*l].name)) {
         p.notes.retain(|n| !pu::is_note(n));
     }
-    let (base, gone): (Placement, Vec<String>) = crate::start_items::pool::base(d, &w, &p, &vanilla, &pk.free)?;
+    let pooled: Placement = restore_upgrades(&w, d, &vanilla, &pk.free, &|it: ItemId, l: LocId| allowed(d, &w, &p, it, l));
+    let (base, gone): (Placement, Vec<String>) = crate::start_items::pool::base(d, &w, &p, &pooled, &pk.free)?;
     p.notes.extend(gone);
     let ex: Vec<String> = check_excluded(&w, &p, &pk.free, &base)?;
     p.notes.extend(ex);
@@ -954,10 +987,10 @@ mod tests {
     fn seeds_that_generated_before_keep_their_exact_placements() {
         let d: Data = Data::load().unwrap();
         let cases: [(&[(&str, &str)], &str, usize, u64); 4] = [
-            (&[], "default 0", 76, 0xbba8_13b2_c136_00aa),
-            (&[], "default 1", 76, 0x5a81_86d2_e68c_1a6e),
+            (&[], "default 0", 76, 0xa8f6_6628_e446_2662),
+            (&[], "default 1", 76, 0xe4c5_1cfa_e3e1_3172),
             (&[("shuffle_chests", "overworld")], "chests_ow 0", 9, 0xd58f_c0a7_a752_4655),
-            (&[("shuffle_chests", "dungeons")], "dungeons 0", 67, 0x6a73_a11e_4463_bd5a),
+            (&[("shuffle_chests", "dungeons")], "dungeons 0", 67, 0xec8c_3257_dee8_2878),
         ];
         for (pairs, seed, n, want) in cases {
             let mut all: Vec<(&str, &str)> = vec![("shuffle_rewards", "off")];
@@ -1149,14 +1182,14 @@ mod tests {
         pots.set("shuffle_pots", Value::s("all")).unwrap();
         pots.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str, &str); 8] = [
-            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin a", "a2eb6be39d800ff24bd359b272dd6009cde55da11064399cde9bde0dbfcd8ac1"),
-            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "fb7413b271d949ca4064a38f5e3d1bb3ea120953fb22a030f6260f21e89c04b2"),
+            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin a", "e2268d546296aab64fc23f97a9f6f461c906ba14494d8b2970d51c5923096e23"),
+            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "d8899e0709f51a5b9218e821900f06ad7390578204be218668e97aff5d34b969"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "dbbde2ae945e2e8eb27f8fe74e85b432bc1612f02b1f629a822e47f8cf49cc79"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "a131002f74c6dd72eb9e521304f3cb01205103b640d91df77e6ddf6e760fd180"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "5ffac2426a702253894cfe96e76e72558c1aced381c53f88b609e1e980a0d3d0"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "a85919889d871e8b897e3d38fbc1a7ad7ca0aca7a18d3a3d95a69852d8999e64"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "766121376bc350b0e632f60c5ec06015450bc92a6463a9df98e2e5c01f263b3e"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "308e450058c9786f6c305ed7fe5e1d27676facaecdcb354d3a5dd71b74f8e999"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "954b34b0b7e226b79694c068eea8fba1954556f5eea9d6b9aaf49cdab6545c8b"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "d0319ab47450e5210431d9a325640d9e6f05d45f36a9ae97d5ee574ea05ca5c1"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "14f61e8cdb49d93eab6489dc8f43bd4b83817524628ab3d307d429b637a4a77b"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "50a12db4cb35b451113a4327c4861fca42618b41de82902b9c4fcc5b40eef080"),
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
@@ -1193,10 +1226,10 @@ mod tests {
         both.set("shuffle_pots", Value::s("all")).unwrap();
         both.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str); 4] = [
-            (hives.clone(), "pin a", "f49a141845ad8628d9053c519ac12a6f2f099efb6aa7a675502967f01639cef5"),
-            (hives.clone(), "pin b", "8cb9cb59c5553f172156f40c8288664d89d0ba5c576fea7a31705d76a8621dd1"),
-            (both.clone(), "pin a", "deac770a336a3edcdfa53965a8dfc644ee45b56bc54340e1d1a279ce99d117fd"),
-            (both.clone(), "pin b", "5ac97ebedb074a0b5a2f690cc9fed0a78fb139c68f3826fd375d42cc6352ca7a"),
+            (hives.clone(), "pin a", "59b32a0306e293b1977119d0b05360f1b9e0674f00d4f986ec644b0cce47c833"),
+            (hives.clone(), "pin b", "546a8b91dc03dcdbe417a1823ecadb721ba5bb58d7a15cd36461dba362e91e26"),
+            (both.clone(), "pin a", "b63213a50602f8929eb0a39c9c4225238a4d8bd5ceb1351a384fc20fabbc5f92"),
+            (both.clone(), "pin b", "4d08414739156a896be745c73e894b55004e4ec1430d702b86926b9b7bedf5c7"),
         ];
         for (s, seed, sum) in cases {
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
@@ -1204,6 +1237,27 @@ mod tests {
             f.settings_string = "pinned".to_string();
             assert_eq!(f.placements.keys().filter(|k| k.starts_with("Kak Hole")).count(), 7);
             assert_eq!(f.checksum(), sum, "{seed}");
+        }
+    }
+
+    #[test]
+    fn the_pool_keeps_every_ootr_copy_of_the_bow_bomb_bag_and_slingshot() {
+        let d: Data = Data::load().unwrap();
+        let g: Generated = generate_data(&d, &Settings::default(), "upgrade copies", &GenOpts::default()).unwrap();
+        let count = |n: &str| g.seed_file.placements.values().filter(|v| v.as_str() == n).count();
+        for (n, k) in [("Bow", 3), ("Bomb Bag", 3), ("Slingshot", 3), ("Magic Meter", 2), ("Progressive Hookshot", 2)] {
+            assert_eq!(count(n), k, "{n}");
+        }
+        for l in ["Kak Shooting Gallery Reward", "GF HBA 1500 Points", "Market Bombchu Bowling First Prize"] {
+            assert_eq!(d.vanilla_of(l), Some("Rupees (5)"), "{l}");
+        }
+        let t: String = generate_data(&d, &Settings::default(), "upgrade copies", &GenOpts { spoiler: true, ..GenOpts::default() }).unwrap().spoiler.unwrap();
+        let chests: &str = t.split("Randomized chests").nth(1).unwrap().split("Playthrough").next().unwrap();
+        for (n, k) in [("Progressive Bow", 3), ("Progressive Bomb Bag", 3), ("Progressive Slingshot", 3), ("Progressive Magic Meter", 2)] {
+            assert_eq!(chests.lines().filter(|x| x.split(" (vanilla").next().is_some_and(|h| h.ends_with(&format!(": {n}")))).count(), k, "{n}");
+        }
+        for old in [": Bow", ": Bomb Bag", ": Slingshot", ": Magic Meter", "(vanilla Bow)", "(vanilla Magic Meter)"] {
+            assert!(!t.lines().any(|x| x.ends_with(old) || x.contains(&format!("{old} ("))), "{old}");
         }
     }
 }

@@ -257,7 +257,7 @@ pub fn spoiler_with(d: &Data, w: &World, p: &Plan, free: &[LocId], got: &Placeme
                 Some(Ok(a)) => format!("drops {a}"),
                 _ => "no pickup".to_string(),
             };
-            let _ = writeln!(out, "  {n}: {item} (shuffled, {drop})");
+            let _ = writeln!(out, "  {n}: {} (shuffled, {drop})", crate::spoiler::shown(&item));
             continue;
         }
         let reason: String = match (cat.get(n), t.as_ref()) {
@@ -267,7 +267,7 @@ pub fn spoiler_with(d: &Data, w: &World, p: &Plan, free: &[LocId], got: &Placeme
             (None, _) => "no remake actor is matched to it".to_string(),
             (Some(_), None) => "skulltula data is broken".to_string(),
         };
-        let _ = writeln!(out, "  {n}: {item} (vanilla, {reason})");
+        let _ = writeln!(out, "  {n}: {} (vanilla, {reason})", crate::spoiler::shown(&item));
     }
     let spots: Vec<LocId> = token_spots(w, got);
     let home: usize = spots.iter().filter(|l| d.vanilla_of(&w.locs[**l].name) == Some(TOKEN)).count();

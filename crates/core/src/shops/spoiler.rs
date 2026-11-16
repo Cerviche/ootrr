@@ -28,7 +28,7 @@ pub fn text(l: &Layout) -> String {
                 continue;
             };
             let kind: &str = if p.deal { "special deal, sold once" } else { "shop goods" };
-            let _ = writeln!(out, "    shelf {} ({}): {}, {} rupees, {kind}{} (vanilla {})", s.slot, s.name, p.item, p.price, wallet_word(p.price), s.item);
+            let _ = writeln!(out, "    shelf {} ({}): {}, {} rupees, {kind}{} (vanilla {})", s.slot, s.name, crate::spoiler::shown(&p.item), p.price, wallet_word(p.price), crate::spoiler::shown(&s.item));
         }
     }
     out

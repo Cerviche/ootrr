@@ -220,7 +220,7 @@ pub fn spoiler(d: &Data, w: &World, free: &[LocId], got: &Placement, assign: &BM
             Err(_) => continue,
         };
         pots |= c.ends_with("returns until its item is picked up") && d.pots.has(name);
-        lines.push(format!("  {name}: {item} as {actor} ({c})"));
+        lines.push(format!("  {name}: {} as {actor} ({c})", crate::spoiler::shown(item)));
     }
     let mut out: String = String::new();
     if lines.is_empty() {

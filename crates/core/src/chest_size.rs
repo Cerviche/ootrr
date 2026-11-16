@@ -14,7 +14,7 @@ pub const SETTING: &str = "chests_match_contents";
 /// chests, the minigame chests, A_03 and A_04) keep their model.
 pub const PAIRS: [(&str, &str); 2] = [("Obj_TBox_A_01", "Obj_TBox_A_02"), ("Obj_TBox_A_01_NoBake", "Obj_TBox_A_02_NoBake")];
 
-pub const NOTE: &str = "Chest size matches contents: chests holding major items and boss keys are big, chests holding anything else are small. Chests that kept their vanilla item, run a story scene or are not plain wooden chests keep their size. Experimental, untested in the game.";
+pub const NOTE: &str = "Chest size matches contents: chests holding progression items, songs, stones, medallions, boss keys, keys away from their own dungeon and shields or capacity upgrades you do not start with are big, the rest are small. Boss heart chests and summoned chests (Jabu Boomerang, Iron Boots, Ice Arrows, Silver Gauntlets, Dampe race) follow the same rule. Story-scene chests, invisible chests and other special models keep their size. Experimental, untested in the game.";
 
 pub const AREAS: [&str; 2] = ["DropKeepAwayArea_TBox_A_01", "DropKeepAwayArea_TBox_A_02"];
 
@@ -59,20 +59,58 @@ pub fn mode(s: &Settings, bad: &mut Vec<String>) -> bool {
     })
 }
 
-/// OoTR's major items: progression items and boss keys. Hearts, Bombchus (unless they are
-/// in logic), maps, compasses, small keys, tokens and everything that is not progression
-/// count as minor, as in OoTR's Chest Appearance Matches Contents.
-pub fn major(i: &Item, chus: bool) -> bool {
+/// Gear that is not progression but still worth a big chest, unless the seed starts with it.
+pub const GEAR: [&str; 5] = ["Deku Shield", "Hylian Shield", "Double Defense", "Deku Nut Capacity", "Deku Stick Capacity"];
+
+/// Small keys, key rings and silver rupees: big only when they sit outside their own dungeon.
+pub const KEYS: [&str; 7] = ["SmallKey", "SmallKeyRing", "HideoutSmallKey", "HideoutSmallKeyRing", "TCGSmallKey", "TCGSmallKeyRing", "SilverRupee"];
+
+/// What the build knows about the player when the chest is placed.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Ctx {
+    /// Bombchus are in logic.
+    pub chus: bool,
+    /// Logic names of the starting items.
+    pub owned: Vec<&'static str>,
+}
+
+/// Major items get big chests: progression items, songs, stones and medallions, boss keys,
+/// small keys / key rings / silver rupees found outside their own dungeon, and the gear in
+/// GEAR the player does not start with. Hearts, Bombchus (unless in logic), maps, compasses,
+/// tokens and the rest are minor. `at` is "<location name>|<location area>", see [at].
+pub fn major(i: &Item, at: &str, ctx: &Ctx) -> bool {
     match i.kind.as_str() {
         "BossKey" | "GanonBossKey" | "Song" | "DungeonReward" => true,
-        "Item" => i.adv && i.name != "Heart Container" && !i.name.starts_with("Piece of Heart") && (chus || !i.name.starts_with("Bombchus")),
+        k if KEYS.contains(&k) => !home(&i.name, at),
+        "Item" if GEAR.contains(&i.name.as_str()) => !ctx.owned.contains(&i.name.as_str()),
+        "Item" => i.adv && i.name != "Heart Container" && !i.name.starts_with("Piece of Heart") && (ctx.chus || !i.name.starts_with("Bombchus")),
         _ => false,
     }
 }
 
+fn norm(s: &str) -> String {
+    s.replace('\'', "").replace("Ganons Tower", "Ganons Castle")
+}
+
+/// Whether a dungeon item (named "Small Key (Forest Temple)", "Silver Rupee (Dodongos Cavern
+/// Staircase)", ...) sits in its own dungeon. An item that names no dungeon counts as home.
+pub fn home(item: &str, at: &str) -> bool {
+    let Some(d) = item.split_once('(').and_then(|(_, r)| r.strip_suffix(')')) else {
+        return true;
+    };
+    let d: String = norm(d);
+    let (name, area) = at.split_once('|').unwrap_or((at, ""));
+    let (name, area) = (norm(name), norm(area));
+    name.contains(&d) ||(!area.is_empty() && (d == area || d.starts_with(&format!("{area} "))))
+}
+
+pub fn at(l: &crate::catalog::Loc) -> String {
+    format!("{}|{}", l.name, l.area)
+}
+
 /// The size each placed chest should have, by actor hash. Chests whose story event stays,
 /// and the special chests that always run the big chest flow, are left out.
-pub fn wanted(d: &Data, seed: &SeedFile, chus: bool, maps: bool) -> BM<u64, Want> {
+pub fn wanted(d: &Data, seed: &SeedFile, ctx: &Ctx, maps: bool) -> BM<u64, Want> {
     let mut out: BM<u64, Want> = BM::new();
     for (loc, item) in &seed.placements {
         let (Some(l), Some(it)) = (d.cat.by_name(loc), d.item(item)) else {
@@ -81,20 +119,61 @@ pub fn wanted(d: &Data, seed: &SeedFile, chus: bool, maps: bool) -> BM<u64, Want
         if l.kind == "bossheart" {
             continue;
         }
-        let big: bool = major(it, chus);
+        let big: bool = major(it, &at(l), ctx);
         if !big && !shrinks(it, maps) {
             continue;
         }
         let moved: bool = d.vanilla_of(loc) != Some(item.as_str());
         for r in &l.refs {
-            if crate::special::of(r.hash).is_some() {
-                continue;
-            }
             let ev: Option<Ev> = d.event_mode(r.hash);
-            if ev == Some(Ev::Keep) {
+            let summoned: bool = crate::special::sized(r.hash).is_some();
+            if ev == Some(Ev::Keep) && !summoned {
                 continue;
             }
-            out.insert(r.hash, Want { big, strip: moved && ev == Some(Ev::Strip) });
+            out.insert(r.hash, Want { big, strip: summoned || (moved && ev == Some(Ev::Strip)) });
+        }
+    }
+    pair(&mut out);
+    out
+}
+
+/// The Dampe race rupee chests share one open transition: they change size only together.
+/// A chest that is not listed keeps its vanilla small model.
+pub fn pair(w: &mut BM<u64, Want>) {
+    let [a, b] = crate::special::DAMPE_RUPEES;
+    let big = |h: u64| w.get(&h).is_some_and(|x| x.big);
+    if big(a) != big(b) {
+        w.remove(&a);
+        w.remove(&b);
+    }
+}
+
+/// The summoned chests that changed size, with their new size, for special::stage.
+pub fn retargets(w: &BM<u64, Want>, m: &Moves) -> Vec<(u64, crate::progressive::Size)> {
+    use crate::progressive::Size;
+    let mut out: Vec<(u64, Size)> = m
+        .chests
+        .iter()
+        .filter(|h| crate::special::sized(**h).is_some())
+        .filter_map(|h| w.get(h).map(|x| (*h, if x.big { Size::Big } else { Size::Small })))
+        .collect();
+    let [a, b] = crate::special::DAMPE_RUPEES;
+    if out.iter().any(|x| x.0 == a) != out.iter().any(|x| x.0 == b) {
+        out.retain(|x| x.0 != a && x.0 != b);
+    }
+    out
+}
+
+/// Boss heart spots whose new item is minor. Their heart container turns into a small chest
+/// instead of the big one; the heart itself (kept vanilla) stays a heart.
+pub fn small_hearts(d: &Data, seed: &SeedFile, ctx: &Ctx, maps: bool) -> BS<u64> {
+    let mut out: BS<u64> = BS::new();
+    for (loc, item) in &seed.placements {
+        let (Some(l), Some(it)) = (d.cat.by_name(loc), d.item(item)) else {
+            continue;
+        };
+        if l.kind == "bossheart" && !major(it, &at(l), ctx) && shrinks(it, maps) {
+            out.extend(l.refs.iter().map(|r| r.hash));
         }
     }
     out
@@ -191,6 +270,11 @@ pub fn moves(scenes: &BM<String, Vec<Seen>>, w: &BM<u64, Want>) -> Moves {
             }
             spots.push((s.hash, st.clone(), bits(&s.at), want.big));
         }
+    }
+    let [ra, rb] = crate::special::DAMPE_RUPEES;
+    let has = |h: u64| spots.iter().any(|s| s.0 == h);
+    if has(ra) != has(rb) {
+        spots.retain(|s| s.0 != ra && s.0 != rb);
     }
     for (h, st, at, big) in spots {
         if m.tight.contains(&h) {
@@ -293,17 +377,41 @@ mod tests {
     }
 
     #[test]
-    fn majors_follow_ootr() {
-        assert!(major(&item("Progressive Hookshot", "Item", true), false));
-        assert!(major(&item("Boss Key (Forest Temple)", "BossKey", false), false));
-        assert!(major(&item("Zeldas Lullaby", "Song", true), false));
-        assert!(!major(&item("Piece of Heart", "Item", true), false));
-        assert!(!major(&item("Heart Container", "Item", true), false));
-        assert!(!major(&item("Bombchus (10)", "Item", true), false));
-        assert!(major(&item("Bombchus (10)", "Item", true), true));
-        assert!(!major(&item("Rupees (20)", "Item", false), false));
-        assert!(!major(&item("Small Key (Forest Temple)", "SmallKey", true), false));
-        assert!(!major(&item("Map (Forest Temple)", "Map", false), false));
+    fn majors_are_progression_rewards_boss_keys_and_unowned_gear() {
+        let c: Ctx = Ctx::default();
+        let x: &str = "KF Midos Top Left Chest|Kokiri Forest";
+        assert!(major(&item("Progressive Hookshot", "Item", true), x, &c));
+        assert!(major(&item("Boss Key (Forest Temple)", "BossKey", false), "Forest Temple Map Chest|Forest Temple", &c));
+        assert!(major(&item("Zeldas Lullaby", "Song", true), x, &c));
+        assert!(major(&item("Forest Medallion", "DungeonReward", true), x, &c));
+        assert!(major(&item("Mirror Shield", "Item", true), x, &c));
+        assert!(!major(&item("Piece of Heart", "Item", true), x, &c));
+        assert!(!major(&item("Heart Container", "Item", true), x, &c));
+        assert!(!major(&item("Bombchus (10)", "Item", true), x, &c));
+        assert!(major(&item("Bombchus (10)", "Item", true), x, &Ctx { chus: true, ..Ctx::default() }));
+        assert!(!major(&item("Rupees (20)", "Item", false), x, &c));
+        assert!(!major(&item("Map (Forest Temple)", "Map", false), x, &c));
+        assert!(major(&item("Deku Shield", "Item", false), x, &c));
+        assert!(!major(&item("Deku Shield", "Item", false), x, &Ctx { owned: vec!["Deku Shield"], ..Ctx::default() }));
+        assert!(major(&item("Hylian Shield", "Item", false), x, &Ctx { owned: vec!["Deku Shield"], ..Ctx::default() }));
+    }
+
+    #[test]
+    fn keys_are_big_only_away_from_their_dungeon() {
+        let c: Ctx = Ctx::default();
+        let key: Item = item("Small Key (Forest Temple)", "SmallKey", true);
+        assert!(!major(&key, "Forest Temple First Room Chest|Forest Temple", &c));
+        assert!(major(&key, "Fire Temple Map Chest|Fire Temple", &c));
+        assert!(major(&key, "KF Midos Top Left Chest|Kokiri Forest", &c));
+        let ring: Item = item("Small Key Ring (Ganons Castle)", "SmallKeyRing", true);
+        assert!(!major(&ring, "Ganons Tower Boss Key Chest|Ganon's Tower", &c));
+        assert!(!major(&ring, "Ganons Castle Light Trial Lullaby Room Invisible Chest|Ganon's Castle", &c));
+        let silver: Item = item("Silver Rupee (Dodongos Cavern Staircase)", "SilverRupee", true);
+        assert!(!major(&silver, "Dodongos Cavern Map Chest|Dodongo's Cavern", &c));
+        assert!(major(&silver, "Deku Tree Map Chest|Deku Tree", &c));
+        assert!(!major(&item("Small Key (Treasure Chest Game)", "TCGSmallKey", true), "Market Treasure Chest Game Room 1 Top|Market", &c));
+        assert!(!major(&item("Small Key (Thieves Hideout)", "HideoutSmallKey", true), "Hideout 1 Torch Jail Gerudo Key|Thieves' Hideout", &c));
+        assert!(major(&item("Boss Key (Fire Temple)", "BossKey", true), "Fire Temple Map Chest|Fire Temple", &c));
     }
 
     fn chest(hash: u64, gyaml: &str, story: bool) -> Node {
@@ -490,6 +598,25 @@ mod tests {
     fn dump() -> Option<std::path::PathBuf> {
         let p: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
         if p.join("Pack").join("ZsDic.pack.zs").is_file() { Some(p) } else { None }
+    }
+
+    #[test]
+    fn every_summoned_chest_retargets_in_the_real_flows() {
+        use crate::progressive::Size;
+        let Some(p) = dump() else {
+            eprintln!("skipped, no RomFS dump");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&p).unwrap();
+        let all: Vec<&crate::special::Spot> = crate::special::SPOTS.iter().chain(crate::special::MORE.iter()).collect();
+        let flip: Vec<(u64, Size)> = all.iter().map(|s| (s.hash, if crate::special::base_size(s) == Size::Big { Size::Small } else { Size::Big })).collect();
+        let (outs, kids) = crate::special::stage(&mut rf, &[], &flip, &[]).unwrap();
+        assert_eq!(outs.len(), 5);
+        assert_eq!(kids.len(), 6, "the Dampe chests share one parent row per open event");
+        let d: Data = Data::load().unwrap();
+        for s in &all {
+            assert_eq!(d.event_mode(s.hash), Some(Ev::Keep), "{}", s.hash);
+        }
     }
 
     #[test]

@@ -63,7 +63,7 @@ pub fn parse(d: &Data, spec: &str) -> Res<Job> {
         return Err(E::Msg(format!("{spec} has a price outside 1 to 999")));
     }
     let s: &Slot = t.slot(loc.trim()).ok_or_else(|| E::Msg(format!("{} is not a shelf slot, use a name like KF Shop Item 1", loc.trim())))?;
-    let item: &str = item.trim();
+    let item: &str = crate::spoiler::unshown(item.trim());
     let tier: Option<&str> = FAMILIES.iter().find(|(_, ts)| ts.contains(&item)).map(|_| item);
     let what: What = match (t.slots.iter().find(|x| x.item == item), tier) {
         (Some(g), _) => What::Goods { actor: g.actor.clone(), price },
