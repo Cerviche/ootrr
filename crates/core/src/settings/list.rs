@@ -2,6 +2,16 @@ use super::model::{Group, Schema, Setting, Tag, Value};
 
 pub const SCHEMA_VERSION: u32 = 1;
 
+pub const RETIRED: [(u16, &str); 1] = [(63, "shop_deal_gear")];
+
+pub fn retired_num(num: u16) -> Option<&'static str> {
+    RETIRED.iter().find(|r| r.0 == num).map(|r| r.1)
+}
+
+pub fn retired_id(id: &str) -> bool {
+    RETIRED.iter().any(|r| r.1 == id)
+}
+
 fn group(id: &str, label: &str, tip: &str) -> Group {
     Group { id: id.to_string(), label: label.to_string(), tip: tip.to_string() }
 }
