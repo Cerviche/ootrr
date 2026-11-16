@@ -1,4 +1,4 @@
-use std::collections::HashMap as HM;
+use std::collections::{BTreeMap as BM, HashMap as HM};
 
 use crate::logic_items::ItemId;
 use crate::pot_slice::data::Kind;
@@ -35,8 +35,13 @@ pub fn caps(d: &Data, w: &World, free: &[LocId], vanilla: &Placement, ok: &dyn F
         return out;
     }
     let pool: Vec<ItemId> = free.iter().filter_map(|l| vanilla.get(*l)).collect();
+    let mut n: BM<ItemId, usize> = BM::new();
+    for i in pool.iter().filter(|i| !w.items.adv[**i]) {
+        *n.entry(*i).or_insert(0) += 1;
+    }
+    let filler: Option<ItemId> = n.iter().max_by_key(|(i, c)| (**c, std::cmp::Reverse(**i))).map(|(i, _)| *i);
     for l in free {
-        out.insert(*l, pool.iter().filter(|i| ok(**i, *l)).count());
+        out.insert(*l, usize::from(filler.is_some_and(|i| ok(i, *l))));
     }
     out
 }
@@ -228,5 +233,38 @@ mod tests {
         let s: Settings = with(&[("shuffle_pots", "all"), ("shuffle_crates", "all")]);
         let g: Generated = generate_data(&d, &s, "pots no hives", &GenOpts::default()).unwrap();
         assert!(g.seed_file.placements.keys().all(|k| !k.starts_with("Kak Hole Beehive")));
+    }
+
+    #[test]
+    fn ground_spots_get_rupees_as_often_as_pots_when_both_are_shuffled() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = with(&[("shuffle_freestanding_items", "all"), ("shuffle_pots", "all"), ("shuffle_crates", "all")]);
+        let mut n: [[usize; 3]; 2] = [[0; 3]; 2];
+        for seed in ["ground a", "ground b", "ground c"] {
+            let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
+            for (loc, item) in &g.seed_file.placements {
+                let at: usize = if d.cat.by_name(loc).is_some_and(crate::slice::pickups::is_world) {
+                    0
+                } else if d.pots.has(loc) {
+                    1
+                } else {
+                    continue;
+                };
+                if d.item(item).is_none_or(|x| x.adv) {
+                    continue;
+                }
+                n[at][0] += 1;
+                if item.starts_with("Rupee") {
+                    n[at][1] += 1;
+                }
+                if item == "Recovery Heart" {
+                    n[at][2] += 1;
+                }
+            }
+        }
+        let share = |at: usize, k: usize| n[at][k] as f64 / n[at][0].max(1) as f64;
+        assert!(n[0][0] > 100 && n[1][0] > 100, "{n:?}");
+        assert!(share(0, 1) > share(1, 1) * 0.6, "ground rupees {n:?}");
+        assert!(share(0, 2) < share(1, 2) * 1.8 + 0.05, "ground hearts {n:?}");
     }
 }
