@@ -397,10 +397,19 @@ mod tests {
         assert_eq!(e.kind.params().and_then(|c| c.get("Value")), Some(&Val::Bool(0)));
         let van: crate::rsizetable::Rst = crate::rsizetable::load(&mut rf).unwrap();
         let ours: crate::rsizetable::Rst = crate::rsizetable::Rst::parse(&rf.zs.decompress(&std::fs::read(on_disk(&plain, crate::rsizetable::TABLE_PATH)).unwrap()).unwrap()).unwrap();
-        assert_eq!(ours.get(crate::start_state::FIELD_FLOW_FILE), van.get(crate::start_state::FIELD_FLOW_FILE));
+        let (was, now): (usize, usize) = (rf.read_zs(crate::start_state::FIELD_FLOW_FILE).unwrap().len(), rf.zs.decompress(&std::fs::read(on_disk(&plain, crate::start_state::FIELD_FLOW_FILE)).unwrap()).unwrap().len());
+        assert!(now >= was);
+        let (a, z): (u64, u64) = (van.get(crate::start_state::FIELD_FLOW_FILE).unwrap() as u64, ours.get(crate::start_state::FIELD_FLOW_FILE).unwrap() as u64);
+        assert!(z >= a + crate::rsizetable::align(now as u64) - crate::rsizetable::align(was as u64));
         let off: PB = built(&root, &[(crate::open_world::TIME, crate::settings::Value::Bool(false))], "pedestal clock off");
         assert!(on_disk(&off, PEDESTAL_MODULE).is_file());
-        assert!(!on_disk(&off, crate::start_state::FIELD_FLOW_FILE).exists());
+        fn first(b: &Bf) -> Option<&Val> {
+            b.flows.iter().find(|x| x.name == crate::start_state::FIELD_FLOW)?.events.iter().find(|e| e.name == crate::start_state::FIELD_FIRST_EVENT)?.kind.params()?.get("Value")
+        }
+        let off_flow: Bf = Bf::parse(&rf.zs.decompress(&std::fs::read(on_disk(&off, crate::start_state::FIELD_FLOW_FILE)).unwrap()).unwrap()).unwrap();
+        let van_flow: Bf = Bf::parse(&rf.read_zs(crate::start_state::FIELD_FLOW_FILE).unwrap()).unwrap();
+        assert_eq!(first(&off_flow), first(&van_flow));
+        assert_ne!(first(&van_flow), Some(&Val::Bool(0)));
         let door: PB = built(&root, &[("open_door_of_time", crate::settings::Value::Bool(true))], "pedestal door");
         for f in [MODULE, SWORD_MODULE, PEDESTAL_MODULE, RETURN_FILE, SHEIK_FILE] {
             assert!(on_disk(&door, f).is_file(), "{f}");

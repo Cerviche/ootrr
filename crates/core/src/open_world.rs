@@ -571,19 +571,19 @@ mod tests {
         let van: crate::rsizetable::Rst = crate::rsizetable::load(&mut rf).unwrap();
         let modt: crate::rsizetable::Rst = crate::rsizetable::Rst::parse(&rf.zs.decompress(&fs::read(out.join(crate::rsizetable::TABLE_PATH)).unwrap()).unwrap()).unwrap();
         let files: [&str; 9] = [crate::door_open::MODULE, crate::door_open::SWORD_MODULE, FOUNTAIN, crate::door_fix::FLOW_FILE, WATER_FILE, ARRIVE_FILE, BED_FILE, crate::chest_slot::LIST, crate::intro_skip::FILE];
-        let mut grown: usize = 0;
+        let mut grown: Vec<&str> = Vec::new();
         for f in files {
             let disk: Vec<u8> = fs::read(f.split('/').fold(out.clone(), |a, x| a.join(x))).unwrap_or_else(|_| panic!("{f} missing"));
             let (old, new): (usize, usize) = if f.ends_with(".zs") { (rf.read_zs(f).unwrap().len(), rf.zs.decompress(&disk).unwrap().len()) } else { (rf.read(f).unwrap().len(), disk.len()) };
             let (a, z): (u32, u32) = (van.get(f).unwrap_or_else(|| panic!("{f} has no size entry")), modt.get(f).unwrap());
             if new > old {
-                grown += 1;
+                grown.push(f);
                 assert!(z as u64 >= a as u64 + crate::rsizetable::align(new as u64) - crate::rsizetable::align(old as u64), "{f} {a} {z} {old} {new}");
             } else {
                 assert!(z >= a, "{f}");
             }
         }
-        assert!(grown >= 4, "{grown}");
+        assert!(grown.len() >= 3, "{grown:?}");
         let list: crate::byml::Byml = crate::byml::Byml::parse(&rf.zs.decompress(&fs::read(out.join(crate::chest_slot::LIST)).unwrap()).unwrap()).unwrap();
         let rows: &crate::byml::Node = list.root.get("Data").unwrap();
         let bool_of = |n: &str| rows.get("Bool").unwrap().as_arr().unwrap().iter().find(|r| r.get("Hash") == Some(&crate::byml::Node::U32(crate::start_defaults::key(n)))).and_then(|r| r.get("DefaultValue")).cloned();

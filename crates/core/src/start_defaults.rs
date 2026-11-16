@@ -553,10 +553,10 @@ mod tests {
         let (list, flow, back, report): (Byml, Option<crate::bfevfl::Bf>, crate::settings::Settings, String) = built(&root, &[("open_forest", v("open")), ("shuffle_pots", v("all"))], "defaults forest");
         assert_eq!(back.text("open_forest").unwrap(), "open");
         assert_eq!(def(&list, "Bool", "Npc_Hylia_Soldier_003_GateOpen"), Node::Bool(false));
-        assert_eq!(opening_steps(&flow.unwrap()), vec![opening::OPEN_STEP.to_string()]);
+        assert_eq!(opening_steps(&flow.unwrap()), vec![opening::OPEN_STEP.to_string(), "Complete".to_string()]);
         assert!(report.contains("Meet_DekuTree Step03"));
         let (_, flow, _, _): (Byml, Option<crate::bfevfl::Bf>, crate::settings::Settings, String) = built(&root, &[("open_forest", v("open")), ("skip_intro", crate::settings::Value::Bool(false)), ("shuffle_pots", v("all"))], "defaults forest long");
-        assert_eq!(opening_steps(&flow.unwrap()), vec![opening::OPEN_STEP.to_string()]);
+        assert_eq!(opening_steps(&flow.unwrap()), vec![opening::OPEN_STEP.to_string(), "Complete".to_string()]);
     }
 }
 
