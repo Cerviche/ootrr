@@ -97,7 +97,7 @@ Confidence levels in the `conf` field:
 | Market Lost Dog | minigame | scene | supported | Piece of Heart | SubEvent_FindRichard 35 |
 | Graveyard Dampe Gravedigging Tour | minigame | scene | supported | Piece of Heart | Npc_Hylia_Dampe_001 602 |
 | Market Treasure Chest Game Salesman | minigame | scene | unsupported | Small Key (Treasure Chest Game) | MiniGame_SequentialChoiceTreasure 207 |
-| Market 10 Big Poes | npc_gift | scene | supported | Bottle | Npc_Hylia_048_BottleShop 319 |
+| Market 5 Big Poes | npc_gift | scene | supported | Bottle | Npc_Hylia_048_BottleShop 319 |
 | ToT Light Arrows Cutscene | cutscene_gift | item | supported | Light Arrows | Dm_TimeTemple_0130 8, Dm_TimeTemple_0130 14, Dm_TimeTemple_0130 25 |
 | HC Malon Egg | trade | item | supported | Weird Egg | Goto_HyruleCastle 149 |
 | HC Zeldas Letter | trade | item | supported | Zeldas Letter | Dm_HrlCastle_0050 238 |
