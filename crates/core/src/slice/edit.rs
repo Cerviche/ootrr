@@ -810,9 +810,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             notes.push(format!("{n} pots, crates, flying pots or beehives and {w} rocks or grass tufts hold other items, none of these edits is tested in the game yet:"));
         }
         notes.extend(crate::pot_slice::apply::lines(&pot_ts, LISTED));
-        if crate::pot_slice::apply::variants(&pot_ts) {
-            notes.push(crate::slice::key_spots::LOST.to_string());
-        }
+        notes.push(crate::slice::key_spots::LOST.to_string());
     }
     if !flows.is_empty() {
         notes.push(format!("{} reward events changed in {} flow files:", flows.len(), staged.files.len()));

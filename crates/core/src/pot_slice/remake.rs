@@ -267,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn a_remake_pot_gets_the_pot_kit_like_any_pot() {
+    fn a_remake_pot_drops_the_plain_pickup_like_any_pot() {
         use crate::settings::seed::SeedFile;
         let d: Data = Data::load().unwrap();
         let one = |item: &str| {
@@ -276,9 +276,9 @@ mod tests {
         };
         let t = one("Rupees (50)").unwrap();
         assert_eq!(t.len(), 1);
-        assert!(!t[0].kit && t[0].actor == "Obj_Rupee_Purple");
+        assert!(t[0].actor == "Obj_Rupee_Purple");
         let k = one("Megaton Hammer").unwrap();
-        assert!(k.len() == 1 && k[0].kit && k[0].actor == "Obj_Hammer_GS", "{k:?}");
+        assert!(k.len() == 1 && k[0].actor == "Obj_Hammer", "{k:?}");
     }
 
     fn real() -> Option<std::path::PathBuf> {

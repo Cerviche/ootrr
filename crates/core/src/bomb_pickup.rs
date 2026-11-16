@@ -61,7 +61,7 @@ mod tests {
     }
 
     fn give(actor: &str) -> Give {
-        Give { name: "Pot".to_string(), kind: Kind::Pot, hash: 1, files: vec!["f".to_string()], was: String::new(), item: "Bombs (5)".to_string(), actor: actor.to_string(), kit: false }
+        Give { name: "Pot".to_string(), kind: Kind::Pot, hash: 1, files: vec!["f".to_string()], was: String::new(), item: "Bombs (5)".to_string(), actor: actor.to_string() }
     }
 
     #[test]
@@ -99,7 +99,7 @@ mod tests {
             let m: BM<String, String> = [(pots[0].clone(), item.to_string())].into_iter().collect();
             let s: SeedFile = SeedFile::new("s", &Settings::default(), "g", m).unwrap();
             let ts: Vec<Give> = crate::pot_slice::targets::targets(&d, &s).unwrap();
-            assert!(!ts.is_empty() && ts.iter().all(|t| t.actor == ACTOR && !t.kit), "{item}");
+            assert!(!ts.is_empty() && ts.iter().all(|t| t.actor == ACTOR), "{item}");
             assert!(needed(&ts), "{item}");
         }
         let m: BM<String, String> = [(pots[0].clone(), "Rupees (20)".to_string())].into_iter().collect();

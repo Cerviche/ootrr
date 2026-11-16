@@ -27,7 +27,6 @@ mod pack_add_cmd;
 mod pack_kit_cmd;
 mod pot_cmd;
 mod pot_scan_cmd;
-mod pot_variants_cmd;
 mod pots_persist_cmd;
 mod progressive_cmd;
 mod qol_cmd;
@@ -111,7 +110,6 @@ const USAGE: &str = "usage:
   ootrr remake-pot-scan <romfs_root> <out_json>
   ootrr spot-audit <seed.ootrr> [--all]
   ootrr spot-regions <out_tsv>
-  ootrr pot-variants <romfs_root> <load_dir> <mod_name> [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--all] [--dry]
   ootrr pots-persist <romfs_root> <load_dir> <mod_name>
   ootrr pack-add <romfs_root> <load_dir> <mod_name> <Item_Actor> [--name <Obj_Actor>] [--press] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--place <ActorHash>]... [--tag <TagName>]... [--ammo] [--magic] [--model-from <Actor>] [--dry]
   ootrr pack-kit <romfs_root> <load_dir> <mod_name> <Item_Actor|Obj_Actor> [--name <Obj_Actor_GS>] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--drop <SkulltulaHash>]... [--model-from <Actor>] [--dry]
@@ -403,7 +401,6 @@ fn main() -> ExitCode {
         Some("remake-pot-scan") => pot_scan_cmd::run_remake(&a[1..]),
         Some("spot-audit") => spot_cmd::audit(&a[1..]),
         Some("spot-regions") => spot_cmd::regions(&a[1..]),
-        Some("pot-variants") => pot_variants_cmd::run(&a[1..]),
         Some("pots-persist") => pots_persist_cmd::run(&a[1..]),
         Some("pack-add") => pack_add_cmd::run(&a[1..]),
         Some("pack-kit") => pack_kit_cmd::run(&a[1..]),
