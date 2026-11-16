@@ -3,6 +3,7 @@ pub mod banc;
 pub mod bombchus;
 pub mod copies;
 pub mod data;
+pub mod door_logic;
 pub mod dungeon_items;
 pub mod edit;
 pub mod entry_key;

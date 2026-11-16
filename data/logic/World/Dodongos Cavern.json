@@ -152,7 +152,7 @@
         },
         "exits": {
             "Dodongos Cavern Mouth": "has_explosives",
-            "Dodongos Cavern Upper Lizalfos": "True"
+            "Dodongos Cavern Upper Lizalfos": "False"
         }
     },
     {
