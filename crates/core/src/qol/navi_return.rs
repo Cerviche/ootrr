@@ -33,8 +33,8 @@ pub const ASK_ADULT: &str = "OOTRR_Return_Adult";
 
 const VOICE: &str = "{3.0:0f0100}{4.0:0800526573706f6e736500}";
 
-pub const NOTE_DUNGEONS: &str = "Calling Navi with the D-pad inside a dungeon or its boss room offers a trip back to the dungeon entrance. Room tutorial hints from Navi are replaced by the question; enemy hints while targeting stay. Experimental and untested in the game.";
-pub const NOTE_EVERYWHERE: &str = "Calling Navi with the D-pad offers a trip back: to the entrance inside a dungeon or its boss room, otherwise to Kokiri Forest as a child or the Temple of Time as an adult. Room tutorial hints from Navi are replaced by the question, enemy hints while targeting stay, and the question is in English in every language. Experimental and untested in the game.";
+pub const NOTE_DUNGEONS: &str = "Calling Navi with the D-pad inside a dungeon offers a trip back to the dungeon entrance. Boss and miniboss rooms never offer it. Room tutorial hints from Navi are replaced by the question; enemy hints while targeting stay. Experimental and untested in the game.";
+pub const NOTE_EVERYWHERE: &str = "Calling Navi with the D-pad offers a trip back: to the entrance inside a dungeon, otherwise to Kokiri Forest as a child or the Temple of Time as an adult. Boss and miniboss rooms never offer it. Room tutorial hints from Navi are replaced by the question, enemy hints while targeting stay, and the question is in English in every language. Experimental and untested in the game.";
 
 /// Where Navi can send you from.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -45,33 +45,36 @@ pub enum Mode {
     Everywhere,
 }
 
-/// Dungeon maps and boss rooms, with the dungeon map and start position of the entrance.
-pub const DUNGEONS: [(&str, &str, &str); 20] = [
+/// Dungeon maps, with the dungeon map and start position of the entrance.
+pub const DUNGEONS: [(&str, &str, &str); 12] = [
     ("InsideTheDekuTree", "InsideTheDekuTree", "Entrance"),
-    ("GohmaStage", "InsideTheDekuTree", "Entrance"),
     ("DodongoCavern", "DodongoCavern", "DodongoCavern_MountainTrailSide"),
-    ("DodongoStage", "DodongoCavern", "DodongoCavern_MountainTrailSide"),
     ("InsideJabuJabuBelly", "InsideJabuJabuBelly", "InsideJabuJabuBelly_FromZoraFountain"),
-    ("BarinadeStage", "InsideJabuJabuBelly", "InsideJabuJabuBelly_FromZoraFountain"),
     ("ForestTemple", "ForestTemple", "ForestTemple"),
-    ("PhantomGanonStage", "ForestTemple", "ForestTemple"),
     ("FireTemple", "FireTemple", "FireTemple"),
-    ("VolvagiaStage", "FireTemple", "FireTemple"),
     ("WaterTemple", "WaterTemple", "WaterTemple_FromLakeHylia"),
-    ("MorphaStage", "WaterTemple", "WaterTemple_FromLakeHylia"),
     ("ShadowTemple", "ShadowTemple", "Entrance"),
-    ("BongoBongoStage", "ShadowTemple", "Entrance"),
     ("SpiritTemple", "SpiritTemple", "SpiritTemple_Entrance"),
-    ("TwinrovaStage", "SpiritTemple", "SpiritTemple_Entrance"),
     ("BottomOfTheWell", "BottomOfTheWell", "Well_KakarikoSide"),
     ("IceCavern", "IceCavern", "IceCavern_FromZoraFountain"),
     ("GerudoTrainingGround", "GerudoTrainingGround", "GerudoTrainingGround_FromGerudoFortress"),
     ("InsideGanonCastle", "InsideGanonCastle", "Entrance"),
 ];
 
-/// Maps where Navi never offers a trip: the final battle, the boss rush, the Chamber of
-/// Sages, demo maps and the miniboss arenas, whose dungeon is not known from the map alone.
-pub const STAY: [&str; 22] = [
+/// Maps where Navi never offers a trip: the boss rooms, the final battle, the boss rush, the
+/// Chamber of Sages, demo maps and the miniboss arenas. Leaving a boss or miniboss fight with a
+/// map change kept the game in its fight state: the save button stayed disabled and the room
+/// could stay locked. That state is the game code's, not game data, so no flag write undoes it;
+/// the fight has to end the game's own way (win, game over or a reload).
+pub const STAY: [&str; 30] = [
+    "GohmaStage",
+    "DodongoStage",
+    "BarinadeStage",
+    "PhantomGanonStage",
+    "VolvagiaStage",
+    "MorphaStage",
+    "BongoBongoStage",
+    "TwinrovaStage",
     "GanondorfStage",
     "GanonStage",
     "CrumblingGanonCastle",
@@ -531,7 +534,7 @@ mod tests {
     }
 
     #[test]
-    fn every_dungeon_map_and_boss_room_returns_to_its_entrance_after_a_yes() {
+    fn every_dungeon_map_returns_to_its_entrance_after_a_yes() {
         for mode in [Mode::Dungeons, Mode::Everywhere] {
             let mut b: Bf = sample();
             patch_flow(&mut b, mode).unwrap();
@@ -560,6 +563,19 @@ mod tests {
         for m in STAY {
             assert_eq!(walk(f, m, true, true), None, "{m}");
             assert_eq!(walk(f, m, false, true), None, "{m}");
+        }
+    }
+
+    #[test]
+    fn boss_rooms_never_offer_a_trip_in_either_mode() {
+        for mode in [Mode::Dungeons, Mode::Everywhere] {
+            let mut b: Bf = sample();
+            patch_flow(&mut b, mode).unwrap();
+            for m in ["GohmaStage", "DodongoStage", "BarinadeStage", "PhantomGanonStage", "VolvagiaStage", "MorphaStage", "BongoBongoStage", "TwinrovaStage", "LizalfosStage", "BigOctoStage"] {
+                for child in [true, false] {
+                    assert_eq!(walk(&b.flows[0], m, child, true), None, "{m} {mode:?}");
+                }
+            }
         }
     }
 
