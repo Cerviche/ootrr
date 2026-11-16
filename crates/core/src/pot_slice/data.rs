@@ -43,22 +43,6 @@ impl Kind {
         }
     }
 
-    pub fn kit(self) -> bool {
-        matches!(self, Kind::Pot | Kind::Crate | Kind::Flying | Kind::Hive | Kind::Rock | Kind::Grass)
-    }
-
-    pub fn actors(self) -> &'static [&'static str] {
-        use crate::pickup_pack::pot_kit as k;
-        match self {
-            Kind::Pot => &k::ACTORS,
-            Kind::Crate => &k::CRATES,
-            Kind::Flying => &k::FLYING,
-            Kind::Hive => &k::HIVES,
-            Kind::Rock => &k::ROCKS,
-            Kind::Grass => &k::GRASS,
-        }
-    }
-
     pub fn gyaml(self, g: &str) -> bool {
         match self {
             Kind::Pot => g.strip_prefix("Obj_Pot_A_0").is_some_and(|t| matches!(t, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8")),
@@ -232,15 +216,6 @@ mod tests {
         assert!(Kind::Hive.gyaml("Obj_Kokiri_Beehive_A_01"));
         assert!(!Kind::Hive.gyaml("Obj_Pot_A_01"));
         assert_eq!((Kind::Pot.reset(), Kind::Flying.reset(), Kind::Hive.reset()), (88, 280, 88));
-    }
-
-    #[test]
-    fn every_kind_has_a_variant_for_each_actor_type_it_accepts() {
-        for k in [Kind::Pot, Kind::Crate, Kind::Flying, Kind::Hive, Kind::Rock, Kind::Grass] {
-            assert!(!k.actors().is_empty());
-            assert!(k.actors().iter().all(|a| k.gyaml(a)), "{k:?}");
-        }
-        assert_eq!(Kind::Pot.actors().len() + Kind::Crate.actors().len() + Kind::Flying.actors().len() + Kind::Hive.actors().len() + Kind::Rock.actors().len() + Kind::Grass.actors().len(), crate::pickup_pack::pot_kit::holders().len());
     }
 
     #[test]

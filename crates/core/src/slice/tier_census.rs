@@ -15,7 +15,6 @@ use crate::world::{LocId, Placement, World};
 
 pub const CHAIN: &str = "ownership chain";
 pub const FIXED: &str = "fixed tier";
-pub const TOP: &str = "top only";
 pub const GUARD: &str = "base guard";
 pub const VANILLA: &str = "vanilla flow";
 pub const DIRECT: &str = "direct grant";
@@ -27,7 +26,6 @@ pub const FORCED: &str = "forced";
 pub const EARLY: &str = "early";
 pub const NO_BASE: &str = "no base";
 pub const AWAY: &str = "unreachable";
-pub const SHOP: &str = "shop top";
 pub const UNCHECKED: &str = "unchecked";
 pub const START_OK: &str = "start ok";
 pub const START_BAD: &str = "start no base";
@@ -192,20 +190,6 @@ pub fn census(d: &Data, seed: &SeedFile) -> Res<Vec<Row>> {
         let placed: bool = seed.placements.contains_key(&s.loc);
         let c: String = if placed { check(d, &s.loc) } else { format!("vanilla {}", check(d, &s.loc)) };
         let t: &[&str] = tiers(s.family)?;
-        if crate::shops::is_loc(&s.loc) {
-            let chain: bool = crate::shelf::hook::by_family(s.family).is_some();
-            out.push(Row {
-                loc: s.loc.clone(),
-                family: s.family,
-                check: c,
-                mech: if chain { CHAIN } else { TOP },
-                tier: if chain { t[0].to_string() } else { t[t.len() - 1].to_string() },
-                risk: if chain { RUNTIME } else { SHOP },
-                held: 0,
-                forced: 0,
-            });
-            continue;
-        }
         let mut row: Row = match s.give {
             Give::Flow => {
                 let chain: bool = if !placed {
@@ -282,7 +266,7 @@ mod tests {
             ("shuffle_beehives", "true"),
             ("shuffle_rewards", "supported"),
         ];
-        let shop: Vec<(&str, &str)> = vec![("shuffle_shops", "deals_2"), ("shop_deal_gear", "true")];
+        let shop: Vec<(&str, &str)> = vec![("shuffle_shops", "deals_2")];
         let mut ow: Vec<(&str, &str)> = vec![("shuffle_chests", "overworld")];
         ow.extend(wide.iter().copied());
         let mut du: Vec<(&str, &str)> = vec![("shuffle_chests", "dungeons")];
@@ -299,7 +283,7 @@ mod tests {
             ("dungeons wide", du, 4),
             ("dungeons no freestanding", dp, 6),
             ("all wide", all, 8),
-            ("all wide shops gear", sh, 8),
+            ("all wide shops", sh, 8),
             ("all rewards off", off, 8),
         ]
     }

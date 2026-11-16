@@ -71,7 +71,7 @@ pub const MENU: &[Page] = &[
         heading: RANDOMIZER,
         sections: &[
             sec("Shelves", &["shuffle_shops", "shop_prices", "shop_price_min", "shop_price_max"]),
-            sec("Special deals", &["shop_deal_gear", "shop_deal_items"]),
+            sec("Special deals", &["shop_deal_items"]),
         ],
     },
     Page {

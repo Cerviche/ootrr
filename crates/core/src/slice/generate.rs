@@ -351,8 +351,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     let mut plan: Vec<(LocId, ItemId)> = plan;
     plan.extend(lock.iter().copied());
     let mut rng: Rng = Rng::from_text(seed);
-    let pinned: Vec<&str> = if lay.is_some() { crate::slice::tier_order::pinned(d, &w, &pk.free) } else { Vec::new() };
-    let shelf = |it: ItemId, l: LocId| ok(it, l) && !(crate::shops::is_loc(&w.locs[l].name) && d.family(&w.items.names[it]).is_some_and(|f| pinned.contains(&f)));
+    let shelf = |it: ItemId, l: LocId| ok(it, l) && !(crate::shops::is_loc(&w.locs[l].name) && d.family(&w.items.names[it]).is_some());
     let mut run = |careful: bool, reach: bool| -> Res<Placement> {
         let ok: &dyn Fn(ItemId, LocId) -> bool = if careful { &shelf } else { &ok };
         let fix: bool = crate::slice::tier_fix::active(d, &w, &pk.free);
@@ -418,7 +417,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             Err(_) => match anywhere.then(|| run(true, false)) {
                 Some(Ok(g)) => g,
                 Some(Err(x)) if watch.check().is_err() => return Err(x),
-                _ => run(anywhere, true)?,
+                _ => run(lay.is_some() || anywhere, true)?,
             },
         }
     };

@@ -397,4 +397,17 @@ mod tests {
             assert_eq!(schema().get(id).unwrap().num, n);
         }
     }
+
+    #[test]
+    fn the_potion_shop_tip_reads_as_checks_and_the_echo_gem_keeps_its_id() {
+        let s: &Setting = schema().get("shuffle_potion_shop").unwrap();
+        assert_eq!(s.num, 46);
+        for w in ["two shuffled checks", "has met Zelda", "by day", "empty bottle"] {
+            assert!(s.tip.contains(w), "{w}");
+        }
+        assert!(!s.tip.contains("gives a child"));
+        let c: &model::Choice = schema().get("starting_items").unwrap().choices.iter().find(|c| c.id == "stone_of_agony").unwrap();
+        assert_eq!(c.label, "Echo Gem (Stone of Agony)");
+        assert!(schema().get("starting_items").unwrap().choices.iter().all(|c| c.label != "Stone of Agony"));
+    }
 }

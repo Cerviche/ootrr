@@ -266,6 +266,42 @@ mod tests {
     }
 
     #[test]
+    fn lake_hylia_and_lon_lon_ranch_rows_carry_their_own_area_and_name() {
+        let t: &[Target] = all().unwrap();
+        let mut n: (usize, usize) = (0, 0);
+        let mut names: Vec<&str> = Vec::new();
+        for x in t {
+            let pre: Option<&str> = x.ootr.as_deref().and_then(|o| o.split(' ').next());
+            let want: &str = match pre {
+                Some("LH") => "Lake Hylia",
+                Some("LLR") => "Lon Lon Ranch",
+                Some("HF") => {
+                    assert_eq!(x.area.as_deref(), Some("Hyrule Field"), "{}", x.name);
+                    continue;
+                }
+                _ => continue,
+            };
+            assert_eq!(x.area.as_deref(), Some(want), "{}", x.name);
+            assert!(!x.name.starts_with("Hyrule Field"), "{}", x.name);
+            if x.kind != "gift" {
+                assert_eq!(x.scene.as_deref(), Some("HyruleField"), "{}", x.name);
+                assert!(x.map.as_deref().is_some_and(|m| m.starts_with("HyruleField_")), "{}", x.name);
+            }
+            names.push(x.name.as_str());
+            if want == "Lake Hylia" {
+                n.0 += 1;
+            } else {
+                n.1 += 1;
+            }
+        }
+        assert_eq!(n, (17, 16));
+        let all_n: usize = names.len();
+        names.sort();
+        names.dedup();
+        assert_eq!(names.len(), all_n);
+    }
+
+    #[test]
     fn the_table_holds_no_positions() {
         for k in ["\"pos\"", "\"x\"", "Translate", "\"stand"] {
             assert!(!JSON.contains(k), "{k}");

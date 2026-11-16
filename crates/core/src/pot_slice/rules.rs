@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap as BM, HashMap as HM};
 
 use crate::logic_items::ItemId;
-use crate::pot_slice::data::Kind;
 use crate::pot_slice::pickup;
 use crate::slice::data::Data;
 use crate::world::{LocId, Placement, World};
@@ -9,8 +8,8 @@ use crate::world::{LocId, Placement, World};
 pub fn at(d: &Data, name: &str, item: &str) -> Option<bool> {
     if d.pots.has(name) {
         let known: bool = pickup::of(item).is_some() || crate::slice::key_spots::placeable(d, item, crate::slice::key_spots::Spot::Pot);
-        let safe: bool = d.pots.kind_of(name).is_some_and(Kind::kit) || !pickup::holds(item) || d.vanilla_of(name) == Some(item);
-        return Some(known && safe && crate::slice::copies::fits(d, name, item));
+        let kind: bool = d.pots.kind_of(name).is_some();
+        return Some(known && kind && crate::slice::copies::fits(d, name, item));
     }
     None
 }
@@ -117,7 +116,7 @@ mod tests {
                         here += 1;
                         let ok: bool = pickup::of(item).is_some() || crate::slice::key_spots::placeable(&d, item, crate::slice::key_spots::Spot::Pot);
                         assert!(ok, "{loc} holds {item}");
-                        assert!(d.pots.kind_of(loc).is_some_and(Kind::kit) || !pickup::holds(item) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}, which its holder could lose");
+                        assert!(d.pots.kind_of(loc).is_some(), "{loc} holds {item} but is no holder kind this build knows");
                         assert!(crate::slice::copies::fits(&d, loc, item), "{loc} holds {item}");
                         if d.vanilla_of(loc) != Some(item.as_str()) {
                             moved += 1;

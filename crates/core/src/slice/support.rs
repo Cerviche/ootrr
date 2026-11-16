@@ -144,6 +144,10 @@ const UNCHANGED: [&str; 21] = [
 
 const APPLIED: [&str; 2] = ["starting_hearts", "starting_songs"];
 
+pub fn not_yet(id: &str) -> bool {
+    UNCHANGED.contains(&id) && !APPLIED.contains(&id)
+}
+
 const OFF_ONLY: [&str; 1] = ["shuffle_scrubs"];
 
 pub fn show(v: &Value) -> String {
@@ -606,6 +610,29 @@ mod tests {
         let p: Plan = plan(&s).unwrap();
         assert_eq!(p.small, Keep::Vanilla);
         assert_eq!(p.chests, Mode::Dungeons);
+    }
+
+    #[test]
+    fn every_setting_flagged_as_not_yet_is_refused_at_a_non_default_value() {
+        let sch: &crate::settings::Schema = crate::settings::schema();
+        let ids: Vec<&str> = UNCHANGED.iter().copied().filter(|i| not_yet(i)).collect();
+        assert_eq!(ids.len(), UNCHANGED.len() - APPLIED.len());
+        assert!(not_yet("bridge_medallions") && not_yet("ganon_bosskey_medallions"));
+        assert!(APPLIED.iter().all(|i| !not_yet(i)));
+        assert!(!not_yet("shuffle_chests"));
+        for id in ids {
+            let st: &crate::settings::Setting = sch.get(id).unwrap_or_else(|| panic!("no setting {id}"));
+            let alt: Value = match &st.default {
+                Value::Bool(b) => Value::Bool(!b),
+                Value::Str(d) => Value::s(&st.choices.iter().find(|c| &c.id != d).unwrap().id),
+                Value::Int(n) => Value::Int(if *n < st.max { n + 1 } else { n - 1 }),
+                Value::Set(_) => panic!("{id} is a set"),
+            };
+            let mut s: Settings = Settings::default();
+            s.set(id, alt).unwrap();
+            let e: String = plan(&s).err().unwrap_or_else(|| panic!("{id} was accepted")).to_string();
+            assert!(e.contains(&format!("{id} is")), "{id}: {e}");
+        }
     }
 
     #[test]

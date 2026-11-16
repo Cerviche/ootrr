@@ -4,6 +4,7 @@ use crate::shops::data::{table, Shop, Slot, Table};
 use crate::progressive::FAMILIES;
 use crate::shops::layout::Layout;
 use crate::shops::rules::{class, Class};
+use std::collections::BTreeMap as BM;
 use crate::slice::data::Data;
 
 pub fn job(t: &Table, s: &Slot, what: What) -> Res<Job> {
@@ -11,7 +12,7 @@ pub fn job(t: &Table, s: &Slot, what: What) -> Res<Job> {
     Ok(Job { label: s.name.clone(), shop: s.shop.clone(), slot: s.slot, keepers: sh.keepers.clone(), bancs: sh.bancs.clone(), counters: s.counters.clone(), what })
 }
 
-pub fn deal(d: &Data, item: &str, price: i32) -> Res<What> {
+pub fn deal(d: &Data, item: &str, tier: Option<&str>, price: i32) -> Res<What> {
     let t: &Table = table()?;
     let c: Class = class(d, item).ok_or_else(|| E::Msg(format!("{item} cannot be sold on a shelf by this build")))?;
     let actor = || d.item(item).and_then(|i| i.actor.clone()).ok_or_else(|| E::Msg(format!("{item} has no remake actor")));
@@ -20,12 +21,9 @@ pub fn deal(d: &Data, item: &str, price: i32) -> Res<What> {
             let a: String = t.stack.iter().find(|(i, _)| i == item).map(|(_, a)| a.clone()).ok_or_else(|| E::Msg(format!("{item} has no shelf bundle")))?;
             What::Once { actor: a, price }
         }
-        Class::Upgrade | Class::Gear => {
-            // The shelf shows the first tier. The shelf hook in the shop flow checks what the
-            // player owns at the purchase and hands out the next tier, like a progressive chest.
-            let f: &str = d.family(item).ok_or_else(|| E::Msg(format!("{item} has no tier family")))?;
-            let h: &crate::shelf::hook::Hook = crate::shelf::hook::by_family(f).ok_or_else(|| E::Msg(format!("{item} has no shelf hook")))?;
-            What::Deal { item: h.shelf.to_string(), price, model: donor(t, h.shelf) }
+        Class::Upgrade => {
+            let a: &str = tier.ok_or_else(|| E::Msg(format!("{item} is an upgrade, the tier order names no tier for its shelf")))?;
+            What::Deal { item: a.to_string(), price, model: donor(t, a) }
         }
         Class::Song => What::Deal { item: actor()?, price, model: t.song_models.first().cloned() },
         Class::Unique | Class::Heart => What::Deal { item: actor()?, price, model: None },
@@ -36,13 +34,13 @@ pub fn donor(t: &Table, actor: &str) -> Option<String> {
     t.donors.iter().find(|(a, _)| a == actor).map(|(_, m)| m.clone())
 }
 
-pub fn of(d: &Data, l: &Layout) -> Res<Vec<Job>> {
+pub fn of(d: &Data, l: &Layout, tiers: &BM<String, String>) -> Res<Vec<Job>> {
     let t: &Table = table()?;
     let mut out: Vec<Job> = Vec::new();
     for s in &t.slots {
         let p = l.get(&s.name).ok_or_else(|| E::Msg(format!("the shop layout has no entry for {}", s.name)))?;
         let what: What = if p.deal {
-            deal(d, &p.item, p.price)?
+            deal(d, &p.item, tiers.get(&s.name).map(|x| x.as_str()), p.price)?
         } else {
             What::Goods { actor: p.actor.clone(), price: p.price }
         };
@@ -61,11 +59,12 @@ pub fn parse(d: &Data, spec: &str) -> Res<Job> {
     }
     let s: &Slot = t.slot(loc.trim()).ok_or_else(|| E::Msg(format!("{} is not a shelf slot, use a name like KF Shop Item 1", loc.trim())))?;
     let item: &str = crate::spoiler::unshown(item.trim());
-    let tier: Option<&str> = FAMILIES.iter().find(|(_, ts)| ts.contains(&item)).map(|_| item);
+    let tier: Option<(&str, &str)> = FAMILIES.iter().find(|(_, ts)| ts.contains(&item)).map(|(f, _)| (*f, item));
     let what: What = match (t.slots.iter().find(|x| x.item == item), tier) {
         (Some(g), _) => What::Goods { actor: g.actor.clone(), price },
-        (None, Some(a)) => What::Deal { item: crate::shelf::hook::shelf_item(a).to_string(), price, model: donor(t, a) },
-        (None, None) => deal(d, item, price)?,
+        (None, Some((f, _))) if !t.upgrades.iter().any(|u| u == f) => return Err(E::Msg(format!("{item} cannot be sold on a shelf by this build"))),
+        (None, Some((_, a))) => What::Deal { item: a.to_string(), price, model: donor(t, a) },
+        (None, None) => deal(d, item, None, price)?,
     };
     job(t, s, what)
 }
@@ -82,7 +81,7 @@ mod tests {
         let mut l: Layout = make(&Opts { level: Level::Deals(1), prices: Prices::Affordable, min: 10, max: 10, kinds: crate::shops::plan::Kinds::default() }, "jobs", crate::shops::layout::Room::any(64)).unwrap();
         let got: BM<String, String> = l.deals().map(|p| (p.loc.clone(), "Hover Boots".to_string())).collect();
         fill_deals(&mut l, &got).unwrap();
-        let js: Vec<Job> = of(&d, &l).unwrap();
+        let js: Vec<Job> = of(&d, &l, &BM::new()).unwrap();
         assert_eq!(js.len(), 64);
         let deals: Vec<&Job> = js.iter().filter(|j| matches!(j.what, What::Deal { .. })).collect();
         assert_eq!(deals.len(), 6);
@@ -99,19 +98,18 @@ mod tests {
         assert_eq!((j.shop.as_str(), j.slot), ("KF Shop", 6));
         assert_eq!(j.what, What::Deal { item: "Item_Boomerang".into(), price: 20, model: None });
         assert_eq!(parse(&d, "Market Bazaar Item 1=Bombs (10)@15").unwrap().what, What::Once { actor: "Shop_BombBundle_02".into(), price: 15 });
-        assert_eq!(parse(&d, "GC Shop Item 5=Item_Longshot@90").unwrap().what, What::Deal { item: "Item_Hookshot".into(), price: 90, model: None });
+        assert_eq!(parse(&d, "GC Shop Item 5=Item_Longshot@90").unwrap().what, What::Deal { item: "Item_Longshot".into(), price: 90, model: None });
         assert_eq!(parse(&d, "GC Shop Item 5=Minuet of Forest@40").unwrap().what, What::Deal { item: "Item_Melody_ForestMinuet".into(), price: 40, model: Some("Dm_Item_Sheik_Harp".into()) });
         assert_eq!(parse(&d, "Kak Bazaar Item 1=Piece of Heart@30").unwrap().what, What::Deal { item: "Obj_Heart_Piece".into(), price: 30, model: None });
         assert_eq!(parse(&d, "GC Shop Item 6=Buy Heart@5").unwrap().what, What::Goods { actor: "Shop_Heart".into(), price: 5 });
-        assert_eq!(parse(&d, "GC Shop Item 6=Progressive Hookshot@50").unwrap().what, What::Deal { item: "Item_Hookshot".into(), price: 50, model: None });
-        assert_eq!(parse(&d, "GC Shop Item 5=Bow@40").unwrap().what, What::Deal { item: "Item_Range_Bow".into(), price: 40, model: None });
-        assert_eq!(parse(&d, "GC Shop Item 5=Item_Quiver_Large@40").unwrap().what, What::Deal { item: "Item_Range_Bow".into(), price: 40, model: None });
-        assert_eq!(parse(&d, "GC Shop Item 5=Magic Meter@40").unwrap().what, What::Deal { item: "Item_FairyBless_MP".into(), price: 40, model: None });
-        assert_eq!(deal(&d, "Bomb Bag", 25).unwrap(), What::Deal { item: "Item_BombBag_Small".into(), price: 25, model: None });
-        assert_eq!(deal(&d, "Slingshot", 25).unwrap(), What::Deal { item: "Item_Range_SlingShot".into(), price: 25, model: None });
-        assert_eq!(deal(&d, "Progressive Hookshot", 50).unwrap(), What::Deal { item: "Item_Hookshot".into(), price: 50, model: None });
-        assert_eq!(deal(&d, "Progressive Strength Upgrade", 50).unwrap(), What::Deal { item: "Item_Gauntlet_Silver".into(), price: 50, model: None });
-        assert_eq!(deal(&d, "Ocarina", 50).unwrap(), What::Deal { item: "Item_Ocarina_Fairy".into(), price: 50, model: Some("Dm_Item_Ocarina_Fairy".into()) });
+        assert!(parse(&d, "GC Shop Item 6=Progressive Hookshot@50").is_err());
+        for bad in ["Bow", "Item_Quiver_Large", "Item_BulletBag_Medium", "Magic Meter", "Bomb Bag"] {
+            assert!(parse(&d, &format!("GC Shop Item 5={bad}@40")).is_err(), "{bad}");
+        }
+        assert_eq!(parse(&d, "GC Shop Item 5=Item_Gauntlet_Goron@40").unwrap().what, What::Deal { item: "Item_Gauntlet_Goron".into(), price: 40, model: None });
+        assert_eq!(deal(&d, "Progressive Wallet", Some("Item_Wallet_Medium"), 25).unwrap(), What::Deal { item: "Item_Wallet_Medium".into(), price: 25, model: None });
+        assert_eq!(deal(&d, "Progressive Strength Upgrade", Some("Item_Gauntlet_Silver"), 25).unwrap(), What::Deal { item: "Item_Gauntlet_Silver".into(), price: 25, model: None });
+        assert!(deal(&d, "Progressive Strength Upgrade", None, 25).is_err());
         assert!(parse(&d, "GC Shop Item 6=Small Key (Forest Temple)@50").is_err());
         assert!(parse(&d, "Nowhere=Boomerang@5").is_err());
         assert!(parse(&d, "KF Shop Item 1=Boomerang@0").is_err());

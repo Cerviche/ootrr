@@ -97,6 +97,9 @@ impl Schema {
             if s.num == 0 || !nums.insert(s.num) {
                 out.push(format!("setting {n} has a zero or duplicated num {}", s.num));
             }
+            if super::list::retired_num(s.num).is_some() || super::list::retired_id(n) {
+                out.push(format!("setting {n} reuses the retired num {} or id", s.num));
+            }
             if s.label.is_empty() {
                 out.push(format!("setting {n} has no label"));
             }

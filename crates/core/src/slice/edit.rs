@@ -685,9 +685,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     crate::slice::silver::stage_text(&mut rf, &mut more, &silver_used)?;
     more.push(stage_pouch(&mut rf, roam)?);
     more.extend(crate::bomb_lift::stage(&mut rf)?);
-    if crate::bomb_pickup::needed(&pot_ts) {
-        more.push(crate::bomb_pickup::stage(&mut rf)?);
-    }
+    let quiet: Vec<&str> = crate::bomb_pickup::wanted(pot_ts.iter().map(|t| t.actor.as_str()).chain(ts.iter().map(|t| t.new_actor.as_str())).chain(skull_drops.iter().map(|x| x.actor.as_str())));
+    more.extend(crate::bomb_pickup::stage_all(&mut rf, &quiet)?);
     more.extend(crate::door_fix::stage(&mut rf)?);
     more.push(crate::no_tutorials::stage(&mut rf)?);
     if p.door {
@@ -861,9 +860,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             notes.push(format!("{n} pots, crates, flying pots or beehives and {w} rocks or grass tufts hold other items, none of these edits is tested in the game yet:"));
         }
         notes.extend(crate::pot_slice::apply::lines(&pot_ts, LISTED));
-        if crate::pot_slice::apply::variants(&pot_ts) {
-            notes.push(crate::slice::key_spots::LOST.to_string());
-        }
+        notes.push(crate::slice::key_spots::LOST.to_string());
     }
     if !flows.is_empty() {
         notes.push(format!("{} reward events changed in {} flow files:", flows.len(), staged.files.len()));
