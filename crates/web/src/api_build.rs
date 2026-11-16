@@ -36,6 +36,19 @@ pub struct Plan {
     pub target: PB,
     pub host: Host,
     pub cos: Cosmetics,
+    pub spoiler: Option<String>,
+}
+
+pub const SPOILER_FILE: &str = "Spoiler.txt";
+const SPOILER_MAX: usize = 4 * 1024 * 1024;
+
+fn put_spoiler(root: &PB, text: Option<&str>) -> std::io::Result<()> {
+    let p: PB = root.join(SPOILER_FILE);
+    match text {
+        Some(t) => fs::write(&p, t),
+        None if p.is_file() => fs::remove_file(&p),
+        None => Ok(()),
+    }
 }
 
 fn mods_slot(md: &PB, game: &PB, romfs: &PB) -> bool {
@@ -94,8 +107,13 @@ pub fn plan(b: &Json) -> Hr<Plan> {
         return Err(refuse("Cosmetic seed: at most 64 characters."));
     }
     let cos: Cosmetics = Cosmetics { music, sfx, colors, seed: seed_text };
+    let spoiler: Option<String> = match body::opt_text(b, "spoiler_text")? {
+        None | Some("") => None,
+        Some(t) if t.len() > SPOILER_MAX => return Err(refuse("Spoiler: the spoiler log is too large.")),
+        Some(t) => Some(t.to_string()),
+    };
     let target: PB = if host.flat() { md.join(name) } else { md.join(TITLE_ID).join(name) };
-    Ok(Plan { seed, romfs, load: md, name: name.to_string(), target, host, cos })
+    Ok(Plan { seed, romfs, load: md, name: name.to_string(), target, host, cos, spoiler })
 }
 
 pub fn run(jobs: &Arc<Jobs>, b: &Json) -> Hr<Json> {
@@ -125,6 +143,16 @@ pub fn run(jobs: &Arc<Jobs>, b: &Json) -> Hr<Json> {
                     }
                 }
                 c.ok(90);
+                c.begin(if p.spoiler.is_some() { "Write the spoiler log" } else { "Remove any old spoiler log" });
+                if let Err(e) = put_spoiler(&built.root, p.spoiler.as_deref()) {
+                    c.mark("failed");
+                    c.finish("failed", &format!("The mod was written, but {SPOILER_FILE} could not be: {e}"));
+                    return;
+                }
+                if p.spoiler.is_some() {
+                    built.report.push_str(&format!("Spoiler log: {}\n", pathsafe::text(&built.root.join(SPOILER_FILE))));
+                }
+                c.ok(95);
                 c.begin("Mod files written");
                 c.ok(100);
                 c.finish("done", &built.report);

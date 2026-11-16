@@ -4,7 +4,7 @@ const CSS: &str = "text/css; charset=utf-8";
 const FONT: &str = "font/woff2";
 
 #[cfg(test)]
-pub const JS_FILES: [&str; 35] = [
+pub const JS_FILES: [&str; 36] = [
     "/app.js",
     "/js/dom.js",
     "/js/api.js",
@@ -12,14 +12,15 @@ pub const JS_FILES: [&str; 35] = [
     "/js/rules.js",
     "/js/nav.js",
     "/js/picker.js",
-    "/js/setup.js",
     "/js/controls.js",
-    "/js/settings.js",
+    "/js/tooltip.js",
+    "/js/search.js",
+    "/js/config.js",
+    "/js/run.js",
+    "/js/menu.js",
     "/js/strings.js",
-    "/js/generate.js",
     "/js/viewer.js",
     "/js/spoiler.js",
-    "/js/result.js",
     "/js/theme.js",
     "/js/update.js",
     "/js/report.js",
@@ -47,6 +48,9 @@ pub fn get_bin(p: &str) -> Option<(&'static str, &'static [u8])> {
         "/fonts/cinzel.woff2" => (FONT, include_bytes!("../assets/fonts/cinzel-latin-wght-normal.woff2")),
         "/fonts/garamond.woff2" => (FONT, include_bytes!("../assets/fonts/eb-garamond-latin-wght-normal.woff2")),
         "/fonts/garamond-italic.woff2" => (FONT, include_bytes!("../assets/fonts/eb-garamond-latin-wght-italic.woff2")),
+        "/fonts/inter.woff2" => (FONT, include_bytes!("../assets/fonts/inter-latin-wght-normal.woff2")),
+        "/fonts/space-grotesk.woff2" => (FONT, include_bytes!("../assets/fonts/space-grotesk-latin-wght-normal.woff2")),
+        "/fonts/jetbrains-mono.woff2" => (FONT, include_bytes!("../assets/fonts/jetbrains-mono-latin-wght-normal.woff2")),
         _ => return None,
     };
     Some(r)
@@ -58,6 +62,7 @@ pub fn get(p: &str) -> Option<(&'static str, &'static str)> {
         "/style.css" => (CSS, include_str!("../assets/style.css")),
         "/themes.css" => (CSS, include_str!("../assets/themes.css")),
         "/hyrule.css" => (CSS, include_str!("../assets/hyrule.css")),
+        "/menu.css" => (CSS, include_str!("../assets/menu.css")),
         "/tracker" => (HTML, include_str!("../assets/tracker.html")),
         "/tracker.css" => (CSS, include_str!("../assets/tracker.css")),
         "/tracker_items.css" => (CSS, include_str!("../assets/tracker_items.css")),
@@ -68,14 +73,15 @@ pub fn get(p: &str) -> Option<(&'static str, &'static str)> {
         "/js/rules.js" => (JS, include_str!("../assets/js/rules.js")),
         "/js/nav.js" => (JS, include_str!("../assets/js/nav.js")),
         "/js/picker.js" => (JS, include_str!("../assets/js/picker.js")),
-        "/js/setup.js" => (JS, include_str!("../assets/js/setup.js")),
         "/js/controls.js" => (JS, include_str!("../assets/js/controls.js")),
-        "/js/settings.js" => (JS, include_str!("../assets/js/settings.js")),
+        "/js/tooltip.js" => (JS, include_str!("../assets/js/tooltip.js")),
+        "/js/search.js" => (JS, include_str!("../assets/js/search.js")),
+        "/js/config.js" => (JS, include_str!("../assets/js/config.js")),
+        "/js/run.js" => (JS, include_str!("../assets/js/run.js")),
+        "/js/menu.js" => (JS, include_str!("../assets/js/menu.js")),
         "/js/strings.js" => (JS, include_str!("../assets/js/strings.js")),
-        "/js/generate.js" => (JS, include_str!("../assets/js/generate.js")),
         "/js/viewer.js" => (JS, include_str!("../assets/js/viewer.js")),
         "/js/spoiler.js" => (JS, include_str!("../assets/js/spoiler.js")),
-        "/js/result.js" => (JS, include_str!("../assets/js/result.js")),
         "/js/theme.js" => (JS, include_str!("../assets/js/theme.js")),
         "/js/update.js" => (JS, include_str!("../assets/js/update.js")),
         "/js/report.js" => (JS, include_str!("../assets/js/report.js")),
@@ -163,7 +169,7 @@ mod tests {
 
     #[test]
     fn fonts_are_woff2_files_and_unknown_fonts_do_not_resolve() {
-        for p in ["/fonts/cinzel.woff2", "/fonts/garamond.woff2", "/fonts/garamond-italic.woff2"] {
+        for p in ["/fonts/cinzel.woff2", "/fonts/garamond.woff2", "/fonts/garamond-italic.woff2", "/fonts/inter.woff2", "/fonts/space-grotesk.woff2", "/fonts/jetbrains-mono.woff2"] {
             let (t, b): (&str, &[u8]) = get_bin(p).unwrap();
             assert_eq!(t, "font/woff2", "{p}");
             assert_eq!(&b[..4], b"wOF2", "{p}");

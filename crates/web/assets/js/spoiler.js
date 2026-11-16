@@ -1,5 +1,60 @@
 import { h, fill, save_text } from "./dom.js";
 import { viewer } from "./viewer.js";
+import { effective, enabled, match_preset, value_label } from "./rules.js";
+
+const RULE = "=".repeat(60);
+
+export function full_text(res, ctx) {
+  const schema = ctx.schema;
+  const vals = effective(schema, res.settings || ctx.vals);
+  const by_id = new Map(schema.settings.map((s) => [s.id, s]));
+  const preset = match_preset(schema, vals);
+  const sp = res.spoiler || {};
+  const locs = sp.locations && sp.locations.length ? sp.locations : res.placements || [];
+  const steps = sp.playthrough || [];
+  const out = [
+    "OOTRR spoiler log",
+    RULE,
+    `OOTRR version:   ${ctx.version || "unknown"}`,
+    `Seed:            ${res.seed}`,
+    `Settings string: ${res.settings_string || ""}`,
+    `Checksum:        ${res.checksum || ""}`,
+    `Preset:          ${preset ? schema.presets.find((p) => p.id === preset).name : "Custom"}`,
+    `Made by:         ${res.generator || "unknown"}`,
+    "",
+    "Settings",
+    RULE,
+  ];
+  for (const p of ctx.pages) {
+    const rows = [];
+    for (const sec of p.sections) {
+      for (const id of sec.ids) {
+        const s = by_id.get(id);
+        if (!s || !enabled(s, vals)) continue;
+        rows.push(`  ${s.label}: ${value_label(s, vals[id])}`);
+      }
+    }
+    if (rows.length) out.push(`[${p.heading} › ${p.label}]`, ...rows, "");
+  }
+  const cos = ctx.cosmetic || {};
+  out.push("[Cosmetics]", `  Music shuffle: ${cos.music || "off"}`, `  Sound effect shuffle: ${cos.sfx || "off"}`, `  Colour shuffle: ${cos.colors || "off"}`);
+  if (cos.seed) out.push(`  Cosmetic seed: ${cos.seed}`);
+  out.push("");
+  if (ctx.plando && ctx.plando.length) {
+    out.push(`Plandomizer (${ctx.plando.length})`, RULE, ...ctx.plando.map((p) => `  ${p.location}: ${p.item}`), "");
+  }
+  if (steps.length) {
+    out.push(`Playthrough (${steps.length} steps)`, RULE);
+    steps.forEach((step, i) => {
+      out.push(`Step ${i + 1}`);
+      for (const [a, b] of step) out.push(`  ${a}: ${b}`);
+    });
+    out.push("");
+  }
+  out.push(`Locations (${locs.length})`, RULE);
+  for (const [a, b] of locs) out.push(`  ${a}: ${b}`);
+  return out.join("\n") + "\n";
+}
 
 export function text(res) {
   const sp = res.spoiler || {};

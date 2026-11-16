@@ -1,8 +1,18 @@
 import { h, fill, notice } from "./dom.js";
-import { get, q } from "./api.js";
+import { get, post, q } from "./api.js";
 import { state } from "./store.js";
 
-export function pick_folder(start, title) {
+export async function pick_folder(start, title) {
+  try {
+    const r = await post("/api/pick-folder", { start, title });
+    if (r && typeof r.path === "string") return r.path;
+    return null;
+  } catch {
+    return page_picker(start, title);
+  }
+}
+
+function page_picker(start, title) {
   return new Promise((resolve) => {
     const opener = document.activeElement;
     const body = h("div", { class: "body" });

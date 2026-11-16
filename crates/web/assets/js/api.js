@@ -16,7 +16,9 @@ export function init_token() {
     } catch {
       token = m[1];
     }
-    history.replaceState(null, "", location.pathname + location.search);
+    const rest = location.hash.replace(/[#&]token=[A-Za-z0-9]+/, "");
+    const route = rest.startsWith("#/") ? rest : rest.startsWith("/") ? `#${rest}` : "";
+    history.replaceState(null, "", location.pathname + location.search + route);
   } else {
     try {
       token = sessionStorage.getItem("ootrr.token") || "";

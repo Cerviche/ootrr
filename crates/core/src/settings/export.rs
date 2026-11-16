@@ -66,6 +66,7 @@ pub fn schema_json(sch: &Schema, presets: &[Preset]) -> Json {
         .with("string_prefix", format!("{PREFIX}{STRING_VERSION}-").into())
         .with("groups", Json::Arr(sch.groups.iter().map(group_json).collect()))
         .with("settings", Json::Arr(sch.settings.iter().map(setting_json).collect()))
+        .with("menu", super::menu::menu_json(sch))
         .with("presets", Json::Arr(presets.iter().map(Preset::to_json).collect()))
 }
 

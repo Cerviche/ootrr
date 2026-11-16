@@ -1,6 +1,7 @@
 import { h } from "./dom.js";
 
 export const THEMES = [
+  { id: "slate", label: "Slate" },
   { id: "hyrule", label: "Hyrule" },
   { id: "system", label: "System" },
   { id: "win95", label: "Windows 95" },
@@ -15,7 +16,7 @@ export const THEMES = [
 ];
 
 const KEY = "ootrr.theme";
-const DEFAULT = "hyrule";
+const DEFAULT = "slate";
 
 function known(id) {
   return THEMES.some((t) => t.id === id);
@@ -45,10 +46,13 @@ function remember(id) {
 }
 
 export function start() {
+  apply(saved());
+}
+
+export function mount() {
   const now = saved();
-  apply(now);
-  const box = document.querySelector(".top-in");
-  if (!box) return;
+  const box = document.querySelector("#theme-slot") || document.querySelector(".top-in");
+  if (!box || document.querySelector("#theme-pick")) return;
   const sel = h(
     "select",
     {
@@ -61,5 +65,5 @@ export function start() {
     },
     THEMES.map((t) => h("option", { value: t.id, selected: t.id === now }, t.label)),
   );
-  box.append(h("div", { class: "themepick" }, sel));
+  box.replaceWith(h("label", { class: "mfield", for: "theme-pick" }, "Theme", sel));
 }
