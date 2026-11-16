@@ -27,7 +27,7 @@ use crate::staging::Out;
 use crate::start_state::Ops;
 
 pub const NOTE_DEKU: &str = "The Deku Tree is met at new game: its mouth is open, the Deku Tree quest is complete and the Forest Stone quest is where Link's first arrival inside the tree leaves it, so the meeting, the arrival scene and Navi's dungeon lesson are skipped.";
-pub const NOTE: &str = "Story cutscenes are skipped. Saria's long bridge scene is cut and only the short gift scene plays, so the bridge check stays where it is. The Temple of Time's first entry and altar scenes are marked as played. The first Master Sword draw gives the sword and the item of Rauru's check and then plays the short scene of a later draw, without the sword pull, Ganondorf, Rauru or Sheik scenes. Zelda's escape at the drawbridge is cut, so the Ocarina of Time waits in the moat right away. The Light Arrows scene only plays the short scene that hands over its check, and it no longer takes out the Master Sword, so Link keeps his equipment. The owls that stop Link (Hyrule Field, Zora's River, the Lost Woods) are cut and marked as met; the Death Mountain and Lake Hylia owls still offer their flights when spoken to. Sheik's song scenes go straight to the song: the talk and the three ocarina lessons before it and the talk after it are cut, and the song check is given as usual.";
+pub const NOTE: &str = "Story cutscenes are skipped. Saria's bridge scenes are cut: crossing the bridge gives the check's item with a plain item get window. The Temple of Time's first entry and altar scenes are marked as played. The first Master Sword draw gives the sword and the item of Rauru's check and then plays the short scene of a later draw, without the sword pull, Ganondorf, Rauru or Sheik scenes. Zelda's escape at the drawbridge is cut, so the Ocarina of Time waits in the moat right away. The Light Arrows scene only plays the short scene that hands over its check, and it no longer takes out the Master Sword, so Link keeps his equipment. The owls that stop Link (Hyrule Field, Zora's River, the Lost Woods) are cut and marked as met; the Death Mountain and Lake Hylia owls still offer their flights when spoken to. The burning village and Sheik's flashback before the Nocturne are cut: the village loads once, already burned, straight into the Nocturne scene, and the scene no longer takes out the Master Sword. Sheik's song scenes go straight to the song: the talk and the three ocarina lessons before it and the talk after it are cut, and the song check is given as usual.";
 
 const TRUE: u32 = 0x8000_0001;
 const FALSE: u32 = 0;
@@ -276,6 +276,88 @@ pub fn patch_bridge(b: &mut Bf) -> Res<()> {
     let k: Kind = set_bool(f, LONG_FLAG, true)?;
     let first: u16 = chain(f, BRIDGE_PREFIX, vec![k], idx(release)?)?;
     set_next(&mut f.events[duck].kind, first)?;
+    Ok(())
+}
+
+/// Ported from Ontico's REALAZK/ootrr pull request 11 ("Let Saria's gift hold any pouch item").
+///
+/// The short gift scene. Its C01 cut shows the get window (Event77) and then, inside a fork,
+/// adds the item (Event68); the location patcher points both at the check's item.
+pub const GIFT_FILE: &str = "Event/EventFlow/Dm_Kokiri_0155.bfevfl.zs";
+pub const GIFT_FLOW: &str = "Dm_Kokiri_0155";
+pub const GIFT_ENTRY: &str = "EntryPoint0";
+const GIFT_GRANT: &str = "Event68";
+const GIFT_SHOW: &str = "Event77";
+const POUCH_ADD: &str = "PouchSystemActor.EventTriggerAddOrRemovePouchContent";
+
+/// Turns the gift scene into a plain item get: the entry point runs the grant, then the get
+/// window, then ends, with no cuts, camera or animation.
+///
+/// The gift stays in its own scene file on purpose. A get-item call spliced into the bridge
+/// event (Goto_HyruleCastle) hung the game twice, even with its preload row edited. This scene
+/// already calls GetPouchContent:DisplayGetByActorName, so nothing new has to be loaded.
+///
+/// The window runs before the grant, as in the scene's own C01 cut. A progressive item placed
+/// here has both events wrapped into tier checks (crate::progressive::wrap_grant, before this
+/// patch runs), and both checks then see the pouch before the grant, so they pick the same tier.
+pub fn patch_gift(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, GIFT_FLOW)?;
+    let grant: usize = find(f, GIFT_GRANT)?;
+    let show: usize = find(f, GIFT_SHOW)?;
+    let wrapped = |i: usize| matches!(f.events[i].kind, Kind::Switch { .. });
+    if !wrapped(grant) && action(f, grant).as_deref() != Some(POUCH_ADD) {
+        return Err(Error::Format("story skip: the gift scene's grant is not a pouch add, the game files differ"));
+    }
+    if !wrapped(show) && !matches!(&f.events[show].kind, Kind::Sub { flow, entry, .. } if flow == "GetPouchContent" && entry == "DisplayGetByActorName") {
+        return Err(Error::Format("story skip: the gift scene's get window is not GetPouchContent:DisplayGetByActorName, the game files differ"));
+    }
+    let (g, s): (u16, u16) = (idx(grant)?, idx(show)?);
+    // C01 holds the window's sub calls (one, or one per tier once wrapped).
+    let subs: Vec<u16> = f.entries.iter().find(|e| e.name == "C01").map(|e| e.subs.clone()).ok_or(Error::Format("story skip: the gift scene has no C01 cut"))?;
+    let e: &mut crate::bfevfl::Entry = f.entries.iter_mut().find(|e| e.name == GIFT_ENTRY).ok_or(Error::Format("story skip: the gift scene has no EntryPoint0"))?;
+    if e.main == s {
+        return Err(Error::Format("story skip: the gift scene was already patched"));
+    }
+    e.main = s;
+    e.subs = subs;
+    let after: u16 = ends(f, show)?;
+    retarget(f, show, after, g)?;
+    retarget(f, grant, ends(f, grant)?, NONE)?;
+    Ok(())
+}
+
+/// The single `next` every path from `start` ends on: the event's own next, or, through a
+/// tier check, the shared next of its tier copies.
+fn ends(f: &Flow, start: usize) -> Res<u16> {
+    let mut seen: Vec<u16> = Vec::new();
+    let mut todo: Vec<usize> = vec![start];
+    while let Some(i) = todo.pop() {
+        match &f.events[i].kind {
+            Kind::Switch { cases, .. } => todo.extend(cases.iter().map(|c| c.ev as usize)),
+            k => {
+                let n: u16 = next_of(k).ok_or(Error::Format("story skip: a gift event has no single next"))?;
+                if !seen.contains(&n) {
+                    seen.push(n);
+                }
+            }
+        }
+    }
+    match seen.as_slice() {
+        [n] => Ok(*n),
+        _ => Err(Error::Msg(format!("story skip: the gift event {} does not end on one next ({seen:?})", f.events[start].name))),
+    }
+}
+
+/// Points every path from `start` that ends on `from` at `to` instead.
+fn retarget(f: &mut Flow, start: usize, from: u16, to: u16) -> Res<()> {
+    let mut todo: Vec<usize> = vec![start];
+    while let Some(i) = todo.pop() {
+        if let Kind::Switch { cases, .. } = &f.events[i].kind {
+            todo.extend(cases.iter().map(|c| c.ev as usize));
+        } else if next_of(&f.events[i].kind) == Some(from) {
+            set_next(&mut f.events[i].kind, to)?;
+        }
+    }
     Ok(())
 }
 
@@ -793,6 +875,55 @@ pub fn stage_sheik(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
     Ok(outs)
 }
 
+// ---------------------------------------------------------------- burning kakariko
+
+/// Dm_SY_BancChangeArrive entry KakarikoVillage_Arrive (adult Kakariko before the Shadow Temple):
+/// preloads KakarikoVillage_Adult, sets KakarikoVillage_Burning_Start, forces the Master Sword out
+/// (Event37), mutes the world sounds (Event498), plays the timeline Dm_Kakariko_0030 (the village
+/// burns), then changes to KakarikoVillage_Adult booting KakarikoVillage_FlashbackScenes, whose only
+/// job is the timeline Dm_Kakariko_0040 (Sheik's flashback) and a change to
+/// KakarikoVillage_Adult_Alternative booting KakarikoVillage_MelodyGet_Shadow (the Nocturne scene
+/// and the Shadow quest writes). The cut: the sword request becomes the 0030 flag, the mute is
+/// skipped, the 0030 transition becomes the 0040 flag, and the preload and the banc change go
+/// straight to the Alternative village with the Nocturne boot (one load instead of two).
+const BURN_SWORD: (&str, &str) = ("Event37", "Player_Event.EventTriggerEquipmentUserRequestCreateStaticEquipment");
+const BURN_LOG: (&str, &str) = ("Event484", "UISystemActor.EventTriggerSetIsNotClearMessageLog");
+const BURN_SCENE: (&str, &str) = ("Event70", "Dm_Kakariko_0030");
+const BURN_PRELOAD: (&str, &str) = ("Event327", "GameSystemActor.EventTriggerBancRequestBeforehandLoad");
+const BURN_CHANGE: (&str, &str) = ("Event329", "GameSystemActor.EventReserveBancChange");
+const BURN_PATH: &str = "Work/Banc/Scene/KakarikoVillage/KakarikoVillage_Adult_Alternative.bcett.json";
+const BURN_BANC: &str = "KakarikoVillage_Adult_Alternative";
+const BURN_BOOT: &str = "KakarikoVillage_MelodyGet_Shadow";
+pub const BURN_PREFIX: &str = "OOTRRBurn";
+
+pub fn patch_burning(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, "Dm_SY_BancChangeArrive")?;
+    guard(f, BURN_PREFIX)?;
+    if !f.entries.iter().any(|e| e.name == BURN_BOOT) {
+        return Err(Error::Format("story skip: the Nocturne boot entry is missing, the game files differ"));
+    }
+    let sword: usize = find_action(f, BURN_SWORD)?;
+    let log: usize = find_action(f, BURN_LOG)?;
+    let preload: usize = find_action(f, BURN_PRELOAD)?;
+    let change: usize = find_action(f, BURN_CHANGE)?;
+    if text(&f.events[change], "BootEventName") != Some("KakarikoVillage_FlashbackScenes") {
+        return Err(Error::Format("story skip: the burning village no longer boots the flashback, the game files differ"));
+    }
+    let next: u16 = next_of(&f.events[sword].kind).ok_or(Error::Format("story skip: the sword request has no next"))?;
+    let mut k: Kind = set_bool(f, &format!("HavePlayedEvent.{}", BURN_SCENE.1), true)?;
+    set_next(&mut k, next)?;
+    f.events[sword].kind = k;
+    f.events[sword].name = format!("{BURN_PREFIX}{sword}");
+    let scene: usize = transition_to_flag(f, BURN_PREFIX, BURN_SCENE.0, BURN_SCENE.1, None)?;
+    // The flag of the flashback in place of the burning scene's transition.
+    set_param(&mut f.events[scene].kind, "GameDataName", Val::Str("HavePlayedEvent.Dm_Kakariko_0040".to_string()))?;
+    set_next(&mut f.events[log].kind, idx(scene)?)?;
+    set_param(&mut f.events[preload].kind, "BancPath", Val::Str(BURN_PATH.to_string()))?;
+    set_param(&mut f.events[change].kind, "NextBanc", Val::Str(BURN_BANC.to_string()))?;
+    set_param(&mut f.events[change].kind, "BootEventName", Val::Str(BURN_BOOT.to_string()))?;
+    Ok(())
+}
+
 // ---------------------------------------------------------------- staging
 
 fn source(rf: &mut Romfs, have: Have, path: &str) -> Res<Vec<u8>> {
@@ -823,8 +954,14 @@ pub fn stage(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
                 patch_field_owl(b)
             })
         })?,
+        edit_zs(rf, have, GIFT_FILE, |raw| rebuild(raw, patch_gift))?,
         edit_zs(rf, have, RIVER_FILE, |raw| rebuild(raw, patch_river_owl))?,
-        edit_zs(rf, have, ARRIVE_FILE, |raw| rebuild(raw, patch_woods_owls))?,
+        edit_zs(rf, have, ARRIVE_FILE, |raw| {
+            rebuild(raw, |b| {
+                patch_woods_owls(b)?;
+                patch_burning(b)
+            })
+        })?,
         edit_zs(rf, have, DOOR_FILE, |raw| {
             rebuild(raw, |b| {
                 patch_draw(b, &medal, got)?;
@@ -953,7 +1090,7 @@ mod tests {
             _ => true,
         }));
         Bf::parse(&b.write().unwrap()).unwrap();
-        assert_eq!(stage(&mut rf, &none).unwrap().len(), 5 + SHEIK_CUTS.len());
+        assert_eq!(stage(&mut rf, &none).unwrap().len(), 6 + SHEIK_CUTS.len());
     }
 
     #[test]
@@ -1162,5 +1299,60 @@ mod tests {
             }
             Bf::parse(&b.write().unwrap()).unwrap();
         }
+    }
+
+    #[test]
+    fn the_real_burning_village_loads_once_into_the_nocturne() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut b: Bf = Bf::parse(&rf.read_zs(ARRIVE_FILE).unwrap()).unwrap();
+        patch_woods_owls(&mut b).unwrap();
+        patch_burning(&mut b).unwrap();
+        assert!(patch_burning(&mut b).is_err());
+        let f: &Flow = &b.flows[0];
+        // From the preload, past the horse check at the start of KakarikoVillage_Arrive.
+        let w: Vec<String> = walk_joins(f, find(f, BURN_PRELOAD.0).unwrap() as u16, 40);
+        assert!(!w.iter().any(|x| x.contains("RequestCreateStaticEquipment") || x.starts_with("EventSystemActor.EventTransition") || x.contains("Ducking")), "{w:?}");
+        for want in ["GameDataActor.EventTriggerSetGameDataBool(KakarikoVillage_Burning_Start)", "GameDataActor.EventTriggerSetGameDataBool(HavePlayedEvent.Dm_Kakariko_0030)", "GameDataActor.EventTriggerSetGameDataBool(HavePlayedEvent.Dm_Kakariko_0040)"] {
+            assert!(w.iter().any(|x| x == want), "{want}: {w:?}");
+        }
+        assert_eq!(w.last().unwrap(), "Player_Event.EventWaitCreationFinishedEquipment()");
+        let change: usize = find(f, BURN_CHANGE.0).unwrap();
+        assert_eq!(text(&f.events[change], "NextBanc"), Some(BURN_BANC));
+        assert_eq!(text(&f.events[change], "BootEventName"), Some(BURN_BOOT));
+        assert_eq!(text(&f.events[find(f, BURN_PRELOAD.0).unwrap()], "BancPath"), Some(BURN_PATH));
+        Bf::parse(&b.write().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn the_real_gift_scene_is_a_plain_item_get() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut b: Bf = Bf::parse(&rf.read_zs(GIFT_FILE).unwrap()).unwrap();
+        patch_gift(&mut b).unwrap();
+        assert!(patch_gift(&mut b).is_err());
+        let f: &Flow = b.flows.iter().find(|f| f.name == GIFT_FLOW).unwrap();
+        let e = f.entries.iter().find(|e| e.name == GIFT_ENTRY).unwrap();
+        let w: Vec<String> = walk(f, e.main, 5);
+        assert_eq!(w, vec!["sub GetPouchContent:DisplayGetByActorName".to_string(), "PouchSystemActor.EventTriggerAddOrRemovePouchContent(Item_Ocarina_Fairy)".to_string()]);
+        assert_eq!(e.subs, vec![find(f, GIFT_SHOW).unwrap() as u16]);
+        // With a progressive item placed, both events are tier checks first; every window
+        // copy then leads to the grant check, and every grant copy ends the flow.
+        let mut b: Bf = Bf::parse(&rf.read_zs(GIFT_FILE).unwrap()).unwrap();
+        let fl: &mut Flow = flow_mut(&mut b, GIFT_FLOW).unwrap();
+        let (g, s): (usize, usize) = (find(fl, GIFT_GRANT).unwrap(), find(fl, GIFT_SHOW).unwrap());
+        crate::progressive::wrap_grant(fl, g, GIFT_GRANT, "Actor", "Ocarina").unwrap();
+        crate::progressive::wrap_grant(fl, s, GIFT_SHOW, "ActorName", "Ocarina").unwrap();
+        patch_gift(&mut b).unwrap();
+        let f: &Flow = b.flows.iter().find(|f| f.name == GIFT_FLOW).unwrap();
+        assert_eq!(f.entries.iter().find(|e| e.name == GIFT_ENTRY).unwrap().main as usize, s);
+        assert_eq!(ends(f, s).unwrap() as usize, g);
+        assert_eq!(ends(f, g).unwrap(), NONE);
+        let out: Vec<u8> = b.write().unwrap();
+        assert_eq!(Bf::parse(&out).unwrap(), b);
     }
 }

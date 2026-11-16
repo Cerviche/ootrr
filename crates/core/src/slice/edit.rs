@@ -640,6 +640,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         more.push(crate::bomb_pickup::stage(&mut rf)?);
     }
     more.extend(crate::door_fix::stage(&mut rf)?);
+    more.push(crate::no_tutorials::stage(&mut rf)?);
     if p.door {
         more.extend(crate::door_open::stage_door(&mut rf)?);
     }
@@ -648,7 +649,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         crate::medal_gate::stage(&mut rf, &mut more, Some(&pk.work.join("romfs")))?;
     }
     let reward: Option<&str> = crate::start_reward::pick(&seed.seed, p.start).map(|(_, a)| a);
-    let flags: Vec<(String, bool)> = p.start_flags();
+    let mut flags: Vec<(String, bool)> = p.start_flags();
+    flags.extend(crate::no_tutorials::start_flags());
     let mut give: Vec<&str> = p.pouch.clone();
     if let Some(a) = reward {
         give.push(a);
@@ -1063,7 +1065,7 @@ mod tests {
         let (_, _, flows): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
         assert!(!flows.is_empty());
         for c in &flows {
-            assert!(d.flow.usable(&c.item), "{} -> {}", c.location, c.item);
+            assert!(d.flow.usable(&c.item) || c.location == crate::slice::flow_rules::SARIA, "{} -> {}", c.location, c.item);
             assert!(d.flow_ok(&c.location), "{}", c.location);
         }
         let mut vanilla: Settings = Settings::default();
@@ -1092,7 +1094,7 @@ mod tests {
                 assert!(d.flow_ok(loc));
             }
             for c in &flows {
-                assert!(d.flow.usable(&c.item), "{} -> {}", c.location, c.item);
+                assert!(d.flow.usable(&c.item) || c.location == crate::slice::flow_rules::SARIA, "{} -> {}", c.location, c.item);
             }
             let given: BM<String, String> = actors_for(&d, &g.seed_file).unwrap();
             for (loc, actor) in &given {

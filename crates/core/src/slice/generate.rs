@@ -792,7 +792,8 @@ mod tests {
             let g: Generated = generate_data(&d, &s, &format!("dungeon items {n}"), &GenOpts::default()).unwrap();
             for (loc, item) in &g.seed_file.placements {
                 if d.flow.by_name(loc).is_some() {
-                    assert!(d.item(item).is_some_and(|i| d.flow_accepts(i)) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}");
+                    let fits = |i: &crate::slice::data::Item| if loc == crate::slice::flow_rules::SARIA { crate::slice::flow_rules::saria_takes(&d, i) } else { d.flow_accepts(i) };
+                    assert!(d.item(item).is_some_and(fits) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}");
                 }
             }
         }
@@ -1152,10 +1153,10 @@ mod tests {
             (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "fb7413b271d949ca4064a38f5e3d1bb3ea120953fb22a030f6260f21e89c04b2"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "dbbde2ae945e2e8eb27f8fe74e85b432bc1612f02b1f629a822e47f8cf49cc79"),
             (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "a131002f74c6dd72eb9e521304f3cb01205103b640d91df77e6ddf6e760fd180"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "8a31bac1c7d8577115cda932cd4ce7464dd1f19e0f78040b258cc50a4a17d538"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "7b54ab16a0952f47b01e31b3e86fa2d05b167624c0b812aeacab4cffb68d4505"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "b5a6008f8acd78caa0fa34c6f9f1ddd97e92463cf86c5a1e952e4b37930c487f"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "c8280556c99407d2d414790cfae4a995e52fdf422def2e36fdb11f6510409953"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "5ffac2426a702253894cfe96e76e72558c1aced381c53f88b609e1e980a0d3d0"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "a85919889d871e8b897e3d38fbc1a7ad7ca0aca7a18d3a3d95a69852d8999e64"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "766121376bc350b0e632f60c5ec06015450bc92a6463a9df98e2e5c01f263b3e"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "308e450058c9786f6c305ed7fe5e1d27676facaecdcb354d3a5dd71b74f8e999"),
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
@@ -1192,10 +1193,10 @@ mod tests {
         both.set("shuffle_pots", Value::s("all")).unwrap();
         both.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str); 4] = [
-            (hives.clone(), "pin a", "c265674ebb7800804ad0beb8f252a94665b2ccc87bc035b452cacd5ee744a24a"),
-            (hives.clone(), "pin b", "e3765a1397d0a53d74edf1e799aab059f66a424664c5f9681f96e6c61d0a427f"),
-            (both.clone(), "pin a", "c3ea19687f6b71b684792d0cb4b54620153e842f909833544b343d607d1e4f15"),
-            (both.clone(), "pin b", "7bec77eda16b5d1a10c913bee041229c0cf83a5c2f6c9bcd338b121a2639113b"),
+            (hives.clone(), "pin a", "f49a141845ad8628d9053c519ac12a6f2f099efb6aa7a675502967f01639cef5"),
+            (hives.clone(), "pin b", "8cb9cb59c5553f172156f40c8288664d89d0ba5c576fea7a31705d76a8621dd1"),
+            (both.clone(), "pin a", "deac770a336a3edcdfa53965a8dfc644ee45b56bc54340e1d1a279ce99d117fd"),
+            (both.clone(), "pin b", "5ac97ebedb074a0b5a2f690cc9fed0a78fb139c68f3826fd375d42cc6352ca7a"),
         ];
         for (s, seed, sum) in cases {
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
