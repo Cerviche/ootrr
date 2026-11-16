@@ -1,3 +1,0 @@
-BombBag sells Item_BombBag_Small as Item_BombBag_Small
-  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Bomb IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=20
-  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BombBag_Large IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=1

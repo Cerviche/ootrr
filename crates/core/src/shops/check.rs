@@ -89,30 +89,38 @@ mod tests {
     }
 
     #[test]
-    fn gear_deals_generate_win_and_become_hooked_shelf_jobs() {
-        use crate::shelf::{hook, What};
+    fn upgrade_deals_generate_win_and_sell_the_tier_of_the_reach_order() {
+        use crate::shelf::What;
         let d: Data = Data::load().unwrap();
         let mut s: Settings = with(&[("shuffle_shops", "deals_4"), ("shuffle_chests", "all")]);
         s.set("shop_price_max", Value::Int(300)).unwrap();
-        s.set("shop_deal_gear", Value::Bool(true)).unwrap();
-        let mut seen: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+        s.set("shop_deal_items", Value::set(&["upgrades"])).unwrap();
+        let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        let mut low: usize = 0;
         for n in 0..6 {
-            let g: Generated = generate_data(&d, &s, &format!("gear {n}"), &GenOpts::default()).unwrap_or_else(|e| panic!("{n}: {e}"));
+            let g: Generated = generate_data(&d, &s, &format!("upgrades {n}"), &GenOpts::default()).unwrap_or_else(|e| panic!("{n}: {e}"));
             let back: SeedFile = SeedFile::parse(&g.seed_file.to_text()).unwrap();
             let a: Audit = audit(&d, &back).unwrap();
             assert!(a.won && a.bad.is_empty(), "{n}: {:?}", a.bad);
             let l: crate::shops::layout::Layout = crate::shops::seed::layout(&back).unwrap().unwrap();
-            let tiers: std::collections::BTreeMap<String, String> = crate::slice::tier_order::fixed_actors(&d, &back).unwrap().assign;
-            for j in crate::shops::jobs::of(&d, &l, &tiers).unwrap() {
-                if let What::Deal { item, .. } = &j.what {
-                    if let Some(h) = hook::by_shelf(item) {
-                        seen.insert(h.family);
-                        assert_eq!(tiers.get(&j.label).map(|t| hook::shelf_item(t)), Some(h.shelf), "{}", j.label);
-                    }
+            let v: crate::slice::tier_order::Verdict = crate::slice::tier_order::fixed_actors(&d, &back).unwrap();
+            assert!(v.bad.is_empty(), "{n}: {:?}", v.bad);
+            for j in crate::shops::jobs::of(&d, &l, &v.assign).unwrap() {
+                let Some(f) = back.placements.get(&j.label).and_then(|i| d.family(i)) else {
+                    continue;
+                };
+                let What::Deal { item, .. } = &j.what else {
+                    panic!("{} holds a {f} copy but is no deal", j.label);
+                };
+                assert_eq!(v.assign.get(&j.label), Some(item), "{}", j.label);
+                seen.insert(item.clone());
+                let t: &[&str] = crate::progressive::tiers(f).unwrap();
+                if !crate::slice::key_spots::TOP_ONLY.contains(&f) && item != t[t.len() - 1] {
+                    low += 1;
                 }
             }
         }
-        assert!(!seen.is_empty());
+        assert!(low > 0, "no shop deal sold a tier below the top, the test proves nothing {seen:?}");
     }
 
     #[test]
