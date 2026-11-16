@@ -8,12 +8,11 @@ use crate::error::{Error as E, Res};
 use crate::rng::Rng;
 use crate::romfs::Romfs;
 use crate::sfx::{self, Sfx};
-use crate::rsizetable::{self, Rst};
+use crate::slink::{Link, SLINK};
 use crate::zs;
 
 pub const BGM_FILE: &str = "Sound/Bgm/bgm.Product.111.byml.zs";
 const STREAM: &str = "Sound/Resource/Stream";
-const BGM_DICT: u32 = 1;
 const JINGLES: [&str; 8] = [
     "BGM_Appear",
     "BGM_FinaleJingle",
@@ -83,7 +82,7 @@ fn kind(name: &str) -> Option<Kind> {
     if name.starts_with("BGM_Dm_") {
         return None;
     }
-    if JINGLES.contains(&name) || name.contains("Jingle") {
+    if JINGLES.contains(&name) || ["Jingle", "ItemGet", "HeartGet", "ReadRiddle"].iter().any(|w| name.contains(w)) {
         return Some(Kind::Jingle);
     }
     if name.starts_with("BGM_DungeonBoss") || name == "BGM_MiddleBoss" {
@@ -108,8 +107,11 @@ fn asset_key(e: &Node, have: &dyn Fn(&str) -> bool) -> Option<String> {
     if keys.len() == 1 {
         return Some(keys[0].to_string());
     }
-    let side = |k: &&str| ["Intro", "Outro", "Pad", "Roar", "Demo"].iter().any(|w| k.contains(w));
     keys.iter().find(|k| !side(k) && have(k)).map(|k| k.to_string())
+}
+
+fn side(k: &str) -> bool {
+    ["Intro", "Outro", "Pad", "Roar", "Demo"].iter().any(|w| k.contains(w))
 }
 
 fn events(y: &Byml, have: &dyn Fn(&str) -> bool) -> Vec<(String, String, Kind)> {
@@ -225,7 +227,7 @@ fn pools(ev: &[(String, String, Kind)], m: Music) -> Vec<BS<String>> {
     by.into_values().collect()
 }
 
-fn plan(ev: &[(String, String, Kind)], m: Music, rng: &mut Rng) -> BM<String, String> {
+fn plan(ev: &[(String, String, Kind)], m: Music, rng: &mut Rng) -> BM<String, (String, String)> {
     let mut swap: BM<String, String> = BM::new();
     for pool in pools(ev, m) {
         let from: Vec<String> = pool.iter().cloned().collect();
@@ -235,29 +237,35 @@ fn plan(ev: &[(String, String, Kind)], m: Music, rng: &mut Rng) -> BM<String, St
             swap.insert(a, b);
         }
     }
-    let mut out: BM<String, String> = BM::new();
+    let mut out: BM<String, (String, String)> = BM::new();
     for (name, key, _) in ev {
         if let Some(n) = swap.get(key).filter(|n| *n != key) {
-            out.insert(name.clone(), n.clone());
+            out.insert(name.clone(), (key.clone(), n.clone()));
         }
     }
     out
 }
 
-fn rewrite(y: &mut Byml, to: &BM<String, String>) -> usize {
+fn rewrite(y: &mut Byml, to: &BM<String, (String, String)>) -> usize {
     let mut n: usize = 0;
     let Some(Node::Map(all)) = y.root.get_mut("BGM") else {
         return n;
     };
     for (name, e) in all.iter_mut() {
-        let Some(new) = to.get(name) else {
+        let Some((old, new)) = to.get(name) else {
             continue;
         };
         let Some(nodes) = e.get_mut("Node").and_then(|x| x.as_arr_mut()) else {
             continue;
         };
         for node in nodes.iter_mut() {
-            if node.get("Type").and_then(|t| t.as_str()) == Some("Asset") && node.set("Key", Node::Str(new.clone())) {
+            if node.get("Type").and_then(|t| t.as_str()) != Some("Asset") {
+                continue;
+            }
+            let Some(k) = node.get("Key").and_then(|k| k.as_str()) else {
+                continue;
+            };
+            if (k == old || !side(k)) && node.set("Key", Node::Str(new.clone())) {
                 n += 1;
             }
         }
@@ -271,7 +279,7 @@ pub fn shuffle_music(y: &mut Byml, m: Music, seed: &str, have: &dyn Fn(&str) -> 
     }
     let ev: Vec<(String, String, Kind)> = events(y, have);
     let mut rng: Rng = Rng::from_text(&format!("{seed} music {}", m.id()));
-    let to: BM<String, String> = plan(&ev, m, &mut rng);
+    let to: BM<String, (String, String)> = plan(&ev, m, &mut rng);
     let lay: Vec<(String, Vec<String>, Kind)> = layered(y, have);
     let sets: BM<String, BM<String, String>> = plan_layers(&lay, m, &mut rng);
     rewrite(y, &to) + rewrite_layers(y, &sets)
@@ -285,41 +293,52 @@ pub fn apply(mod_root: &P, romfs: &P, c: &Cosmetics, seed: &str) -> Res<Vec<Stri
     Ok(notes)
 }
 
+pub fn moves(old: &Byml, new: &Byml) -> BM<(String, String), String> {
+    let mut out: BM<(String, String), String> = BM::new();
+    let (Some(Node::Map(a)), Some(Node::Map(b))) = (old.root.get("BGM"), new.root.get("BGM")) else {
+        return out;
+    };
+    for ((name, e), (_, f)) in a.iter().zip(b.iter()) {
+        let (Some(x), Some(y)) = (e.get("Node").and_then(|n| n.as_arr()), f.get("Node").and_then(|n| n.as_arr())) else {
+            continue;
+        };
+        for (p, q) in x.iter().zip(y.iter()) {
+            let (Some(k), Some(n)) = (p.get("Key").and_then(|v| v.as_str()), q.get("Key").and_then(|v| v.as_str())) else {
+                continue;
+            };
+            if k != n {
+                out.insert((name.clone(), k.to_string()), n.to_string());
+            }
+        }
+    }
+    out
+}
+
 fn apply_music(mod_root: &P, romfs: &P, c: &Cosmetics, seed: &str) -> Res<Vec<String>> {
     let mut notes: Vec<String> = Vec::new();
     if c.music == Music::Off {
         return Ok(notes);
     }
     let mut rf: Romfs = Romfs::open(romfs)?;
-    let mut y: Byml = rf.read_byml(BGM_FILE)?;
+    let old: Byml = rf.read_byml(BGM_FILE)?;
+    let mut y: Byml = old.clone();
     let top: PB = rf.root.join(STREAM);
     let have = |k: &str| top.join(format!("{k}.bwav")).is_file();
     let text: &str = if c.seed.trim().is_empty() { seed } else { c.seed.trim() };
-    let n: usize = shuffle_music(&mut y, c.music, text, &have);
+    shuffle_music(&mut y, c.music, text, &have);
+    let want: BM<(String, String), String> = moves(&old, &y);
+    let z: Vec<u8> = rf.read(SLINK)?;
+    let mut raw: Vec<u8> = rf.zs.decompress(&z)?;
+    let link: Link = Link::read(&raw)?;
+    let n: usize = link.retarget(&mut raw, &want)?;
     if n == 0 {
         return Err(E::Format("the music table has no track this shuffle can move"));
     }
-    let old_len: u64 = rf.read_zs(BGM_FILE)?.len() as u64;
-    let raw: Vec<u8> = y.write()?;
-    let z: Vec<u8> = zs::compress_raw(&raw, Some(BGM_DICT))?;
-    let out: PB = mod_root.join("romfs").join(BGM_FILE);
+    let out: PB = mod_root.join("romfs").join(SLINK);
     if let Some(d) = out.parent() {
         fs::create_dir_all(d)?;
     }
-    fs::write(&out, z)?;
-    if raw.len() as u64 > old_len {
-        let tp: PB = mod_root.join("romfs").join(rsizetable::TABLE_PATH);
-        let mut t: Rst = if tp.is_file() {
-            Rst::parse(&rf.zs.decompress(&fs::read(&tp)?)?)?
-        } else {
-            rsizetable::load(&mut rf)?
-        };
-        t.grow(BGM_FILE, old_len, raw.len() as u64, 0x400)?;
-        if let Some(d) = tp.parent() {
-            fs::create_dir_all(d)?;
-        }
-        fs::write(&tp, t.to_zs()?)?;
-    }
+    fs::write(&out, zs::compress_raw(&raw, zs::dict_of(&z))?)?;
     notes.push(format!(
         "Music is shuffled {}. {n} music tracks moved. Cutscene music keeps its own tracks. Themes built from stacked layers trade whole layer sets. Area themes that change with the time of day play one track all day.",
         if c.music == Music::Grouped { "within each kind of track" } else { "across all tracks" }
@@ -426,6 +445,34 @@ mod tests {
     }
 
     #[test]
+    fn fanfares_are_jingles_and_a_shared_intro_is_never_moved() {
+        for n in ["BGM_ItemGet_Small", "BGM_ItemGet_Large", "BGM_HeartGet", "BGM_ReadRiddle", "BGM_ReadRiddle_Small", "BGM_GameOver"] {
+            assert_eq!(kind(n), Some(Kind::Jingle), "{n}");
+        }
+        let fan = |name: &str, key: &str| -> (String, Node) {
+            let (n, mut e): (String, Node) = ev(name, key);
+            let intro: Node = Node::Map(vec![("Key".to_string(), Node::Str("BGM_ItemGet_Intro".to_string())), ("Type".to_string(), Node::Str("Asset".to_string()))]);
+            if let Some(Node::Arr(v)) = e.get_mut("Node") {
+                v.push(intro);
+            }
+            (n, e)
+        };
+        for s in 0..20 {
+            let all: Vec<(String, Node)> = vec![fan("BGM_HeartGet", "BGM_HeartGet"), fan("BGM_ItemGet_Large", "BGM_ItemGet_Large"), fan("BGM_ItemGet_Medium", "BGM_ItemGet_Medium"), ev("BGM_ForestTemple", "BGM_ForestTemple")];
+            let mut y: Byml = Byml { root: Node::Map(vec![("BGM".to_string(), Node::Map(all))]), version: 7, big: false };
+            shuffle_music(&mut y, Music::Grouped, &format!("f{s}"), &|_| true);
+            let Some(Node::Map(all)) = y.root.get("BGM") else {
+                panic!();
+            };
+            for (name, e) in all.iter().take(3) {
+                let nodes: &[Node] = e.get("Node").unwrap().as_arr().unwrap();
+                assert_eq!(nodes[2].get("Key").unwrap().as_str(), Some("BGM_ItemGet_Intro"), "{name}");
+                assert_ne!(nodes[1].get("Key").unwrap().as_str(), Some("BGM_ForestTemple"));
+            }
+        }
+    }
+
+    #[test]
     fn the_modes_parse_and_round_trip_their_ids() {
         for m in [Music::Off, Music::Grouped, Music::Anywhere] {
             assert_eq!(Music::parse(m.id()), Some(m));
@@ -440,41 +487,58 @@ mod tests {
     }
 
     #[test]
-    fn the_real_music_table_shuffles_and_the_written_file_reads_back() {
+    fn the_real_link_plays_the_shuffled_tracks_and_two_seeds_differ() {
         let Some(root) = real() else {
             return;
         };
-        let out: PB = std::env::temp_dir().join(format!("ootrr_music_{}", std::process::id()));
-        let _ = fs::remove_dir_all(&out);
-        let c: Cosmetics = Cosmetics { music: Music::Grouped, sfx: Sfx::Off, colors: Colors::Off, seed: String::new() };
-        let notes: Vec<String> = apply(&out, &root, &c, "cos seed").unwrap();
-        assert!(notes[0].contains("music tracks moved"), "{notes:?}");
         let mut rf: Romfs = Romfs::open(&root).unwrap();
         let old: Byml = rf.read_byml(BGM_FILE).unwrap();
-        let bytes: Vec<u8> = rf.zs.decompress(&fs::read(out.join("romfs").join(BGM_FILE)).unwrap()).unwrap();
-        let new: Byml = Byml::parse(&bytes).unwrap();
-        let (a, b): (BM<String, String>, BM<String, String>) = (keys_any(&old), keys_any(&new));
-        assert_eq!(a.len(), b.len());
-        assert!(a.iter().filter(|(k, v)| b[*k] != **v).count() >= 5);
-        let mut x: Vec<&String> = a.values().collect();
-        let mut z: Vec<&String> = b.values().collect();
-        x.sort();
-        z.sort();
-        assert_eq!(x.len(), z.len());
-        assert_eq!(a.iter().filter(|(k, _)| k.starts_with("BGM_Dm_")).count(), b.iter().filter(|(k, v)| k.starts_with("BGM_Dm_") && a[*k] == **v).count());
-        let _ = fs::remove_dir_all(&out);
-    }
-
-    fn keys_any(y: &Byml) -> BM<String, String> {
-        let mut out: BM<String, String> = BM::new();
-        if let Some(Node::Map(all)) = y.root.get("BGM") {
-            for (n, e) in all {
-                if let Some(k) = asset_key(e, &|_| true) {
-                    out.insert(n.clone(), k);
+        let vanilla: Vec<u8> = rf.read_zs(SLINK).unwrap();
+        let bars: Vec<u8> = rf.read_zs("Sound/Resource/BGM_Static.bars.zs").unwrap();
+        let in_bank: BS<u32> = sfx::entries(&bars).unwrap().into_iter().map(|e| e.0).collect();
+        let top: PB = root.join(STREAM);
+        let mut outs: Vec<Vec<u8>> = Vec::new();
+        for text in ["first", "second"] {
+            let out: PB = std::env::temp_dir().join(format!("ootrr_music_{}_{text}", std::process::id()));
+            let _ = fs::remove_dir_all(&out);
+            let c: Cosmetics = Cosmetics { music: Music::Grouped, sfx: Sfx::Off, colors: Colors::Off, seed: text.to_string() };
+            let notes: Vec<String> = apply(&out, &root, &c, "seed").unwrap();
+            assert!(notes[0].contains("music tracks moved"), "{notes:?}");
+            assert!(!out.join("romfs").join(BGM_FILE).exists());
+            assert!(!out.join("romfs").join(crate::rsizetable::TABLE_PATH).exists());
+            let raw: Vec<u8> = rf.zs.decompress(&fs::read(out.join("romfs").join(SLINK)).unwrap()).unwrap();
+            assert_eq!(raw.len(), vanilla.len());
+            let mut y: Byml = old.clone();
+            shuffle_music(&mut y, Music::Grouped, text, &|k| top.join(format!("{k}.bwav")).is_file());
+            let want: BM<(String, String), String> = moves(&old, &y);
+            let link: Link = Link::read(&raw).unwrap();
+            let before: Link = Link::read(&vanilla).unwrap();
+            let (mut moved, mut kept): (usize, usize) = (0, 0);
+            let bgm: BS<u32> = match old.root.get("BGM") {
+                Some(Node::Map(m)) => m.iter().map(|e| crate::rsizetable::hash(&e.0)).collect(),
+                _ => BS::new(),
+            };
+            for (c, d) in link.calls.iter().zip(before.calls.iter()).filter(|x| bgm.contains(&x.0.user)) {
+                let (now, was): (String, String) = (link.asset(&raw, c).unwrap_or_default(), before.asset(&vanilla, d).unwrap_or_default());
+                if now != was {
+                    moved += 1;
+                    assert!(in_bank.contains(&crate::rsizetable::hash(&now)), "{now}");
+                    let users: Vec<&String> = want.iter().filter(|((u, k), n)| crate::rsizetable::hash(u) == c.user && *k == c.key && **n == now).map(|x| &x.0 .0).collect();
+                    assert!(!users.is_empty(), "{} {now}", c.key);
+                } else if want.keys().any(|(u, k)| crate::rsizetable::hash(u) == c.user && *k == c.key) {
+                    kept += 1;
                 }
             }
+            println!("{text}: {moved} calls play another track, {kept} wanted moves left out because a shared call disagrees");
+            assert!(moved >= 100, "{moved}");
+            let diff: usize = raw.iter().zip(vanilla.iter()).filter(|(a, b)| a != b).count();
+            assert!(diff <= moved * 8);
+            let kokiri: Vec<String> = link.calls_of("BGM_KokiriForest").iter().filter(|c| c.key == "BGM_Kokiri_Daytime_01").map(|c| link.asset(&raw, c).unwrap()).collect();
+            println!("{text}: Kokiri Forest day plays {kokiri:?}");
+            outs.push(raw);
+            let _ = fs::remove_dir_all(&out);
         }
-        out
+        assert_ne!(outs[0], outs[1]);
     }
 
     fn layered_ev(name: &str, keys: &[&str]) -> (String, Node) {

@@ -41,6 +41,14 @@ impl Default for Zs {
     }
 }
 
+pub fn dict_of(z: &[u8]) -> Option<u32> {
+    let head: u8 = *z.get(4)?;
+    let at: usize = if head & 0x20 == 0 { 6 } else { 5 };
+    let n: usize = [0, 1, 2, 4][(head & 3) as usize];
+    let s: &[u8] = z.get(at..at + n)?;
+    (n > 0).then(|| s.iter().rev().fold(0u32, |v, x| (v << 8) | *x as u32))
+}
+
 pub fn compress_raw(b: &[u8], dict: Option<u32>) -> Res<Vec<u8>> {
     let n: u32 = u32::try_from(b.len())
         .map_err(|_| Error::Format("input too large for one zstd frame"))?;
