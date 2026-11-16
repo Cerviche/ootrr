@@ -12,9 +12,9 @@ Questions, bug reports, seeds and playtesting happen on the [OOTRR Discord](http
 
 Generate: settings and a seed it will create a seed file.
 
-Build: a seed file plus your own extracted game folder produce a mod folder. Lichii and Eden take `load/<title id>/<name>/romfs`. Hookshot and NX2navi take the game's `mods` folder, and the mod is `mods/<name>/romfs`. Choose the game on the Setup page, or pass `--host hookshot` or `--host nx2navi` to `ootrr build`. A Hookshot mod also writes `coop-seed.txt` and keeps the larger resource-size entry from every other mod that is on. Name that mod `randomizer-<seed>` so Hookshot co-op can tell the seeds apart.
+Build: a seed file plus your own extracted game folder produce a mod folder. Lichii and Eden take `load/<title id>/<name>/romfs`. Hookshot and NX2navi take the game's `mods` folder, and the mod is `mods/<name>/romfs`. Choose the game on the Configuration page, or pass `--host hookshot` or `--host nx2navi` to `ootrr build`. A Hookshot mod also writes `coop-seed.txt` and keeps the larger resource-size entry from every other mod that is on. Name that mod `randomizer-<seed>` so Hookshot co-op can tell the seeds apart.
 
-Longshot, the successor to Hookshot, also loads `mods/<name>/romfs` from the game folder (beside `bin\longshot.exe`). Pick Longshot on the Setup page, or pass `--host longshot`. Like Hookshot, Longshot uses the size table from just one mod, the enabled mod whose folder name sorts last. So the build copies the larger entry from every other enabled mod, including mods nested as `mods/contents/<title id>/<name>`. If another mod with a size table would still sort after this one, the build report names it, so you can rename this mod (for example `zz-<name>`). Longshot has no co-op seed file, so none is written. The tracker's Longshot button finds the saves in `%USERPROFILE%\Games\Longshot\user\save` or `~/.local/share/longshot/save`.
+Longshot, the successor to Hookshot, also loads `mods/<name>/romfs` from the game folder (beside `bin\longshot.exe`). Pick Longshot on the Configuration page, or pass `--host longshot`. Like Hookshot, Longshot uses the size table from just one mod, the enabled mod whose folder name sorts last. So the build copies the larger entry from every other enabled mod, including mods nested as `mods/contents/<title id>/<name>`. If another mod with a size table would still sort after this one, the build report names it, so you can rename this mod (for example `zz-<name>`). Longshot has no co-op seed file, so none is written. The tracker's Longshot button finds the saves in `%USERPROFILE%\Games\Longshot\user\save` or `~/.local/share/longshot/save`.
 
 Starting items can include every weapon, tool, upgrade tier, bottle, boot, tunic, shield, the Gerudo card, magic, songs and the starting hearts. A new game starts with them and one copy of each leaves the item pool. Zelda's Letter is refused because it shares the child trade slot. The full Business Scrubs setting is still not applied. The one time and menu scrub sales have their own settings under Story and NPC rewards.
 
@@ -22,7 +22,7 @@ New here? Follow the [full tutorial with screenshots](https://docs.google.com/do
 
 ## Your game folder
 
-The mod build needs your own extracted copy of the game with the 1.1.1 update installed. Pick a folder of the game with the 1.1.1 update applied in the Setup screen. The folder must hold the Pack, Banc, Event and System folders. Setup checks for the 1.1.1 files and tells you if they are missing. A folder from the base game without the update fails the build.
+The mod build needs your own extracted copy of the game with the 1.1.1 update installed. Pick a folder of the game with the 1.1.1 update applied on the Configuration page. The folder must hold the Pack, Banc, Event and System folders. The page checks for the 1.1.1 files and tells you if they are missing. A folder from the base game without the update fails the build.
 
 ## What the settings change
 
@@ -54,7 +54,7 @@ Everything is optional and off unless noted. All of these are experimental and s
 ## Troubleshooting
 
 - The build stops with "the game folder has no ..." Your folder is missing a file of version 1.1.1, so it is an older version of the game. Use a folder with the update applied.
-- Setup shows the 1.1.1 check with a cross: same cause.
+- The Configuration page shows the 1.1.1 check with a cross: same cause.
 - The emulator ignores the mod: copy the whole mod folder into the emulator's load folder for the game and remove other mods that change the same files.
 
 ## Install

@@ -78,6 +78,10 @@ fn api(sh: &Shared, r: &Req) -> Hr<Resp> {
             need(r, "POST")?;
             api_open::run(&body::json(r)?)?
         }
+        "/api/pick-folder" => {
+            need(r, "POST")?;
+            crate::native_pick::api(sh.guard.lan, &body::json(r)?)?
+        }
         "/api/tracker/open" => {
             need(r, "POST")?;
             api_tracker::open(sh, &body::json(r)?)?

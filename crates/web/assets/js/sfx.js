@@ -105,7 +105,7 @@ export function start() {
     },
   });
   paint();
-  const box = document.querySelector(".top-in");
+  const box = document.querySelector("#sfx-slot") || document.querySelector(".top-in");
   if (box) box.append(btn);
   document.addEventListener("click", (e) => {
     const el = target(e);

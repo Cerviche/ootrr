@@ -8,6 +8,7 @@ mod codec;
 pub mod digest;
 pub mod export;
 pub mod list;
+pub mod menu;
 pub mod model;
 pub mod presets;
 pub mod seed;

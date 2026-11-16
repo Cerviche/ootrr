@@ -1,12 +1,10 @@
 import { $, h, fill, notice } from "/js/dom.js";
 import { init_token, get } from "/js/api.js";
 import { state, restore } from "/js/store.js";
-import { register, start, show, here } from "/js/nav.js";
-import { render as setup, probe } from "/js/setup.js";
-import { render as settings } from "/js/settings.js";
-import { render as generate } from "/js/generate.js";
-import { render as result } from "/js/result.js";
-import { start as start_theme } from "/js/theme.js";
+import { start } from "/js/nav.js";
+import { start_menu } from "/js/menu.js";
+import { start as start_theme, mount as mount_theme } from "/js/theme.js";
+import { start as start_tips } from "/js/tooltip.js";
 import { start as start_sfx } from "/js/sfx.js";
 import { start as start_update } from "/js/update.js";
 
@@ -16,7 +14,7 @@ function fail(msg) {
 
 async function boot() {
   start_theme();
-  start_sfx();
+  start_tips();
   if (!init_token()) {
     return fail("This page has no session token. Open the link that ootrr serve printed in your terminal.");
   }
@@ -27,20 +25,15 @@ async function boot() {
   } catch (e) {
     return fail(e.message);
   }
-  register("setup", setup);
-  register("settings", settings);
-  register("generate", generate);
-  register("result", result);
   try {
+    start_menu();
+    mount_theme();
+    start_sfx();
     start();
   } catch (e) {
     return fail(`The page could not start. ${e.message}`);
   }
   start_update();
-  if (here() !== "setup") {
-    await probe();
-    show();
-  }
 }
 
 boot();

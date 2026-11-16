@@ -1,18 +1,51 @@
 import { h } from "./dom.js";
-import { max_of, dep_text, effective } from "./rules.js";
+import { max_of, dep_text, effective, same, clone } from "./rules.js";
 import { post } from "./api.js";
 import { state } from "./store.js";
+import { tip_button } from "./tooltip.js";
 
-function head(s) {
-  return h("div", { class: "head" }, h("span", { class: "title" }, s.label), h("span", { class: "badge" }, s.tag));
+const NS = "http://www.w3.org/2000/svg";
+
+export function reset_icon() {
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.8");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  for (const d of ["M3 8a5 5 0 1 0 1.6-3.7", "M2.6 2v3.3h3.3"]) {
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", d);
+    svg.append(p);
+  }
+  return svg;
 }
 
-function toggle(s, ctx) {
+export function marked(text, terms) {
+  const t = (terms || []).filter(Boolean);
+  if (!t.length) return [text];
+  const esc = t.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`(${esc.join("|")})`, "gi");
+  return String(text).split(re).map((part, i) => (i % 2 ? h("mark", null, part) : part));
+}
+
+function tip_content(s, vals) {
+  return () => {
+    const kids = [h("div", null, s.tip)];
+    const cs = (s.choices || []).filter((c) => c.tip);
+    if (s.kind === "choice" && cs.length) kids.push(h("dl", null, cs.map((c) => [h("dt", null, c.label), h("dd", null, c.tip)])));
+    if (s.kind === "number") kids.push(h("dl", null, h("dd", null, `From ${s.min} to ${max_of(s, vals())}. Default ${s.default}.`)));
+    return kids;
+  };
+}
+
+function toggle(s, ctx, terms) {
   const box = h("input", { type: "checkbox", id: `c_${s.id}`, onchange: () => ctx.set(s.id, box.checked) });
-  const lab = h("label", { class: "switch", for: `c_${s.id}` }, box, h("span", null, s.tip));
   return {
-    el: lab,
-    tip: null,
+    label: h("label", { class: "chk", for: `c_${s.id}` }, box, h("span", null, marked(s.label, terms))),
+    body: null,
     sync(v, on) {
       box.checked = v === true;
       box.disabled = !on;
@@ -20,82 +53,73 @@ function toggle(s, ctx) {
   };
 }
 
-function choice(s, ctx) {
+function choice(s, ctx, terms) {
   const sel = h(
     "select",
-    { id: `c_${s.id}`, "aria-label": s.label, onchange: () => ctx.set(s.id, sel.value) },
+    { id: `c_${s.id}`, onchange: () => ctx.set(s.id, sel.value) },
     s.choices.map((c) => h("option", { value: c.id }, c.label)),
   );
-  const hint = h("div", { class: "hint" });
   return {
-    el: h("div", null, sel, hint),
-    tip: s.tip,
+    label: h("label", { for: `c_${s.id}` }, marked(s.label, terms)),
+    body: sel,
     sync(v, on) {
       sel.value = v;
       sel.disabled = !on;
-      const c = s.choices.find((x) => x.id === v);
-      hint.textContent = (c && c.tip) || "";
     },
   };
 }
 
-function number(s, ctx) {
-  const inp = h("input", {
-    type: "number",
-    id: `c_${s.id}`,
-    "aria-label": s.label,
-    min: s.min,
-    max: s.max,
-    step: "1",
-    inputmode: "numeric",
-    onchange: () => {
-      const n = Number.parseInt(inp.value, 10);
-      ctx.set(s.id, Number.isFinite(n) ? n : s.default);
-    },
-  });
-  const hint = h("div", { class: "hint" });
+function number(s, ctx, terms) {
+  const val = h("span", { class: "val" });
+  const range = h("input", { type: "range", id: `c_${s.id}`, min: s.min, max: s.max, step: "1" });
+  range.addEventListener("input", () => (val.textContent = range.value));
+  range.addEventListener("change", () => ctx.set(s.id, Number.parseInt(range.value, 10)));
+  const less = h("button", { type: "button", class: "btn", "aria-label": `Less ${s.label}` }, "−");
+  const more = h("button", { type: "button", class: "btn", "aria-label": `More ${s.label}` }, "+");
+  let now = s.default;
+  less.onclick = () => ctx.set(s.id, now - 1);
+  more.onclick = () => ctx.set(s.id, now + 1);
   return {
-    el: h("div", null, inp, hint),
-    tip: s.tip,
+    label: h("label", { for: `c_${s.id}` }, marked(s.label, terms), ": ", val),
+    body: h("div", { class: "sl" }, less, range, more),
     sync(v, on, vals) {
       const m = max_of(s, vals);
-      inp.max = m;
-      inp.value = v;
-      inp.disabled = !on;
-      hint.textContent = `From ${s.min} to ${m}`;
+      now = v;
+      range.max = m;
+      range.value = v;
+      val.textContent = String(v);
+      range.disabled = !on;
+      less.disabled = !on || v <= s.min;
+      more.disabled = !on || v >= m;
     },
   };
 }
 
-function multi(s, ctx) {
+function multi(s, ctx, terms) {
   const boxes = new Map();
   const count = h("span", null);
-  const chips = h(
+  const grid = h(
     "div",
-    { class: "chips" },
+    { class: "cgrid" },
     s.choices.map((c) => {
       const b = h("input", { type: "checkbox", value: c.id });
       boxes.set(c.id, b);
-      const lab = h("label", { class: "chip", title: c.tip || null }, b, c.label);
-      b.addEventListener("change", () => {
-        const now = [...boxes].filter(([, x]) => x.checked).map(([k]) => k);
-        ctx.set(s.id, now);
-      });
-      return lab;
+      b.addEventListener("change", () => ctx.set(s.id, [...boxes].filter(([, x]) => x.checked).map(([k]) => k)));
+      return h("label", { class: "chk", title: c.tip || null }, b, h("span", null, marked(c.label, terms)));
     }),
   );
   const clear = h("button", { type: "button", class: "btn small", onclick: () => ctx.set(s.id, []) }, "Clear");
   return {
-    el: h("details", null, h("summary", null, count), chips, h("div", { class: "row", }, clear)),
-    tip: s.tip,
+    label: h("span", null, marked(s.label, terms)),
+    after: h("span", null, count, clear),
+    body: grid,
     sync(v, on) {
       for (const [k, b] of boxes) {
         b.checked = v.includes(k);
         b.disabled = !on;
-        b.parentElement.classList.toggle("on", b.checked);
       }
       clear.disabled = !on || v.length === 0;
-      count.textContent = v.length === 0 ? "None selected" : `${v.length} of ${s.choices.length} selected`;
+      count.textContent = `${v.length} of ${s.choices.length} selected`;
     },
   };
 }
@@ -169,7 +193,7 @@ function exclusions(s, ctx, ta, hint) {
   };
 }
 
-function list(s, ctx) {
+function list(s, ctx, terms) {
   const ta = h("textarea", {
     id: `c_${s.id}`,
     "aria-label": s.label,
@@ -184,8 +208,8 @@ function list(s, ctx) {
   const hint = h("div", { class: "hint" });
   const x = s.id === "disabled_locations" ? exclusions(s, ctx, ta, hint) : null;
   return {
-    el: x ? x.el : h("div", null, ta, hint),
-    tip: s.tip,
+    label: h("span", null, marked(s.label, terms)),
+    body: x ? x.el : h("div", null, ta, hint),
     sync(v, on) {
       if (document.activeElement !== ta) ta.value = v.join("\n");
       ta.disabled = !on;
@@ -197,19 +221,27 @@ function list(s, ctx) {
 
 const KINDS = { toggle, choice, number, multi, list };
 
-export function make_row(schema, s, ctx) {
-  const c = KINDS[s.kind](s, ctx);
-  const tip = c.tip ? h("div", { class: "hint" }, c.tip) : null;
-  const note = h("div", { class: "depnote" });
-  const wide = s.kind === "multi" || s.kind === "list";
-  const el = h("div", { class: `setting${wide ? " wide" : ""}`, "data-id": s.id }, head(s), tip, c.el, note);
+export const is_wide = (s) => s.kind === "multi" || s.kind === "list";
+
+export function make_row(schema, s, ctx, opts = {}) {
+  let vals = {};
+  const c = KINDS[s.kind](s, ctx, opts.terms);
+  const rst = h("button", { type: "button", class: "dot", title: "Changed from default. Click to reset.", "aria-label": `Reset ${s.label} to default`, hidden: true }, reset_icon());
+  rst.onclick = () => ctx.set(s.id, clone(s.default));
+  const why = h("div", { class: "why" });
+  const head = h("div", { class: "wl" }, c.label, tip_button(s.label, tip_content(s, () => vals)), rst);
+  const top = c.after ? h("div", { class: "cbar" }, head, c.after) : head;
+  const el = h("div", { class: "w", "data-id": s.id }, top, c.body, why, opts.note ? h("div", { class: "hitnote" }, opts.note) : null);
   return {
     s,
     el,
-    sync(vals, on) {
-      c.sync(vals[s.id], on, vals);
+    sync(eff, on) {
+      vals = eff;
+      c.sync(eff[s.id], on, eff);
       el.classList.toggle("off", !on);
-      note.textContent = on ? "" : `Switched off. It applies when ${dep_text(schema, s)}.`;
+      el.hidden = !on && s.kind === "number" && !opts.keep;
+      rst.hidden = !on || same(eff[s.id], s.default);
+      why.textContent = on ? "" : `Needs ${dep_text(schema, s)}`;
     },
   };
 }

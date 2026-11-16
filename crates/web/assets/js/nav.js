@@ -1,65 +1,54 @@
-import { $, h, fill } from "./dom.js";
+import { $, fill, h } from "./dom.js";
 import { state } from "./store.js";
+import { hide as hide_tip } from "./tooltip.js";
 
-export const STEPS = [
-  { id: "setup", label: "Setup" },
-  { id: "settings", label: "Settings" },
-  { id: "generate", label: "Generate" },
-  { id: "result", label: "Result" },
-];
+const OLD = { setup: "config", settings: "world", generate: "seed", result: "seed" };
 
 const screens = new Map();
+let first = "config";
 let current = "";
+let after = () => {};
 
 export function register(id, render) {
   screens.set(id, render);
 }
 
+export function set_first(id) {
+  first = id;
+}
+
+export function on_show(fn) {
+  after = fn;
+}
+
 export function here() {
   const m = /^#\/([a-z]+)/.exec(location.hash);
-  return m && screens.has(m[1]) ? m[1] : "setup";
+  if (!m) return first;
+  const id = OLD[m[1]] && !screens.has(m[1]) ? OLD[m[1]] : m[1];
+  return screens.has(id) ? id : first;
+}
+
+export function current_page() {
+  return current;
 }
 
 export function go(id) {
-  if (here() === id && current === id) return;
+  if (here() === id && current === id) return show();
   location.hash = `#/${id}`;
-}
-
-function done(id) {
-  if (id === "setup") return Boolean(state.game_check && state.game_check.ok && state.mod_check && state.mod_check.ok);
-  if (id === "generate") return Boolean(state.result);
-  return false;
-}
-
-export function bar() {
-  const box = $("#steps");
-  if (!box) return;
-  const kids = STEPS.map((s, i) =>
-    h(
-      "button",
-      {
-        type: "button",
-        class: `step${done(s.id) ? " done" : ""}`,
-        "aria-current": s.id === current ? "step" : null,
-        onclick: () => go(s.id),
-      },
-      h("span", { class: "n", "aria-hidden": "true" }, done(s.id) ? "✓" : String(i + 1)),
-      s.label,
-    ),
-  );
-  fill(box, kids);
 }
 
 export function show() {
   const id = here();
+  const again = id === current;
   current = id;
+  hide_tip();
   const main = $("#main");
   try {
     fill(main, screens.get(id)());
   } catch (e) {
     fill(
       main,
-      h("p", { class: "notice error", role: "alert" }, `This screen could not be shown. ${e.message}`),
+      h("p", { class: "notice error", role: "alert" }, `This page could not be shown. ${e.message}`),
       h("button", { type: "button", class: "btn", onclick: () => {
         state.result = null;
         try {
@@ -71,9 +60,8 @@ export function show() {
       } }, "Clear the saved seed and try again"),
     );
   }
-  bar();
-  window.scrollTo(0, 0);
-  main.focus({ preventScroll: true });
+  after(id);
+  if (!again) window.scrollTo(0, 0);
 }
 
 export function start() {
