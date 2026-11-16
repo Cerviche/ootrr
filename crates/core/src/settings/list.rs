@@ -115,7 +115,7 @@ fn starting_items() -> Setting {
             ("bottle", "Empty Bottle"),
             ("magic_beans", "Magic Beans"),
             ("zeldas_letter", "Zelda's Letter"),
-            ("stone_of_agony", "Stone of Agony"),
+            ("stone_of_agony", "Echo Gem (Stone of Agony)"),
             ("gerudo_card", "Gerudo Card"),
             ("goron_bracelet", "Goron's Bracelet"),
             ("silver_scale", "Silver Scale"),
@@ -403,7 +403,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(46, crate::flow_extra::potion::SETTING, "shuffle", "Market Potion Shop bottle and Red Potion", false)
-            .tip("The free empty bottle the Market Potion Shop keeper gives a child after the meeting with Zelda and the Red Potion he pours as thanks for the escaped bug become two shuffled checks, and one more Bottle joins the pool. While the free bottle holds another item he starts the bug tutorial only for a child who already carries an empty bottle, and his shelves still open after the tutorial.")
+            .tip("The Market Potion Shop keeper's free empty bottle and the Red Potion he pours as thanks for the escaped bug become two shuffled checks, and one more Bottle joins the pool. Both checks need a child who has met Zelda, by day, who carries an empty bottle, because while the free bottle holds another item he starts the bug tutorial only for a child with an empty bottle. His shelves still open after the tutorial.")
             .when("shuffle_rewards", "supported"),
     );
     s.push(

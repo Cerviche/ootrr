@@ -237,11 +237,15 @@ export function make_row(schema, s, ctx, opts = {}) {
     el,
     sync(eff, on) {
       vals = eff;
-      c.sync(eff[s.id], on, eff);
-      el.classList.toggle("off", !on);
+      const locked = Boolean(s.unsupported) && same(eff[s.id], s.default);
+      c.sync(eff[s.id], on && !locked, eff);
+      el.classList.toggle("off", !on || locked);
       el.hidden = !on && s.kind === "number" && !opts.keep;
       rst.hidden = !on || same(eff[s.id], s.default);
-      why.textContent = on ? "" : `Needs ${dep_text(schema, s)}`;
+      if (!on) why.textContent = `Needs ${dep_text(schema, s)}`;
+      else if (locked) why.textContent = "Not implemented yet. Only the default works.";
+      else if (s.unsupported) why.textContent = "Not implemented yet. This value stops the build. Reset it.";
+      else why.textContent = "";
     },
   };
 }

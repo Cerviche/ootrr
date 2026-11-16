@@ -636,9 +636,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     crate::slice::silver::stage_text(&mut rf, &mut more, &silver_used)?;
     more.push(stage_pouch(&mut rf, roam)?);
     more.extend(crate::bomb_lift::stage(&mut rf)?);
-    if crate::bomb_pickup::needed(&pot_ts) {
-        more.push(crate::bomb_pickup::stage(&mut rf)?);
-    }
+    let quiet: Vec<&str> = crate::bomb_pickup::wanted(pot_ts.iter().map(|t| t.actor.as_str()).chain(ts.iter().map(|t| t.new_actor.as_str())).chain(skull_drops.iter().map(|x| x.actor.as_str())));
+    more.extend(crate::bomb_pickup::stage_all(&mut rf, &quiet)?);
     more.extend(crate::door_fix::stage(&mut rf)?);
     if p.door {
         more.extend(crate::door_open::stage_door(&mut rf)?);
