@@ -9,7 +9,6 @@ pub mod kit;
 pub mod magic;
 pub mod meter;
 pub mod model;
-pub mod pot_kit;
 pub mod place;
 pub mod rows;
 pub mod sizes;

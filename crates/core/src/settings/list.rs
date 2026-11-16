@@ -250,35 +250,35 @@ pub fn build() -> Schema {
     s.push(
         where_checks(
             Setting::choice(9, "shuffle_pots", "shuffle", "Pots", "off")
-                .tip("Which pots, including flying pots, hold random items. Key items whose pickup pack is built can sit in a pot. A pot that holds a key item is saved as broken only when its item is picked up, so if the item falls into a pit, lands out of reach or is left behind, the pot is back with it the next time the area loads. Rupees, hearts and ammo from a pot are given once and are gone if they are not picked up. Flying pots work the same way."),
+                .tip("Which pots, including flying pots, hold random items. Key items whose pickup pack is built can sit in a pot. A shuffled pot gives its item once and stays broken in the save. An item you do not pick up is lost and can make the seed unbeatable, so save before breaking pots that may hold key items. Flying pots work the same way. Experimental, untested in the game."),
         ),
     );
     s.push(
         where_checks(
             Setting::choice(10, "shuffle_crates", "shuffle", "Crates", "off")
-                .tip("Which crates hold random items. Key items whose pickup pack is built can sit in a crate. A crate that holds a key item is saved as broken only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once."),
+                .tip("Which crates hold random items. Key items whose pickup pack is built can sit in a crate. A shuffled crate gives its item once and stays broken in the save. An item you do not pick up is lost and can make the seed unbeatable, so save before breaking crates that may hold key items. Experimental, untested in the game."),
         ),
     );
     s.push(
         Setting::toggle(67, crate::pot_slice::plan::HIVES, "shuffle", "Beehives", false)
-            .tip("Whether the seven beehives in the covered hole of Kakariko Village hold random items. They are the only beehives in the remake that drop an item. Key items whose pickup pack is built can sit in a hive. A hive that holds a key item is saved as fallen only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once. A hive needs an explosive to open the hole and then the Boomerang, the Hookshot or a bow to bring down. Experimental, untested in the game."),
+            .tip("Whether the seven beehives in the covered hole of Kakariko Village hold random items. They are the only beehives in the remake that drop an item. Key items whose pickup pack is built can sit in a hive. A shuffled hive gives its item once and stays fallen in the save. An item you do not pick up is lost and can make the seed unbeatable, so save before bringing down hives that may hold key items. A hive needs an explosive to open the hole and then the Boomerang, the Hookshot or a bow to bring down. Experimental, untested in the game."),
     );
     s.push(
         where_checks(
             Setting::choice(86, "shuffle_rocks", "shuffle", "Small Rocks", "off")
-                .tip("Which small liftable rocks hold random items. The adult and the child copy of a rock are separate checks. Key items whose pickup pack is built can sit under a rock. A rock that holds a key item is saved as broken only when its item is picked up, so if a thrown rock drops it out of reach it is back with the item the next time the area loads. Rupees, hearts and ammo are given once. Experimental, untested in the game."),
+                .tip("Which small liftable rocks hold random items. The adult and the child copy of a rock are separate checks. Key items whose pickup pack is built can sit under a rock. A shuffled rock gives its item once and stays broken in the save. An item you do not pick up is lost, also when a thrown rock drops it out of reach, and that can make the seed unbeatable, so save before lifting rocks that may hold key items. Experimental, untested in the game."),
         ),
     );
     s.push(
         where_checks(
             Setting::choice(87, "shuffle_grass", "shuffle", "Grass", "off")
-                .tip("Which grass tufts hold random items, in the overworld and in the Deku Tree and the Bottom of the Well. Key items whose pickup pack is built can sit in grass. A tuft that holds a key item is saved as cut only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once. The bug grass of the Lost Woods is left alone. Experimental, untested in the game."),
+                .tip("Which grass tufts hold random items, in the overworld and in the Deku Tree and the Bottom of the Well. Key items whose pickup pack is built can sit in grass. A shuffled tuft gives its item once and stays cut in the save. An item you do not pick up is lost and can make the seed unbeatable, so save before cutting grass that may hold key items. The bug grass of the Lost Woods is left alone. Experimental, untested in the game."),
         ),
     );
     s.push(
         where_checks(
             Setting::choice(92, crate::pot_slice::remake::SETTING, "shuffle", "Remake only pots", "off")
-                .tip("Which of the 213 pots, crates and flying pots that only the remake has, with no spot of the original game matched to them, hold random items. They sit in every dungeon but the Deku Tree and the Gerudo Training Ground, and in Kakariko, the Market, the hideout, the fortress, Lon Lon Ranch, Zora's River and Fountain and more. Their logic region comes from the room data and the nearest known checks, the harder one where two fit, so a few may be logically placed too early. They hold the same items as the other pots and crates, key items included. Experimental, untested in the game."),
+                .tip("Which of the 213 pots, crates and flying pots that only the remake has, with no spot of the original game matched to them, hold random items. They sit in every dungeon but the Deku Tree and the Gerudo Training Ground, and in Kakariko, the Market, the hideout, the fortress, Lon Lon Ranch, Zora's River and Fountain and more. Their logic region comes from the room data and the nearest known checks, the harder one where two fit, so a few may be logically placed too early. They hold the same items as the other pots and crates, key items included, and each gives its item once. An item you do not pick up is lost and can make the seed unbeatable, so save before breaking them. Experimental, untested in the game."),
         ),
     );
     s.push(
