@@ -6,6 +6,7 @@ pub mod byml;
 pub mod calibrate;
 pub mod cosmetic;
 pub mod sfx;
+pub mod slink;
 pub mod catalog;
 pub mod catalog_free;
 pub mod colors;
