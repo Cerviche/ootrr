@@ -51,7 +51,7 @@ pub fn class(d: &Data, item: &str) -> Option<Class> {
     if t.hearts.iter().any(|i| i == item) {
         return Some(Class::Heart);
     }
-    if d.family(item).is_some_and(|f| crate::shelf::hook::by_family(f).is_some()) {
+    if d.family(item).is_some_and(crate::shelf::hook::gear) {
         return Some(Class::Gear);
     }
     if d.family(item).is_some_and(|f| t.upgrades.iter().any(|u| u == f)) {

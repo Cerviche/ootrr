@@ -98,8 +98,8 @@ pub fn drop_actor(t: &Table, d: &Data, item: &str, tier: Option<&str>) -> Res<St
         return Ok(crate::slice::skull_kit::kit_actor(&a));
     }
     let p: crate::slice::key_spots::Pick = crate::slice::key_spots::resolve(d, item, tier)?;
-    p.kit_spec()?;
-    Ok(p.kit())
+    p.hang_with()?;
+    Ok(p.hang())
 }
 
 pub fn shared() -> Option<&'static Table> {

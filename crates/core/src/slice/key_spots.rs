@@ -52,6 +52,15 @@ impl Pick {
         }
         Ok((Spec { name: self.kit(), ..s }, l))
     }
+
+    pub fn hang(&self) -> String {
+        crate::pickup_pack::kit::hang_of(&self.pack)
+    }
+
+    pub fn hang_with(&self) -> Res<(Spec, Layers)> {
+        let (s, l): (Spec, Layers) = self.kit_with()?;
+        Ok((Spec { name: self.hang(), ..s }, l))
+    }
 }
 
 fn entries() -> &'static [Entry] {
@@ -213,7 +222,8 @@ pub fn spoiler(d: &Data, w: &World, free: &[LocId], got: &Placement, assign: &BM
         }
         let held: bool = d.pots.kind_of(name).is_some_and(crate::pot_slice::data::Kind::kit);
         let actor: String = match resolve(d, item, assign.get(name).map(|s| s.as_str())) {
-            Ok(p) if crate::slice::skulls::is_skull(d, name) || held => p.kit(),
+            Ok(p) if crate::slice::skulls::is_skull(d, name) => p.hang(),
+            Ok(p) if held => p.kit(),
             Ok(p) => p.pack.clone(),
             Err(_) if held && crate::pot_slice::pickup::shipped_kit(item).is_some() => name_of(crate::pot_slice::pickup::shipped_kit(item).unwrap_or("")),
             Err(_) if held && crate::pot_slice::pickup::of(item).is_some_and(|a| a == crate::pot_slice::pickup::TOKEN) => crate::pickup_pack::fall::dropped(crate::pot_slice::pickup::TOKEN),

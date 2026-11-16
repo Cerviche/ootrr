@@ -16,7 +16,6 @@ use crate::world::{LocId, Placement, World};
 pub const CHAIN: &str = "ownership chain";
 pub const FIXED: &str = "fixed tier";
 pub const TOP: &str = "top only";
-pub const BOTH: &str = "base and top";
 pub const GUARD: &str = "base guard";
 pub const VANILLA: &str = "vanilla flow";
 pub const DIRECT: &str = "direct grant";
@@ -194,14 +193,14 @@ pub fn census(d: &Data, seed: &SeedFile) -> Res<Vec<Row>> {
         let c: String = if placed { check(d, &s.loc) } else { format!("vanilla {}", check(d, &s.loc)) };
         let t: &[&str] = tiers(s.family)?;
         if crate::shops::is_loc(&s.loc) {
-            let both: bool = crate::shelf::hook::by_family(s.family).is_some();
+            let chain: bool = crate::shelf::hook::by_family(s.family).is_some();
             out.push(Row {
                 loc: s.loc.clone(),
                 family: s.family,
                 check: c,
-                mech: if both { BOTH } else { TOP },
-                tier: t[t.len() - 1].to_string(),
-                risk: SHOP,
+                mech: if chain { CHAIN } else { TOP },
+                tier: if chain { t[0].to_string() } else { t[t.len() - 1].to_string() },
+                risk: if chain { RUNTIME } else { SHOP },
                 held: 0,
                 forced: 0,
             });

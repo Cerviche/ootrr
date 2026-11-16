@@ -395,8 +395,19 @@ mod tests {
             return;
         };
         let d: Data = Data::load().unwrap();
-        let js: Vec<Job> = jobs(&d, &["KF Shop Item 1=Bow@10", "KF Shop Item 2=Item_BulletBag_Large@10", "KF Shop Item 3=Bomb Bag@10", "KF Shop Item 8=Magic Meter@10"]);
-        assert_eq!(js.iter().map(|j| j.shelf_actor()).collect::<Vec<String>>(), vec!["Shop_OOTRR_Item_Range_Bow_10", "Shop_OOTRR_Item_Range_SlingShot_10", "Shop_OOTRR_Item_BombBag_Small_10", "Shop_OOTRR_Item_FairyBless_MP_10"]);
+        let js: Vec<Job> = jobs(&d, &["KF Shop Item 1=Bow@10", "KF Shop Item 2=Item_BulletBag_Large@10", "KF Shop Item 3=Bomb Bag@10", "KF Shop Item 8=Magic Meter@10", "KF Shop Item 4=Progressive Hookshot@10", "KF Shop Item 5=Ocarina@10", "KF Shop Item 6=Progressive Strength Upgrade@10"]);
+        assert_eq!(
+            js.iter().map(|j| j.shelf_actor()).collect::<Vec<String>>(),
+            vec![
+                "Shop_OOTRR_Item_Range_Bow_10",
+                "Shop_OOTRR_Item_Range_SlingShot_10",
+                "Shop_OOTRR_Item_BombBag_Small_10",
+                "Shop_OOTRR_Item_FairyBless_MP_10",
+                "Shop_OOTRR_Item_Hookshot_10",
+                "Shop_OOTRR_Item_Ocarina_Fairy_10",
+                "Shop_OOTRR_Item_Gauntlet_Silver_10"
+            ]
+        );
         let load: PB = std::env::temp_dir().join(format!("ootrr_shelf_hook_{}", std::process::id()));
         let _ = fs::remove_dir_all(&load);
         let done: Done = run(&root, None, &load, "hook", Host::Hookshot, &js).unwrap();
@@ -406,8 +417,9 @@ mod tests {
         assert!(lines.iter().any(|l| l.contains("shelf hook")), "{lines:?}");
         let mut rf: Romfs = Romfs::open(&root).unwrap();
         let raw: Vec<u8> = rf.zs.decompress(&fs::read(back.join(hook::FLOW)).unwrap()).unwrap();
-        let all: BS<String> = hook::HOOKS.iter().map(|h| h.name.to_string()).collect();
-        assert!(hook::check(&raw, &all).is_empty());
+        let all: BS<String> = hook::HOOKS.iter().filter(|h| hook::gear(h.family) || ["Hookshot", "Ocarina", "Strength"].contains(&h.family)).map(|h| h.name.to_string()).collect();
+        assert_eq!(hook::names(&raw).unwrap(), all);
+        assert!(hook::check(&raw, &all).is_empty(), "{:?}", hook::check(&raw, &all));
         let vanilla: usize = rf.read_zs(hook::FLOW).unwrap().len();
         let rst: Rst = Rst::parse(&rf.zs.decompress(&fs::read(back.join(TABLE_PATH)).unwrap()).unwrap()).unwrap();
         let stock: Rst = rsizetable::load(&mut rf).unwrap();

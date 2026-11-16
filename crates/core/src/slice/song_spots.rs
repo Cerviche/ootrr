@@ -173,7 +173,7 @@ mod tests {
         let s: SeedFile = SeedFile::new("s", &Settings::default(), "g", m).unwrap();
         let w: BM<String, Want> = need(&d, &s, &BM::new()).unwrap();
         let names: Vec<&str> = w.keys().map(|k| k.as_str()).collect();
-        assert_eq!(names, vec!["Obj_Melody_SariaSong_GS", "Obj_Melody_SunSong"]);
+        assert_eq!(names, vec!["Obj_Melody_SariaSong_GH", "Obj_Melody_SunSong"]);
         assert_eq!(w["Obj_Melody_SunSong"].kind, Kind::Free);
         for x in w.values() {
             assert_eq!(x.spec().unwrap().1.model.as_deref(), Some(crate::pickup_pack::model::HARP));

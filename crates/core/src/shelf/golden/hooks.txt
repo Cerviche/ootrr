@@ -1,0 +1,115 @@
+Bow sells Item_Range_Bow as Weapon_Range_Bow
+owning nothing
+  shop grant
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Range_Bow IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Quiver_Small IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=1
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Arrow_Normal IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=30
+owning Weapon_Range_Bow
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Quiver_Medium IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Weapon_Range_Bow, Item_Quiver_Medium
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Quiver_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Weapon_Range_Bow, Item_Quiver_Medium, Item_Quiver_Large
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Quiver_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+Slingshot sells Item_Range_SlingShot as Weapon_Range_SlingShot
+owning nothing
+  shop grant
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Range_SlingShot IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BulletBag_Small IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=1
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_DekuSeed IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=30
+owning Weapon_Range_SlingShot
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BulletBag_Medium IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Weapon_Range_SlingShot, Item_BulletBag_Medium
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BulletBag_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Weapon_Range_SlingShot, Item_BulletBag_Medium, Item_BulletBag_Large
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BulletBag_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+BombBag sells Item_BombBag_Small as Item_BombBag_Small
+owning nothing
+  shop grant
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BombBag_Small IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Bomb IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=20
+owning Item_BombBag_Small
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BombBag_Medium IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_BombBag_Small, Item_BombBag_Medium
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BombBag_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_BombBag_Small, Item_BombBag_Medium, Item_BombBag_Large
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_BombBag_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+Magic sells Item_FairyBless_MP as Item_FairyBless_MP
+owning nothing
+  shop grant
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_FairyBless_MP IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+  UISystemActor.EventTriggerReserveBornMPGauge
+  UISystemActor.EventTriggerSetDisplayHeartGauge IsDisplayHeartGauge=true
+  EventSystemActor.EventWait Frames=100 IsWaitEnd=true
+  UISystemActor.EventBornMPGauge IsWaitEnd=true
+  EventSystemActor.EventWait Frames=30 IsWaitEnd=true
+owning Item_FairyBless_MP
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_FairyBless_MPDouble IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+  UISystemActor.EventTriggerReserveBornMPGaugeDouble
+  UISystemActor.EventTriggerSetDisplayHeartGauge IsDisplayHeartGauge=true
+  EventSystemActor.EventWait Frames=100 IsWaitEnd=true
+  UISystemActor.EventBornMPGaugeDouble IsWaitEnd=true
+  EventSystemActor.EventWait Frames=30 IsWaitEnd=true
+owning Item_FairyBless_MP, Item_FairyBless_MPDouble
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_FairyBless_MPDouble IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+  UISystemActor.EventTriggerReserveBornMPGaugeDouble
+  UISystemActor.EventTriggerSetDisplayHeartGauge IsDisplayHeartGauge=true
+  EventSystemActor.EventWait Frames=100 IsWaitEnd=true
+  UISystemActor.EventBornMPGaugeDouble IsWaitEnd=true
+  EventSystemActor.EventWait Frames=30 IsWaitEnd=true
+Hookshot sells Item_Hookshot as Item_Hookshot
+owning nothing
+  shop grant
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Hookshot IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_Hookshot
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Longshot IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_Hookshot, Item_Longshot
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Longshot IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+Strength sells Item_Gauntlet_Silver as Armor_Adult_Gauntlet_Silver
+owning nothing
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Gauntlet_Goron IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Armor_Child_Gauntlet_Goron
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Gauntlet_Silver IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Armor_Child_Gauntlet_Goron, Armor_Adult_Gauntlet_Silver
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Gauntlet_Gold IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Armor_Child_Gauntlet_Goron, Armor_Adult_Gauntlet_Silver, Armor_Adult_Gauntlet_Gold
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Gauntlet_Gold IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+Wallet sells Item_Wallet_Medium as Item_Wallet_Medium
+owning nothing
+  shop grant
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Wallet_Medium IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_Wallet_Medium
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Wallet_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_Wallet_Medium, Item_Wallet_Large
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Wallet_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+Scale sells Item_Scale_Silver as Item_Scale_Silver
+owning nothing
+  shop grant
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Scale_Silver IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_Scale_Silver
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Scale_Gold IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_Scale_Silver, Item_Scale_Gold
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Scale_Gold IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+NutBag sells Item_NutBag_Medium as Item_NutBag_Medium
+owning nothing
+  shop grant
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_NutBag_Medium IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_NutBag_Medium
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_NutBag_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_NutBag_Medium, Item_NutBag_Large
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_NutBag_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+StickBag sells Item_StickBag_Medium as Item_StickBag_Medium
+owning nothing
+  shop grant
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_StickBag_Medium IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_StickBag_Medium
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_StickBag_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_StickBag_Medium, Item_StickBag_Large
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_StickBag_Large IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+Ocarina sells Item_Ocarina_Fairy as Item_Ocarina_Fairy
+owning nothing
+  shop grant
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Ocarina_Fairy IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_Ocarina_Fairy
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Ocarina_Time IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1
+owning Item_Ocarina_Fairy, Item_Ocarina_Time
+  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Ocarina_Time IsEquipDIrect=false IsGetEvent=true IsSetMessageTargetActorName=false Num=1

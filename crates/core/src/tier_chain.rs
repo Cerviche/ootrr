@@ -4,8 +4,11 @@ pub enum Step {
     Ask { owner: usize, yes: usize, no: usize },
 }
 
+/// Families whose first tier is a separate item that the later tiers do not include. Magic is
+/// one: its first tier is the Gift of Improved Spin, so a player who holds only the doubled
+/// magic must still be handed the first gift.
 pub fn base_first(family: &str) -> bool {
-    matches!(family, "Bow" | "Slingshot" | "Hookshot")
+    matches!(family, "Bow" | "Slingshot" | "Hookshot" | "Magic")
 }
 
 pub fn steps(n: usize, base: bool) -> Vec<Step> {
@@ -122,7 +125,7 @@ mod tests {
                 }
             }
         }
-        assert!(base_first("Bow") && base_first("Hookshot") && !base_first("BombBag"));
+        assert!(base_first("Bow") && base_first("Hookshot") && base_first("Magic") && !base_first("BombBag"));
         assert_eq!(of("BombBag", 3).len(), 6);
         assert_eq!(of("Bow", 3).len(), 6);
         assert_eq!(of("Hookshot", 2).len(), 3);

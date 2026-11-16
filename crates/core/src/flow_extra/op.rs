@@ -8,6 +8,9 @@ const SET: &str = "EventTriggerSetGameDataBool";
 const ASK: &str = "EventQueryIsGameDataBool";
 const PLAYER: &str = "Player_Event";
 const CHILD: &str = "EventQueryPlayerIsChild";
+const OWNED: &str = "EventQueryCheckIsGet";
+const POUCH: &str = "PouchSystemActor";
+const ADD: &str = "EventTriggerAddOrRemovePouchContent";
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum How {
@@ -20,6 +23,18 @@ pub enum How {
     Clone { param: String, old: String, new: String },
     Once(Once),
     Next { old: u16, new: u16 },
+    Backfill(Backfill),
+}
+
+/// Placed after an action whose next event is `old`: a player who owns `have` but not `lack`
+/// is handed every actor of `give`, in order, the way a chest hands an item over, and then goes
+/// on to `old`. Everyone else goes straight on.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Backfill {
+    pub old: u16,
+    pub have: String,
+    pub lack: String,
+    pub give: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -81,6 +96,7 @@ impl Op {
             How::Clone { .. } => "clone_sub",
             How::Once(_) => "once_grant",
             How::Next { .. } => "next",
+            How::Backfill(_) => "backfill",
         }
     }
 }
@@ -302,6 +318,45 @@ fn once(f: &mut Flow, o: &Op, w: &Once) -> Res<()> {
     Ok(())
 }
 
+fn owns(actor: &str) -> Cont {
+    Cont { items: vec![("ActorName".to_string(), Val::Str(actor.to_string()))] }
+}
+
+fn got(actor: &str) -> Cont {
+    Cont {
+        items: vec![
+            ("Num".to_string(), Val::Int(1)),
+            ("IsEquipDIrect".to_string(), Val::Bool(0)),
+            ("IsSetMessageTargetActorName".to_string(), Val::Bool(0)),
+            ("Actor".to_string(), Val::Str(actor.to_string())),
+            ("IsGetEvent".to_string(), Val::Bool(1)),
+        ],
+    }
+}
+
+fn backfill(f: &mut Flow, o: &Op, w: &Backfill) -> Res<()> {
+    if w.give.is_empty() {
+        return Err(E::Msg(format!("the backfill after {} gives nothing", o.event)));
+    }
+    match &event(f, o.index, &o.event)?.kind {
+        Kind::Action { next, .. } if *next == w.old => {}
+        Kind::Action { next, .. } => return Err(E::Msg(format!("event {} goes to {next} and not {}, the game files differ", o.event, w.old))),
+        _ => return Err(E::Msg(format!("event {} is not an action", o.event))),
+    }
+    let (qa, qi): (u16, u16) = slot(f, HOLDER, OWNED, true)?;
+    let (pa, pi): (u16, u16) = slot(f, POUCH, ADD, false)?;
+    let mut at: u16 = w.old;
+    for g in w.give.iter().rev() {
+        at = push(f, Kind::Action { next: at, actor: pa, act: pi, params: Some(got(g)) })?;
+    }
+    let lack: u16 = push(f, Kind::Switch { actor: qa, query: qi, cases: vec![Case { val: 0, ev: w.old }, Case { val: 1, ev: at }], params: Some(owns(&w.lack)) })?;
+    let have: u16 = push(f, Kind::Switch { actor: qa, query: qi, cases: vec![Case { val: 0, ev: lack }, Case { val: 1, ev: w.old }], params: Some(owns(&w.have)) })?;
+    if let Kind::Action { next, .. } = &mut event(f, o.index, &o.event)?.kind {
+        *next = have;
+    }
+    Ok(())
+}
+
 fn rename(f: &mut Flow, old: &str, new: &str) -> Res<()> {
     if f.actors.iter().any(|a| a.name == new && a.sub.is_empty()) {
         return Ok(());
@@ -329,6 +384,7 @@ pub fn apply(b: &mut Bf, o: &Op) -> Res<()> {
         How::Clone { param, old, new } => crate::flow_extra::clone::clone_sub(f, o.index, &o.event, param, old, new),
         How::Once(w) => once(f, o, w),
         How::Next { old, new } => next(f, o, *old, *new),
+        How::Backfill(w) => backfill(f, o, w),
         How::Set { .. } => Ok(()),
     }
 }

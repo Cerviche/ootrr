@@ -53,12 +53,24 @@ const BODIES: &str = "RigidBodyEntityNamePathAry";
 const FILE_PATH: &str = "FilePath";
 const MOTION: &str = "MotionType";
 
+pub const HANG: &str = "_GH";
+pub const LIFTABLE_REF: &str = "LiftableRef";
+pub const HANG_REFS: [&str; 3] = [PHYSICS_REF, ATTENTION_REF, LIFTABLE_REF];
+
 pub fn name_of(pickup: &str) -> String {
     format!("{pickup}{SUFFIX}")
 }
 
+pub fn hang_of(pickup: &str) -> String {
+    format!("{pickup}{HANG}")
+}
+
+pub fn hangs(kit: &str) -> bool {
+    kit.strip_suffix(HANG).is_some_and(|p| !p.is_empty())
+}
+
 pub fn parent_of(kit: &str) -> Option<&str> {
-    kit.strip_suffix(SUFFIX).filter(|p| !p.is_empty())
+    kit.strip_suffix(SUFFIX).or_else(|| kit.strip_suffix(HANG)).filter(|p| !p.is_empty())
 }
 
 pub fn default_kit(item: &str) -> String {
@@ -152,6 +164,12 @@ pub fn touch(p: &Pool, name: &str) -> Res<bool> {
     Ok(near(&c, &chain(p, BASE)?) && falls(p, &c)? && auto(p, &c)?)
 }
 
+pub fn token_like(p: &Pool, t: &Pool, name: &str) -> Res<bool> {
+    let c: Chain = chain(p, name)?;
+    let tc: Chain = chain(t, TOKEN)?;
+    Ok(HANG_REFS.iter().all(|k| c.comps.get(*k).is_some() && c.comps.get(*k) == tc.comps.get(*k)) && !falls(p, &c)? && auto(p, &c)?)
+}
+
 fn child(p: &Pool, s: &Spec, own: &Chain) -> Res<Made> {
     let up: String = norm(need(own, &s.item, POUCH_REF)?).filter(|f| p.get(f).is_some()).ok_or_else(|| E::Msg(format!("{} keeps its pouch file outside its pack", s.item)))?;
     let version: u16 = p.byml(&actor_file(TOKEN))?.version;
@@ -189,11 +207,17 @@ fn child(p: &Pool, s: &Spec, own: &Chain) -> Res<Made> {
     })
 }
 
-fn with_kit(p: &Pool, m: Made) -> Res<Made> {
+fn with_kit(p: &Pool, m: Made, hang: bool) -> Res<Made> {
     let mut a: Byml = Byml::parse(&m.actor.1)?;
     let comps: &mut Node = a.root.get_mut(COMPONENTS).ok_or(E::Format("pickup kit: the new actor has no component list"))?;
     for (k, v) in kit_refs(p)? {
         comps.set(k, Node::Str(v));
+    }
+    if hang {
+        let t: Chain = chain(p, TOKEN)?;
+        for k in HANG_REFS {
+            comps.set(k, Node::Str(need(&t, TOKEN, k)?.to_string()));
+        }
     }
     let mut q: Byml = Byml::parse(&m.pouch.1)?;
     q.root.set(MANY, Node::Bool(true));
@@ -231,7 +255,7 @@ pub fn plan_with(packs: &[Vec<Entry>], s: &Spec, l: &Layers) -> Res<Plan> {
         }
         make_with(&p, s, l)?
     };
-    let m: Made = with_kit(&p, first)?;
+    let m: Made = with_kit(&p, first, hangs(&s.name))?;
     let mut fresh: Vec<(String, usize)> = Vec::new();
     for (f, d) in [&m.actor, &m.pouch].into_iter().chain(m.extra.iter()) {
         if p.get(f).is_some() {
@@ -393,8 +417,12 @@ pub fn verify(es: &[Entry], name: &str, token: &[Entry]) -> Res<Vec<String>> {
             return Err(E::Msg(format!("{name} does not set {k}, so it could be taken without the get event and the skulltula would never be saved")));
         }
     }
-    if !touch(&p, name)? {
-        return Err(E::Msg(format!("{name} is taken with the button or hangs in the air ({ATTENTION_REF}, {PHYSICS_REF} or {AUTO_GET}), below a wall or vine skulltula it could not be reached")));
+    let hang: bool = hangs(name);
+    if hang && !token_like(&p, &t, name)? {
+        return Err(E::Msg(format!("{name} does not hang like {TOKEN} ({HANG_REFS:?} of the token, taken by touch), a skulltula drop would not stay where the token would")));
+    }
+    if !hang && !touch(&p, name)? {
+        return Err(E::Msg(format!("{name} is taken with the button or hangs in the air ({ATTENTION_REF}, {PHYSICS_REF} or {AUTO_GET}), dropped from a pot it could not be reached")));
     }
     let mut bodies: usize = 0;
     for e in es.iter().filter(|e| e.name.starts_with(SETS)) {
@@ -415,7 +443,7 @@ pub fn verify(es: &[Entry], name: &str, token: &[Entry]) -> Res<Vec<String>> {
     Ok(vec![
         format!("{name} carries the token kit: {} shipped files byte for byte, graph {g}", shared.len()),
         format!("{name}: the skulltula rows are written only on death reason {COLLECTED}, the end of the get event, and {MANY} and {AT_MAX} make every pickup play it"),
-        format!("{name}: blackboard key {HASH_KEY} starts at 0 and {ATTENTION} starts true, rigid body {BODY} found, taken by touch and every body falls"),
+        format!("{name}: blackboard key {HASH_KEY} starts at 0 and {ATTENTION} starts true, rigid body {BODY} found, taken by touch and {}", if hang { "it hangs in the air like the token" } else { "every body falls" }),
     ])
 }
 

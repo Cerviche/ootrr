@@ -542,6 +542,48 @@ pub fn patch_endings(b: &mut Bf) -> Res<usize> {
     Ok(n)
 }
 
+/// After the Fire Temple boss, SageOfFire_ClearEvent plays Dm_FireTemple_0030 and changes to
+/// KakarikoVillage_Adult booting FireTemple_SageOfFire_Kakariko, which preloads the Chamber of
+/// Sages, plays Dm_Kakariko_0025 (the village scene) and changes to SageRoom booting
+/// FireTemple_SageOfFire_SageRoom. With 0025 cut, that boot event reserved the next change while
+/// the village was still loading and Link froze at the village entrance. The Kakariko stop is
+/// removed: the clear event writes 0025's played flag, preloads the Chamber and changes straight
+/// to it with the Chamber boot (a copy of the boot event's own change).
+pub const FIRE_PREFIX: &str = "OOTRRFire";
+const FIRE_EXIT: (&str, &str) = ("Event19", "Dm_FireTemple_0030");
+const FIRE_TO_VILLAGE: (&str, &str) = ("Event30", "FireTemple_SageOfFire_Kakariko");
+const FIRE_PRELOAD: (&str, &str) = ("Event298", "GameSystemActor.EventTriggerBancRequestBeforehandLoad");
+const FIRE_TO_CHAMBER: (&str, &str) = ("Event35", "FireTemple_SageOfFire_SageRoom");
+const BANC_CHANGE: &str = "GameSystemActor.EventReserveBancChange";
+
+pub fn patch_fire_ending(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, ENDING_FLOW)?;
+    guard(f, FIRE_PREFIX)?;
+    let exit: usize = find_action(f, (FIRE_EXIT.0, "EventSystemActor.EventTransition"))?;
+    if text(&f.events[exit], "EventName") != Some(FIRE_EXIT.1) {
+        return Err(Error::Format("story skip: the Fire Temple exit no longer plays its scene, the game files differ"));
+    }
+    let village: usize = find_action(f, (FIRE_TO_VILLAGE.0, BANC_CHANGE))?;
+    let chamber: usize = find_action(f, (FIRE_TO_CHAMBER.0, BANC_CHANGE))?;
+    for (i, boot) in [(village, FIRE_TO_VILLAGE.1), (chamber, FIRE_TO_CHAMBER.1)] {
+        if text(&f.events[i], "BootEventName") != Some(boot) {
+            return Err(Error::Msg(format!("story skip: {} no longer boots {boot}, the game files differ", f.events[i].name)));
+        }
+    }
+    if next_of(&f.events[exit].kind) != Some(idx(village)?) {
+        return Err(Error::Format("story skip: the Fire Temple exit no longer leads to the village change"));
+    }
+    let preload: Kind = f.events[find_action(f, FIRE_PRELOAD)?].kind.clone();
+    let mut to_chamber: Kind = f.events[chamber].kind.clone();
+    set_next(&mut to_chamber, NONE)?;
+    f.events[village].kind = to_chamber;
+    f.events[village].name = format!("{FIRE_PREFIX}{village}");
+    let flag: Kind = set_bool(f, "HavePlayedEvent.Dm_Kakariko_0025", true)?;
+    let first: u16 = chain(f, FIRE_PREFIX, vec![flag, preload], idx(village)?)?;
+    set_next(&mut f.events[exit].kind, first)?;
+    Ok(())
+}
+
 /// The medallion scenes of the Chamber of Sages. Each gives its check, fades to white, restores
 /// the boots, then waits a second, shows the sage's parting line(s) on the white screen and
 /// waits about three more seconds (Forest and Fire then set AllSage_AwakeSage_Fire_Or_Forest).
@@ -613,6 +655,7 @@ pub fn stage_endings(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
     let mut outs: Vec<Out> = vec![edit_zs(rf, have, ENDING_FILE, |raw| {
         rebuild(raw, |b| {
             patch_endings(b)?;
+            patch_fire_ending(b)?;
             Ok(())
         })
     })?];
@@ -1354,5 +1397,24 @@ mod tests {
         assert_eq!(ends(f, g).unwrap(), NONE);
         let out: Vec<u8> = b.write().unwrap();
         assert_eq!(Bf::parse(&out).unwrap(), b);
+    }
+
+    #[test]
+    fn the_real_fire_temple_goes_straight_to_the_chamber() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut b: Bf = Bf::parse(&rf.read_zs(ENDING_FILE).unwrap()).unwrap();
+        patch_endings(&mut b).unwrap();
+        patch_fire_ending(&mut b).unwrap();
+        assert!(patch_fire_ending(&mut b).is_err());
+        let f: &Flow = b.flows.iter().find(|f| f.name == ENDING_FLOW).unwrap();
+        let w: Vec<String> = walk(f, find(f, FIRE_EXIT.0).unwrap() as u16, 10);
+        assert_eq!(w, vec!["EventSystemActor.EventTransition(Dm_FireTemple_0030)", "GameDataActor.EventTriggerSetGameDataBool(HavePlayedEvent.Dm_Kakariko_0025)", "GameSystemActor.EventTriggerBancRequestBeforehandLoad()", "GameSystemActor.EventReserveBancChange()"]);
+        let last: &Event = f.events.iter().find(|e| e.name.starts_with(FIRE_PREFIX) && text(e, "NextBanc").is_some()).unwrap();
+        assert_eq!(text(last, "NextBanc"), Some("SageRoom"));
+        assert_eq!(text(last, "BootEventName"), Some("FireTemple_SageOfFire_SageRoom"));
+        Bf::parse(&b.write().unwrap()).unwrap();
     }
 }

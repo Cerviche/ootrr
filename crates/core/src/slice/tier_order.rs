@@ -151,7 +151,8 @@ pub fn judge(d: &Data, w: &World, place: &Placement, placed: &BM<String, String>
         let it: ItemId = w.item(name).ok_or_else(|| E::Msg(format!("{name} is not in the logic item list")))?;
         for s in mine.iter().filter(|s| s.give != Give::Flow) {
             if crate::shops::is_loc(&s.loc) {
-                v.assign.insert(s.loc.clone(), t[t.len() - 1].to_string());
+                // A shop shelf shows the first tier and the shelf hook picks the tier at the purchase.
+                v.assign.insert(s.loc.clone(), t[0].to_string());
                 continue;
             }
             let Some(l) = w.loc(&s.loc) else {

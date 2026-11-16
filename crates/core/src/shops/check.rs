@@ -102,12 +102,12 @@ mod tests {
             let a: Audit = audit(&d, &back).unwrap();
             assert!(a.won && a.bad.is_empty(), "{n}: {:?}", a.bad);
             let l: crate::shops::layout::Layout = crate::shops::seed::layout(&back).unwrap().unwrap();
-            let tiers: std::collections::BTreeMap<String, String> = crate::slice::tier_order::fixed_actors(&d, &back).unwrap().assign;
-            for j in crate::shops::jobs::of(&d, &l, &tiers).unwrap() {
+            for j in crate::shops::jobs::of(&d, &l).unwrap() {
                 if let What::Deal { item, .. } = &j.what {
                     if let Some(h) = hook::by_shelf(item) {
                         seen.insert(h.family);
-                        assert_eq!(tiers.get(&j.label).map(|t| hook::shelf_item(t)), Some(h.shelf), "{}", j.label);
+                        let sold: &str = l.get(&j.label).map(|p| p.item.as_str()).unwrap();
+                        assert_eq!(d.family(sold), Some(h.family), "{}", j.label);
                     }
                 }
             }

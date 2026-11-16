@@ -45,6 +45,7 @@ impl Want {
     pub fn spec(&self) -> Res<(Spec, Layers)> {
         match self.kind {
             Kind::Held => Ok((Spec { item: self.pick.pack.clone(), name: self.pick.kit(), style: Style::Touch, heap: None }, Layers::default())),
+            Kind::Skull => self.pick.hang_with(),
             k if k.kit() => self.pick.kit_with(),
             _ => self.pick.spec(),
         }
@@ -83,7 +84,11 @@ pub fn need(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Res<BM<Str
             (Kind::Held, Some(a)) => Pick { content: item.clone(), pack: a.to_string(), args: Vec::new() },
             _ => resolve(d, item, fixed.get(loc).map(|s| s.as_str())).map_err(|e| E::Msg(format!("{loc} holds {item}, which this build cannot place there yet: {e}")))?,
         };
-        let name: String = if k.kit() { p.kit() } else { p.pack.clone() };
+        let name: String = match k {
+            Kind::Skull => p.hang(),
+            k if k.kit() => p.kit(),
+            _ => p.pack.clone(),
+        };
         let w: &mut Want = out.entry(name.clone()).or_insert_with(|| Want { name, pick: p, kind: k, spots: Vec::new() });
         w.spots.push(loc.clone());
     }
@@ -252,11 +257,16 @@ mod tests {
         let fixed: BM<String, String> = [(skull.to_string(), "Item_Hookshot".to_string())].into_iter().collect();
         let w: BM<String, Want> = need(&d, &s, &fixed).unwrap();
         let names: Vec<&str> = w.keys().map(|k| k.as_str()).collect();
-        assert_eq!(names, vec!["Obj_Boomerang", "Obj_Hammer_GS", "Obj_Hookshot_GS"]);
+        assert_eq!(names, vec!["Obj_Boomerang", "Obj_Hammer_GS", "Obj_Hookshot_GH"]);
         assert_eq!(w["Obj_Boomerang"].kind, Kind::Free);
         assert_eq!(w["Obj_Hammer_GS"].kind, Kind::Pot);
         assert_eq!(w["Obj_Hammer_GS"].spec().unwrap().0.name, "Obj_Hammer_GS");
-        assert_eq!(w["Obj_Hookshot_GS"].spec().unwrap().0.name, "Obj_Hookshot_GS");
+        assert_eq!(w["Obj_Hookshot_GH"].kind, Kind::Skull);
+        assert_eq!(w["Obj_Hookshot_GH"].spec().unwrap().0.name, "Obj_Hookshot_GH");
+        let both: SeedFile = seed(&[(pot.as_str(), "Megaton Hammer"), (skull, "Megaton Hammer")]);
+        let wb: BM<String, Want> = need(&d, &both, &BM::new()).unwrap();
+        assert_eq!(wb.keys().map(|k| k.as_str()).collect::<Vec<&str>>(), vec!["Obj_Hammer_GH", "Obj_Hammer_GS"]);
+        assert_eq!((wb["Obj_Hammer_GH"].kind, wb["Obj_Hammer_GS"].kind), (Kind::Skull, Kind::Pot));
         assert!(need(&d, &s, &BM::new()).is_err());
         let plain: SeedFile = seed(&[(free, "Rupees (5)"), (pot.as_str(), "Rupees (20)"), ("KF Midos Top Left Chest", "Bow")]);
         assert!(need(&d, &plain, &BM::new()).unwrap().is_empty());
