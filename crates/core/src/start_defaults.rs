@@ -414,7 +414,6 @@ mod tests {
             ("Bool".to_string(), key("HyruleField_ArriveEntrance")),
             ("Bool".to_string(), key("HavePlayedEvent.Dm_HrlField_0020")),
             ("Enum".to_string(), key("Step_SubEvent_MaskSalesman")),
-            ("BoolExp".to_string(), key("Get_Epona_IsCompleted_Exp")),
             ("BoolExp".to_string(), key(crate::medal_gate::KAKARIKO_EXP)),
             ("BoolExp".to_string(), key(crate::medal_gate::PRELUDE_EXP)),
             ("BoolExp".to_string(), key(crate::medal_gate::LACS_EXP)),

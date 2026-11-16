@@ -514,7 +514,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(81, crate::open_world::EPONA, "world", "Skip Epona's race", false)
-            .tip("Learning Epona's Song counts as having won Epona from Ingo: the game's \"Epona is Link's horse\" flag is rewritten to read whether the song has been learned, so the ranch race against Ingo is skipped and an adult with the song can call Epona. The Epona quest step is left alone, so child Malon's song lesson still works. Experimental, untested in the game."),
+            .tip("Learning Epona's Song is enough to own Epona, with no ranch visit and no race against Ingo. The first time adult Link plays the song where a horse can be ridden, Epona is registered as his horse and comes, and the Epona quest is marked complete. Experimental, untested in the game."),
     );
     s.push(
         Setting::toggle(82, crate::open_world::MASKS, "world", "Skip the mask trading quest", false)

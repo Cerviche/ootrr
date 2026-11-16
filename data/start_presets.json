@@ -38,14 +38,6 @@
       "note": "The world clock runs from the start. The game normally holds the clock at 6:00 until Kaepora's first Hyrule Field talk and stops it at 15:00 until Impa's send off, and both flags it reads are set at new game. Kaepora, the Zelda meeting and the send off still play."
     },
     {
-      "setting": "skip_epona_race",
-      "value": "true",
-      "edits": [
-        {"kind": "exp", "name": "Get_Epona_IsCompleted_Exp", "value": [[0, "IsGet.Item_Melody_EponaSong"]]}
-      ],
-      "note": "Skip Epona's race: the computed flag Get_Epona_IsCompleted_Exp, which the game reads as \"Epona is Link's horse\", is rewritten to read whether Epona's Song has been learned (IsGet.Item_Melody_EponaSong). Once Link has the song the ranch is in its after-race state and Ingo's race is gone; the Epona quest step itself is not changed, so child Malon's song lesson still works. The formula is changed in the flag list, experimental and untested in the game."
-    },
-    {
       "setting": "skip_mask_quest",
       "value": "true",
       "edits": [

@@ -114,10 +114,10 @@ mod tests {
     #[test]
     fn the_shipped_book_parses_and_names_known_settings() {
         let b: Book = book().unwrap();
-        assert_eq!(b.presets.len(), 10);
+        assert_eq!(b.presets.len(), 9);
         assert_eq!(find(&b, "shuffle_dungeon_rewards", "true").unwrap().edits, crate::medal_gate::exps());
         assert_eq!(find(&b, "open_forest", "open").unwrap().edits, find(&b, "open_forest", "closed_deku").unwrap().edits);
-        assert_eq!(find(&b, "skip_epona_race", "true").unwrap().edits, vec![Edit::Exp("Get_Epona_IsCompleted_Exp".to_string(), vec![(0, "IsGet.Item_Melody_EponaSong".to_string())])]);
+        assert!(find(&b, "skip_epona_race", "true").is_err());
         assert_eq!(find(&b, "skip_mask_quest", "true").unwrap().edits, vec![Edit::Enum("Step_SubEvent_MaskSalesman".to_string(), "Complete".to_string())]);
         let beans: &Preset = find(&b, "plant_beans", "true").unwrap();
         assert_eq!(beans.edits.iter().filter(|e| matches!(e, Edit::Bool(n, true) if n.starts_with("IsPlantedMagicBean_SmallFarm."))).count(), 10);

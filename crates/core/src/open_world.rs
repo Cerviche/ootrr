@@ -72,7 +72,7 @@ impl Opts {
     }
 
     pub fn edits_files(&self) -> bool {
-        self.zora || self.jabu || self.beds || self.beans || self.bridge
+        self.zora || self.jabu || self.beds || self.epona || self.beans || self.bridge
     }
 
     pub fn logic(&self) -> Vec<(&'static str, &'static str)> {
@@ -109,9 +109,6 @@ impl Opts {
         if self.time {
             out.push((TIME, "true"));
         }
-        if self.epona {
-            out.push((EPONA, "true"));
-        }
         if self.masks {
             out.push((MASKS, "true"));
         }
@@ -137,6 +134,9 @@ impl Opts {
         }
         if self.beds {
             out.push(BEDS_NOTE.to_string());
+        }
+        if self.epona {
+            out.push(skips::EPONA_NOTE.to_string());
         }
         if self.bridge {
             out.push(skips::BRIDGE_NOTE.to_string());
@@ -205,6 +205,9 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have) -> Res<Vec<Out>> {
     }
     if o.beds {
         outs.push(edit_zs(rf, have, BED_FILE, |raw| flow_edit(raw, |b| guard::pin(b, BED_FLOW, &BED_SWITCHES, MEET_ZELDA, 0).map(|_| ())))?);
+    }
+    if o.epona {
+        outs.push(edit_zs(rf, have, skips::EPONA_FILE, skips::epona_bytes)?);
     }
     if o.beans {
         outs.push(edit_zs(rf, have, skips::BEAN_FILE, skips::bean_bytes)?);
@@ -474,13 +477,15 @@ mod tests {
         assert_eq!(o, Opts { epona: true, masks: true, beans: true, bridge: true, ..Opts::default() });
         assert!(o.edits_files());
         assert_eq!(o.logic(), vec![(TIME, "0"), ("complete_mask_quest", "1"), (BEANS, "1"), (BRIDGE, "1")]);
-        assert_eq!(o.defaults(), vec![(EPONA, "true"), (MASKS, "true"), (BEANS, "true")]);
+        assert_eq!(o.defaults(), vec![(MASKS, "true"), (BEANS, "true")]);
         let n: Vec<String> = o.notes().unwrap();
-        for t in ["Skip Epona's race", "Happy Mask Shop quest starts complete", "bean patch starts planted", "Gerudo Valley bridge is repaired"] {
+        for t in ["Epona's Song is enough to own Epona", "Happy Mask Shop quest starts complete", "bean patch starts planted", "Gerudo Valley bridge is repaired"] {
             assert!(n.iter().any(|x| x.contains(t)), "{t}");
         }
-        let (state_only, _) = opts(&[(MASKS, Value::Bool(true)), (EPONA, Value::Bool(true))]);
+        let (state_only, _) = opts(&[(MASKS, Value::Bool(true))]);
         assert!(!state_only.edits_files());
+        let (race, _) = opts(&[(EPONA, Value::Bool(true))]);
+        assert!(race.edits_files() && !race.defaults().iter().any(|(k, _)| *k == EPONA));
     }
 
     #[test]
@@ -611,7 +616,8 @@ mod tests {
         let out: PB = b.root.join("romfs");
         let at = |f: &str| f.split('/').fold(out.clone(), |a, x| a.join(x));
         let mut rf: Romfs = Romfs::open(&root).unwrap();
-        assert!(!at(skips::EPONA_FILE).is_file());
+        let race: Bf = Bf::parse(&rf.zs.decompress(&fs::read(at(skips::EPONA_FILE)).unwrap()).unwrap()).unwrap();
+        assert!(skips::epona_bytes(&race.write().unwrap()).is_err());
         let beans: Bf = Bf::parse(&rf.zs.decompress(&fs::read(at(skips::BEAN_FILE)).unwrap()).unwrap()).unwrap();
         assert!(skips::bean_bytes(&beans.write().unwrap()).is_err());
         let bridge: crate::ainb::Ainb = crate::ainb::Ainb::parse(&fs::read(at(skips::BRIDGE_MODULE)).unwrap()).unwrap();
@@ -629,21 +635,7 @@ mod tests {
         assert_eq!(def("Bool", "IsPlantedMagicBean_SmallFarm.14429198438059673734"), Some(crate::byml::Node::Bool(true)));
         assert_eq!(def("Int", "Get_MagicBeans"), Some(crate::byml::Node::I32(9)));
         let exp: Option<crate::byml::Node> = rows.get("BoolExp").unwrap().as_arr().unwrap().iter().find(|r| r.get("Hash") == Some(&crate::byml::Node::U32(crate::start_defaults::key("Get_Epona_IsCompleted_Exp")))).and_then(|r| r.get("Values")).cloned();
-        let terms: Vec<crate::byml::Node> = exp.unwrap().as_arr().unwrap().to_vec();
-        assert_eq!(terms.len(), 1);
-        let n = |x: &crate::byml::Node| -> i64 {
-            match x {
-                crate::byml::Node::I32(v) => *v as i64,
-                crate::byml::Node::U32(v) => *v as i64,
-                crate::byml::Node::I64(v) => *v,
-                crate::byml::Node::U64(v) => *v as i64,
-                _ => -1,
-            }
-        };
-        for t in &terms {
-            let t: &[crate::byml::Node] = t.as_arr().unwrap();
-            assert_eq!((n(&t[0]), n(&t[1])), (0, crate::start_defaults::key("IsGet.Item_Melody_EponaSong") as i64));
-        }
+        assert_eq!(exp.unwrap().as_arr().unwrap().len(), 2, "the Epona formula stays the game's own");
     }
 
 }
