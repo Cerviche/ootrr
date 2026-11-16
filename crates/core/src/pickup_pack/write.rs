@@ -276,10 +276,12 @@ fn audit_carried(rst: &Rst, tables: &[Byml], carried: &[File]) -> Res<Vec<String
         if rst.get(&c.path) != Some(sizes::pack_size(c.raw.len())?) {
             return Err(E::Msg(format!("audit: the earlier pack {name} has the wrong size table entry")));
         }
-        if let Some(f) = [actor_file(name), pouch_file(name)].iter().find(|f| rst.get(f).is_none()) {
+        let held: Vec<String> = sarc::parse(&c.raw)?.into_iter().map(|e| e.name).collect();
+        let pouch: bool = held.contains(&pouch_file(name));
+        if let Some(f) = [actor_file(name), pouch_file(name)].iter().filter(|f| held.contains(f)).find(|f| rst.get(f).is_none()) {
             return Err(E::Msg(format!("audit: {f} of the earlier pack {name} has no size table entry, the size table does not come from the mod that made that pack")));
         }
-        if tables.iter().any(|y| rows::find(y, name).is_none()) {
+        if tables.iter().take(if pouch { tables.len() } else { 2 }).any(|y| rows::find(y, name).is_none()) {
             return Err(E::Msg(format!("audit: the earlier pack {name} has lost a table row")));
         }
         out.push(format!("earlier pack {name} keeps its three rows and its size table entries"));

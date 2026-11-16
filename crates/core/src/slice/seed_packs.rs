@@ -349,6 +349,31 @@ mod tests {
     }
 
     #[test]
+    fn a_seed_with_the_cow_clones_and_a_key_item_in_a_pot_builds() {
+        use crate::slice::generate::{generate_data, GenOpts, Generated};
+        let Some(root) = real() else {
+            return;
+        };
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = wide();
+        s.set("shuffle_rewards", crate::settings::Value::s("supported")).unwrap();
+        s.set(crate::flow_extra::cows::SETTING_OTHER, crate::settings::Value::Bool(true)).unwrap();
+        let list: Vec<String> = plando_for(&d, &s, &[("Hover Boots", "pot")]);
+        assert_eq!(list.len(), 1, "{list:?}");
+        let o: GenOpts = GenOpts { plando: list.iter().map(|x| crate::slice::plando::parse(x).unwrap()).collect(), ..GenOpts::default() };
+        let g: Generated = generate_data(&d, &s, "cow clones and packs", &o).unwrap();
+        let load: PB = std::env::temp_dir().join(format!("ootrr_seed_packs_cows_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&load);
+        let b: Built = crate::slice::edit::build_for(&g.seed_file, &root, &load, "cows packs", Host::Longshot).unwrap();
+        assert!(b.report.contains("pickup packs for key items"), "{}", b.report);
+        let romfs: PB = b.root.join("romfs");
+        for c in ["Animal_Cow_DMT", "Animal_Cow_Kakariko", "Animal_Cow_HFGrotto", "Animal_Cow_LLR_Left", "Animal_Cow_LLR_Right"] {
+            assert!(romfs.join(pack_of(c)).is_file(), "{c}");
+        }
+        let _ = fs::remove_dir_all(&load);
+    }
+
+    #[test]
     fn key_items_at_every_spot_class_generate_and_build_into_one_mod_with_their_packs() {
         use crate::slice::generate::{generate_data, GenOpts, Generated};
         let Some(root) = real() else {
