@@ -14,8 +14,12 @@ Thanks for helping. OOTRR is a randomizer for the Ocarina of Time Switch 2 remak
 
 ```
 cargo build --release
-cargo test --workspace --release
+cargo test --workspace
 ```
+
+`cargo test` builds with the `test` profile: our code at opt level 1 and the dependencies at opt level 3, so the slow seed and game file tests run several times faster than plain debug and the build stays quick. CI runs `cargo test --workspace --profile ci`, a release build without LTO. Avoid `cargo test --release`, it compiles with LTO and one codegen unit and takes minutes before the first test runs.
+
+A test that loops over many independent cases (every catalog pack, every combination) runs on one thread. Split it with the `parts!` macro from `lib.rs`: write a function that takes a part number and checks only the cases whose index matches, and let `parts!` make one test per part.
 
 Many tests read the extracted game. Set `OOTRR_ROMFS` to your extracted game folder (the one with Pack, Banc, Event and System) so they run. Without it they skip. A few tracker tests read `OOTRR_TEST_ROMFS` and `OOTRR_TEST_SAVES`. The release build must have no warnings.
 

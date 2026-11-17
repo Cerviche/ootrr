@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install stable --profile minimal
-      - run: cargo test --workspace --release
+      - run: cargo test --workspace --profile ci
 
   windows:
     needs: [version, test]

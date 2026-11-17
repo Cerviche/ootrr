@@ -535,7 +535,7 @@ mod tests {
     }
 
     #[test]
-    fn open_kakariko_and_open_forest_round_trip_through_generate_and_build() {
+    fn open_kakariko_round_trips_through_generate_and_build() {
         let Some(root) = real() else {
             return;
         };
@@ -549,11 +549,27 @@ mod tests {
         assert!(rows.iter().any(|(t, _)| t == crate::pots::TABLE), "the pot rows were lost");
         assert!(report.contains("Death Mountain starts open"));
         assert_eq!(opening_steps(&flow.unwrap()), vec![opening::FROM.to_string()]);
+    }
+
+    #[test]
+    fn open_forest_round_trips_through_generate_and_build() {
+        let Some(root) = real() else {
+            return;
+        };
+        let v: fn(&str) -> crate::settings::Value = crate::settings::Value::s;
         let (list, flow, back, report): (Byml, Option<crate::bfevfl::Bf>, crate::settings::Settings, String) = built(&root, &[("open_forest", v("open")), ("shuffle_pots", v("all"))], "defaults forest");
         assert_eq!(back.text("open_forest").unwrap(), "open");
         assert_eq!(def(&list, "Bool", "Npc_Hylia_Soldier_003_GateOpen"), Node::Bool(false));
         assert_eq!(opening_steps(&flow.unwrap()), vec![opening::OPEN_STEP.to_string(), "Complete".to_string()]);
         assert!(report.contains("Meet_DekuTree Step03"));
+    }
+
+    #[test]
+    fn open_forest_with_the_intro_round_trips_through_generate_and_build() {
+        let Some(root) = real() else {
+            return;
+        };
+        let v: fn(&str) -> crate::settings::Value = crate::settings::Value::s;
         let (_, flow, _, _): (Byml, Option<crate::bfevfl::Bf>, crate::settings::Settings, String) = built(&root, &[("open_forest", v("open")), ("skip_intro", crate::settings::Value::Bool(false)), ("shuffle_pots", v("all"))], "defaults forest long");
         assert_eq!(opening_steps(&flow.unwrap()), vec![opening::OPEN_STEP.to_string(), "Complete".to_string()]);
     }

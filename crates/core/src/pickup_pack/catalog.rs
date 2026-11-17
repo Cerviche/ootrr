@@ -252,16 +252,21 @@ mod tests {
         assert_eq!(parse(r#"{"packs":[{"group":"E","item":"Milk","pack":null,"args":[],"status":"blocked","identity":null,"notes":"n"}]}"#).unwrap()[0].pack, None);
     }
 
-    #[test]
-    fn every_ready_entry_builds_twice_to_the_same_bytes_with_its_identity() {
+    const PARTS: usize = 8;
+
+    fn builds_twice(part: usize) {
         let Some(root) = real() else {
             return;
         };
         let o: Opts = Opts { host: Host::Hookshot, base: None, rst_from: None, places: Vec::new(), dry: true };
-        let mut n: usize = 0;
+        let mut k: usize = 0;
         for e in load().unwrap() {
             for (a, st) in e.builds() {
                 if !st.ready() {
+                    continue;
+                }
+                k += 1;
+                if k % PARTS != part {
                     continue;
                 }
                 let (s, l): (Spec, Layers) = spec(&e.item, a).unwrap();
@@ -272,9 +277,25 @@ mod tests {
                 assert!(d.report.contains("stays collected once taken"), "{}", e.item);
                 let again: Done = run_with(&root, P::new("unused"), "unused", &s, &o, &l).unwrap();
                 assert!(same(&d, &again), "{} {a:?}", e.item);
-                n += 1;
             }
         }
+    }
+
+    parts!(
+        builds_twice,
+        every_ready_entry_builds_twice_to_the_same_bytes_with_its_identity_part_1 = 1,
+        every_ready_entry_builds_twice_to_the_same_bytes_with_its_identity_part_2 = 2,
+        every_ready_entry_builds_twice_to_the_same_bytes_with_its_identity_part_3 = 3,
+        every_ready_entry_builds_twice_to_the_same_bytes_with_its_identity_part_4 = 4,
+        every_ready_entry_builds_twice_to_the_same_bytes_with_its_identity_part_5 = 5,
+        every_ready_entry_builds_twice_to_the_same_bytes_with_its_identity_part_6 = 6,
+        every_ready_entry_builds_twice_to_the_same_bytes_with_its_identity_part_7 = 7,
+        every_ready_entry_builds_twice_to_the_same_bytes_with_its_identity_part_8 = 0,
+    );
+
+    #[test]
+    fn at_least_sixty_catalog_builds_are_ready() {
+        let n: usize = load().unwrap().iter().map(|e| e.builds().iter().filter(|(_, st)| st.ready()).count()).sum();
         assert!(n >= 60, "{n}");
     }
 

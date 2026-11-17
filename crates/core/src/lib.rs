@@ -1,3 +1,15 @@
+#[cfg(test)]
+macro_rules! parts {
+    ($run:ident, $($name:ident = $k:expr),+ $(,)?) => {
+        $(
+            #[test]
+            fn $name() {
+                $run($k)
+            }
+        )+
+    };
+}
+
 pub mod ainb;
 pub mod bfres;
 pub mod bfevfl;
