@@ -126,13 +126,11 @@ mod tests {
         }
     }
 
-    #[test]
-    fn the_base_alone_keeps_every_vanilla_entry_the_same() {
-        let Some(r) = root() else { return };
-        let v: Flow = vanilla(&r);
-        let e: Flow = with_sales(&r, v.clone(), &[]);
+    fn base_of(r: &P) -> (Flow, Flow) {
+        let v: Flow = vanilla(r);
+        let e: Flow = with_sales(r, v.clone(), &[]);
         assert_eq!(e, v);
-        let mut bf: Bf = Bf::parse(&Romfs::open(&r).unwrap().read_zs(&path_of(FILE)).unwrap()).unwrap();
+        let mut bf: Bf = Bf::parse(&Romfs::open(r).unwrap().read_zs(&path_of(FILE)).unwrap()).unwrap();
         crate::scrubs_b::base(&mut bf.flows[0]).unwrap();
         let back: Bf = Bf::parse(&bf.write().unwrap()).unwrap();
         assert_eq!(back, bf);
@@ -140,9 +138,13 @@ mod tests {
         let diff: Vec<usize> = (0..v.events.len()).filter(|i| v.events[*i] != based.events[*i]).collect();
         assert_eq!(diff, vec![155, 171, 172, 327]);
         assert_eq!((based.events.len(), based.entries.len()), (v.events.len(), v.entries.len()));
-        let mut a: Sim = sim(&r, HM::new()).unwrap();
-        let mut b: Sim = sim(&r, one(based)).unwrap();
-        let own: [(&str, i64); 3] = [("Item_BulletBag_Small", 1), ("Item_BombBag_Small", 1), ("Item_Quiver_Small", 1)];
+        (v, based)
+    }
+
+    #[test]
+    fn the_base_alone_keeps_every_vanilla_entry_the_same() {
+        let Some(r) = root() else { return };
+        base_of(&r);
         let mut rf: Romfs = Romfs::open(&r).unwrap();
         let t: Byml = Byml::parse(&rf.read_zs(SETTING_TABLE).unwrap()).unwrap();
         let started: Vec<String> = t
@@ -154,7 +156,18 @@ mod tests {
             .filter_map(|n| n.get("EntryPointName").and_then(|v| v.as_str()).map(|x| x.to_string()))
             .collect();
         assert!(started.len() >= 10 && !started.iter().any(|x| x == "SimpleShopRoot_Enemy_Scrub_Business_Pouch"));
-        for en in v.entries.iter().map(|x| x.name.clone()).filter(|x| x != "SimpleShopRoot_Enemy_Scrub_Business_Pouch") {
+    }
+
+    const PARTS: usize = 4;
+
+    fn base_plays_like_vanilla(part: usize) {
+        let Some(r) = root() else { return };
+        let (v, based): (Flow, Flow) = base_of(&r);
+        let mut a: Sim = sim(&r, HM::new()).unwrap();
+        let mut b: Sim = sim(&r, one(based)).unwrap();
+        let own: [(&str, i64); 3] = [("Item_BulletBag_Small", 1), ("Item_BombBag_Small", 1), ("Item_Quiver_Small", 1)];
+        let names = v.entries.iter().map(|x| x.name.clone()).filter(|x| x != "SimpleShopRoot_Enemy_Scrub_Business_Pouch");
+        for (_, en) in names.enumerate().filter(|(i, _)| i % PARTS == part) {
             for shown in ["Obj_Heart_Piece", "Item_StickBag_Medium", "Item_NutBag_Medium", "Shop_DekuSeedBundle_02"] {
                 let st: [(&str, &str); 4] = [
                     ("PlayerStatus.CurrentRupee", "300"),
@@ -169,6 +182,14 @@ mod tests {
             }
         }
     }
+
+    parts!(
+        base_plays_like_vanilla,
+        the_base_alone_plays_every_vanilla_entry_the_same_part_1 = 0,
+        the_base_alone_plays_every_vanilla_entry_the_same_part_2 = 1,
+        the_base_alone_plays_every_vanilla_entry_the_same_part_3 = 2,
+        the_base_alone_plays_every_vanilla_entry_the_same_part_4 = 3,
+    );
 
     #[test]
     fn the_base_on_top_of_a_group_a_edit_keeps_the_crater_item() {
