@@ -770,82 +770,133 @@ pub fn patch_light_arrows(b: &mut Bf) -> Res<()> {
     Ok(())
 }
 
-/// What the Light Arrows check gives once its scene is gone: the placed item's actor, its
-/// upgrade family when it is one, and its dungeon credit when it is a dungeon item.
+/// What a check whose scene is dropped gives: the placed item's actor, its upgrade family when it
+/// is one, and its dungeon credit when it is a dungeon item.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ArrowsGive {
+pub struct SceneGive {
     pub actor: String,
     pub family: Option<&'static str>,
     pub key: Option<(crate::gift_keys::Item, &'static str)>,
 }
 
+/// The checks whose scenes are dropped for the standard item get.
+pub const DROPPED: [&str; 2] = ["ToT Light Arrows Cutscene", "LW Gift from Saria"];
+
 /// The standard item get (the item shown, Link holding it up, the get window and the pouch add)
 /// that the minigames run with no NPC.
 pub const ITEM_GET: (&str, &str) = ("Dm_SY_GetInEvent", "GetInEvent_NotTurn_NotNpc");
+
+/// Adds the item get for `g` to `f`, ending on `then`, and returns its first event. A dungeon item
+/// runs the item get's window-only copy (crate::item_window), then its credit; an upgrade gets its
+/// tier checks. The call joins the preload list (subs) of `entries`.
+fn item_get(f: &mut Flow, name: &str, g: &SceneGive, then: u16, entries: &[&str]) -> Res<u16> {
+    if f.events.iter().any(|e| e.name == name) {
+        return Err(Error::Msg(format!("story skip: the item get {name} is already in {}", f.name)));
+    }
+    let at: u16 = idx(f.events.len())?;
+    let window: String = crate::item_window::name(ITEM_GET.1);
+    let entry: &str = if g.key.is_some() { &window } else { ITEM_GET.1 };
+    f.events.push(Event {
+        name: name.to_string(),
+        kind: Kind::Sub {
+            next: then,
+            params: Some(Cont { items: vec![("ActorName".to_string(), Val::Str(g.actor.clone()))] }),
+            flow: ITEM_GET.0.to_string(),
+            entry: entry.to_string(),
+        },
+    });
+    for e in f.entries.iter_mut().filter(|e| entries.contains(&e.name.as_str())) {
+        e.subs.push(at);
+    }
+    if let Some(family) = g.family {
+        crate::progressive::wrap_grant(f, at as usize, name, "ActorName", family)?;
+    }
+    if let Some((item, dungeon)) = g.key {
+        let first: u16 = crate::gift_keys::credit(f, item, dungeon, then)?;
+        set_next(&mut f.events[at as usize].kind, first)?;
+    }
+    Ok(at)
+}
+
+/// The one event of `f` whose GameDataName parameter is `flag`.
+fn writes(f: &Flow, flag: &str) -> Res<usize> {
+    let hits: Vec<usize> = (0..f.events.len())
+        .filter(|&i| f.events[i].kind.params().is_some_and(|c| c.items.iter().any(|(k, v)| k == "GameDataName" && matches!(v, Val::Str(s) if s == flag))))
+        .collect();
+    match hits.as_slice() {
+        [i] => Ok(*i),
+        _ => Err(Error::Msg(format!("story skip: {} writes {flag} {} times, expected once", f.name, hits.len()))),
+    }
+}
+
 const ARROWS_ENTRIES: [&str; 2] = ["Market_Adult_Field_GetArrowLight", "GetArrowLight_OcarinaBackTimeTemple"];
 const ARROWS_GIVE: &str = "OOTRRArrowsGive";
+/// Market_Adult_Field_GetArrowLight: the event start and the unequip after its fade out.
+const ARROWS_START: (&str, &str) = ("Event164", "Player_Event.EventTriggerPlayerEventStartWithDrawn");
+const ARROWS_FIRST_UNEQUIP: (&str, &str) = ("Event165", "Player_Event.EventPlayerUnequip");
+
 /// Drops the Light Arrows scene (Dm_TimeTemple_0130) entirely: its transition becomes its played
-/// flag, and once the screen fades back in after the skipped scenes, Link runs the standard item
-/// get with the placed item. The quest steps follow as before. Runs after patch_light_arrows.
-pub fn patch_arrows_give(b: &mut Bf, g: &ArrowsGive) -> Res<()> {
+/// flag and Link runs the standard item get with the placed item, then the quest steps follow as
+/// before. No fades or camera moves around it: the event start goes straight to the unequip and
+/// the scene flags (skipping the player camera, the slow walk stop and the fade out), and the last
+/// scene flag straight to the item get (skipping the camera and Navi reset, the second unequip and
+/// the fade in). Runs after patch_light_arrows.
+pub fn patch_arrows_give(b: &mut Bf, g: &SceneGive) -> Res<()> {
     let f: &mut Flow = flow_mut(b, ARROWS_FLOW)?;
-    if f.events.iter().any(|e| e.name == ARROWS_GIVE) {
-        return Err(Error::Format("story skip: the Light Arrows item get is already in place"));
-    }
     let fade: usize = find_action(f, ARROWS_FADE_IN)?;
     let done: u16 = next_of(&f.events[fade].kind).ok_or(Error::Format("story skip: the Light Arrows fade in has no next"))?;
     if action(f, done as usize).as_deref() != Some(ARROWS_DONE.1) {
         return Err(Error::Format("story skip: run patch_light_arrows before the Light Arrows item get"));
     }
     transition_to_flag(f, ARROWS_PREFIX, ARROWS_GRANT.0, ARROWS_GRANT.1, None)?;
-    let at: u16 = idx(f.events.len())?;
-    // A dungeon item runs the item get's window-only copy (crate::item_window), then its credit.
-    let window: String = crate::item_window::name(ITEM_GET.1);
-    let entry: &str = if g.key.is_some() { &window } else { ITEM_GET.1 };
-    f.events.push(Event {
-        name: ARROWS_GIVE.to_string(),
-        kind: Kind::Sub {
-            next: done,
-            params: Some(Cont { items: vec![("ActorName".to_string(), Val::Str(g.actor.clone()))] }),
-            flow: ITEM_GET.0.to_string(),
-            entry: entry.to_string(),
-        },
-    });
-    set_next(&mut f.events[fade].kind, at)?;
-    for e in f.entries.iter_mut().filter(|e| ARROWS_ENTRIES.contains(&e.name.as_str())) {
-        e.subs.push(at);
-    }
-    if let Some(family) = g.family {
-        crate::progressive::wrap_grant(f, at as usize, ARROWS_GIVE, "ActorName", family)?;
-    }
-    if let Some((item, dungeon)) = g.key {
-        let first: u16 = crate::gift_keys::credit(f, item, dungeon, done)?;
-        set_next(&mut f.events[at as usize].kind, first)?;
-    }
-    // No fades or camera moves around it: the event start goes straight to the unequip and the
-    // scene flags (skipping the player camera, the slow walk stop and the fade out), and the last
-    // scene flag goes straight to the item get (skipping the camera and Navi reset, the second
-    // unequip and the fade in).
+    let at: u16 = item_get(f, ARROWS_GIVE, g, done, &ARROWS_ENTRIES)?;
     let start: usize = find_action(f, ARROWS_START)?;
     let unequip: usize = find_action(f, ARROWS_FIRST_UNEQUIP)?;
     set_next(&mut f.events[start].kind, idx(unequip)?)?;
-    let last: Vec<usize> = (0..f.events.len())
-        .filter(|&i| f.events[i].kind.params().is_some_and(|c| c.items.iter().any(|(k, v)| k == "GameDataName" && matches!(v, Val::Str(s) if s == "HavePlayedEvent.Dm_TimeTemple_0135"))))
-        .collect();
-    let [last] = last.as_slice() else {
-        return Err(Error::Msg(format!("story skip: AllSage writes the Dm_TimeTemple_0135 flag {} times, expected once", last.len())));
-    };
-    set_next(&mut f.events[*last].kind, at)?;
+    let last: usize = writes(f, "HavePlayedEvent.Dm_TimeTemple_0135")?;
+    set_next(&mut f.events[last].kind, at)?;
     Ok(())
 }
 
-/// Market_Adult_Field_GetArrowLight: the event start and the unequip after its fade out.
-const ARROWS_START: (&str, &str) = ("Event164", "Player_Event.EventTriggerPlayerEventStartWithDrawn");
-const ARROWS_FIRST_UNEQUIP: (&str, &str) = ("Event165", "Player_Event.EventPlayerUnequip");
-
 /// Adds the item get to the story skip's AllSage edit in `late` (or to the game's AllSage).
-pub fn stage_arrows_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &ArrowsGive) -> Res<()> {
+pub fn stage_arrows_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &SceneGive) -> Res<()> {
     crate::dungeon_grant::merge(rf, late, ARROWS_FILE, |raw| rebuild(raw, |b| patch_arrows_give(b, g)))
+}
+
+/// Saria's gift (KokiriForest_ArriveLostWood in Goto_HyruleCastle). The event starts, Link joins
+/// and unequips, the trigger's event bool is set, then both scenes (Dm_Kokiri_0150, already a flag
+/// through patch_bridge, and the gift scene Dm_Kokiri_0155) are only marked as played and Link runs
+/// the standard item get with the placed item; the field palette flag and the area change follow
+/// as before. The player camera, the fade out, the Saria, Navi and Link warps and the sound ducking
+/// no longer run. Runs after patch_bridge.
+const SARIA_ENTRY: &str = "KokiriForest_ArriveLostWood";
+const SARIA_GIVE: &str = "OOTRRSariaGive";
+const SARIA_JOIN: (&str, &str) = ("Event18", "Player_Event.EventTriggerParticipateEvent");
+const SARIA_UNEQUIP: (&str, &str) = ("Event52", "Player_Event.EventPlayerUnequip");
+const SARIA_BOOL: (&str, &str) = ("Event17", "EventSystemActor.EventWait");
+const SARIA_AFTER: &str = "HyruleField_ChangeENV";
+
+pub fn patch_saria_give(b: &mut Bf, g: &SceneGive) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, BRIDGE_FLOW)?;
+    if writes(f, LONG_FLAG).is_err() {
+        return Err(Error::Format("story skip: run patch_bridge before Saria's item get"));
+    }
+    let after: usize = writes(f, SARIA_AFTER)?;
+    let join: usize = find_action(f, SARIA_JOIN)?;
+    let unequip: usize = find_action(f, SARIA_UNEQUIP)?;
+    let wait: usize = find_action(f, SARIA_BOOL)?;
+    let at: u16 = item_get(f, SARIA_GIVE, g, idx(after)?, &[SARIA_ENTRY])?;
+    let k1: Kind = set_bool(f, LONG_FLAG, true)?;
+    let k2: Kind = set_bool(f, "HavePlayedEvent.Dm_Kokiri_0155", true)?;
+    let first: u16 = chain(f, SARIA_GIVE, vec![k1, k2], at)?;
+    set_next(&mut f.events[join].kind, idx(unequip)?)?;
+    set_next(&mut f.events[wait].kind, first)?;
+    Ok(())
+}
+
+/// Adds Saria's item get to the story skip's bridge edit in `late` (or to the game's).
+pub fn stage_saria_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &SceneGive) -> Res<()> {
+    crate::dungeon_grant::merge(rf, late, BRIDGE_FILE, |raw| rebuild(raw, |b| patch_saria_give(b, g)))
 }
 
 pub fn stage_arrows(rf: &mut Romfs, have: Have) -> Res<Out> {
