@@ -271,13 +271,17 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         }
     }
     let mut staged: Stage = flow_locations::stage_merged(&mut rf, &d.flow, &flows, &gs, &FlowOpts { songs: p.songs != Songs::Off, ..FlowOpts::default() })?;
-    crate::gift_keys::apply(&mut rf, &mut staged.files, &gift_keys)?;
     crate::scrubs_b::stage_flow(&mut rf, &scrub_jobs, &mut staged.files)?;
     crate::scrub_prices::stage(&mut rf, &d, seed, p.rewards.scrub_prices, &mut staged.files)?;
     crate::merchant_prices::stage_medigoron(&mut rf, seed, p.rewards.merchant_prices, p.rewards.medigoron, &mut staged.files)?;
     if p.songs != Songs::Off {
         crate::song_lessons::stage_flow(&mut rf, &mut staged.files)?;
     }
+    // Dungeon items in reward events: window-only copies of their give routines and the credit
+    // (crate::gift_keys). The Light Arrows item get wants the copy of its routine too.
+    let arrows_key: bool = p.story && gift_keys.iter().any(|g| g.location == crate::lacs_key::LOC);
+    let windows: Vec<(&str, &str)> = if arrows_key { vec![crate::story_skip::ITEM_GET] } else { Vec::new() };
+    crate::gift_keys::apply(&mut rf, &mut staged.files, &gift_keys, &windows)?;
     for f in &staged.files {
         pk.write_romfs(&f.path, &f.z)?;
         if f.new > f.old {
@@ -377,9 +381,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             family: placed.get(loc).copied(),
             key: gift_keys.iter().find(|g| g.location == loc).map(|g| (g.item, g.dungeon)),
         };
-        if give.key.is_some() {
-            crate::story_skip::stage_window_get(&mut rf, &mut late, &work)?;
-        }
         crate::story_skip::stage_arrows_give(&mut rf, &mut late, &give)?;
     }
     if p.endings {

@@ -43,6 +43,38 @@ pub fn gift_scene(l: &Loc) -> bool {
         && l.edits.iter().filter(|e| e.role == "grant").all(|e| GENERIC_GRANTS.iter().any(|v| e.via.starts_with(v)))
 }
 
+/// The give routines of the other reward events (NPCs, minigames, Skulltula rewards). Each was
+/// traced in the game's flows to the same generic pouch get: the NpcCommon handovers through
+/// Dm_SY_GetInEvent:GetInEvent_NotTurn, the Gold Skulltula rewards' TakenReward_Common_Event*
+/// through GetInEvent_NotTurn and GetInEvent_NotTurn_PosCam_InvNPC, the rolling Goron's handover
+/// through GetInEvent_NotTurn_BombBag, and every Dm_SY_GetInEvent:GetInEvent* routine but the
+/// bottle ones (those push into a bottle instead). Dungeon items run a window-only copy of the
+/// routine (crate::item_window) and their credit (crate::gift_keys).
+const ROUTINES: [&str; 4] = ["Dm_SY_GetInEvent:GetInEvent", "NpcCommon:NpcCommon_HandOver_NpcToPlayer_NoDisplay", ":TakenReward_Common_Event", ":NpcCommon_HandOver_NpcToPlayer_NoDisplay_BombBag"];
+const BOTTLE_ROUTINES: [&str; 3] = ["Dm_SY_GetInEvent:GetInEventInBottle", "Dm_SY_GetInEvent:GetInEventInEquipedBottle", "Dm_SY_GetInEvent:GetInEventInBottle_BlueBottleShop"];
+
+/// Reward events built by their own modules (clones, tiers of a chain, sales with prices).
+fn own_module(l: &Loc) -> bool {
+    crate::flow_extra::trade::is(&l.name)
+        || crate::flow_extra::cows::is(&l.name)
+        || crate::flow_extra::frogs::is(&l.name)
+        || crate::flow_extra::potion::is(&l.name)
+        || crate::scrubs_a::is_a(l)
+        || crate::scrubs_b::is_b(l)
+}
+
+/// A reward event that hands out any item a chest can, dungeon items included: a gift scene, or an
+/// NPC or minigame whose give routine ends in the generic pouch get.
+pub fn any_item(l: &Loc) -> bool {
+    if gift_scene(l) {
+        return true;
+    }
+    let grants: Vec<&crate::flow_locations::Edit> = l.edits.iter().filter(|e| e.role == "grant").collect();
+    !own_module(l)
+        && !grants.is_empty()
+        && grants.iter().all(|e| ROUTINES.iter().any(|v| e.via.starts_with(v)) && !BOTTLE_ROUTINES.contains(&e.via.as_str()))
+}
+
 /// Items a generic pouch get hands out. Treasure chests run the same routine
 /// (GetPouchContent:GetPouchContentByActorNameForTreasureBox reaches GetPouchContent:GetPouchContent)
 /// with their content actor, so every item a chest gives works: rupees and ammo (TBox_ and Tbox_
@@ -107,6 +139,11 @@ pub fn allows(d: &Data, name: &str, i: &Item) -> bool {
         // An upgrade is wrapped into tier checks around every edit of the scene (flow_wrap::grants),
         // and the display events of these scenes run before the grant, so all name the same tier.
         return gift_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
+    }
+    if any_item(l) {
+        // An NPC's display events may follow its grant, so an upgrade still wants grants only.
+        let fits: bool = gift_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
+        return fits && (family_of(&i.tiers).is_none() || grants_only(l) || d.vanilla_of(name) == Some(i.name.as_str()));
     }
     if family_of(&i.tiers).is_some() {
         return (grants_only(l) && l.cat != "scrub_sale" && d.flow_accepts(i)) || crate::scrubs_a::home(d, name, &i.name);

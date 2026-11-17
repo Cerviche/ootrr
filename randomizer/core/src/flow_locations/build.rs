@@ -102,7 +102,7 @@ pub fn plan(d: &Data, cs: &[Choice], o: &Opts) -> Res<(Vec<Change>, usize, Vec<S
         let l: &Loc = pick(d, c, o)?;
         // Saria's gift and the other gift scenes hand out any pouch item through the generic
         // pouch add and get window (crate::slice::flow_rules::gift_scene), so they skip the accept list.
-        let saria: bool = l.name == crate::slice::flow_rules::SARIA || crate::slice::flow_rules::gift_scene(l);
+        let saria: bool = l.name == crate::slice::flow_rules::SARIA || crate::slice::flow_rules::any_item(l);
         if !d.usable(&c.item) && !(saria && plausible(&c.item)) {
             if !(o.untested && plausible(&c.item)) {
                 return Err(E::Msg(format!(

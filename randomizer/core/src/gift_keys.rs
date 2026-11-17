@@ -10,7 +10,7 @@
 
 use std::collections::BTreeSet as BS;
 
-use crate::bfevfl::{Bf, Cont, Flow, Kind, Val};
+use crate::bfevfl::{Cont, Flow, Kind, Val};
 use crate::dungeon_credit::{action_slot, add_int, flag, idx, push, set_bool, talk, HOLDER, SET, TALK, TALKER};
 use crate::dungeon_grant::{struct_of, Kind as Grant};
 use crate::error::{Error as E, Res};
@@ -52,7 +52,7 @@ pub struct Gift {
 
 /// True for a flow location whose grant is the generic pouch get.
 pub fn spot(d: &Data, name: &str) -> bool {
-    d.flow.by_name(name).is_some_and(|l| l.name == crate::slice::flow_rules::SARIA || crate::slice::flow_rules::gift_scene(l))
+    d.flow.by_name(name).is_some_and(|l| l.name == crate::slice::flow_rules::SARIA || crate::slice::flow_rules::any_item(l))
 }
 
 /// The dungeon items the seed puts in gift scenes, one per grant event.
@@ -135,10 +135,12 @@ pub fn credit(f: &mut Flow, item: Item, d: &'static str, end: u16) -> Res<u16> {
     Ok(at)
 }
 
-/// Turns one grant into the get window plus the credit. A pouch get sub call (GetPouchContent or a
-/// Dm_SY_GetInEvent variant) becomes the window; a bare pouch add (Saria's, whose window is its own
-/// event) becomes the credit.
-pub fn edit_flow(f: &mut Flow, index: usize, event: &str, item: Item, d: &'static str) -> Res<()> {
+/// Turns one grant into the get window plus the credit. A call into a give routine (an NPC
+/// handover, a Dm_SY_GetInEvent item get, a local reward entry) calls the routine's window-only copy
+/// `window` (crate::item_window), so the item is still shown and Link still holds it up. A direct
+/// pouch get becomes the get window; a bare pouch add (Saria's, whose window is its own event)
+/// becomes the credit.
+pub fn edit_flow(f: &mut Flow, index: usize, event: &str, item: Item, d: &'static str, window: Option<&str>) -> Res<()> {
     let e = f.events.get(index).ok_or_else(|| E::Msg(format!("gift keys: event index {index} is out of range")))?;
     if e.name != event {
         return Err(E::Msg(format!("gift keys: event {index} is named {} and not {event}, the game files differ", e.name)));
@@ -151,59 +153,51 @@ pub fn edit_flow(f: &mut Flow, index: usize, event: &str, item: Item, d: &'stati
         f.events[index].kind = k;
         return Ok(());
     }
-    let (next, actor): (u16, String) = match &f.events[index].kind {
-        Kind::Sub { next, params, flow, .. } if flow == POUCH || flow == "Dm_SY_GetInEvent" => {
-            let a: String = params.as_ref().and_then(actor_of).ok_or(E::Format("gift keys: the grant names no actor"))?;
-            (*next, a)
-        }
-        _ => return Err(E::Msg(format!("gift keys: {event} in {} is not a pouch get, the game files differ", f.name))),
+    let next: u16 = match &f.events[index].kind {
+        Kind::Sub { next, .. } => *next,
+        _ => return Err(E::Msg(format!("gift keys: {event} in {} is not a give, the game files differ", f.name))),
     };
     let first: u16 = credit(f, item, d, next)?;
-    f.events[index].kind = Kind::Sub {
-        next: first,
-        params: Some(Cont { items: vec![(PARAM.to_string(), Val::Str(actor))] }),
-        flow: POUCH.to_string(),
-        entry: WINDOW.to_string(),
-    };
+    let k: &mut Kind = &mut f.events[index].kind;
+    let Kind::Sub { next, params, flow, entry } = k else { unreachable!() };
+    *next = first;
+    if flow == POUCH {
+        let a: String = params.as_ref().and_then(actor_of).ok_or(E::Format("gift keys: the grant names no actor"))?;
+        *params = Some(Cont { items: vec![(PARAM.to_string(), Val::Str(a))] });
+        *entry = WINDOW.to_string();
+    } else {
+        *entry = window.ok_or_else(|| E::Msg(format!("gift keys: {event} calls {flow}:{entry}, which has no window-only copy")))?.to_string();
+    }
     Ok(())
 }
 
-fn edit_bytes(raw: &[u8], gs: &[&Gift]) -> Res<Vec<u8>> {
-    let mut b: Bf = Bf::parse(raw)?;
-    let f: &mut Flow = b.flows.first_mut().ok_or(E::Format("gift keys: the scene file has no flow"))?;
-    for g in gs {
-        edit_flow(f, g.index, &g.event, g.item, g.dungeon)?;
-    }
-    if let Some(m) = crate::dungeon_credit::sound(f).first() {
-        return Err(E::Msg(format!("gift keys: the scene {} is broken after the edit, {m}", f.name)));
-    }
-    let out: Vec<u8> = b.write()?;
-    if Bf::parse(&out)? != b {
-        return Err(E::Format("gift keys: the edited scene does not parse back"));
-    }
-    Ok(out)
+fn stem(file: &str) -> &str {
+    file.strip_suffix(".bfevfl").unwrap_or(file)
 }
 
-/// Edits the scenes in `files` (the location patcher's staged flows), or the game's if not staged.
-pub fn apply(rf: &mut Romfs, files: &mut Vec<StagedFile>, gs: &[Gift]) -> Res<()> {
-    let names: BS<&str> = gs.iter().map(|g| g.file.as_str()).collect();
-    for file in names {
-        let these: Vec<&Gift> = gs.iter().filter(|g| g.file == file).collect();
-        let path: String = crate::flow_locations::path_of(file);
-        let i: usize = match files.iter().position(|f| f.path == path) {
-            Some(i) => i,
-            None => {
-                let z: Vec<u8> = rf.read(&path)?;
-                let n: usize = rf.zs.decompress(&z)?.len();
-                files.push(StagedFile { path: path.clone(), z, old: n, new: n });
-                files.len() - 1
+/// Edits the scenes in `files` (the location patcher's staged flows), or the game's if not staged,
+/// adding the window-only copies of the give routines they call. `extra` names more routines
+/// (flow, entry) whose copies are wanted (the Light Arrows item get).
+pub fn apply(rf: &mut Romfs, files: &mut Vec<StagedFile>, gs: &[Gift], extra: &[(&str, &str)]) -> Res<()> {
+    let mut c: crate::item_window::Cache = crate::item_window::Cache::new();
+    for g in gs {
+        let here: &str = stem(&g.file);
+        let call: Option<(String, String)> = {
+            let f: &mut Flow = c.flow_mut(rf, files, here)?;
+            match f.events.get(g.index).map(|e| &e.kind) {
+                Some(Kind::Sub { flow, entry, .. }) if flow != POUCH => Some((if flow.is_empty() { here.to_string() } else { flow.clone() }, entry.clone())),
+                _ => None,
             }
         };
-        let id: Option<u32> = crate::flow_locations::dict_id(&files[i].z);
-        let raw: Vec<u8> = rf.zs.decompress(&files[i].z)?;
-        let out: Vec<u8> = edit_bytes(&raw, &these)?;
-        files[i].new = out.len();
-        files[i].z = crate::zs::compress_raw(&out, id)?;
+        let w: Option<String> = match &call {
+            Some((fl, en)) => Some(crate::item_window::window(&mut c, rf, files, fl, en)?),
+            None => None,
+        };
+        let f: &mut Flow = c.flow_mut(rf, files, here)?;
+        edit_flow(f, g.index, &g.event, g.item, g.dungeon, w.as_deref())?;
     }
-    Ok(())
+    for (fl, en) in extra {
+        crate::item_window::window(&mut c, rf, files, fl, en)?;
+    }
+    c.store(rf, files)
 }
