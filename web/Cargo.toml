@@ -6,10 +6,10 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-ootrr-core = { path = "../core" }
+ootrr-core = { path = "../randomizer/core" }
 
 [dev-dependencies]
-ootrr-game = { path = "../game", features = ["fixtures"] }
+ootrr-game = { path = "../randomizer/game", features = ["fixtures"] }
 
 [lints]
 workspace = true

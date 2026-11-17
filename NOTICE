@@ -7,7 +7,7 @@ The notices below belong to third party work that OOTRR builds on. They stay in 
 Thanks to OruizGl for pull request #3 (Open Areas Settings). Its findings and ideas are the base of the adult Master Sword pedestal that works before the Forest Sage,
 the child sword fix and Sheik's new spot in every seed, Navi's lesson flags for an open or closed Deku forest, the D-pad shortcut fix for items given at the start and the Hyrule Field first visit flag fix for the clock.
 
-Parts of the logic engine (crates/logic/src: rules.rs, world.rs, search.rs, fill.rs, spoiler.rs and their helper modules)
+Parts of the logic engine (randomizer/logic/src: rules.rs, world.rs, search.rs, fill.rs, spoiler.rs and their helper modules)
 are ported from the design of the OoT Randomizer.
 
 Credits to all of you for the amazing work on OoTR! 💗
@@ -41,7 +41,7 @@ SOFTWARE.
 FONTS
 
 The web page embeds five typefaces under the SIL Open Font License, Version 1.1.
-The full license text sits next to the font files in crates/web/assets/fonts.
+The full license text sits next to the font files in web/assets/fonts.
 
 Cinzel, Copyright 2020 The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel)
 EB Garamond, Copyright 2017 The EB Garamond Project Authors (https://github.com/octaviopardo/EBGaramond12)

@@ -4,7 +4,7 @@ use ootrr_core::error::{Error, Res};
 use ootrr_core::json::{self, Json};
 use ootrr_core::murmur::murmur3_32;
 
-pub const JSON: &str = include_str!("../../../../data/tracker_targets.json");
+pub const JSON: &str = include_str!("../../../data/tracker_targets.json");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum How {

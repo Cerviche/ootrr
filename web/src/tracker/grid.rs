@@ -292,7 +292,7 @@ mod tests {
     use crate::tracker::peek::{Lim, peek_with};
     use std::collections::HashSet;
 
-    const FLAGS: &str = include_str!("../../../../data/flags.json");
+    const FLAGS: &str = include_str!("../../../data/flags.json");
 
     fn cell(id: &str) -> (usize, &'static Cell) {
         CELLS.iter().enumerate().find(|c| c.1.id == id).unwrap()
