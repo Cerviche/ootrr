@@ -28,6 +28,7 @@ pub mod dungeon_grant;
 pub mod entr;
 pub mod event_chests;
 pub mod fast;
+pub mod gerudo_card;
 pub mod flow_locations;
 pub mod flow_extra;
 pub mod flow_sim;
