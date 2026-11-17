@@ -434,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn the_real_files_keep_their_size_and_an_unchanged_map_keeps_their_bytes() {
+    fn the_real_files_keep_their_size() {
         let Some(root) = std::env::var("OOTRR_ROMFS").map(PB::from).ok().filter(|p| p.join("Pack").join("ZsDic.pack.zs").is_file()) else {
             return;
         };
@@ -456,6 +456,18 @@ mod tests {
                 assert_ne!(old, new, "{r}");
                 seen += 1;
             }
+        }
+        assert!(seen >= 25, "{seen}");
+        let _ = fs::remove_dir_all(&out);
+    }
+
+    #[test]
+    fn an_unchanged_repaint_keeps_every_real_texture_byte_for_byte() {
+        let Some(root) = std::env::var("OOTRR_ROMFS").map(PB::from).ok().filter(|p| p.join("Pack").join("ZsDic.pack.zs").is_file()) else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        for it in &ITEMS {
             for t in it.tex {
                 let old: Vec<u8> = rf.read_zs(&tex_path(t)).unwrap();
                 let mut same: Vec<u8> = old.clone();
@@ -463,8 +475,6 @@ mod tests {
                 assert_eq!(same, old, "{t}");
             }
         }
-        assert!(seen >= 25, "{seen}");
-        let _ = fs::remove_dir_all(&out);
     }
 
     fn weighted_mean(raw: &[u8], t: &Tint, by: &[u8]) -> [u8; 3] {
@@ -484,15 +494,21 @@ mod tests {
         crate::tex::shift::srgb(sum.map(|v| (v / wsum) as f32))
     }
 
-    #[test]
-    fn the_real_tunics_take_the_seed_colour_and_two_seeds_differ() {
+    const PARTS: usize = 4;
+
+    fn tunics_take_the_seed_colour(part: usize) {
         let Some(root) = std::env::var("OOTRR_ROMFS").map(PB::from).ok().filter(|p| p.join("Pack").join("ZsDic.pack.zs").is_file()) else {
             return;
         };
         let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut k: usize = 0;
         for seed in ["first seed", "second seed"] {
             for (it, to) in plan(Colors::Random, seed).into_iter().filter(|x| x.0.cloth) {
                 for t in it.tex {
+                    k += 1;
+                    if k % PARTS != part {
+                        continue;
+                    }
                     let old: Vec<u8> = rf.read_zs(&tex_path(t)).unwrap();
                     let s: Tint = fitted(&old, it.tint(to)).unwrap().unwrap();
                     let mut new: Vec<u8> = old.clone();
@@ -505,6 +521,18 @@ mod tests {
                 }
             }
         }
+    }
+
+    parts!(
+        tunics_take_the_seed_colour,
+        the_real_tunics_take_the_seed_colour_part_1 = 0,
+        the_real_tunics_take_the_seed_colour_part_2 = 1,
+        the_real_tunics_take_the_seed_colour_part_3 = 2,
+        the_real_tunics_take_the_seed_colour_part_4 = 3,
+    );
+
+    #[test]
+    fn two_seeds_give_every_tunic_another_colour() {
         let (a, b): (Vec<[u8; 3]>, Vec<[u8; 3]>) = (plan(Colors::Random, "first seed").iter().map(|x| x.1).collect(), plan(Colors::Random, "second seed").iter().map(|x| x.1).collect());
         assert!(a.iter().zip(&b).take(3).all(|(x, y)| x != y));
     }
