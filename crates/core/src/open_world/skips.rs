@@ -77,6 +77,30 @@ pub fn force_bool(a: &mut Ainb, i: usize, name: &str, v: bool) -> Res<()> {
     Ok(())
 }
 
+/// Points a linked bool input at output `out` of node `src`, moving the plug that fed it.
+pub fn relink_bool(a: &mut Ainb, i: usize, name: &str, src: usize, out: u16) -> Res<()> {
+    let g: usize = a.find_in(i, BOOL, name).ok_or_else(|| Error::Msg(format!("skips: node {i} has no {name} input")))?;
+    let x = a.input(BOOL, g).ok_or(Error::Format("skips: input out of range"))?;
+    let old: u32 = u32::try_from(x.src).map_err(|_| Error::Format("skips: the input is not a single link"))?;
+    let to: i16 = i16::try_from(src).map_err(|_| Error::Format("skips: node index out of range"))?;
+    let out: i16 = i16::try_from(out).map_err(|_| Error::Format("skips: output index out of range"))?;
+    let mut hit: Option<(usize, usize)> = None;
+    for k in 0..10 {
+        if let Some(pos) = a.params[i].group(k).iter().position(|p| p.a == old && a.s(p.b) == name) {
+            hit = Some((k, pos));
+            break;
+        }
+    }
+    let (k, pos): (usize, usize) = hit.ok_or(Error::Format("skips: the link into the input has no plug"))?;
+    let at: usize = a.params[i].pl[k][1] as usize + pos;
+    a.params[i].plugs[at].a = src as u32;
+    let o: usize = g * 16;
+    let rec: &mut [u8] = a.ins[BOOL].get_mut(o..o + 16).ok_or(Error::Format("skips: input out of range"))?;
+    rec[4..6].copy_from_slice(&to.to_le_bytes());
+    rec[6..8].copy_from_slice(&out.to_le_bytes());
+    Ok(())
+}
+
 /// The AND node that reads the Spirit quest step and picks the broken or the repaired bridge.
 pub fn bridge_gate(a: &Ainb) -> Res<usize> {
     let reads: Vec<usize> = a.find_els("HoldGameDataGetBoolExpSimple").into_iter().filter(|&i| a.in_str(i, "GameDataNameBoolExp") == Some(BRIDGE_EXP)).collect();

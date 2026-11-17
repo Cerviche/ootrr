@@ -27,6 +27,16 @@ pub fn linked(i: &Item, actor: &str) -> bool {
 /// pouch item fits (the Hookshot, the Gauntlets, the bags, the Bow and the Slingshot included).
 pub const SARIA: &str = "LW Gift from Saria";
 
+/// Darunia's Joy. Its vanilla Progressive Strength pinned it like Saria's Ocarina (no event hands
+/// out the Silver or Golden Gauntlets). Its grant, Dm_Goron_0030's sub
+/// Dm_SY_GetInEvent:GetInEvent_Goron, adds arg:ActorName to the pouch and opens the get window for
+/// it, so it holds any pouch item Saria holds; a placed progressive item wraps the grant into tier
+/// checks. The hold up rules out the Ocarinas and songs (holds_up, no_hold).
+pub const DARUNIA: &str = "GC Darunias Joy";
+
+/// The NPC gifts that add any pouch item generically.
+pub const ANY_POUCH: [&str; 2] = [SARIA, DARUNIA];
+
 /// Pouch items a plain add cannot hand out on its own: dungeon items (the add does not know the
 /// dungeon), filled bottles and the letter (bottle contents), ammo bundles, Gold Skulltula tokens
 /// (a counter) and the dungeon rewards (held by their own scenes).
@@ -65,7 +75,7 @@ pub fn ok(d: &Data, name: &str) -> bool {
         return false;
     };
     if family_of(&i.tiers).is_some() {
-        if name == SARIA {
+        if ANY_POUCH.contains(&name) {
             return linked(i, actor) && saria_takes(d, i);
         }
         return (grants_only(l) || crate::scrubs_a::grants_only(l)) && linked(i, actor) && d.flow_accepts(i);
@@ -106,7 +116,7 @@ pub fn allows(d: &Data, name: &str, i: &Item) -> bool {
     if no_hold(i) && holds_up(l) && d.vanilla_of(name) != Some(i.name.as_str()) {
         return false;
     }
-    if name == SARIA {
+    if ANY_POUCH.contains(&name) {
         return saria_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
     }
     if family_of(&i.tiers).is_some() {
@@ -121,7 +131,8 @@ mod tests {
     use crate::settings::{Settings, Value};
     use crate::slice::generate::{generate_data, GenOpts, Generated};
 
-    const NEW: [&str; 18] = [
+    const NEW: [&str; 19] = [
+        "GC Darunias Joy",
         "Graveyard Dampe Gravedigging Tour",
         "Kak 40 Gold Skulltula Reward",
         "Kak 100 Gold Skulltula Reward",
@@ -142,8 +153,7 @@ mod tests {
         "GC Rolling Goron as Child",
     ];
 
-    const PINNED: [&str; 6] = [
-        "GC Darunias Joy",
+    const PINNED: [&str; 5] = [
         "HF Ocarina of Time Item",
         "DMT Biggoron",
         "GC Medigoron",
@@ -181,6 +191,18 @@ mod tests {
             if let (Some(l), Some(i)) = (d.flow.by_name(loc), d.item(it)) {
                 assert!(!(no_hold(i) && holds_up(l)) || d.vanilla_of(loc) == Some(it.as_str()), "{loc} holds {it}");
             }
+        }
+    }
+
+    #[test]
+    fn darunia_holds_any_pouch_item_but_the_ocarinas_and_songs() {
+        let d: Data = Data::load().unwrap();
+        assert!(d.flow_ok(DARUNIA));
+        for n in ["Progressive Strength Upgrade", "Bomb Bag", "Boomerang", "Progressive Hookshot", "Bow"] {
+            assert!(allows(&d, DARUNIA, item(&d, n)), "{n}");
+        }
+        for n in ["Ocarina", "Sarias Song", "Small Key (Dodongos Cavern)", "Gold Skulltula Token"] {
+            assert!(d.item(n).is_none() || !allows(&d, DARUNIA, item(&d, n)), "{n}");
         }
     }
 

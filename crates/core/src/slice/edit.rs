@@ -785,6 +785,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if p.bridge {
         late.extend(crate::deku_bridge::worked(&mut rf, &pk)?);
     }
+    if p.shops.on() {
+        late.push(crate::shops::door::worked(&mut rf, &pk)?);
+    }
     for o in late {
         pk.write_romfs(&o.path, &o.z)?;
         extra += 1;
@@ -1142,7 +1145,7 @@ mod tests {
         let (_, _, flows): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
         assert!(!flows.is_empty());
         for c in &flows {
-            assert!(d.flow.usable(&c.item) || c.location == crate::slice::flow_rules::SARIA, "{} -> {}", c.location, c.item);
+            assert!(d.flow.usable(&c.item) || crate::slice::flow_rules::ANY_POUCH.contains(&c.location.as_str()), "{} -> {}", c.location, c.item);
             assert!(d.flow_ok(&c.location), "{}", c.location);
         }
         let mut vanilla: Settings = Settings::default();
@@ -1171,7 +1174,7 @@ mod tests {
                 assert!(d.flow_ok(loc));
             }
             for c in &flows {
-                assert!(d.flow.usable(&c.item) || c.location == crate::slice::flow_rules::SARIA, "{} -> {}", c.location, c.item);
+                assert!(d.flow.usable(&c.item) || crate::slice::flow_rules::ANY_POUCH.contains(&c.location.as_str()), "{} -> {}", c.location, c.item);
             }
             let given: BM<String, String> = actors_for(&d, &g.seed_file).unwrap();
             for (loc, actor) in &given {

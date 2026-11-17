@@ -345,8 +345,10 @@ mod tests {
         let (w, _): (World, Placement) = world_of(&d, &s);
         let free: Vec<LocId> = crate::slice::pick::pick(&d, &w, &plan(&s).unwrap()).free;
         let f: Vec<&str> = pinned(&d, &w, &free);
-        assert!(f.contains(&"Strength"), "{f:?}");
-        assert!(!f.contains(&"Hookshot"), "{f:?}");
+        // The Ocarina of Time scene keeps its Ocarina, so that family is pinned. Darunia's Joy is
+        // shuffled now, so every Strength holder is in the pool.
+        assert!(f.contains(&"Ocarina"), "{f:?}");
+        assert!(!f.contains(&"Strength") && !f.contains(&"Hookshot"), "{f:?}");
         assert!(pinned(&d, &w, &(0..w.locs.len()).collect::<Vec<LocId>>()).is_empty());
     }
 

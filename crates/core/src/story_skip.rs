@@ -651,6 +651,107 @@ pub fn cut_darunia_talk(b: &mut Bf) -> Res<()> {
     set_next(&mut f.events[*part].kind, *close as u16)
 }
 
+// ---------------------------------------------------------------- Darunia's Joy
+
+/// Darunia's Joy. Saria's Song to child Darunia runs Get_StoneOfFire entry
+/// Get_StoneOfFire_PlayOcarina: when the melody is the one it asks for (EventQueryIsRecommendedMelody
+/// case 0) it fades out, plays the dance timeline Dm_Goron_0025 (no flow, no writes), then reaches
+/// the switch (Event39) that picks the bracelet scene Dm_Goron_0030 or Darunia's talk.
+/// crate::open_world::darunia already makes that switch read HavePlayedEvent.Dm_Goron_0030, so the
+/// gift is given once and does not follow the quest step. The melody case goes straight to that
+/// switch, so the song leads to the item and a second song to the talk.
+pub const STONE_FILE: &str = "Event/EventFlow/Get_StoneOfFire.bfevfl.zs";
+const STONE_FLOW: &str = "Get_StoneOfFire";
+const MELODY_QUERY: &str = "EventQueryIsRecommendedMelody";
+const TRANSITION: &str = "EventSystemActor.EventTransition";
+const DANCE: &str = "Dm_Goron_0025";
+const BRACELET: &str = "Dm_Goron_0030";
+
+/// The bracelet scene Dm_Goron_0030 runs its parts in a row of forks (sub :C01 to :C09, all talk,
+/// dance and camera), then :C10 (the GetInEvent_Goron grant, the check) and :C11 (the bracelet
+/// equip pose, Darunia back to his spot, the Get_StoneOfFire step DodongoCavernOpne and its
+/// progress window). The main entry starts at the :C10 fork, and :C11 no longer plays the equip
+/// pose, which only fits the Goron's Bracelet.
+pub const BRACELET_FILE: &str = "Event/EventFlow/Dm_Goron_0030.bfevfl.zs";
+const BRACELET_MAIN: &str = "EntryPoint0";
+const BRACELET_GRANT_PART: &str = "C10";
+const EQUIP_POSE: &str = "Gauntlet_Goron_Equip";
+
+pub fn patch_darunia_song(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, STONE_FLOW)?;
+    let to = |f: &Flow, scene: &str| -> Vec<usize> { (0..f.events.len()).filter(|&i| action(f, i).as_deref() == Some(TRANSITION) && text(&f.events[i], "EventName") == Some(scene)).collect() };
+    let [dance] = to(f, DANCE)[..] else {
+        return Err(Error::Msg(format!("story skip: {STONE_FLOW} moves to {DANCE} other than once")));
+    };
+    let [gift] = to(f, BRACELET)[..] else {
+        return Err(Error::Msg(format!("story skip: {STONE_FLOW} moves to {BRACELET} other than once")));
+    };
+    // The switch that picks the bracelet scene: the gift happens once.
+    let picks: Vec<usize> = (0..f.events.len()).filter(|&i| matches!(&f.events[i].kind, Kind::Switch { cases, .. } if cases.iter().any(|c| c.ev as usize == gift))).collect();
+    let [pick] = picks[..] else {
+        return Err(Error::Msg(format!("story skip: {} switches in {STONE_FLOW} lead to {BRACELET}, expected one", picks.len())));
+    };
+    let asks: Vec<usize> = (0..f.events.len())
+        .filter(|&i| match &f.events[i].kind {
+            Kind::Switch { actor, query, .. } => f.actors.get(*actor as usize).and_then(|a| a.queries.get(*query as usize)).is_some_and(|q| q == MELODY_QUERY),
+            _ => false,
+        })
+        .collect();
+    // The melody check whose right melody case leads (through a fade) to the dance.
+    let mut hit: Option<usize> = None;
+    for i in asks {
+        let Kind::Switch { cases, .. } = &f.events[i].kind else {
+            continue;
+        };
+        if let Some(c) = cases.iter().find(|c| c.val == 0) {
+            let first: usize = c.ev as usize;
+            if first == dance || next_of(&f.events[first].kind) == Some(dance as u16) {
+                hit = Some(i);
+            }
+        }
+    }
+    let i: usize = hit.ok_or_else(|| Error::Msg(format!("story skip: no melody check in {STONE_FLOW} leads to {DANCE}")))?;
+    let Kind::Switch { cases, .. } = &mut f.events[i].kind else {
+        return Err(Error::Format("story skip: the melody check is no switch"));
+    };
+    for c in cases.iter_mut().filter(|c| c.val == 0) {
+        c.ev = idx(pick)?;
+    }
+    Ok(())
+}
+
+pub fn cut_bracelet_scene(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, BRACELET)?;
+    let parts: Vec<usize> = (0..f.events.len()).filter(|&i| matches!(&f.events[i].kind, Kind::Sub { flow, entry, .. } if flow.is_empty() && entry == BRACELET_GRANT_PART)).collect();
+    let [part] = parts[..] else {
+        return Err(Error::Msg(format!("story skip: {BRACELET} runs :{BRACELET_GRANT_PART} other than once")));
+    };
+    let fork: usize = (0..f.events.len())
+        .find(|&i| matches!(&f.events[i].kind, Kind::Fork { forks, .. } if forks.contains(&(part as u16))))
+        .ok_or_else(|| Error::Msg(format!("story skip: {BRACELET} runs :{BRACELET_GRANT_PART} outside a fork")))?;
+    let e = f.entries.iter_mut().find(|e| e.name == BRACELET_MAIN).ok_or_else(|| Error::Msg(format!("story skip: {BRACELET} has no {BRACELET_MAIN}")))?;
+    if e.main == idx(fork)? {
+        return Err(Error::Format("story skip: the bracelet scene is already cut"));
+    }
+    e.main = idx(fork)?;
+    let pose: Vec<u16> = (0..f.events.len()).filter(|&i| text(&f.events[i], "ASCommand") == Some(EQUIP_POSE)).map(idx).collect::<Res<Vec<u16>>>()?;
+    if pose.is_empty() {
+        return Err(Error::Msg(format!("story skip: {BRACELET} has no {EQUIP_POSE} pose")));
+    }
+    let mut dropped: usize = 0;
+    for ev in f.events.iter_mut() {
+        if let Kind::Fork { forks, .. } = &mut ev.kind {
+            let n: usize = forks.len();
+            forks.retain(|x| !pose.contains(x));
+            dropped += n - forks.len();
+        }
+    }
+    if dropped == 0 {
+        return Err(Error::Msg(format!("story skip: no fork in {BRACELET} starts the {EQUIP_POSE} pose")));
+    }
+    Ok(())
+}
+
 pub fn stage_endings(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
     let mut outs: Vec<Out> = vec![edit_zs(rf, have, ENDING_FILE, |raw| {
         rebuild(raw, |b| {
@@ -661,6 +762,9 @@ pub fn stage_endings(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
     })?];
     // The location patcher may have staged these scenes already (their grant holds the check).
     outs.push(edit_zs(rf, have, DARUNIA_FILE, |raw| rebuild(raw, cut_darunia_talk))?);
+    outs.push(edit_zs(rf, have, STONE_FILE, |raw| rebuild(raw, patch_darunia_song))?);
+    // The location patcher stages the bracelet scene already (its grant holds the check).
+    outs.push(edit_zs(rf, have, BRACELET_FILE, |raw| rebuild(raw, cut_bracelet_scene))?);
     for s in MEDAL_SCENES {
         // The location patcher may have staged the scene already (its grant holds the check).
         outs.push(edit_zs(rf, have, &medal_file(s), |raw| {
@@ -1208,6 +1312,39 @@ mod tests {
                 assert!(tail.is_empty(), "{s}: {tail:?}");
             }
         }
+    }
+
+    #[test]
+    fn saria_song_to_darunia_goes_straight_to_the_bracelet_scene_and_it_starts_at_the_gift() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut b: Bf = Bf::parse(&rf.read_zs(STONE_FILE).unwrap()).unwrap();
+        patch_darunia_song(&mut b).unwrap();
+        let f: &Flow = flow_mut(&mut b, STONE_FLOW).unwrap();
+        let ask: usize = f.events.iter().position(|e| e.name == "Event35").unwrap();
+        let Kind::Switch { cases, .. } = &f.events[ask].kind else { panic!() };
+        let to: usize = cases.iter().find(|c| c.val == 0).unwrap().ev as usize;
+        assert_eq!(f.events[to].name, "Event39");
+        let Kind::Switch { cases: pick, .. } = &f.events[to].kind else { panic!() };
+        assert!(pick.iter().any(|c| text(&f.events[c.ev as usize], "EventName") == Some(BRACELET)));
+        // The wrong melody case still goes to Darunia's other scene.
+        let other: usize = cases.iter().find(|c| c.val == 1).unwrap().ev as usize;
+        assert_eq!(text(&f.events[other], "EventName"), Some("Dm_Goron_0028"));
+        let mut s: Bf = Bf::parse(&rf.read_zs(BRACELET_FILE).unwrap()).unwrap();
+        cut_bracelet_scene(&mut s).unwrap();
+        assert!(cut_bracelet_scene(&mut s).is_err());
+        let f: &Flow = &s.flows[0];
+        let e = f.entries.iter().find(|e| e.name == BRACELET_MAIN).unwrap();
+        let Kind::Fork { forks, join } = &f.events[e.main as usize].kind else { panic!("main is no fork") };
+        assert!(forks.iter().any(|x| matches!(&f.events[*x as usize].kind, Kind::Sub { entry, .. } if entry == BRACELET_GRANT_PART)));
+        // After the gift the scene only runs :C11, which keeps the quest step.
+        let Kind::Join { next } = &f.events[*join as usize].kind else { panic!() };
+        let Kind::Fork { forks: last, .. } = &f.events[*next as usize].kind else { panic!() };
+        assert!(last.iter().any(|x| matches!(&f.events[*x as usize].kind, Kind::Sub { entry, .. } if entry == "C11")));
+        assert!(f.events.iter().all(|ev| !matches!(&ev.kind, Kind::Fork { forks, .. } if forks.iter().any(|x| text(&f.events[*x as usize], "ASCommand") == Some(EQUIP_POSE)))));
+        assert!(f.events.iter().any(|ev| text(ev, "StepName") == Some("DodongoCavernOpne")));
     }
 
     #[test]

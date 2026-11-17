@@ -250,6 +250,9 @@ impl Plan {
         if self.world.remake() {
             out.push((crate::spots::free::KEY, crate::spots::free::ON));
         }
+        if self.shops.on() {
+            out.push((crate::shops::door::LOGIC_KEY, "true"));
+        }
         if self.dungeon_rewards {
             out.push((crate::medal_gate::LOGIC_KEY, "true"));
         }
