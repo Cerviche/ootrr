@@ -369,6 +369,15 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     crate::merchant_prices::stage_bean(&mut rf, seed, p.rewards.merchant_prices, p.rewards.bean_sale, &mut late)?;
     if p.story {
         late.extend(crate::story_skip::worked(&mut rf, &pk)?);
+        // The Light Arrows scene is dropped; Link runs the item get with what it holds.
+        let loc: &str = crate::lacs_key::LOC;
+        let vanilla: String = d.flow.by_name(loc).and_then(|l| l.item.clone()).unwrap_or_else(|| "Item_Arrow_Light".to_string());
+        let give = crate::story_skip::ArrowsGive {
+            actor: flows.iter().find(|c| c.location == loc).map(|c| c.item.clone()).unwrap_or(vanilla),
+            family: placed.get(loc).copied(),
+            key: gift_keys.iter().find(|g| g.location == loc).map(|g| (g.item, g.dungeon)),
+        };
+        crate::story_skip::stage_arrows_give(&mut rf, &mut late, &give)?;
     }
     if p.endings {
         late.extend(crate::story_skip::worked_endings(&mut rf, &pk)?);

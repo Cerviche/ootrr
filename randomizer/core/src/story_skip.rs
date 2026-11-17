@@ -770,6 +770,63 @@ pub fn patch_light_arrows(b: &mut Bf) -> Res<()> {
     Ok(())
 }
 
+/// What the Light Arrows check gives once its scene is gone: the placed item's actor, its
+/// upgrade family when it is one, and its dungeon credit when it is a dungeon item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArrowsGive {
+    pub actor: String,
+    pub family: Option<&'static str>,
+    pub key: Option<(crate::gift_keys::Item, &'static str)>,
+}
+
+/// The standard item get (the item shown, Link holding it up, the get window and the pouch add)
+/// that the minigames run with no NPC.
+pub const ITEM_GET: (&str, &str) = ("Dm_SY_GetInEvent", "GetInEvent_NotTurn_NotNpc");
+const ARROWS_ENTRIES: [&str; 2] = ["Market_Adult_Field_GetArrowLight", "GetArrowLight_OcarinaBackTimeTemple"];
+const ARROWS_GIVE: &str = "OOTRRArrowsGive";
+
+/// Drops the Light Arrows scene (Dm_TimeTemple_0130) entirely: its transition becomes its played
+/// flag, and once the screen fades back in after the skipped scenes, Link runs the standard item
+/// get with the placed item. The quest steps follow as before. Runs after patch_light_arrows.
+pub fn patch_arrows_give(b: &mut Bf, g: &ArrowsGive) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, ARROWS_FLOW)?;
+    if f.events.iter().any(|e| e.name == ARROWS_GIVE) {
+        return Err(Error::Format("story skip: the Light Arrows item get is already in place"));
+    }
+    let fade: usize = find_action(f, ARROWS_FADE_IN)?;
+    let done: u16 = next_of(&f.events[fade].kind).ok_or(Error::Format("story skip: the Light Arrows fade in has no next"))?;
+    if action(f, done as usize).as_deref() != Some(ARROWS_DONE.1) {
+        return Err(Error::Format("story skip: run patch_light_arrows before the Light Arrows item get"));
+    }
+    transition_to_flag(f, ARROWS_PREFIX, ARROWS_GRANT.0, ARROWS_GRANT.1, None)?;
+    let at: u16 = idx(f.events.len())?;
+    f.events.push(Event {
+        name: ARROWS_GIVE.to_string(),
+        kind: Kind::Sub {
+            next: done,
+            params: Some(Cont { items: vec![("ActorName".to_string(), Val::Str(g.actor.clone()))] }),
+            flow: ITEM_GET.0.to_string(),
+            entry: ITEM_GET.1.to_string(),
+        },
+    });
+    set_next(&mut f.events[fade].kind, at)?;
+    for e in f.entries.iter_mut().filter(|e| ARROWS_ENTRIES.contains(&e.name.as_str())) {
+        e.subs.push(at);
+    }
+    if let Some(family) = g.family {
+        crate::progressive::wrap_grant(f, at as usize, ARROWS_GIVE, "ActorName", family)?;
+    }
+    if let Some((item, dungeon)) = g.key {
+        crate::gift_keys::edit_flow(f, at as usize, ARROWS_GIVE, item, dungeon)?;
+    }
+    Ok(())
+}
+
+/// Adds the item get to the story skip's AllSage edit in `late` (or to the game's AllSage).
+pub fn stage_arrows_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &ArrowsGive) -> Res<()> {
+    crate::dungeon_grant::merge(rf, late, ARROWS_FILE, |raw| rebuild(raw, |b| patch_arrows_give(b, g)))
+}
+
 pub fn stage_arrows(rf: &mut Romfs, have: Have) -> Res<Out> {
     edit_zs(rf, have, ARROWS_FILE, |raw| rebuild(raw, patch_light_arrows))
 }
