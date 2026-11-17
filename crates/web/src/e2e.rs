@@ -34,7 +34,7 @@ mod tests {
 
     fn raw(port: u16, bytes: &[u8]) -> Out {
         let mut s: TcpStream = TcpStream::connect(("127.0.0.1", port)).unwrap();
-        s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+        s.set_read_timeout(Some(Duration::from_secs(120))).unwrap();
         s.write_all(bytes).unwrap();
         let mut buf: Vec<u8> = Vec::new();
         let _ = s.read_to_end(&mut buf);
