@@ -48,11 +48,17 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Drops {
         hives,
         rocks: mode_of(s, ROCKS, bad),
         grass: mode_of(s, GRASS, bad),
-        remake: mode_of(s, crate::pot_slice::remake::SETTING, bad),
+        remake: Mode::Off,
     }
+    .with_remake()
 }
 
 impl Drops {
+    fn with_remake(mut self) -> Drops {
+        self.remake = if self.pots != Mode::Off || self.crates != Mode::Off { Mode::All } else { Mode::Off };
+        self
+    }
+
     pub fn off() -> Drops {
         Drops { pots: Mode::Off, crates: Mode::Off, hives: Mode::Off, rocks: Mode::Off, grass: Mode::Off, remake: Mode::Off }
     }
@@ -83,7 +89,7 @@ impl Drops {
             out.push("Grass tufts hold shuffled items. The adult and the child copy of a tuft are two checks. Grass takes any item the game ships as a world pickup or whose pickup pack is built. A shuffled tuft gives its item once and stays cut, its saved row is made permanent. An item you do not pick up is lost and can make the seed unbeatable, so save before breaking holders that may hold key items. Bug grass in the Lost Woods is left alone. Experimental and untested in the game.".to_string());
         }
         if self.remake != Mode::Off {
-            out.push("Pots, crates and flying pots that only the remake has hold shuffled items, key items included. Their logic region comes from the room data and the nearest known checks, the harder one where two fit, and was never checked in the game, so report a spot that the logic expects too early. A shuffled pot gives its item once, its saved row is made permanent. An item you do not pick up is lost and can make the seed unbeatable, so save before breaking holders that may hold key items. Experimental and untested in the game.".to_string());
+            out.push("Pots, crates and flying pots that only the remake has hold shuffled items when their kind is shuffled, key items included. Their logic region comes from the room data and the nearest known checks, the harder one where two fit, and was never checked in the game, so report a spot that the logic expects too early. A shuffled pot gives its item once, its saved row is made permanent. An item you do not pick up is lost and can make the seed unbeatable, so save before breaking holders that may hold key items. Experimental and untested in the game.".to_string());
         }
         out
     }
@@ -107,11 +113,12 @@ mod tests {
         let d: Drops = read(&t, &mut bad);
         assert_eq!((d.pots, d.crates), (Mode::Dungeons, Mode::Overworld));
         assert_eq!(d.hives, Mode::Off);
-        assert_eq!(d.notes().len(), 2);
+        // Pots, crates, and the remake only spots that follow them.
+        assert_eq!(d.notes().len(), 3);
         t.set(HIVES, Value::Bool(true)).unwrap();
         let h: Drops = read(&t, &mut bad);
         assert_eq!(h.hives, Mode::All);
-        assert!(h.any() && h.notes().len() == 3);
+        assert!(h.any() && h.notes().len() == 4);
         let mut only: Settings = Settings::default();
         only.set(HIVES, Value::Bool(true)).unwrap();
         assert!(read(&only, &mut bad).any());

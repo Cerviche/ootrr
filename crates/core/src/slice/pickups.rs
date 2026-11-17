@@ -73,6 +73,8 @@ pub fn keeps_out(d: &Data, name: &str, item: &str) -> bool {
 pub enum Free {
     Off,
     Pieces,
+    Dungeons,
+    Overworld,
     All,
 }
 
@@ -85,14 +87,21 @@ impl Free {
         match self {
             Free::Off => None,
             Free::Pieces => Some(PIECES_NOTE),
-            Free::All => Some(NOTE),
+            Free::Dungeons | Free::Overworld | Free::All => Some(NOTE),
         }
     }
 
-    fn covers(self, l: &Loc) -> bool {
+    pub fn remake(self) -> bool {
+        matches!(self, Free::Dungeons | Free::Overworld | Free::All)
+    }
+
+    fn covers(self, l: &Loc, dungeon: bool) -> bool {
+        let piece: bool = l.kind == "heart" || is_held(&l.name);
         match self {
             Free::Off => false,
-            Free::Pieces => l.kind == "heart" || is_held(&l.name),
+            Free::Pieces => piece,
+            Free::Dungeons => piece || dungeon,
+            Free::Overworld => piece || !dungeon,
             Free::All => true,
         }
     }
@@ -104,8 +113,9 @@ pub fn is_note(n: &str) -> bool {
 
 pub fn mode(s: &Settings, bad: &mut Vec<String>) -> Free {
     match s.text(SETTING) {
-        Ok("off") => Free::Off,
-        Ok("pieces") => Free::Pieces,
+        Ok("off") | Ok("pieces") => Free::Pieces,
+        Ok("dungeons") => Free::Dungeons,
+        Ok("overworld") => Free::Overworld,
         Ok("all") => Free::All,
         Ok(v) => {
             bad.push(format!("{SETTING} is {v}, which is not a known choice"));
@@ -213,7 +223,8 @@ pub fn select(d: &Data, w: &World, p: &Plan, free: &mut Vec<LocId>, left: &mut B
             count(left, "location is not in the logic world");
             continue;
         };
-        if !p.world.covers(l) {
+        let dungeon: bool = w.regions[w.locs[x].region].dungeon.is_some();
+        if !p.world.covers(l, dungeon) {
             count(left, "freestanding item shuffle does not cover its kind");
         } else if held(&l.name) == Some(true) && !d.event_ok(&l.name) {
             count(left, "chest runs a story event that can grant its own item");
@@ -349,15 +360,20 @@ mod tests {
     }
 
     #[test]
-    fn nothing_changes_while_the_setting_is_off() {
+    fn off_shuffles_only_the_pieces_of_heart() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();
         let p: Plan = plan(&Settings::default()).unwrap();
+        assert_eq!(p.world, Free::Pieces);
         let mut free: Vec<LocId> = Vec::new();
         let mut left: BM<String, usize> = BM::new();
         let mut flow: usize = 0;
         select(&d, &w, &p, &mut free, &mut left, &mut flow);
-        assert!(free.is_empty() && left.is_empty() && flow == 0);
+        assert!(!free.is_empty());
+        for l in &free {
+            let n: &str = &w.locs[*l].name;
+            assert!(is_held(n) || d.cat.by_name(n).is_some_and(|c| c.kind == "heart"), "{n}");
+        }
         assert!(!p.notes.iter().any(|n| n == NOTE));
     }
 
@@ -417,13 +433,14 @@ mod tests {
     }
 
     #[test]
-    fn the_default_seed_never_touches_a_world_location() {
+    fn the_default_seed_only_moves_the_pieces_of_heart_on_the_ground() {
         let d: Data = Data::load().unwrap();
         for n in 0..3 {
             let g: Generated = generate_data(&d, &Settings::default(), &format!("plain {n}"), &GenOpts::default()).unwrap();
             for k in g.seed_file.placements.keys() {
-                assert!(!d.cat.by_name(k).is_some_and(is_world), "{k}");
-                assert!(!is_held(k), "{k}");
+                if d.cat.by_name(k).is_some_and(is_world) {
+                    assert!(is_held(k) || d.cat.by_name(k).is_some_and(|c| c.kind == "heart"), "{k}");
+                }
             }
         }
     }

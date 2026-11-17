@@ -117,6 +117,11 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
     {
         return false;
     }
+    // The vanilla items of the gated NPC rewards stay at gated reward spots, also when the
+    // spot is a pot or a freestanding item that by_place answers for.
+    if p.extra && d.item(&w.items.names[it]).is_some_and(|i| !crate::flow_extra::fits(d, &w.locs[l].name, i)) {
+        return false;
+    }
     if let Some(ok) = by_place(d, w, p, it, l) {
         return ok;
     }
@@ -159,6 +164,9 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
                 && (!crate::open_world::skips::is_bean_sale(name) || crate::flow_extra::pouch(i))
                 && !(up && ((d.keeps_event(name) && !d.special(name)) || heart_loc))
                 && !(d.keeps_event(name) && i.actor.as_deref().is_some_and(crate::progressive::guarded))
+                // A spot with an actor per age (the remake chests that follow Chests) hands its
+                // item out twice, so it only takes items a second copy does no harm.
+                && crate::slice::copies::fits(d, name, &i.name)
         }
         None => false,
     }
@@ -407,7 +415,12 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             }
         }
     };
-    let got: Placement = if pk.free.is_empty() {
+    // Pieces of Heart on the ground are always shuffled. When they and the Heart Containers are
+    // all the pool holds (chests and NPC rewards off), they only trade places with each other,
+    // which changes nothing, and the assumed fill cannot place them since the logic counts
+    // hearts. They keep their own spots.
+    let hearts_only: bool = pk.free.iter().all(|l| base.get(*l).is_some_and(|i| HEARTS.contains(&w.items.names[i].as_str())));
+    let got: Placement = if pk.free.is_empty() || hearts_only {
         base.clone()
     } else {
         let anywhere: bool = p.songs == Songs::Anywhere;
@@ -494,6 +507,9 @@ pub fn plando_options(d: &Data, s: &Settings) -> Res<(Vec<String>, Vec<String>)>
     Ok((locs, items))
 }
 
+/// The heart items that only trade places with each other when nothing else is shuffled.
+pub const HEARTS: [&str; 2] = ["Piece of Heart", "Heart Container"];
+
 pub fn generate_with(s: &Settings, seed: &str, o: &GenOpts) -> Res<Generated> {
     generate_data(&Data::load()?, s, seed, o)
 }
@@ -527,13 +543,21 @@ mod tests {
             "{{\"format\":1,\"game\":\"oot-remake:synthetic\",\"files\":[],\"chests\":[{}]}}",
             rows.join(",")
         );
-        Data::new(ITEMS_JSON, VANILLA_JSON, &scan, CATALOG_JSON).unwrap().with_remake(REMAKE_JSON).unwrap()
+        let mut d: Data = Data::new(ITEMS_JSON, VANILLA_JSON, &scan, CATALOG_JSON).unwrap().with_remake(REMAKE_JSON).unwrap();
+        // Only six chests are scanned, so the tools that reach most freestanding Pieces of Heart
+        // (always shuffled) are never found. The synthetic world leaves the ground spots out.
+        d.cat.locs.retain(|l| !crate::slice::pickups::is_world(l) && !crate::slice::pickups::is_held(&l.name));
+        d
     }
 
+    /// Every chest, with the newer default-on rewards (More NPC rewards, boss Heart
+    /// Containers) off, as these tests were written for. The synthetic data has too few
+    /// spots for them.
     fn all_chests() -> Settings {
         let mut s: Settings = Settings::default();
         s.set("shuffle_chests", Value::s("all")).unwrap();
-        s.set(crate::slice::remake_chests::SETTING, Value::s("on")).unwrap();
+        s.set(crate::flow_extra::SETTING, Value::Bool(false)).unwrap();
+        s.set("shuffle_boss_hearts", Value::Bool(false)).unwrap();
         s
     }
 
@@ -556,7 +580,8 @@ mod tests {
         for name in ["Deku Tree Slingshot Chest", "Jabu Jabus Belly Compass Chest", "Jabu Jabus Belly Boomerang Chest"] {
             assert!(g.seed_file.placements.contains_key(name), "{name}");
         }
-        assert!(!g.seed_file.placements.contains_key("Ice Cavern Iron Boots Chest"));
+        // A held chest, released with the other remake chests now that they follow Chests.
+        assert!(g.seed_file.placements.contains_key("Ice Cavern Iron Boots Chest"));
         assert!(!g.seed_file.placements.keys().any(|k| k.starts_with("Market Treasure Chest Game")));
     }
 
@@ -677,8 +702,9 @@ mod tests {
         s.set("shuffle_rewards", Value::s("off")).unwrap();
         s.set("shuffle_chests", Value::s("off")).unwrap();
         let off: Generated = generate_data(&d, &s, "x", &GenOpts::default()).unwrap();
-        assert_eq!(off.counts.randomized, 0);
-        assert!(off.seed_file.placements.is_empty());
+        // Only the hearts are left, and they stay at their own spots.
+        assert!(off.seed_file.placements.values().all(|i| HEARTS.contains(&i.as_str())));
+        assert_eq!(off.counts.changed, 0);
         s.set("shuffle_chests", Value::s("overworld")).unwrap();
         let o: Generated = generate_data(&d, &s, "x", &GenOpts::default()).unwrap();
         assert!(o.counts.randomized >= 2);
@@ -768,7 +794,9 @@ mod tests {
     #[test]
     fn boss_hearts_join_the_pool_only_when_asked() {
         let d: Data = Data::load().unwrap();
-        let off: Generated = generate_data(&d, &Settings::default(), "hearts", &GenOpts::default()).unwrap();
+        let mut no: Settings = Settings::default();
+        no.set("shuffle_boss_hearts", Value::Bool(false)).unwrap();
+        let off: Generated = generate_data(&d, &no, "hearts", &GenOpts::default()).unwrap();
         assert!(!off.seed_file.placements.contains_key("Deku Tree Queen Gohma Heart"));
         let mut s: Settings = Settings::default();
         s.set("shuffle_boss_hearts", Value::Bool(true)).unwrap();
@@ -986,10 +1014,10 @@ mod tests {
     fn seeds_that_generated_before_keep_their_exact_placements() {
         let d: Data = Data::load().unwrap();
         let cases: [(&[(&str, &str)], &str, usize, u64); 4] = [
-            (&[], "default 0", 76, 0xa8f6_6628_e446_2662),
-            (&[], "default 1", 76, 0xe4c5_1cfa_e3e1_3172),
-            (&[("shuffle_chests", "overworld")], "chests_ow 0", 9, 0xd58f_c0a7_a752_4655),
-            (&[("shuffle_chests", "dungeons")], "dungeons 0", 67, 0xec8c_3257_dee8_2878),
+            (&[], "default 0", 178, 0x0830_df3d_49f4_d35e),
+            (&[], "default 1", 178, 0xced5_e7fb_79f8_1d14),
+            (&[("shuffle_chests", "overworld")], "chests_ow 0", 65, 0xcbfe_8c32_ecd1_f9c7),
+            (&[("shuffle_chests", "dungeons")], "dungeons 0", 138, 0x077a_8137_9fdd_1621),
         ];
         for (pairs, seed, n, want) in cases {
             let mut all: Vec<(&str, &str)> = vec![("shuffle_rewards", "off")];
@@ -1040,7 +1068,6 @@ mod tests {
             ("shuffle_rewards", "supported"),
             ("shuffle_songs", "anywhere"),
             ("shuffle_skulltulas", "matched"),
-            (crate::slice::remake_chests::SETTING, "on"),
         ]);
         for k in ["shuffle_boss_hearts", "gossip_hints", "faster_chests"] {
             s.set(k, Value::Bool(true)).unwrap();
@@ -1181,18 +1208,22 @@ mod tests {
         pots.set("shuffle_pots", Value::s("all")).unwrap();
         pots.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str, &str); 8] = [
-            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin a", "e2268d546296aab64fc23f97a9f6f461c906ba14494d8b2970d51c5923096e23"),
-            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "d8899e0709f51a5b9218e821900f06ad7390578204be218668e97aff5d34b969"),
-            (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "dbbde2ae945e2e8eb27f8fe74e85b432bc1612f02b1f629a822e47f8cf49cc79"),
-            (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "a131002f74c6dd72eb9e521304f3cb01205103b640d91df77e6ddf6e760fd180"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "a66420f85dcc8100019b0735e02d4f32aad6ea132e65aca024d3073b6d384a88"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "0d0b0d44ffc18f093d88de4a9cac52ce5836d0145faf6125f28e0d20770073cb"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "05af15ce9eb5e82403c21f132a0e0d8c58ed8bbc4a4344490d3376578cbd3625"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "317412bfbfde9d41f95424c3884368567f253a9b13f4cb884d9339a56a40d4a7"),
+            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin a", "0a29525eaa06113e92cc6cda07854cf9e20f1ba25d782453bcf46caf9698b044"),
+            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "ee3ab45aa7b7ffdddb016af5b24f3ca2d4ff10a13c8ad9365b7636a7776cff2d"),
+            (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "44cb78034320d6f89253023b766ef5f2f4f63c9447a9209b6fc6905b0c2475c5"),
+            (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "100cc34c15e51369412d1f6654bac18df62feb5d39df0a875faa65d1534203e9"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "8c738f430ca9f1ee3d2d47b8f3a82029ec406aba41c23e1ec3e47fb64c34fe32"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "78f4d272c98d9a4aa35921b7ec379bc4bfaaa2195bedc02fec16d7d56a78d609"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "e3f2ced9a1cdf958e0abaa7f813ae9b1992b3d06f0d1055b75613863872d3094"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "47d24f16a45f281c9f9e41819f01bd2c8c6ffdae132857ead30e149b34935cb2"),
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
             s.set(crate::deku_bridge::KEY, Value::Bool(false)).unwrap();
+            // The defaults these strings were written with.
+            s.set("shuffle_boss_hearts", Value::Bool(false)).unwrap();
+            s.set(crate::flow_extra::SETTING, Value::Bool(false)).unwrap();
+            s.set(crate::qol::NAVI, Value::s("off")).unwrap();
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
             let mut f: SeedFile = g.seed_file.clone();
             if s.flag("shuffle_dungeon_rewards").unwrap() {
@@ -1225,10 +1256,10 @@ mod tests {
         both.set("shuffle_pots", Value::s("all")).unwrap();
         both.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str); 4] = [
-            (hives.clone(), "pin a", "03b4af2447fbccb8eac4c2c79d489e2d88beb12cb26e5a175e604b29227031cd"),
-            (hives.clone(), "pin b", "698b9e5ef08860372c2acf3cd05a8ae7c8720668f314632fa5f3edfb692c2591"),
-            (both.clone(), "pin a", "b3b0a2199ad8571a18e7673d73857a98bf5d0acbbad09d6143b13ba9d7722db2"),
-            (both.clone(), "pin b", "10ff0d370cd88e45d79ae931f5402f1633eeada748e2ef974e2413bda9532e57"),
+            (hives.clone(), "pin a", "40928b7e5832b4d1f74c643631fed9e56b37b9f1aaa461e6f5956ddc34698dfe"),
+            (hives.clone(), "pin b", "3146ca0c1f0364dddae9726bb5e7ae5407738232422bec178fe6341732d9d4b5"),
+            (both.clone(), "pin a", "c8f0b0fd088b4c5b008642029dd851800ea5f811b87fc0211c9c1ccfbb2fa870"),
+            (both.clone(), "pin b", "5e1930368e2105904bf2e288b090f3cd633133aefbd2be1278ea42cd5b35ad42"),
         ];
         for (s, seed, sum) in cases {
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();

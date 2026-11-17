@@ -33,7 +33,7 @@ export function marked(text, terms) {
 
 function tip_content(s, vals) {
   return () => {
-    const kids = [h("div", null, s.tip)];
+    const kids = [h("div", { class: "tiptext" }, s.tip)];
     const cs = (s.choices || []).filter((c) => c.tip);
     if (s.kind === "choice" && cs.length) kids.push(h("dl", null, cs.map((c) => [h("dt", null, c.label), h("dd", null, c.tip)])));
     if (s.kind === "number") kids.push(h("dl", null, h("dd", null, `From ${s.min} to ${max_of(s, vals())}. Default ${s.default}.`)));

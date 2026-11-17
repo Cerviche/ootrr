@@ -73,6 +73,8 @@ pub mod bomb_lift;
 pub mod bomb_pickup;
 pub mod sarc;
 pub mod save;
+pub mod merchant_prices;
+pub mod scrub_prices;
 pub mod scrubs_a;
 pub mod scrubs_b;
 pub mod search;

@@ -301,6 +301,13 @@ mod tests {
     }
 
     #[test]
+    fn retired_numbers_are_never_reused() {
+        for (n, id) in super::super::list::RETIRED {
+            assert!(crate::settings::schema().settings.iter().all(|s| s.num != n && s.id != id), "setting number {n} ({id}) is retired");
+        }
+    }
+
+    #[test]
     fn unknown_settings_and_choices_warn_instead_of_failing() {
         let s: Schema = sch();
         let mut body: Vec<u8> = Vec::new();

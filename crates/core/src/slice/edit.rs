@@ -144,10 +144,17 @@ fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
     Ok(out)
 }
 
+/// The targets of a seed as the build sees them once slice::seed_packs has written the
+/// pickup packs its freestanding spots need (Pieces of Heart on the ground are always shuffled,
+/// so most seeds need some).
 #[cfg(test)]
 fn targets(d: &Data, seed: &SeedFile) -> Res<(Vec<Target>, usize, Vec<Choice>)> {
     let v: crate::slice::tier_order::Verdict = crate::slice::tier_order::fixed_actors(d, seed)?;
-    targets_with(d, seed, false, &v.assign, &Extra::default())
+    let mut extra: Extra = Extra::default();
+    for w in crate::slice::seed_packs::need(d, seed, &v.assign)?.into_values() {
+        extra.packs.insert(w.name, Vec::new());
+    }
+    targets_with(d, seed, false, &v.assign, &extra)
 }
 
 fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<String, String>, extra: &Extra) -> Res<(Vec<Target>, usize, Vec<Choice>)> {
@@ -651,6 +658,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut staged: Stage = flow_locations::stage_merged(&mut rf, &d.flow, &flows, &gs, &FlowOpts { songs: p.songs != Songs::Off, ..FlowOpts::default() })?;
     crate::scrubs_b::stage_flow(&mut rf, &scrub_jobs, &mut staged.files)?;
+    crate::scrub_prices::stage(&mut rf, &d, seed, p.scrub_prices, &mut staged.files)?;
+    crate::merchant_prices::stage_medigoron(&mut rf, seed, p.merchant_prices, p.medigoron, &mut staged.files)?;
     if p.songs != Songs::Off {
         crate::song_lessons::stage_flow(&mut rf, &mut staged.files)?;
     }
@@ -682,6 +691,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         more.extend(hints::stage(&mut rf, &d, seed, p.hints, &keys, &p.npc)?);
     }
     crate::dungeon_grant::stage_text(&mut rf, &mut more, &marks.used)?;
+    crate::scrub_prices::stage_text(&mut rf, &d, seed, p.scrub_hint, &mut more)?;
     crate::slice::silver::stage_text(&mut rf, &mut more, &silver_used)?;
     more.push(stage_pouch(&mut rf, roam)?);
     more.extend(crate::bomb_lift::stage(&mut rf)?);
@@ -765,6 +775,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut late: Vec<crate::staging::Out> = if p.qol.any() { crate::qol::worked(&mut rf, &pk, &p.qol)? } else { Vec::new() };
     late.extend(crate::open_world::worked(&mut rf, &pk, &p.open)?);
+    crate::merchant_prices::stage_bean(&mut rf, seed, p.merchant_prices, p.bean_sale, &mut late)?;
     if p.story {
         late.extend(crate::story_skip::worked(&mut rf, &pk)?);
     }
@@ -1054,7 +1065,9 @@ mod tests {
             let mut before: Vec<String> = Vec::new();
             let mut after: Vec<String> = Vec::new();
             for (loc, actor) in &given {
-                before.push(d.cat.by_name(loc).unwrap().item.clone());
+                // The Gerudo Valley waterfall piece has an actor of its own, and moves as the plain one.
+                let v: &str = &d.cat.by_name(loc).unwrap().item;
+                before.push(if v == "Obj_GerudoValley_Heart_Piece" { "Obj_Heart_Piece".to_string() } else { v.to_string() });
                 after.push(actor.clone());
             }
             before.sort();
@@ -1076,7 +1089,8 @@ mod tests {
         for n in 0..4 {
             let g = generate_data(&d, &Settings::default(), &format!("wrap {n}"), &GenOpts::default()).unwrap();
             let (ts, _, _): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
-            for t in &ts {
+            // Freestanding spots hand out a fixed tier (slice::tier_order), not a chest wrapper.
+            for t in ts.iter().filter(|t| !d.cat.by_name(&t.name).is_some_and(crate::slice::pickups::is_world)) {
                 match (t.family, d.family(&t.new_item)) {
                     (Some(f), _) => {
                         seen.insert(f);

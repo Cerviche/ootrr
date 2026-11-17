@@ -515,6 +515,9 @@ mod tests {
         assert!(!g.seed_file.placements.contains_key(skips::BEAN_SALESMAN));
         let mut s: Settings = off.clone();
         s.set(BEANS, Value::Bool(true)).unwrap();
+        let g = crate::slice::generate::generate_data(&d, &s, "beans planted, merchant not shuffled", &crate::slice::GenOpts::default()).unwrap();
+        assert!(!g.seed_file.placements.contains_key(skips::BEAN_SALESMAN));
+        s.set(crate::flow_extra::MERCHANTS_SETTING, Value::s("beans")).unwrap();
         for k in 0..3 {
             let g = crate::slice::generate::generate_data(&d, &s, &format!("beans {k}"), &crate::slice::GenOpts::default()).unwrap();
             let it: &str = &g.seed_file.placements[skips::BEAN_SALESMAN];

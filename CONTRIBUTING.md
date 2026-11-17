@@ -50,6 +50,7 @@ Never run `ootrr` with no arguments. It starts the local web server and may open
 - Old settings strings must keep their meaning. The settings model has an optional baseline for this, see the commit that made story and NPC rewards on by default.
 - Number your settings in a range the maintainer gives you, so two branches never collide.
 - Write a plain tip for each setting and say when it is experimental or untested in the game.
+- Every new setting goes under the **In Dev** heading of the settings menu first, never straight onto the Randomizer or Gameplay pages. Add it to an In Dev page in `crates/core/src/settings/menu.rs` (an existing one, or a new page named after the feature with `heading: IN_DEV`). A maintainer moves it to its proper page once it is reviewed. This keeps the main pages to settings that are known to work. A setting with no place in the menu also lands under In Dev, on the Unsorted page, but the menu test still asks you to place it.
 
 ## Editing the game's files
 

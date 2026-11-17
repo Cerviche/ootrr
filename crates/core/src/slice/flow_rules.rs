@@ -150,7 +150,10 @@ mod tests {
         for n in NEW {
             assert!(d.flow_ok(n), "{n}");
         }
-        let off: crate::slice::support::Plan = crate::slice::support::plan(&Settings::default()).unwrap();
+        // More NPC rewards is on by default and frees Biggoron, so it is turned off here.
+        let mut quiet: Settings = Settings::default();
+        quiet.set(crate::flow_extra::SETTING, Value::Bool(false)).unwrap();
+        let off: crate::slice::support::Plan = crate::slice::support::plan(&quiet).unwrap();
         for n in PINNED {
             let open: bool = d.flow.by_name(n).is_some_and(|l| crate::flow_extra::open(l, &off));
             assert!(!(d.flow_ok(n) && open), "{n}");
@@ -277,6 +280,7 @@ mod tests {
         let mut s: Settings = Settings::default();
         s.set("shuffle_chests", Value::s("all")).unwrap();
         s.set("shuffle_rewards", Value::s("supported")).unwrap();
+        s.set(crate::flow_extra::SETTING, Value::Bool(false)).unwrap();
         for n in 0..2 {
             let g: Generated = generate_data(&d, &s, &format!("flow rules {n}"), &GenOpts::default()).unwrap();
             for l in NEW {

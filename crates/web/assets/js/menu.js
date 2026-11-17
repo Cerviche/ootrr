@@ -1,7 +1,7 @@
 import { $, h, fill, notice, copy, debounce } from "./dom.js";
 import { post } from "./api.js";
 import { state, touch, on_change } from "./store.js";
-import { defaults, effective, enabled, from_preset, match_preset, changed, with_value, clone } from "./rules.js";
+import { defaults, effective, enabled, from_preset, match_preset, changed, with_value, clone, same, dep_text } from "./rules.js";
 import { make_row, is_wide } from "./controls.js";
 import { FIELDS, field_el, gen_line, gen_missing, page_fields } from "./config.js";
 import { build_index, search, grouped } from "./search.js";
@@ -9,6 +9,7 @@ import { generate, busy, on_run, render_seed, set_pages } from "./run.js";
 import { panel as plando_panel } from "./plando.js";
 import { live, refresh_string } from "./strings.js";
 import { register, set_first, on_show, go, show, current_page } from "./nav.js";
+import { tip_button } from "./tooltip.js";
 
 let pages = [];
 let index = [];
@@ -39,14 +40,145 @@ export function section(label, kids, full) {
 
 function settings_page(p) {
   const by_id = new Map(state.schema.settings.map((s) => [s.id, s]));
+  let stubs = 0;
   const secs = p.sections.map((sec) => {
+    const items = sec.items || sec.ids.map((id) => ({ id }));
+    if (!items.length) return null;
     const ss = sec.ids.map((id) => by_id.get(id)).filter(Boolean);
-    const rs = ss.map((s) => make_row(state.schema, s, ctx));
-    rows.push(...rs);
-    return section(sec.label, rs.map((r) => r.el), ss.some(is_wide));
+    const kids = items.map((it) => {
+      if (it.stub) {
+        stubs++;
+        return stub_row(it);
+      }
+      const s = by_id.get(it.id);
+      if (!s) return null;
+      if (it.view) {
+        const r = view_row(s, it.view);
+        rows.push(r);
+        return r.el;
+      }
+      const r = make_row(state.schema, s, ctx);
+      if (it.only) for (const o of r.el.querySelectorAll("select option")) o.disabled = !it.only.includes(o.value);
+      rows.push(r);
+      return r.el;
+    });
+    return section(sec.label, kids, ss.some(is_wide));
   });
   const n = p.sections.reduce((a, s) => a + s.ids.length, 0);
-  return [head(p.label, `${p.heading} · ${n} setting${n === 1 ? "" : "s"}`), h("div", { class: "mgrid" }, secs)];
+  const sub = `${p.heading} · ${n} setting${n === 1 ? "" : "s"}${stubs ? ` · ${stubs} not supported yet` : ""}`;
+  if (!secs.length) return [head(p.label), h("p", { class: "mempty" }, "Nothing here yet.")];
+  return [head(p.label), h("div", { class: "mgrid" }, secs)];
+}
+
+function view_row(s, v) {
+  const val = (x) => (s.kind === "toggle" ? x === "true" : x);
+  if (v.kind === "check") return check_row(s, v, val);
+  if (v.kind === "steps") return steps_row(s, v, val);
+  if (v.kind === "number") return number_row(s, v);
+  const shown = { ...s, label: v.label, tip: v.tip, kind: "choice", choices: v.opts.map((o, i) => ({ id: o.ours || `soh_${i}`, label: o.label })) };
+  const vctx = { set: (id, x) => ctx.set(id, typeof x === "string" ? val(x) : x) };
+  const r = make_row(state.schema, shown, vctx);
+  const opts = r.el.querySelectorAll("select option");
+  opts.forEach((o, i) => (o.disabled = !v.opts[i].live));
+  if (!v.opts.some((o) => o.needs)) return r;
+  const sync = r.sync;
+  r.sync = (eff, ok) => {
+    sync(eff, ok);
+    opts.forEach((o, i) => {
+      const n = v.opts[i].needs;
+      o.disabled = !v.opts[i].live || (n !== "" && eff[n] !== true);
+    });
+  };
+  return r;
+}
+
+function check_row(s, v, val) {
+  const [off, on] = [v.opts[0], v.opts[1]];
+  const box = h("input", { type: "checkbox", id: `c_${s.id}` });
+  box.onchange = () => ctx.set(s.id, val(box.checked ? on.ours : off.ours));
+  const why = h("div", { class: "why" });
+  const el = h("div", { class: "w", "data-id": s.id }, h("div", { class: "wl" }, h("label", { class: "chk", for: `c_${s.id}` }, box, h("span", null, v.label)), tip_of(v.label, v.tip)), why);
+  return {
+    s,
+    el,
+    sync(eff, ok) {
+      box.checked = same(eff[s.id], val(on.ours));
+      const can = ok && (box.checked ? off.live : on.live);
+      box.disabled = !can;
+      el.classList.toggle("off", !can);
+      why.textContent = ok ? "" : `Needs ${dep_text(state.schema, s)}`;
+    },
+  };
+}
+
+function steps_row(s, v, val) {
+  const pts = v.opts.map((o) => ({ n: Number(o.label), v: val(o.ours), live: o.live }));
+  const shown = h("span", { class: "val" });
+  const range = h("input", { type: "range", id: `c_${s.id}`, min: v.min, max: v.max, step: "1" });
+  const nearest = (n) => pts.filter((p) => p.live).reduce((a, p) => (Math.abs(p.n - n) < Math.abs(a.n - n) ? p : a));
+  range.addEventListener("input", () => (shown.textContent = String(nearest(Number(range.value)).n)));
+  range.addEventListener("change", () => ctx.set(s.id, nearest(Number(range.value)).v));
+  let now = pts[0];
+  const live = pts.filter((p) => p.live).sort((a, b) => a.n - b.n);
+  const less = h("button", { type: "button", class: "btn", "aria-label": `Less ${v.label}` }, "\u2212");
+  const more = h("button", { type: "button", class: "btn", "aria-label": `More ${v.label}` }, "+");
+  less.onclick = () => {
+    const p = [...live].reverse().find((x) => x.n < now.n);
+    if (p) ctx.set(s.id, p.v);
+  };
+  more.onclick = () => {
+    const p = live.find((x) => x.n > now.n);
+    if (p) ctx.set(s.id, p.v);
+  };
+  const why = h("div", { class: "why" });
+  const el = h("div", { class: "w", "data-id": s.id }, h("div", { class: "wl" }, h("label", { for: `c_${s.id}` }, v.label, ": ", shown), tip_of(v.label, v.tip)), h("div", { class: "sl" }, less, range, more), why);
+  return {
+    s,
+    el,
+    sync(eff, ok) {
+      const p = pts.find((x) => same(x.v, eff[s.id])) || pts[0];
+      now = p;
+      range.value = String(p.n);
+      shown.textContent = String(p.n);
+      range.disabled = !ok;
+      less.disabled = !ok || !live.some((x) => x.n < p.n);
+      more.disabled = !ok || !live.some((x) => x.n > p.n);
+      el.classList.toggle("off", !ok);
+      why.textContent = ok ? "" : `Needs ${dep_text(state.schema, s)}`;
+    },
+  };
+}
+
+function number_row(s, v) {
+  const r = make_row(state.schema, { ...s, label: v.label, tip: v.tip, min: v.min, max: v.max }, ctx, { keep: true });
+  if (v.live) return r;
+  const sync = r.sync;
+  r.sync = (eff, ok) => {
+    sync(eff, ok);
+    r.el.querySelectorAll("input, button").forEach((x) => (x.disabled = true));
+    r.el.classList.add("off");
+  };
+  return r;
+}
+
+function tip_of(label, tip) {
+  return tip ? tip_button(label, () => [h("div", { class: "tiptext" }, tip)]) : null;
+}
+
+function stub_row(it) {
+  const label = it.stub;
+  const tip = tip_of(label, it.tip);
+  if (it.kind === "choice") {
+    const sel = h("select", { disabled: true, "aria-label": label }, it.choices.map((c, i) => h("option", { value: String(i) }, c)));
+    sel.value = String(it.value);
+    return h("div", { class: "w off stub" }, h("div", { class: "wl" }, h("label", null, label), tip), sel);
+  }
+  if (it.kind === "number") {
+    const range = h("input", { type: "range", min: it.min, max: it.max, value: it.value, disabled: true, "aria-label": label });
+    const sl = h("div", { class: "sl" }, h("button", { type: "button", class: "btn", disabled: true }, "−"), range, h("button", { type: "button", class: "btn", disabled: true }, "+"));
+    return h("div", { class: "w off stub" }, h("div", { class: "wl" }, h("label", null, label, ": ", h("span", { class: "val" }, String(it.value))), tip), sl);
+  }
+  return h("div", { class: "w off stub" }, h("div", { class: "wl" }, h("label", { class: "chk" }, h("input", { type: "checkbox", disabled: true }), h("span", null, label)), tip));
 }
 
 function config_page(id, title, sub) {
@@ -60,13 +192,13 @@ function config_page(id, title, sub) {
     }
     secs.push(section(label, kids));
   }
-  return [head(title, sub), h("div", { class: "mgrid" }, secs)];
+  return [head(title), h("div", { class: "mgrid" }, secs)];
 }
 
 function plando_page() {
   const p = plando_panel();
   p.open = true;
-  return [head("Plandomizer", "Randomizer · place chosen items at chosen checks"), p];
+  return [head("Plandomizer"), p];
 }
 
 function results() {
@@ -82,6 +214,17 @@ function results() {
         const el = field_el(x.f, x.terms);
         el.append(h("div", { class: "hitnote" }, note));
         return el;
+      }
+      if (x.kind === "stub") {
+        const el = stub_row(x.it);
+        el.append(h("div", { class: "hitnote" }, note));
+        return el;
+      }
+      if (x.view) {
+        const r = view_row(x.s, x.view);
+        r.el.append(h("div", { class: "hitnote" }, note));
+        rows.push(r);
+        return r.el;
       }
       const r = make_row(state.schema, x.s, ctx, { keep: true, terms: x.terms, note });
       rows.push(r);
@@ -121,12 +264,14 @@ function set_query(v) {
 }
 
 function nav_items() {
-  const out = [{ heading: "Configuration", id: "config", label: "Configuration" }, { heading: "Configuration", id: "cosmetics", label: "Cosmetics" }];
+  const out = [{ heading: "Configuration", id: "config", label: "Configuration" }];
   if (state.result || busy()) out.push({ heading: "Configuration", id: "seed", label: "Seed" });
   for (const p of pages) {
     out.push({ heading: p.heading, id: p.id, label: p.label });
     if (p.id === "excluded") out.push({ heading: p.heading, id: "plando", label: "Plandomizer" });
+    if (p.id === "hints") out.push({ heading: p.heading, id: "cosmetics", label: "Cosmetics" });
   }
+  if (!out.some((x) => x.id === "cosmetics")) out.push({ heading: "Gameplay", id: "cosmetics", label: "Cosmetics" });
   if (!out.some((x) => x.id === "plando")) out.push({ heading: "Randomizer", id: "plando", label: "Plandomizer" });
   return out;
 }

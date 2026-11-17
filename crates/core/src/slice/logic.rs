@@ -454,10 +454,11 @@ mod tests {
     #[test]
     fn vanilla_layout_and_roaming_key_seeds_hold_exactly_the_real_keys() {
         let d: Data = Data::load().unwrap();
-        for (mode, remake) in [("dungeon", "off"), ("dungeon", "on"), ("keysanity", "off"), ("any_dungeon", "on"), ("keysanity", "on")] {
+        for (mode, chests) in [("dungeon", "all"), ("dungeon", "dungeons"), ("any_dungeon", "all"), ("keysanity", "all")] {
+            let remake: &str = chests;
             let mut s: crate::settings::Settings = crate::settings::Settings::default();
             s.set("shuffle_smallkeys", crate::settings::Value::s(mode)).unwrap();
-            s.set(crate::slice::remake_chests::SETTING, crate::settings::Value::s(remake)).unwrap();
+            s.set("shuffle_chests", crate::settings::Value::s(chests)).unwrap();
             let g: crate::slice::Generated = crate::slice::generate::generate_data(&d, &s, "keys1", &crate::slice::GenOpts::default()).unwrap();
             let w: World = world_with(&d, &crate::slice::support::plan(&s).unwrap().logic()).unwrap();
             let placed: std::collections::BTreeMap<String, String> = g.seed_file.placements.iter().map(|(k, v)| (k.clone(), v.clone())).collect();

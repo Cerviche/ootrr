@@ -68,13 +68,19 @@ mod tests {
     use crate::slice::generate::{allowed, generate_data, GenOpts, Generated};
     use crate::slice::logic::world;
     use crate::slice::pick::pick;
-    use crate::slice::remake_chests::{self as rc, OFF, SETTING};
+    use crate::slice::remake_chests::{self as rc, OFF};
     use crate::slice::support::{plan, Plan};
     use crate::world::{LocId, Placement, World};
 
     fn on() -> Settings {
         let mut s: Settings = Settings::default();
-        s.set(SETTING, Value::s("on")).unwrap();
+        s.set("shuffle_chests", Value::s("all")).unwrap();
+        s
+    }
+
+    fn off() -> Settings {
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_chests", Value::s("off")).unwrap();
         s
     }
 
@@ -131,10 +137,10 @@ mod tests {
     }
 
     #[test]
-    fn off_frees_none_and_on_frees_them_all() {
+    fn chests_off_frees_none_and_on_frees_them_all() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();
-        let p: Plan = plan(&Settings::default()).unwrap();
+        let p: Plan = plan(&off()).unwrap();
         let off: Vec<String> = pick(&d, &w, &p).free.iter().map(|l| w.locs[*l].name.clone()).collect();
         assert!(off.iter().all(|n| !gated(n)));
         assert!(pick(&d, &w, &p).left.get(OFF).is_some_and(|n| *n >= all().len()));
@@ -210,10 +216,10 @@ mod tests {
     }
 
     #[test]
-    fn the_default_seed_never_moves_a_gated_chest() {
+    fn a_seed_without_chest_shuffle_never_moves_a_gated_chest() {
         let d: Data = Data::load().unwrap();
         for n in 0..3 {
-            let g: Generated = generate_data(&d, &Settings::default(), &format!("plain {n}"), &GenOpts::default()).unwrap();
+            let g: Generated = generate_data(&d, &off(), &format!("plain {n}"), &GenOpts::default()).unwrap();
             assert!(g.seed_file.placements.keys().all(|k| !gated(k)));
         }
     }

@@ -296,7 +296,9 @@ mod tests {
     fn default_string_is_tiny_and_stable() {
         let t: String = Settings::default().encode().unwrap();
         assert_eq!(t, Settings::default().encode().unwrap());
-        assert!(t.len() < 32, "{t}");
+        // The defaults that changed after strings were first shared (boss Heart Containers,
+        // More NPC rewards, Return with Navi) are written out, so old strings keep their meaning.
+        assert!(t.len() < 40, "{t}");
         assert_eq!(Settings::decode(&t).unwrap().settings, Settings::default());
     }
 
@@ -348,15 +350,18 @@ mod tests {
 
     #[test]
     fn rewards_off_writes_the_old_default_string_and_the_new_toggle_round_trips() {
+        let old = |s: &mut Settings| {
+            for (k, v) in [("time_always_passes", Value::Bool(false)), ("deku_bridge_safe", Value::Bool(false)), ("shuffle_boss_hearts", Value::Bool(false)), ("shuffle_rewards_extra", Value::Bool(false)), ("navi_return", Value::s("off"))] {
+                s.set(k, v).unwrap();
+            }
+        };
         let mut s: Settings = Settings::default();
-        s.set("time_always_passes", Value::Bool(false)).unwrap();
-        s.set("deku_bridge_safe", Value::Bool(false)).unwrap();
+        old(&mut s);
         assert_eq!(s.encode().unwrap(), "OOTRR1-EYAQD32I");
         s.set("shuffle_rewards", Value::s("off")).unwrap();
         assert_eq!(s.encode().unwrap(), "OOTRR1-XZLA");
         let mut s: Settings = Settings::default();
-        s.set("time_always_passes", Value::Bool(false)).unwrap();
-        s.set("deku_bridge_safe", Value::Bool(false)).unwrap();
+        old(&mut s);
         s.set("shuffle_dungeon_rewards", Value::Bool(true)).unwrap();
         let t: String = s.encode().unwrap();
         assert_ne!(t, "OOTRR1-EYAQD32I");

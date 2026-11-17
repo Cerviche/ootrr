@@ -233,6 +233,10 @@ impl Setting {
         self.dep(on, Cond::Is(Value::s(v)))
     }
 
+    pub fn when_not(self, on: &str, v: &str) -> Setting {
+        self.dep(on, Cond::IsNot(Value::s(v)))
+    }
+
     pub fn when_on(self, on: &str) -> Setting {
         self.dep(on, Cond::Is(Value::Bool(true)))
     }

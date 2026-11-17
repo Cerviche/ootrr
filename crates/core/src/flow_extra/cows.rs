@@ -211,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    fn toggle_off_places_neither_cow_and_toggle_on_adds_both_with_items_the_flows_hand_out() {
+    fn toggle_off_places_no_cow_and_toggle_on_adds_all_eight_with_items_the_flows_hand_out() {
         let d: Data = Data::load().unwrap();
         let off: Generated = generate_data(&d, &with(false), "cows", &GenOpts::default()).unwrap();
         for l in LOCS {
@@ -219,7 +219,7 @@ mod tests {
         }
         for n in 0..3 {
             let g: Generated = generate_data(&d, &with(true), &format!("cows {n}"), &GenOpts::default()).unwrap();
-            assert_eq!(g.seed_file.placements.len(), off.seed_file.placements.len() + LOCS.len());
+            assert_eq!(g.seed_file.placements.len(), off.seed_file.placements.len() + LOCS.len() + OTHER.len());
             for l in LOCS {
                 let it: &str = &g.seed_file.placements[l];
                 assert!(d.item(it).is_some_and(|i| d.flow_accepts(i) || it == "Rupees (5)"), "{l} holds {it}");
@@ -396,14 +396,14 @@ mod tests {
     }
 
     #[test]
-    fn the_other_cows_need_their_own_toggle_and_keep_the_string() {
+    fn one_cow_toggle_covers_all_eight_and_the_old_other_toggle_only_keeps_the_string() {
         assert!(!plan_of(&Settings::default()).unwrap().cows_other);
         assert!(!plan_of(&with_other(false)).unwrap().cows_other);
-        assert!(plan_of(&with_other(true)).unwrap().cows_other && !plan_of(&with_other(true)).unwrap().cows);
-        assert!(!plan_of(&with(true)).unwrap().cows_other);
+        assert!(!plan_of(&with_other(true)).unwrap().cows_other && !plan_of(&with_other(true)).unwrap().cows);
+        assert!(plan_of(&with(true)).unwrap().cows_other && plan_of(&with(true)).unwrap().cows);
         let mut s: Settings = Settings::default();
         s.set("shuffle_rewards", Value::s("off")).unwrap();
-        s.set(SETTING_OTHER, Value::Bool(true)).unwrap();
+        s.set(SETTING, Value::Bool(true)).unwrap();
         assert!(!plan_of(&s).unwrap().cows_other);
         let mut d: Settings = Settings::default();
         d.set(SETTING_OTHER, Value::Bool(false)).unwrap();
@@ -413,14 +413,14 @@ mod tests {
     }
 
     #[test]
-    fn the_other_cows_are_flow_ok_and_open_only_with_their_toggle() {
+    fn the_other_cows_are_flow_ok_and_open_with_the_cow_toggle() {
         let d: Data = Data::load().unwrap();
         let (off, one, two) = (plan_of(&Settings::default()).unwrap(), plan_of(&with(true)).unwrap(), plan_of(&with_other(true)).unwrap());
         for n in OTHER {
             let l: &Loc = d.flow.by_name(n).unwrap();
             assert!(d.flow_ok(n) && is(n) && is_other(n), "{n}");
             assert!(l.gated && !l.supported && l.cat == "cow", "{n}");
-            assert!(!crate::flow_extra::open(l, &off) && !crate::flow_extra::open(l, &one) && crate::flow_extra::open(l, &two), "{n}");
+            assert!(!crate::flow_extra::open(l, &off) && crate::flow_extra::open(l, &one) && !crate::flow_extra::open(l, &two), "{n}");
             assert_eq!(d.vanilla_of(n), Some("Rupees (5)"), "{n}");
             assert!(crate::slice::edit::is_sale(&d, n), "{n}");
             assert_eq!(changes(l, NEW).unwrap().len(), 1, "{n}");
@@ -486,15 +486,15 @@ mod tests {
     }
 
     #[test]
-    fn toggle_other_adds_six_cows_with_items_the_flows_hand_out() {
+    fn the_cow_toggle_adds_the_six_other_cows_with_items_the_flows_hand_out() {
         let d: Data = Data::load().unwrap();
-        let off: Generated = generate_data(&d, &with_other(false), "cows other", &GenOpts::default()).unwrap();
+        let off: Generated = generate_data(&d, &with(false), "cows other", &GenOpts::default()).unwrap();
         for l in OTHER {
             assert!(!off.seed_file.placements.contains_key(l), "{l}");
         }
         for n in 0..2 {
-            let g: Generated = generate_data(&d, &with_other(true), &format!("cows other {n}"), &GenOpts::default()).unwrap();
-            assert_eq!(g.seed_file.placements.len(), off.seed_file.placements.len() + OTHER.len());
+            let g: Generated = generate_data(&d, &with(true), &format!("cows other {n}"), &GenOpts::default()).unwrap();
+            assert_eq!(g.seed_file.placements.len(), off.seed_file.placements.len() + LOCS.len() + OTHER.len());
             for l in OTHER {
                 let it: &str = &g.seed_file.placements[l];
                 assert!(d.item(it).is_some_and(|i| d.flow_accepts(i) || it == "Rupees (5)"), "{l} holds {it}");

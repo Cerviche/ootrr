@@ -1,7 +1,3 @@
-use crate::settings::Settings;
-
-pub const SETTING: &str = "shuffle_remake_chests";
-
 pub const NOTE: &str = "Remake only chests and the newly paired dungeon and overworld chests are shuffled.";
 
 pub const NEW: [&str; 10] = [
@@ -49,32 +45,17 @@ pub const PAIRED: [&str; 29] = [
     "Water Temple Torches Chest",
 ];
 
-pub const OFF: &str = "remake chest shuffle is off";
+pub const OFF: &str = "chest shuffle is off";
 
 pub fn gated(name: &str) -> bool {
     NEW.contains(&name) || PAIRED.contains(&name) || crate::slice::remake_overworld::gated(name)
-}
-
-pub fn mode(s: &Settings, bad: &mut Vec<String>) -> bool {
-    match s.text(SETTING) {
-        Ok("off") => false,
-        Ok("on") => true,
-        Ok(v) => {
-            bad.push(format!("{SETTING} is {v}, which is not a known choice"));
-            false
-        }
-        Err(e) => {
-            bad.push(e.to_string());
-            false
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::search::explore;
-    use crate::settings::Value;
+    use crate::settings::{Settings, Value};
     use crate::slice::data::Data;
     use crate::slice::fill::vanilla_place;
     use crate::slice::logic::{world, world_with};
@@ -84,7 +65,13 @@ mod tests {
 
     fn on() -> Settings {
         let mut s: Settings = Settings::default();
-        s.set(SETTING, Value::s("on")).unwrap();
+        s.set("shuffle_chests", Value::s("all")).unwrap();
+        s
+    }
+
+    fn off() -> Settings {
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_chests", Value::s("off")).unwrap();
         s
     }
 
@@ -102,10 +89,10 @@ mod tests {
     }
 
     #[test]
-    fn off_keeps_every_gated_chest_vanilla_and_on_frees_some() {
+    fn chests_off_keeps_every_gated_chest_vanilla_and_on_frees_some() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();
-        let p: Plan = plan(&Settings::default()).unwrap();
+        let p: Plan = plan(&off()).unwrap();
         assert!(!p.remake);
         let off: Vec<String> = pick(&d, &w, &p).free.iter().map(|l| w.locs[*l].name.clone()).collect();
         assert!(off.iter().all(|n| !gated(n)));
@@ -118,9 +105,8 @@ mod tests {
     }
 
     #[test]
-    fn unknown_values_are_refused() {
-        let mut s: Settings = Settings::default();
-        assert!(s.set(SETTING, Value::s("maybe")).is_err() || plan(&s).is_err());
+    fn the_default_shuffles_them_with_the_other_chests() {
+        assert!(plan(&Settings::default()).unwrap().remake);
     }
 
     #[test]

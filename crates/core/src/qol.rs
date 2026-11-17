@@ -212,20 +212,30 @@ mod tests {
     use super::*;
     use crate::settings::Value;
 
+    /// The defaults with Return with Navi off, the one option on by default.
+    fn quiet() -> Settings {
+        let mut s: Settings = Settings::default();
+        s.set(NAVI, Value::s("off")).unwrap();
+        s
+    }
+
     #[test]
-    fn nothing_is_on_by_default() {
+    fn only_return_with_navi_is_on_by_default() {
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&Settings::default(), &mut bad);
         assert!(bad.is_empty());
-        assert_eq!(o, Opts::default());
-        assert!(!o.any());
+        assert_eq!(o, Opts { navi: navi_return::Mode::Everywhere, ..Opts::default() });
+        assert!(o.any());
         assert!(o.logic().is_empty());
-        assert!(o.notes().is_empty());
+        assert_eq!(o.notes().len(), 1);
+        let q: Opts = read(&quiet(), &mut bad);
+        assert_eq!(q, Opts::default());
+        assert!(!q.any() && q.notes().is_empty());
     }
 
     #[test]
     fn each_setting_is_read_and_adds_its_logic_and_note() {
-        let mut s: Settings = Settings::default();
+        let mut s: Settings = quiet();
         s.set(SKIP, Value::s("story")).unwrap();
         s.set(ANJU, Value::Bool(true)).unwrap();
         s.set(POE, Value::Bool(true)).unwrap();
@@ -245,7 +255,7 @@ mod tests {
 
     #[test]
     fn faster_pickups_give_big_chests_the_small_animation() {
-        let mut s: Settings = Settings::default();
+        let mut s: Settings = quiet();
         let mut bad: Vec<String> = Vec::new();
         assert!(!read(&s, &mut bad).big_chests);
         s.set(chest_anim::SETTING, Value::Bool(true)).unwrap();
@@ -287,17 +297,16 @@ mod tests {
     #[test]
     fn the_plan_carries_each_option_into_logic_and_notes() {
         use crate::slice::support::plan;
-        let p: crate::slice::support::Plan = plan(&Settings::default()).unwrap();
+        let p: crate::slice::support::Plan = plan(&quiet()).unwrap();
         assert!(!p.qol.any());
         assert!(p.logic().is_empty());
-        // Three from the defaults, the two always-on cutscene skips (crate::story_skip)
-        // and the default-on Deku Tree bridge (crate::deku_bridge).
-        assert_eq!(p.notes.len(), 6);
+        let base: usize = p.notes.len();
+        assert_eq!(plan(&Settings::default()).unwrap().notes.len(), base + 1, "Return with Navi adds its note");
         for (k, v, key) in [(ANJU, Value::Bool(true), "chicken_count"), (POE, Value::Bool(true), "big_poe_count")] {
-            let p: crate::slice::support::Plan = plan(&with(&[(k, v)])).unwrap();
+            let p: crate::slice::support::Plan = plan(&with(&[(NAVI, Value::s("off")), (k, v)])).unwrap();
             assert!(p.qol.any());
             assert_eq!(p.logic(), vec![(key, "1")]);
-            assert_eq!(p.notes.len(), 7);
+            assert_eq!(p.notes.len(), base + 1);
         }
         let p: crate::slice::support::Plan = plan(&with(&[(SKIP, Value::s("all"))])).unwrap();
         assert_eq!(p.qol.skip, Skip::All);

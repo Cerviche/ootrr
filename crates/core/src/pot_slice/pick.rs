@@ -16,10 +16,7 @@ pub fn why(s: State) -> &'static str {
     }
 }
 
-fn mode_of(d: &Data, p: &Plan, name: &str, k: Kind) -> Mode {
-    if d.pots.is_remake(name) {
-        return p.drops.remake;
-    }
+fn mode_of(p: &Plan, k: Kind) -> Mode {
     match k {
         Kind::Crate => p.drops.crates,
         Kind::Hive => p.drops.hives,
@@ -43,7 +40,7 @@ pub fn add(d: &Data, w: &World, p: &Plan, free: &mut Vec<LocId>, left: &mut BM<S
         let Some(k) = Kind::of(&l.kind) else {
             continue;
         };
-        let m: Mode = mode_of(d, p, &l.name, k);
+        let m: Mode = mode_of(p, k);
         if m == Mode::Off {
             continue;
         }

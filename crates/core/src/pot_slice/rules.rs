@@ -122,7 +122,9 @@ mod tests {
                             moved += 1;
                         }
                     } else {
-                        assert!(!d.pots.only.contains(item), "{loc} holds {item}");
+                        // A freestanding spot (Pieces of Heart are always shuffled) can take a pot's ground pickup.
+                        let ground: bool = d.cat.by_name(loc).is_some_and(crate::slice::pickups::is_world);
+                        assert!(ground || !d.pots.only.contains(item), "{loc} holds {item}");
                     }
                 }
                 assert!(here > 20, "{here}");

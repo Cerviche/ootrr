@@ -29,11 +29,19 @@ export function build_index(schema, pages, fields) {
   const out = [];
   for (const p of pages) {
     for (const sec of p.sections) {
-      for (const id of sec.ids) {
-        const s = by_id.get(id);
-        if (!s) continue;
-        out.push({ kind: "setting", id, s, page: p, section: sec.label, h: hay(s.label, s.tip, s.choices, `${ALIASES[id] || ""} ${id} ${sec.label} ${p.label}`) });
-      }
+      const items = sec.items || sec.ids.map((id) => ({ id }));
+      items.forEach((it, i) => {
+        if (it.stub) {
+          const choices = (it.choices || []).map((c) => ({ label: c }));
+          out.push({ kind: "stub", id: `stub_${p.id}_${i}`, it, choices, page: p, section: sec.label, h: hay(it.stub, it.tip, choices, `${sec.label} ${p.label}`) });
+          return;
+        }
+        const s = by_id.get(it.id);
+        if (!s) return;
+        const v = it.view;
+        const choices = v ? v.opts.map((o) => ({ label: o.label })) : s.choices;
+        out.push({ kind: "setting", id: it.id, s, view: v, choices, page: p, section: sec.label, h: hay(v ? v.label : s.label, v ? v.tip : s.tip, choices, `${ALIASES[it.id] || ""} ${it.id} ${sec.label} ${p.label}`) });
+      });
     }
   }
   for (const f of fields) {
@@ -62,7 +70,7 @@ export function search(index, q) {
         in_label = true;
       } else if (e.h.opts.includes(t)) {
         score += 5;
-        const cs = (e.s || e.f).choices || [];
+        const cs = e.choices || (e.s || e.f).choices || [];
         opt = opt || cs.find((c) => c.label.toLowerCase().includes(t));
       } else if (e.h.rest.includes(t)) {
         score += 1;

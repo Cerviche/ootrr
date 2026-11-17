@@ -22,7 +22,7 @@ export function on_show(fn) {
 }
 
 export function here() {
-  const m = /^#\/([a-z]+)/.exec(location.hash);
+  const m = /^#\/([a-z_]+)/.exec(location.hash);
   if (!m) return first;
   const id = OLD[m[1]] && !screens.has(m[1]) ? OLD[m[1]] : m[1];
   return screens.has(id) ? id : first;

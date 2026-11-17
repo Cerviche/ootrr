@@ -115,10 +115,11 @@ mod tests {
     }
 
     #[test]
-    fn the_setting_is_on_by_default_and_read_when_off() {
+    fn the_setting_is_off_by_default_and_read_when_on() {
         let mut bad: Vec<String> = Vec::new();
-        assert!(mode(&Settings::default(), &mut bad));
+        assert!(!mode(&Settings::default(), &mut bad));
         assert!(!mode(&off(), &mut bad));
+        assert!(mode(&on(), &mut bad));
         assert!(bad.is_empty());
     }
 
@@ -267,7 +268,9 @@ mod tests {
     }
 
     fn on() -> Settings {
-        Settings::default()
+        let mut s: Settings = Settings::default();
+        s.set(KEY, Value::Bool(true)).unwrap();
+        s
     }
 
     fn off() -> Settings {
@@ -296,10 +299,10 @@ mod tests {
         assert_eq!(s.encode().unwrap(), old);
         let d: String = Settings::default().encode().unwrap();
         assert_eq!(Settings::decode(&d).unwrap().settings.encode().unwrap(), d);
-        assert!(Settings::decode(&d).unwrap().settings.flag(KEY).unwrap());
-        let x: String = off().encode().unwrap();
+        assert!(!Settings::decode(&d).unwrap().settings.flag(KEY).unwrap());
+        let x: String = on().encode().unwrap();
         assert_ne!(x, d);
-        assert!(!Settings::decode(&x).unwrap().settings.flag(KEY).unwrap());
+        assert!(Settings::decode(&x).unwrap().settings.flag(KEY).unwrap());
     }
 
     #[test]
