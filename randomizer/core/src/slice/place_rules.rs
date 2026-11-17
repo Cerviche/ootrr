@@ -16,7 +16,13 @@ pub struct Spot<'a> {
 
 pub type Rule = fn(&Spot) -> Option<bool>;
 
-pub const RULES: [(&str, Rule); 8] = [
+pub const RULES: [(&str, Rule); 14] = [
+    ("excluded locations", excluded),
+    ("junk only spots", junk),
+    ("silver rupees", silver),
+    ("trade items", trade),
+    ("skipped locations", skipped),
+    ("gated npc rewards keep their vanilla items", gated),
     ("shops", shops),
     ("song spots", songs),
     ("treasure chest game", treasure),
@@ -29,6 +35,30 @@ pub const RULES: [(&str, Rule); 8] = [
 
 pub fn verdict(s: &Spot) -> Option<bool> {
     RULES.iter().find_map(|(_, r)| r(s))
+}
+
+fn excluded(s: &Spot) -> Option<bool> {
+    (!s.p.excluded.is_empty() && s.w.items.adv[s.it] && s.p.excluded.iter().any(|e| *e == s.name)).then_some(false)
+}
+
+fn junk(s: &Spot) -> Option<bool> {
+    crate::slice::junk_spots::refuses(s.d, s.w, s.p, s.it, s.l).then_some(false)
+}
+
+fn silver(s: &Spot) -> Option<bool> {
+    crate::slice::silver::at(s.d, s.w, s.p, s.it, s.l)
+}
+
+fn trade(s: &Spot) -> Option<bool> {
+    s.d.item(s.item).is_some_and(|i| !crate::flow_extra::trade::keeps(s.d, s.name, i)).then_some(false)
+}
+
+fn skipped(s: &Spot) -> Option<bool> {
+    (crate::slice::edit::skipped_locations(s.p).contains(&s.name) && !s.d.item(s.item).is_some_and(|i| i.actor.is_some() || !i.tiers.is_empty())).then_some(false)
+}
+
+fn gated(s: &Spot) -> Option<bool> {
+    (s.p.extra && s.d.item(s.item).is_some_and(|i| !crate::flow_extra::fits(s.d, s.name, i))).then_some(false)
 }
 
 fn shops(s: &Spot) -> Option<bool> {

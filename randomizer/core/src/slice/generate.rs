@@ -62,34 +62,8 @@ pub fn is_song(actor: &str) -> bool {
     actor.starts_with("Item_Melody_") && actor != "Item_Melody_ScarecrowSong"
 }
 
-fn by_place(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> Option<bool> {
-    crate::slice::place_rules::verdict(&crate::slice::place_rules::Spot { d, w, p, it, l, name: &w.locs[l].name, item: &w.items.names[it] })
-}
-
 pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
-    if !p.excluded.is_empty() && w.items.adv[it] && p.excluded.iter().any(|e| *e == w.locs[l].name) {
-        return false;
-    }
-    if crate::slice::junk_spots::refuses(d, w, p, it, l) {
-        return false;
-    }
-    if let Some(ok) = crate::slice::silver::at(d, w, p, it, l) {
-        return ok;
-    }
-    if d.item(&w.items.names[it]).is_some_and(|i| !crate::flow_extra::trade::keeps(d, &w.locs[l].name, i)) {
-        return false;
-    }
-    if crate::slice::edit::skipped_locations(p).contains(&w.locs[l].name.as_str())
-        && !d.item(&w.items.names[it]).is_some_and(|i| i.actor.is_some() || !i.tiers.is_empty())
-    {
-        return false;
-    }
-    // The vanilla items of the gated NPC rewards stay at gated reward spots, also when the
-    // spot is a pot or a freestanding item that by_place answers for.
-    if p.extra && d.item(&w.items.names[it]).is_some_and(|i| !crate::flow_extra::fits(d, &w.locs[l].name, i)) {
-        return false;
-    }
-    if let Some(ok) = by_place(d, w, p, it, l) {
+    if let Some(ok) = crate::slice::place_rules::verdict(&crate::slice::place_rules::Spot { d, w, p, it, l, name: &w.locs[l].name, item: &w.items.names[it] }) {
         return ok;
     }
     match d.item(&w.items.names[it]) {
