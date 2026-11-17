@@ -863,6 +863,98 @@ pub fn stage_arrows_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &SceneGive) -> 
     crate::dungeon_grant::merge(rf, late, ARROWS_FILE, |raw| rebuild(raw, |b| patch_arrows_give(b, g)))
 }
 
+/// The Spiritual Stone and Medallion checks, their reward scenes in the dungeon ending flow
+/// (Dm_SY_BancChange_EscapeDungeon), and the flags those scenes write of their own.
+pub const REWARD_SCENES: [(&str, &str, &[&str]); 8] = [
+    ("Queen Gohma", "Dm_Kokiri_0130", &[]),
+    ("King Dodongo", "Dm_DeathMtTrail_0025", &[]),
+    ("Barinade", "Dm_ZoraFountain_0030", &[]),
+    ("Phantom Ganon", "Dm_Awake_Forest_Get", &["AllSage_AwakeSage_Fire_Or_Forest"]),
+    ("Volvagia", "Dm_Awake_Fire_Get", &["AllSage_AwakeSage_Fire_Or_Forest"]),
+    ("Morpha", "Dm_Awake_Water_Get", &[]),
+    ("Bongo Bongo", "Dm_Awake_Shadow_Get", &[]),
+    ("Twinrova", "Dm_Awake_Spirit_Get", &[]),
+];
+const REWARD_PREFIX: &str = "OOTRRReward";
+const FADE_IN: (&str, &str) = ("UISystemActor", "EventEventFadeIn");
+
+/// The entries of `f` whose events reach event `i`.
+fn entries_reaching(f: &Flow, i: usize) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for e in &f.entries {
+        let mut seen: Vec<bool> = vec![false; f.events.len()];
+        let mut todo: Vec<u16> = vec![e.main];
+        while let Some(x) = todo.pop() {
+            let x: usize = x as usize;
+            if x >= f.events.len() || seen[x] {
+                continue;
+            }
+            seen[x] = true;
+            match &f.events[x].kind {
+                Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } => todo.push(*next),
+                Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => todo.extend(cases.iter().map(|c| c.ev)),
+                Kind::Fork { join, forks } => {
+                    todo.push(*join);
+                    todo.extend(forks.iter().copied());
+                }
+                Kind::Label { .. } => {}
+            }
+        }
+        if seen[i] {
+            out.push(e.name.clone());
+        }
+    }
+    out
+}
+
+/// Drops each Spiritual Stone and Medallion reward scene for the standard item get: the scene's
+/// transition becomes its played flag (and the flags the scene wrote), then a fade in (the area
+/// may still be black after the skipped scenes before it) and the item get with what the check
+/// holds, then the flow goes on as after the scene (the area change out). Runs after patch_endings.
+pub fn patch_reward_gives(b: &mut Bf, gives: &[(&str, &[&str], SceneGive)]) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, ENDING_FLOW)?;
+    for (scene, extra, g) in gives {
+        let hits: Vec<usize> = (0..f.events.len())
+            .filter(|&i| action(f, i).as_deref() == Some("EventSystemActor.EventTransition") && text(&f.events[i], "EventName") == Some(*scene))
+            .collect();
+        let [i] = hits.as_slice() else {
+            return Err(Error::Msg(format!("story skip: the dungeon endings play {scene} {} times, expected once", hits.len())));
+        };
+        let i: usize = *i;
+        let next: u16 = next_of(&f.events[i].kind).ok_or(Error::Format("story skip: a reward scene has no next"))?;
+        let entries: Vec<String> = entries_reaching(f, i);
+        let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
+        let at: u16 = item_get(f, &format!("{REWARD_PREFIX}{scene}"), g, next, &names)?;
+        let mut kinds: Vec<Kind> = Vec::new();
+        for flag in *extra {
+            kinds.push(set_bool(f, flag, true)?);
+        }
+        let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, FADE_IN.0, FADE_IN.1)?;
+        kinds.push(Kind::Action {
+            next: NONE,
+            actor: a,
+            act: x,
+            params: Some(Cont {
+                items: vec![
+                    ("Color".to_string(), Val::Int(0)),
+                    ("IsNoPlayAnime".to_string(), Val::Bool(0)),
+                    ("Length".to_string(), Val::Int(1)),
+                    ("IsWaitEnd".to_string(), Val::Bool(1)),
+                ],
+            }),
+        });
+        let first: u16 = chain(f, &format!("{REWARD_PREFIX}{scene}_"), kinds, at)?;
+        let name: String = f.events[i].name.clone();
+        transition_to_flag(f, REWARD_PREFIX, &name, scene, Some(first))?;
+    }
+    Ok(())
+}
+
+/// Adds the reward item gets to the endings edit in `late` (or to the game's ending flow).
+pub fn stage_reward_gives(rf: &mut Romfs, late: &mut Vec<Out>, gives: &[(&str, &[&str], SceneGive)]) -> Res<()> {
+    crate::dungeon_grant::merge(rf, late, ENDING_FILE, |raw| rebuild(raw, |b| patch_reward_gives(b, gives)))
+}
+
 /// Saria's gift (KokiriForest_ArriveLostWood in Goto_HyruleCastle). The event starts, Link joins
 /// and unequips, the trigger's event bool is set, then both scenes (Dm_Kokiri_0150, already a flag
 /// through patch_bridge, and the gift scene Dm_Kokiri_0155) are only marked as played and Link runs

@@ -279,7 +279,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     // Dungeon items in reward events: window-only copies of their give routines and the credit
     // (crate::gift_keys). The Light Arrows item get wants the copy of its routine too.
-    let arrows_key: bool = p.story && gift_keys.iter().any(|g| crate::story_skip::DROPPED.contains(&g.location.as_str()));
+    let arrows_key: bool = gift_keys.iter().any(|g| {
+        (p.story && crate::story_skip::DROPPED.contains(&g.location.as_str())) || (p.endings && crate::story_skip::REWARD_SCENES.iter().any(|r| r.0 == g.location))
+    });
     let windows: Vec<(&str, &str)> = if arrows_key { vec![crate::story_skip::ITEM_GET] } else { Vec::new() };
     crate::gift_keys::apply(&mut rf, &mut staged.files, &gift_keys, &windows)?;
     for f in &staged.files {
@@ -371,22 +373,24 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let mut late: Vec<crate::staging::Out> = if p.qol.any() { crate::qol::worked(&mut rf, &pk, &p.qol)? } else { Vec::new() };
     late.extend(crate::open_world::worked(&mut rf, &pk, &p.open)?);
     crate::merchant_prices::stage_bean(&mut rf, seed, p.rewards.merchant_prices, p.rewards.bean_sale, &mut late)?;
+    // Scenes that are dropped: Link runs the item get with what their check holds.
+    let give_for = |loc: &str| -> crate::story_skip::SceneGive {
+        let vanilla: String = d.flow.by_name(loc).and_then(|l| l.item.clone()).unwrap_or_default();
+        crate::story_skip::SceneGive {
+            actor: flows.iter().find(|c| c.location == loc).map(|c| c.item.clone()).unwrap_or(vanilla),
+            family: placed.get(loc).copied(),
+            key: gift_keys.iter().find(|g| g.location == loc).map(|g| (g.item, g.dungeon)),
+        }
+    };
     if p.story {
         late.extend(crate::story_skip::worked(&mut rf, &pk)?);
-        // Scenes that are dropped: Link runs the item get with what their check holds.
-        let give_for = |loc: &str| -> crate::story_skip::SceneGive {
-            let vanilla: String = d.flow.by_name(loc).and_then(|l| l.item.clone()).unwrap_or_default();
-            crate::story_skip::SceneGive {
-                actor: flows.iter().find(|c| c.location == loc).map(|c| c.item.clone()).unwrap_or(vanilla),
-                family: placed.get(loc).copied(),
-                key: gift_keys.iter().find(|g| g.location == loc).map(|g| (g.item, g.dungeon)),
-            }
-        };
         crate::story_skip::stage_arrows_give(&mut rf, &mut late, &give_for(crate::lacs_key::LOC))?;
         crate::story_skip::stage_saria_give(&mut rf, &mut late, &give_for(crate::slice::flow_rules::SARIA))?;
     }
     if p.endings {
         late.extend(crate::story_skip::worked_endings(&mut rf, &pk)?);
+        let gives: Vec<(&str, &[&str], crate::story_skip::SceneGive)> = crate::story_skip::REWARD_SCENES.iter().map(|(loc, scene, extra)| (*scene, *extra, give_for(loc))).collect();
+        crate::story_skip::stage_reward_gives(&mut rf, &mut late, &gives)?;
     }
     if p.bridge {
         late.extend(crate::deku_bridge::worked(&mut rf, &pk)?);
