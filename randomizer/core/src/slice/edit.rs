@@ -282,8 +282,16 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let arrows_key: bool = gift_keys.iter().any(|g| {
         (p.story && (crate::story_skip::DROPPED.contains(&g.location.as_str()) || crate::story_skip::FAIRIES.iter().any(|f| f.0 == g.location))) || (p.endings && crate::story_skip::REWARD_SCENES.iter().any(|r| r.0 == g.location))
     });
-    let windows: Vec<(&str, &str)> = if arrows_key { vec![crate::story_skip::ITEM_GET] } else { Vec::new() };
-    crate::gift_keys::apply(&mut rf, &mut staged.files, &gift_keys, &windows)?;
+    // The item get of the dropped scenes, in each copy it may need (dungeon item, no held model).
+    let _ = arrows_key;
+    let (gf, ge) = crate::story_skip::ITEM_GET;
+    let windows: Vec<(&str, &str, crate::item_window::Mode)> = if p.story || p.endings {
+        vec![(gf, ge, crate::item_window::WINDOW_ONLY), (gf, ge, crate::item_window::SHOW_ONLY), (gf, ge, crate::item_window::WINDOW_SHOW)]
+    } else {
+        Vec::new()
+    };
+    let gift_calls: Vec<crate::gift_keys::Call> = crate::gift_keys::calls(&d, seed);
+    crate::gift_keys::apply(&mut rf, &mut staged.files, &gift_keys, &gift_calls, &windows)?;
     for f in &staged.files {
         pk.write_romfs(&f.path, &f.z)?;
         if f.new > f.old {

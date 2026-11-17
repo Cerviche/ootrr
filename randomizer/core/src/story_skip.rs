@@ -794,16 +794,18 @@ fn item_get(f: &mut Flow, name: &str, g: &SceneGive, then: u16, entries: &[&str]
         return Err(Error::Msg(format!("story skip: the item get {name} is already in {}", f.name)));
     }
     let at: u16 = idx(f.events.len())?;
-    let window: String = crate::item_window::name(ITEM_GET.1);
-    let entry: &str = if g.key.is_some() { &window } else { ITEM_GET.1 };
+    // A dungeon item runs the window-only copy, an item with no held model the show copy with the
+    // stand-in model (crate::item_window).
+    let show: Option<&str> = crate::item_window::show_for(&g.actor);
+    let mode = crate::item_window::Mode { window: g.key.is_some(), show: show.is_some() };
+    let entry: String = if mode.window || mode.show { crate::item_window::name_of(ITEM_GET.1, mode) } else { ITEM_GET.1.to_string() };
+    let mut items: Vec<(String, Val)> = vec![("ActorName".to_string(), Val::Str(g.actor.clone()))];
+    if let Some(s) = show {
+        items.push((crate::item_window::SHOW.to_string(), Val::Str(s.to_string())));
+    }
     f.events.push(Event {
         name: name.to_string(),
-        kind: Kind::Sub {
-            next: then,
-            params: Some(Cont { items: vec![("ActorName".to_string(), Val::Str(g.actor.clone()))] }),
-            flow: ITEM_GET.0.to_string(),
-            entry: entry.to_string(),
-        },
+        kind: Kind::Sub { next: then, params: Some(Cont { items }), flow: ITEM_GET.0.to_string(), entry },
     });
     for e in f.entries.iter_mut().filter(|e| entries.contains(&e.name.as_str())) {
         e.subs.push(at);
@@ -1227,13 +1229,26 @@ pub fn patch_song_grant(b: &mut Bf, scene: &str, grant: &str) -> Res<()> {
     };
     let mut done: usize = 0;
     for i in subs {
-        if let Kind::Sub { flow, entry, .. } = &mut f.events[i].kind
+        if let Kind::Sub { flow, entry, params, .. } = &mut f.events[i].kind
             && flow == "GetPouchContent"
             && (entry == "GetPouchContentByActorName" || entry == "DisplayGetByActorName")
         {
             let window: bool = entry == "DisplayGetByActorName";
+            let actor: String = params
+                .as_ref()
+                .and_then(|p| p.items.iter().find(|(k, _)| k == "ActorName"))
+                .and_then(|(_, v)| match v {
+                    Val::Str(s) | Val::Actor(s, _) => Some(s.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            let show: Option<&str> = crate::item_window::show_for(&actor);
+            let mode = crate::item_window::Mode { window, show: show.is_some() };
             *flow = ITEM_GET.0.to_string();
-            *entry = if window { crate::item_window::name(ITEM_GET.1) } else { ITEM_GET.1.to_string() };
+            *entry = if mode.window || mode.show { crate::item_window::name_of(ITEM_GET.1, mode) } else { ITEM_GET.1.to_string() };
+            if let Some(s) = show {
+                params.get_or_insert_with(|| Cont { items: Vec::new() }).items.push((crate::item_window::SHOW.to_string(), Val::Str(s.to_string())));
+            }
             done += 1;
         }
     }

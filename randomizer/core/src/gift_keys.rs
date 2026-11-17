@@ -175,10 +175,80 @@ fn stem(file: &str) -> &str {
     file.strip_suffix(".bfevfl").unwrap_or(file)
 }
 
+/// A reward event's call into a give routine, with the argument that names the item.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Call {
+    pub file: String,
+    pub index: usize,
+    pub event: String,
+    pub param: String,
+}
+
+/// The give routine calls of the reward events the seed places items in.
+pub fn calls(d: &Data, seed: &SeedFile) -> Vec<Call> {
+    let mut out: Vec<Call> = Vec::new();
+    for loc in seed.placements.keys() {
+        if !spot(d, loc) {
+            continue;
+        }
+        let Some(l) = d.flow.by_name(loc) else { continue };
+        for e in l.edits.iter().filter(|e| e.role == "grant" && !e.via.starts_with("GetPouchContent:") && !e.via.starts_with("PouchSystemActor.")) {
+            for file in std::iter::once(&e.file).chain(e.also.iter()) {
+                out.push(Call { file: file.clone(), index: e.index, event: e.event.clone(), param: e.param.clone() });
+            }
+        }
+    }
+    out
+}
+
+fn str_of(c: &Cont, key: &str) -> Option<String> {
+    c.items.iter().find(|(k, _)| k == key).and_then(|(_, v)| match v {
+        Val::Str(s) | Val::Actor(s, _) => Some(s.clone()),
+        _ => None,
+    })
+}
+
+/// Points each call whose item has no held model at its routine's show copy, with the stand-in
+/// model as ShowActor (crate::item_window::show_for).
+fn shows(c: &mut crate::item_window::Cache, rf: &mut Romfs, files: &[StagedFile], cs: &[Call]) -> Res<()> {
+    for call in cs {
+        let here: &str = stem(&call.file);
+        let targets: Vec<usize> = {
+            let f: &mut Flow = c.flow_mut(rf, files, here)?;
+            match f.events.get(call.index).map(|e| &e.kind) {
+                Some(Kind::Switch { cases, .. }) => cases.iter().map(|x| x.ev as usize).collect(),
+                Some(_) => vec![call.index],
+                None => return Err(E::Msg(format!("gift keys: event index {} is out of range in {here}", call.index))),
+            }
+        };
+        for t in targets {
+            let found: Option<(String, String, String)> = {
+                let f: &mut Flow = c.flow_mut(rf, files, here)?;
+                match f.events.get(t).map(|e| &e.kind) {
+                    Some(Kind::Sub { flow, entry, params, .. }) if flow != POUCH && !entry.starts_with("OOTRR_") => {
+                        params.as_ref().and_then(|p| str_of(p, &call.param)).map(|a| (if flow.is_empty() { here.to_string() } else { flow.clone() }, entry.clone(), a))
+                    }
+                    _ => None,
+                }
+            };
+            let Some((fl, en, actor)) = found else { continue };
+            let Some(stand) = crate::item_window::show_for(&actor) else { continue };
+            let v: String = crate::item_window::variant(c, rf, files, &fl, &en, crate::item_window::SHOW_ONLY, &call.param)?;
+            let f: &mut Flow = c.flow_mut(rf, files, here)?;
+            if let Some(Kind::Sub { entry, params, .. }) = f.events.get_mut(t).map(|e| &mut e.kind) {
+                *entry = v;
+                params.get_or_insert_with(|| Cont { items: Vec::new() }).items.push((crate::item_window::SHOW.to_string(), Val::Str(stand.to_string())));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Edits the scenes in `files` (the location patcher's staged flows), or the game's if not staged,
-/// adding the window-only copies of the give routines they call. `extra` names more routines
-/// (flow, entry) whose copies are wanted (the Light Arrows item get).
-pub fn apply(rf: &mut Romfs, files: &mut Vec<StagedFile>, gs: &[Gift], extra: &[(&str, &str)]) -> Res<()> {
+/// adding the copies of the give routines they call: window-only for dungeon items (`gs`), show
+/// copies for items with no held model (`cs`). `extra` names more routines (flow, entry, mode)
+/// whose copies are wanted (the item get of the dropped scenes).
+pub fn apply(rf: &mut Romfs, files: &mut Vec<StagedFile>, gs: &[Gift], cs: &[Call], extra: &[(&str, &str, crate::item_window::Mode)]) -> Res<()> {
     let mut c: crate::item_window::Cache = crate::item_window::Cache::new();
     for g in gs {
         let here: &str = stem(&g.file);
@@ -196,8 +266,9 @@ pub fn apply(rf: &mut Romfs, files: &mut Vec<StagedFile>, gs: &[Gift], extra: &[
         let f: &mut Flow = c.flow_mut(rf, files, here)?;
         edit_flow(f, g.index, &g.event, g.item, g.dungeon, w.as_deref())?;
     }
-    for (fl, en) in extra {
-        crate::item_window::window(&mut c, rf, files, fl, en)?;
+    shows(&mut c, rf, files, cs)?;
+    for (fl, en, m) in extra {
+        crate::item_window::variant(&mut c, rf, files, fl, en, *m, "ActorName")?;
     }
     c.store(rf, files)
 }
