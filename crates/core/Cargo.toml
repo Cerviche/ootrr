@@ -9,4 +9,9 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-ruzstd = "0.9.1"
+ootrr-game = { path = "../game" }
+ootrr-logic = { path = "../logic" }
+ootrr-cosmetics = { path = "../cosmetics" }
+
+[dev-dependencies]
+ootrr-game = { path = "../game", features = ["fixtures"] }

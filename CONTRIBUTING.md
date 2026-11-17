@@ -27,7 +27,10 @@ Never run `ootrr` with no arguments. It starts the local web server and may open
 
 ## Layout
 
-- `crates/core`: the generator, logic engine, writers for the game's file formats, the slice code that turns a seed into edits
+- `crates/game`: reading and writing the game's files and tables (byml, sarc, zs, msbt, bfevfl, bfres, textures, the RomFS reader, size tables, flags, the location catalog, saves). Nothing in it knows about seeds or settings.
+- `crates/logic`: the logic engine (rules, world, search, fill, spoiler). It depends on `game` only for errors and the random generator.
+- `crates/cosmetics`: music, sound effect and colour randomizers.
+- `crates/core`: the generator and every feature that turns a seed into edits. It re-exports the three crates above, so `crate::byml` and `ootrr_core::byml` keep working.
 - `crates/cli`: the `ootrr` command line tool
 - `crates/web`: the local web page, including the tracker
 - `data/`: location catalogs, logic data (`data/logic`: one file per dungeon in `World`, and one file per overworld area in `World/Overworld`, loaded in the order listed in `crates/core/src/slice/world_files.rs`), flag names (`data/flags.json`), start presets

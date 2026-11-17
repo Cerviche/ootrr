@@ -1,5 +1,5 @@
 pub mod diff;
-#[cfg(test)]
+#[cfg(any(test, feature = "fixtures"))]
 pub mod fixture;
 pub mod info;
 pub mod kind;

@@ -66,7 +66,7 @@ fn is_name(s: &str) -> bool {
     !s.is_empty() && s.len() <= 64 && ok_chars && !s.contains("..") && s.trim() == s
 }
 
-pub(crate) fn rel(r: &str) -> Res<PB> {
+pub fn rel(r: &str) -> Res<PB> {
     let mut out: PB = PB::new();
     for c in P::new(r).components() {
         match c {

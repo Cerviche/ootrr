@@ -133,7 +133,7 @@ pub fn find<'a>(ms: &'a [Mat], name: &str, key: u64) -> Option<&'a Param> {
     ms.iter().find(|m| m.name == name)?.params.iter().find(|p| p.key == key && p.kind == VEC4)
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "fixtures"))]
 pub mod fixture {
     fn le64(out: &mut [u8], o: usize, v: u64) {
         out[o..o + 8].copy_from_slice(&v.to_le_bytes());

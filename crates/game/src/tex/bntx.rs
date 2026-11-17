@@ -129,7 +129,7 @@ pub fn decode(b: &[u8], t: &Tex) -> Res<(Img, usize)> {
     Ok((im, failed))
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "fixtures"))]
 pub mod fixture {
     use crate::tex::swizzle;
 
