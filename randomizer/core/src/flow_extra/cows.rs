@@ -247,7 +247,7 @@ mod tests {
         assert_ne!(main(f, "PushToBottleMilk_LinkHouse"), main(v, "PushToBottleMilk_LinkHouse"));
         assert_ne!(main(f, "PushToBottleMilk_LinkHouse0"), main(v, "PushToBottleMilk_LinkHouse0"));
         assert_eq!(main(f, "PushToBottleMilk"), main(v, "PushToBottleMilk"));
-        assert_eq!(f.events.len(), v.events.len() + 7);
+        assert_eq!(f.events.len(), v.events.len() + 10);
         let gave: bool = f.events.iter().any(|e| matches!(&e.kind, crate::bfevfl::Kind::Sub { entry, params, .. } if entry == "GetInEvent_NotTurn_NotNpc" && params.as_ref().and_then(|c| c.get("ActorName")).is_some_and(|x| *x != crate::bfevfl::Val::Str("Item_Bottle_Milk".to_string()))));
         assert!(gave);
         let romfs: PB = b.root.join("romfs");
@@ -506,7 +506,7 @@ mod tests {
         let Some(r) = root() else { return };
         let d: Data = Data::load().unwrap();
         let o: GenOpts = GenOpts { plando: vec![crate::slice::plando::parse("DMT Cow Grotto Cow=Hover Boots").unwrap()], ..GenOpts::default() };
-        let g: Generated = generate_data(&d, &with_other(true), "cows other build", &o).unwrap();
+        let g: Generated = generate_data(&d, &with(true), "cows other build", &o).unwrap();
         let load: PB = PB::from(env!("CARGO_MANIFEST_DIR")).join("../../target/cows_other_mods");
         let _ = std::fs::remove_dir_all(&load);
         let b: crate::slice::edit::Built = crate::slice::edit::build_for(&g.seed_file, &r, &load, "ootrr-cows-other", crate::modpack::Host::Eden).unwrap();

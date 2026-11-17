@@ -111,7 +111,6 @@ mod tests {
     #[test]
     fn unsafe_placements_are_refused() {
         let d: Data = Data::load().unwrap();
-        let n: String = eligible(&d)[0].clone();
         let once: String = eligible(&d).into_iter().find(|n| crate::slice::copies::copies(&d, n) < 2 && d.pots.kind_of(n) == Some(Kind::Pot)).unwrap();
         let t: Vec<Give> = targets(&d, &seed(&[(&once, "Megaton Hammer")])).unwrap();
         assert!(!t.is_empty() && t.iter().all(|g| g.actor == "Obj_Hammer"));

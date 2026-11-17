@@ -613,6 +613,7 @@ mod tests {
         for k in [EPONA, MASKS, BEANS, BRIDGE] {
             s.set(k, Value::Bool(true)).unwrap();
         }
+        s.set(crate::flow_extra::MERCHANTS_SETTING, Value::s("beans")).unwrap();
         let g = crate::slice::generate::generate_data(&d, &s, "skips built", &crate::slice::GenOpts::default()).unwrap();
         let load: PB = PB::from(env!("CARGO_MANIFEST_DIR")).join("../../target/quest_skip_mods");
         let b: crate::slice::edit::Built = crate::slice::edit::build(&g.seed_file, &root, &load, "skips built").unwrap();

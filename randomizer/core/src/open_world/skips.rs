@@ -155,6 +155,7 @@ fn event_at(f: &Flow, name: &str) -> Res<usize> {
     }
 }
 
+#[cfg(test)]
 fn text<'a>(e: &'a Event, key: &str) -> Option<&'a str> {
     match e.kind.params()?.get(key)? {
         Val::Str(s) => Some(s.as_str()),

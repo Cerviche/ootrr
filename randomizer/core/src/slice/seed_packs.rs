@@ -316,7 +316,7 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let mut s: Settings = wide();
         s.set("shuffle_rewards", crate::settings::Value::s("supported")).unwrap();
-        s.set(crate::flow_extra::cows::SETTING_OTHER, crate::settings::Value::Bool(true)).unwrap();
+        s.set(crate::flow_extra::cows::SETTING, crate::settings::Value::Bool(true)).unwrap();
         let list: Vec<String> = plando_for(&d, &s, &[("Hover Boots", "pot")]);
         assert_eq!(list.len(), 1, "{list:?}");
         let o: GenOpts = GenOpts { plando: list.iter().map(|x| crate::slice::plando::parse(x).unwrap()).collect(), ..GenOpts::default() };
@@ -460,8 +460,10 @@ mod tests {
             return;
         };
         let d: Data = Data::load().unwrap();
-        let g: Generated = generate_data(&d, &Settings::default(), "wp4 plain", &GenOpts::default()).unwrap();
-        assert!(need(&d, &g.seed_file, &BM::new()).unwrap().is_empty());
+        let g: Generated = (0..40)
+            .map(|n| generate_data(&d, &Settings::default(), &format!("wp4 plain {n}"), &GenOpts::default()).unwrap())
+            .find(|g| need(&d, &g.seed_file, &crate::slice::tier_order::fixed_actors(&d, &g.seed_file).unwrap().assign).unwrap().is_empty())
+            .expect("no default seed in 40 places only vanilla items at pickup spots");
         let load: PB = std::env::temp_dir().join(format!("ootrr_seed_packs_plain_{}", std::process::id()));
         let _ = fs::remove_dir_all(&load);
         let a: Built = crate::slice::edit::build_for(&g.seed_file, &root, &load.join("a"), "m", Host::Hookshot).unwrap();

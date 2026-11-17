@@ -129,7 +129,7 @@ mod tests {
     use crate::settings::Value;
     use crate::settings::seed::SeedFile;
     use crate::slice::data::{State, EVENTS_JSON};
-    use crate::slice::edit::{build_with, edit_file, Edited, Target};
+    use crate::slice::edit::{edit_file, Edited, Target};
     use crate::slice::fill::vanilla_place;
     use crate::slice::generate::{allowed, generate_data, GenOpts, Generated};
     use crate::slice::logic::world;
@@ -345,7 +345,7 @@ mod tests {
         let seed: SeedFile = g.seed_file;
         let out: PB = std::env::temp_dir().join(format!("ootrr_treasure_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&out);
-        let b: crate::slice::edit::Built = build_with(&seed, &root, &out, "treasure", crate::modpack::Host::Eden, &crate::pickup_persist::Extra::default()).unwrap();
+        let b: crate::slice::edit::Built = crate::slice::edit::build_for(&seed, &root, &out, "treasure", crate::modpack::Host::Eden).unwrap();
         assert!(b.chests.iter().any(|c| c.name == LOC && c.new_actor == "Item_Hammer"), "{}", b.report);
         let mut rf: Romfs = Romfs::open(&root).unwrap();
         let f: PB = b.root.join("romfs").join(FILE.replace('/', std::path::MAIN_SEPARATOR_STR));

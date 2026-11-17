@@ -368,11 +368,11 @@ mod tests {
         let Some(root) = dump() else {
             return;
         };
-        let out: std::path::PathBuf = built(&root, &with(&[("shuffle_rewards", Value::s("off"))]), "qol default", "OOTRR Qol Default Test");
+        let out: std::path::PathBuf = built(&root, &with(&[("shuffle_rewards", Value::s("off")), (NAVI, Value::s("off"))]), "qol default", "OOTRR Qol Default Test");
         for f in files().into_iter().filter(|f| !chest_anim::files().contains(&f.as_str())) {
             assert!(!at(&out, &f).exists(), "{f}");
         }
-        let out: std::path::PathBuf = built(&root, &Settings::default(), "qol default", "OOTRR Qol Rewards Default Test");
+        let out: std::path::PathBuf = built(&root, &with(&[(NAVI, Value::s("off"))]), "qol default", "OOTRR Qol Rewards Default Test");
         let mut rf: Romfs = Romfs::open(&root).unwrap();
         for f in files() {
             if f == poe::FILE && at(&out, &f).is_file() {
