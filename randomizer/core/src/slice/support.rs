@@ -276,6 +276,13 @@ impl Plan {
     }
 }
 
+fn toggle(s: &Settings, key: &str, bad: &mut Vec<String>) -> bool {
+    s.flag(key).unwrap_or_else(|e| {
+        bad.push(e.to_string());
+        false
+    })
+}
+
 pub fn plan(s: &Settings) -> Res<Plan> {
     let def: Settings = Settings::default();
     let mut bad: Vec<String> = Vec::new();
@@ -324,59 +331,26 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         }
     };
     let dungeon_rewards: bool = rewards
-        && s.flag(DUNGEON_REWARDS).unwrap_or_else(|e| {
-            bad.push(e.to_string());
-            false
-        });
+        && toggle(s, DUNGEON_REWARDS, &mut bad);
     let extra: bool = rewards
-        && s.flag(crate::flow_extra::SETTING).unwrap_or_else(|e| {
-            bad.push(e.to_string());
-            false
-        });
+        && toggle(s, crate::flow_extra::SETTING, &mut bad);
     let trade: bool = rewards
-        && s.flag(crate::flow_extra::trade::SETTING).unwrap_or_else(|e| {
-            bad.push(e.to_string());
-            false
-        });
+        && toggle(s, crate::flow_extra::trade::SETTING, &mut bad);
     let cows: bool = rewards
-        && s.flag(crate::flow_extra::cows::SETTING).unwrap_or_else(|e| {
-            bad.push(e.to_string());
-            false
-        });
+        && toggle(s, crate::flow_extra::cows::SETTING, &mut bad);
     let cows_other: bool = cows;
     let frog_songs: bool = rewards
-        && s.flag(crate::flow_extra::frogs::SONGS_SETTING).unwrap_or_else(|e| {
-            bad.push(e.to_string());
-            false
-        });
+        && toggle(s, crate::flow_extra::frogs::SONGS_SETTING, &mut bad);
     let frog_bug: bool = rewards
-        && s.flag(crate::flow_extra::frogs::BUG_SETTING).unwrap_or_else(|e| {
-            bad.push(e.to_string());
-            false
-        });
+        && toggle(s, crate::flow_extra::frogs::BUG_SETTING, &mut bad);
     let potion: bool = rewards
-        && s.flag(crate::flow_extra::potion::SETTING).unwrap_or_else(|e| {
-            bad.push(e.to_string());
-            false
-        });
+        && toggle(s, crate::flow_extra::potion::SETTING, &mut bad);
     let scrubs: bool = crate::scrubs_a::read(s, rewards, &mut bad);
     let scrubs_b: bool = crate::scrubs_b::read(s, rewards, &mut bad);
-    let hearts: bool = s.flag("shuffle_boss_hearts").unwrap_or_else(|e| {
-        bad.push(e.to_string());
-        false
-    });
-    let hints: bool = s.flag("gossip_hints").unwrap_or_else(|e| {
-        bad.push(e.to_string());
-        false
-    });
-    let fast: bool = s.flag("faster_chests").unwrap_or_else(|e| {
-        bad.push(e.to_string());
-        false
-    });
-    let intro: bool = s.flag("skip_intro").unwrap_or_else(|e| {
-        bad.push(e.to_string());
-        false
-    });
+    let hearts: bool = toggle(s, "shuffle_boss_hearts", &mut bad);
+    let hints: bool = toggle(s, "gossip_hints", &mut bad);
+    let fast: bool = toggle(s, "faster_chests", &mut bad);
+    let intro: bool = toggle(s, "skip_intro", &mut bad);
     let start: Reward = match s.text("start_reward") {
         Ok("off") => Reward::Off,
         Ok("stone") => Reward::Stone,
@@ -404,10 +378,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
             Forest::Closed
         }
     };
-    let door: bool = s.flag("open_door_of_time").unwrap_or_else(|e| {
-        bad.push(e.to_string());
-        false
-    });
+    let door: bool = toggle(s, "open_door_of_time", &mut bad);
     let kakariko: bool = match s.text("open_kakariko") {
         Ok("open") => true,
         Ok("zelda") => false,
