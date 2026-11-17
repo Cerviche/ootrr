@@ -1240,12 +1240,14 @@ pub struct SongTrigger {
     pub cut: &'static [&'static str],
     pub give: &'static str,
     pub also: &'static [&'static str],
+    /// Calls the scene makes that carry state (flow, entry), run in its place.
+    pub calls: &'static [(&'static str, &'static str)],
 }
 
-pub const SONG_TRIGGERS: [SongTrigger; 6] = [
-    SongTrigger { loc: "Song from Impa", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Zelda", also: &[] },
-    SongTrigger { loc: "Song from Malon", flow: "SubEvent_GetEponaSong", cut: &[], give: "Dm_MelodyGet_Epona", also: &[] },
-    SongTrigger { loc: "Song from Saria", flow: "SacredForestMeadow", cut: &[], give: "Dm_MelodyGet_Saria", also: &[] },
+pub const SONG_TRIGGERS: [SongTrigger; 11] = [
+    SongTrigger { loc: "Song from Impa", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Zelda", also: &[], calls: &[] },
+    SongTrigger { loc: "Song from Malon", flow: "SubEvent_GetEponaSong", cut: &[], give: "Dm_MelodyGet_Epona", also: &[], calls: &[] },
+    SongTrigger { loc: "Song from Saria", flow: "SacredForestMeadow", cut: &[], give: "Dm_MelodyGet_Saria", also: &[], calls: &[] },
     // The lesson, then one of the day or night flips (the time change after each stays), then Sun_03.
     SongTrigger {
         loc: "Song from Royal Familys Tomb",
@@ -1253,10 +1255,19 @@ pub const SONG_TRIGGERS: [SongTrigger; 6] = [
         cut: &["Dm_MelodyGet_Sun", "Dm_MelodyGet_Sun_01", "Dm_MelodyGet_Sun_04", "Dm_MelodyGet_Sun_05", "Dm_MelodyGet_Sun_06", "Dm_MelodyGet_Sun_07", "Dm_MelodyGet_Sun_08", "Dm_MelodyGet_Sun_09", "Dm_MelodyGet_Sun_10"],
         give: "Dm_MelodyGet_Sun_03",
         also: &[],
+        calls: &[],
     },
     // The Ocarina of Time scene also hands over the Ocarina.
-    SongTrigger { loc: "Song from Ocarina of Time", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Time", also: &["HF Ocarina of Time Item"] },
-    SongTrigger { loc: "Song from Windmill", flow: "Npc_Hylia_009_Adult", cut: &[], give: "Dm_MelodyGet_Storm", also: &[] },
+    SongTrigger { loc: "Song from Ocarina of Time", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Time", also: &["HF Ocarina of Time Item"], calls: &[] },
+    SongTrigger { loc: "Song from Windmill", flow: "Npc_Hylia_009_Adult", cut: &[], give: "Dm_MelodyGet_Storm", also: &[], calls: &[] },
+    // Sheik's songs, played from the sage quest flows. Running the item get inside Sheik's own scene
+    // stalled (the scene's Link uses its own animation set), so like the others the scene is
+    // dropped from the flow that plays it. Requiem is started by its map and keeps its cut scene.
+    SongTrigger { loc: "Sheik in Forest", flow: "SageOfForest", cut: &[], give: "Dm_MelodyGet_Forest", also: &[], calls: &[("AllSage", "MeetSheik_And_Gone")] },
+    SongTrigger { loc: "Sheik in Crater", flow: "SageOfFire", cut: &[], give: "Dm_MelodyGet_Fire", also: &[], calls: &[("AllSage", "MeetSheik_And_Gone")] },
+    SongTrigger { loc: "Sheik in Ice Cavern", flow: "SageOfWater", cut: &[], give: "Dm_MelodyGet_Water", also: &[], calls: &[("AllSage", "MeetSheik_And_Gone")] },
+    SongTrigger { loc: "Sheik in Kakariko", flow: "Dm_SY_BancChangeArrive", cut: &[], give: "Dm_MelodyGet_Shadow", also: &[], calls: &[] },
+    SongTrigger { loc: "Sheik at Temple", flow: "AllSage", cut: &[], give: "Dm_MelodyGet_Shine", also: &[], calls: &[] },
 ];
 const SONG_PREFIX: &str = "OOTRRSong";
 
@@ -1335,6 +1346,10 @@ pub fn patch_song_trigger(b: &mut Bf, t: &SongTrigger, writes: &[Write], gives: 
         for w in writes {
             let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, &w.actor, &w.act)?;
             kinds.push(Kind::Action { next: NONE, actor: a, act: x, params: w.params.clone() });
+        }
+        for (fl, en) in t.calls {
+            let local: bool = *fl == t.flow;
+            kinds.push(Kind::Sub { next: NONE, params: None, flow: if local { String::new() } else { fl.to_string() }, entry: en.to_string() });
         }
         kinds.push(fade_in(f)?);
         let first: u16 = chain(f, &format!("{SONG_PREFIX}{}_{i}_", t.give), kinds, then)?;

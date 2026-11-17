@@ -408,9 +408,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             gives.push(give_for(t.loc));
             crate::story_skip::stage_late(&mut rf, &mut late, &work, t.flow, |b| crate::story_skip::patch_song_trigger(b, t, &writes, &gives))?;
         }
-        for c in &crate::story_skip::SHEIK_CUTS {
-            crate::story_skip::stage_late(&mut rf, &mut late, &work, c.scene, |b| crate::story_skip::patch_song_grant(b, c.scene, c.grant))?;
-        }
     }
     if p.endings {
         late.extend(crate::story_skip::worked_endings(&mut rf, &pk)?);
