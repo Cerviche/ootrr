@@ -156,7 +156,11 @@ mod tests {
             bf.flows.iter().flat_map(|f| f.events.iter()).filter(|e| !matches!(e.kind, crate::bfevfl::Kind::Switch { .. })).any(|e| e.kind.params().and_then(|c| c.get(&l.edits[0].param)) == Some(&crate::bfevfl::Val::Str(n.to_string())))
         };
         assert!(named("Obj_Ocarina_Fairy") && named("Obj_Ocarina_TimeLand"));
-        // Each pickup branch then equips its Ocarina tier, as the starting items do.
+        // Each pickup branch then adds its Ocarina tier like Saria's gift and equips it.
+        for t in NO_ANIM {
+            let adds = bf.flows.iter().flat_map(|f| f.events.iter()).any(|e| e.kind.params().is_some_and(|c| c.get("Actor") == Some(&crate::bfevfl::Val::Str(t.to_string())) && c.get("IsGetEvent") == Some(&crate::bfevfl::Val::Bool(0))));
+            assert!(adds, "{t} is not added after its pickup actor");
+        }
         for t in NO_ANIM {
             let equips = bf.flows.iter().flat_map(|f| f.events.iter()).any(|e| {
                 e.kind.params().is_some_and(|c| c.get("GameDataName") == Some(&crate::bfevfl::Val::Str(EQUIP.to_string())) && c.get("Value") == Some(&crate::bfevfl::Val::Str(t.to_string())))
