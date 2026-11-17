@@ -7,6 +7,7 @@ name = "ootrr"
 version = "0.6.2"
 dependencies = [
  "ootrr-core",
+ "ootrr-mem",
  "ootrr-web",
 ]
 
@@ -41,11 +42,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ootrr-mem"
+version = "0.6.2"
+dependencies = [
+ "ootrr-core",
+]
+
+[[package]]
 name = "ootrr-web"
 version = "0.6.2"
 dependencies = [
  "ootrr-core",
  "ootrr-game",
+ "ootrr-mem",
 ]
 
 [[package]]

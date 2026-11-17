@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 ootrr-core = { path = "../core" }
 ootrr-web = { path = "../../web" }
+ootrr-mem = { path = "../mem" }
 
 [lints]
 workspace = true
