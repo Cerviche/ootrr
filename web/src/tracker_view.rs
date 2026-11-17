@@ -64,6 +64,7 @@ pub fn loc_json(g: &Inner, i: usize) -> Json {
     Json::obj()
         .with("id", t.id.as_str().into())
         .with("label", t.label().into())
+        .with("item", crate::tracker::drops::item_of(t, g.placed.as_ref()).map(Json::from).unwrap_or(Json::Null))
         .with("name", t.name.as_str().into())
         .with("maybe", maybe)
         .with("kind", t.kind.as_str().into())
@@ -147,6 +148,9 @@ pub fn source_json(g: &Inner) -> Json {
         .with("game", if g.index.game.is_empty() { Json::Null } else { g.index.game.as_str().into() })
         .with("job", g.job.map(|j| Json::Int(j as i64)).unwrap_or(Json::Null))
         .with("index_error", opt(&g.index_error))
+        .with("live", s.live.map(|x| Json::Int(x as i64)).unwrap_or(Json::Null))
+        .with("live_on", g.opts.live.into())
+        .with("live_msg", opt(&s.live_msg))
 }
 
 fn player(g: &Inner) -> Json {

@@ -294,7 +294,7 @@ mod tests {
                 n.1 += 1;
             }
         }
-        assert_eq!(n, (17, 16));
+        assert_eq!(n, (16, 16));
         let all_n: usize = names.len();
         names.sort();
         names.dedup();

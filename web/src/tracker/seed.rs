@@ -1,6 +1,7 @@
 use std::collections::BTreeMap as BM;
 
 use ootrr_core::items::model::{Item, Mode, Table};
+use crate::tracker::npc_flags;
 use crate::tracker::rules::{Rule, rule_of};
 use crate::tracker::targets::{How, Target};
 
@@ -22,6 +23,14 @@ pub fn rule_for(t: &Target, item: &str, copies: usize, tbl: &Table) -> Rule {
     rule_of(&o)
 }
 
+pub fn own_rule(t: &Target, flags: &[&str]) -> Rule {
+    let mut o: Target = t.clone();
+    o.how = How::Flag;
+    o.flags = flags.iter().map(|f| f.to_string()).collect();
+    o.weak = false;
+    rule_of(&o)
+}
+
 pub fn cow_rule(t: &Target, item: &str) -> Option<Rule> {
     let flag: String = ootrr_core::flow_extra::cows::flag_of(t.ootr.as_deref()?).filter(|_| item != ootrr_core::flow_extra::cows::VANILLA)?;
     let mut o: Target = t.clone();
@@ -38,6 +47,7 @@ pub fn rules(ts: &[Target], placed: &BM<String, String>, tbl: &Table) -> Vec<Opt
             let item: &String = placed.get(name)?;
             match t.kind.as_str() {
                 "gift" | "cow" if ootrr_core::flow_extra::cows::is(name) => cow_rule(t, item),
+                "gift" | "heart_container" if npc_flags::of(name).is_some() => Some(own_rule(t, npc_flags::of(name).unwrap_or(&[]))),
                 "gift" => {
                     let n: usize = placed.values().filter(|v| *v == item).count();
                     Some(rule_for(t, item, n, tbl))
@@ -84,26 +94,60 @@ mod tests {
     }
 
     #[test]
-    fn a_song_from_impa_is_seen_by_the_song_it_gave() {
-        let p: BM<String, String> = placed(&[("Song from Impa", "Minuet of Forest"), ("Sheik in Forest", "Zeldas Lullaby")]);
-        assert_eq!(hit("Song from Impa", &p, "HavePlayedGetEvent.Item_Melody_ForestMinuet"), Hit::On);
-        assert_eq!(hit("Sheik in Forest", &p, "HavePlayedGetEvent.Item_Melody_ForestMinuet"), Hit::Off);
-        assert_eq!(hit("Sheik in Forest", &p, "HavePlayedGetEvent.Item_Melody_ZeldaLullaby"), Hit::On);
+    fn a_gift_is_seen_by_the_song_it_gave() {
+        let p: BM<String, String> = placed(&[("ZD King Zora Thawed", "Minuet of Forest"), ("Deku Theater Skull Mask", "Zeldas Lullaby")]);
+        assert_eq!(hit("ZD King Zora Thawed", &p, "HavePlayedGetEvent.Item_Melody_ForestMinuet"), Hit::On);
+        assert_eq!(hit("Deku Theater Skull Mask", &p, "HavePlayedGetEvent.Item_Melody_ForestMinuet"), Hit::Off);
+        assert_eq!(hit("Deku Theater Skull Mask", &p, "HavePlayedGetEvent.Item_Melody_ZeldaLullaby"), Hit::On);
     }
 
     #[test]
     fn a_medallion_at_a_skulltula_reward_is_exact() {
-        let p: BM<String, String> = placed(&[("Kak 10 Gold Skulltula Reward", "Water Medallion")]);
-        assert_eq!(hit("Kak 10 Gold Skulltula Reward", &p, "HavePlayedGetEvent.Item_Medal_Water"), Hit::On);
-        assert_eq!(hit("Kak 10 Gold Skulltula Reward", &p, "HavePlayedGetEvent.Item_Wallet_Medium"), Hit::Off);
+        let p: BM<String, String> = placed(&[("ToT Light Arrows Cutscene", "Water Medallion")]);
+        assert_eq!(hit("ToT Light Arrows Cutscene", &p, "HavePlayedGetEvent.Item_Medal_Water"), Hit::On);
+        assert_eq!(hit("ToT Light Arrows Cutscene", &p, "HavePlayedGetEvent.Item_Wallet_Medium"), Hit::Off);
+    }
+
+    #[test]
+    fn an_npc_with_its_own_flag_is_exact_whatever_it_holds() {
+        let p: BM<String, String> = placed(&[("Kak 10 Gold Skulltula Reward", "Piece of Heart"), ("Market 5 Big Poes", "Piece of Heart")]);
+        assert_eq!(hit("Kak 10 Gold Skulltula Reward", &p, "KakarikoVillage_GatheringTokenGold_GetReward10"), Hit::On);
+        assert_eq!(hit("Kak 10 Gold Skulltula Reward", &p, "HavePlayedGetEvent.Obj_Heart_Piece"), Hit::Off);
+        assert_eq!(hit("Market 5 Big Poes", &p, "HavePlayedGetEvent.Obj_Heart_Piece"), Hit::Weak);
+    }
+
+    #[test]
+    fn an_npc_seen_only_by_an_enum_step_needs_that_exact_value() {
+        let p: BM<String, String> = placed(&[("Kak 100 Gold Skulltula Reward", "Piece of Heart")]);
+        let tbl: Table = load::load().unwrap();
+        let ts: &[Target] = all().unwrap();
+        let o: Vec<Option<Rule>> = rules(ts, &p, &tbl);
+        let i: usize = ts.iter().position(|t| t.kind == "gift" && t.ootr.as_deref() == Some("Kak 100 Gold Skulltula Reward")).unwrap();
+        let at = |v: &str| {
+            let cells: Vec<(u32, Cell)> = vec![(murmur3_32(b"Step_GatheringTokenGold", 0), Cell::Inline(murmur3_32(v.as_bytes(), 0)))];
+            eval(o[i].as_ref().unwrap(), &peek_with(&raw(&cells, &[]), &Lim::ANY).unwrap())
+        };
+        assert_eq!(at("Complete"), Hit::On);
+        assert_eq!(at("Ready"), Hit::Off);
+    }
+
+    #[test]
+    fn a_boss_heart_is_seen_by_the_boss_kill_whatever_it_holds() {
+        let p: BM<String, String> = placed(&[("Deku Tree Queen Gohma Heart", "Gold Skulltula Token")]);
+        let tbl: Table = load::load().unwrap();
+        let ts: &[Target] = all().unwrap();
+        let o: Vec<Option<Rule>> = rules(ts, &p, &tbl);
+        let i: usize = ts.iter().position(|t| t.kind == "heart_container" && t.ootr.as_deref() == Some("Deku Tree Queen Gohma Heart")).unwrap();
+        assert_eq!(eval(o[i].as_ref().unwrap(), &peek("DefeatedEnemyNum.Enemy_DungeonBoss_Gohma")), Hit::On);
+        assert_eq!(eval(o[i].as_ref().unwrap(), &peek("DefeatedEnemyNum.Enemy_DungeonBoss_Barinade")), Hit::Off);
     }
 
     #[test]
     fn shared_items_are_only_a_weak_sign() {
-        let p: BM<String, String> = placed(&[("LW Skull Kid", "Piece of Heart"), ("Kak Man on Roof", "Piece of Heart")]);
-        assert_eq!(hit("LW Skull Kid", &p, "HavePlayedGetEvent.Obj_Heart_Piece"), Hit::Weak);
-        let w: BM<String, String> = placed(&[("Kak 30 Gold Skulltula Reward", "Progressive Wallet")]);
-        assert_eq!(hit("Kak 30 Gold Skulltula Reward", &w, "HavePlayedGetEvent.Item_Wallet_Large"), Hit::Weak);
+        let p: BM<String, String> = placed(&[("Market 5 Big Poes", "Piece of Heart"), ("ToT Light Arrows Cutscene", "Piece of Heart")]);
+        assert_eq!(hit("Market 5 Big Poes", &p, "HavePlayedGetEvent.Obj_Heart_Piece"), Hit::Weak);
+        let w: BM<String, String> = placed(&[("ToT Light Arrows Cutscene", "Progressive Wallet")]);
+        assert_eq!(hit("ToT Light Arrows Cutscene", &w, "HavePlayedGetEvent.Item_Wallet_Large"), Hit::Weak);
     }
 
     #[test]

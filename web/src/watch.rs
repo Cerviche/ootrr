@@ -233,6 +233,10 @@ pub struct Handle {
 }
 
 impl Handle {
+    pub fn new(stop: Arc<AtomicBool>, join: JoinHandle<()>) -> Handle {
+        Handle { stop, join: Some(join) }
+    }
+
     pub fn stop(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
         if let Some(j) = self.join.take() {
