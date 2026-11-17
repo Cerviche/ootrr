@@ -16,6 +16,7 @@ pub const OR: &str = "OperateOR";
 pub const MULTI: &str = "BoolMulti";
 pub const BOOL: usize = 1;
 pub const BOOL_IN: usize = 16;
+pub const MULTI_COUNT: usize = 0x1c;
 pub const TRUE_OUT: i16 = 1;
 pub const FALSE_OUT: u16 = 0;
 
@@ -92,6 +93,7 @@ pub fn multi_node(a: &mut Ainb, name: &str, seed: &str, srcs: &[(usize, u16)]) -
     let n: i16 = i16::try_from(srcs.len()).map_err(|_| Error::Format("gerudo card: too many gate sources"))?;
     i16_at(&mut a.ins[BOOL], at + 4, src);
     i16_at(&mut a.ins[BOOL], at + 6, n);
+    a.els[id][MULTI_COUNT..MULTI_COUNT + 4].copy_from_slice(&(srcs.len() as u32).to_le_bytes());
     let mut want: Vec<u16> = Vec::new();
     for (el, _) in srcs {
         let q: u16 = qpos(a, *el)?;
@@ -204,6 +206,22 @@ mod tests {
     }
 
     #[test]
+    fn every_multi_input_node_in_the_game_counts_its_entries_at_0x1c() {
+        let Some(root) = real() else {
+            return;
+        };
+        let rf: Romfs = Romfs::open(&root).unwrap();
+        for m in MODULES.iter().chain(ALWAYS_OFF.iter()).chain(["Logic/GerudoFortress_Common_35d7.logic.module.ainb"].iter()) {
+            let a: Ainb = Ainb::parse(&rf.read(m).unwrap()).unwrap();
+            for i in a.find_els(AND).into_iter().chain(a.find_els(OR)) {
+                let x = a.input(BOOL, a.find_in(i, BOOL, MULTI).unwrap()).unwrap();
+                let want: u8 = if x.src <= -100 { x.plug as u8 } else { 0 };
+                assert_eq!(a.els[i][MULTI_COUNT], want, "{m} element {i}");
+            }
+        }
+    }
+
+    #[test]
     fn every_fortress_guard_is_switched_off_by_the_card_and_keeps_its_quest_check() {
         let Some(root) = real() else {
             return;
@@ -233,6 +251,7 @@ mod tests {
                 assert_eq!(new.el_name(gate as usize), AND, "{m}");
                 assert_eq!(multi_of(&new, gate as usize), vec![(s as u16, p as u16), (lacks[0] as u16, FALSE_OUT)], "{m}");
                 assert!(queries(&new, i).contains(&(gate as u16)), "{m}");
+                assert_eq!(new.els[gate as usize][MULTI_COUNT], 2, "{m}");
                 total += 1;
             }
             for i in 0..old.els.len() {
