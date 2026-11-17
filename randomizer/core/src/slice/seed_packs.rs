@@ -96,11 +96,32 @@ fn run_one(romfs: &P, load: &P, mod_name: &str, w: &Want, o: &Opts) -> Res<Done>
     run_with(romfs, load, mod_name, &s, o, &l)
 }
 
+const POOL_THREADS: usize = 8;
+
+fn dry(romfs: &P, host: Host, w: &Want) -> Res<Extra> {
+    let d: Done = run_one(romfs, P::new("unused"), "unused", w, &opts(host, None, true)).map_err(|e| E::Msg(format!("the pickup pack {} cannot be built: {e}", w.name)))?;
+    guard::extra(&d.files, &d.carried)
+}
+
 pub fn pool(romfs: &P, host: Host, wants: &BM<String, Want>) -> Res<Extra> {
+    let ws: Vec<&Want> = wants.values().collect();
+    let n: usize = std::thread::available_parallelism().map_or(1, |x| x.get()).clamp(1, POOL_THREADS).min(ws.len().max(1));
+    let parts: Vec<Vec<(usize, Res<Extra>)>> = std::thread::scope(|sc| {
+        let hs: Vec<std::thread::ScopedJoinHandle<Vec<(usize, Res<Extra>)>>> = (0..n)
+            .map(|k| {
+                let ws: &[&Want] = &ws;
+                sc.spawn(move || (k..ws.len()).step_by(n).map(|i| (i, dry(romfs, host, ws[i]))).collect())
+            })
+            .collect();
+        hs.into_iter().map(|h| h.join().unwrap_or_default()).collect()
+    });
+    let mut done: Vec<Option<Res<Extra>>> = (0..ws.len()).map(|_| None).collect();
+    for (i, r) in parts.into_iter().flatten() {
+        done[i] = Some(r);
+    }
     let mut out: Extra = Extra::default();
-    for w in wants.values() {
-        let d: Done = run_one(romfs, P::new("unused"), "unused", w, &opts(host, None, true)).map_err(|e| E::Msg(format!("the pickup pack {} cannot be built: {e}", w.name)))?;
-        let x: Extra = guard::extra(&d.files, &d.carried)?;
+    for (i, r) in done.into_iter().enumerate() {
+        let x: Extra = r.ok_or_else(|| E::Msg(format!("the pickup pack {} was not built", ws[i].name)))??;
         out.packs.extend(x.packs);
         out.flags.extend(x.flags);
     }
@@ -158,6 +179,7 @@ pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -
     check_swaps_with(&mut rf, &[], &x)?;
     let mut b: Built = build_with(seed, romfs, load, mod_name, host, &x)?;
     let base: PB = b.root.join("romfs");
+
     for w in wants.values() {
         let done: Done = run_one(romfs, load, mod_name, w, &opts(host, Some(base.clone()), false))?;
         if done.root.as_deref() != Some(b.root.as_path()) {

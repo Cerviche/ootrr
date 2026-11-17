@@ -230,9 +230,10 @@ pub fn audit_rows(was: &Byml, now: &Byml, t: &str, plans: &[FallPlan]) -> Res<St
     if !rows::sorted(now)? || n + had != m + plans.len() {
         return Err(E::Msg(format!("audit: {t} is not the table it started from plus one sorted row per twin")));
     }
+    let index: std::collections::HashMap<&str, &Node> = rows::index(now);
     for r in was.root.as_arr().unwrap_or(&[]).iter().filter(|r| !rows::id(r).is_some_and(|i| fresh.contains(i))) {
         let i: &str = rows::id(r).unwrap_or("");
-        if rows::find(now, i) != Some(r) {
+        if index.get(i).copied() != Some(r) {
             return Err(E::Msg(format!("audit: {t} changed the row {i}")));
         }
     }

@@ -377,6 +377,7 @@ pub fn audit(rf: &mut Romfs, s: &Spec, pl: &Plan, files: &[File], rst_z: &[u8], 
         if !rows::sorted(&y)? || n + had != m + 1 {
             return Err(E::Msg(format!("audit: {t} is not the table it started from plus one sorted row")));
         }
+        let index: std::collections::HashMap<&str, &Node> = rows::index(&y);
         let eased = |x: &Node| t == POUCH_INFO && ((sc.layers.ammo && rows::id(x) == Some(pl.identity.as_str())) || (meter::applies(&pl.identity) && meter::loses(x)));
         let kept: usize = was
             .root
@@ -384,7 +385,7 @@ pub fn audit(rf: &mut Romfs, s: &Spec, pl: &Plan, files: &[File], rst_z: &[u8], 
             .unwrap_or(&[])
             .iter()
             .filter(|x| rows::id(x) != Some(s.name.as_str()))
-            .filter(|x| rows::id(x).and_then(|i| rows::find(&y, i)) == Some(*x) || eased(x))
+            .filter(|x| rows::id(x).and_then(|i| index.get(i).copied()) == Some(*x) || eased(x))
             .count();
         if kept + had != m {
             return Err(E::Msg(format!("audit: {t} changed {} rows it started with", m - had - kept)));

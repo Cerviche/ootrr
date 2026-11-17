@@ -1,3 +1,5 @@
+use std::collections::HashMap as HM;
+
 use crate::byml::{Byml, Node};
 use crate::error::{Error as E, Res};
 
@@ -23,6 +25,16 @@ fn list(y: &Byml) -> Res<&[Node]> {
 
 pub fn find<'a>(y: &'a Byml, name: &str) -> Option<&'a Node> {
     y.root.as_arr()?.iter().find(|r| id(r) == Some(name))
+}
+
+pub fn index(y: &Byml) -> HM<&str, &Node> {
+    let mut out: HM<&str, &Node> = HM::new();
+    for r in y.root.as_arr().unwrap_or(&[]) {
+        if let Some(i) = id(r) {
+            out.entry(i).or_insert(r);
+        }
+    }
+    out
 }
 
 pub fn need<'a>(y: &'a Byml, name: &str, table: &str) -> Res<&'a Node> {
