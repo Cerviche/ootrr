@@ -153,3 +153,40 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod pickup_tests {
+    use crate::settings::{Settings, Value};
+    use crate::slice::data::Data;
+
+    #[test]
+    fn a_generated_seed_with_an_ocarina_at_a_pickup_spot_builds_its_pickup_pack() {
+        let root: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("D:/Oot/romfs"));
+        if !root.join("Pack").join("ZsDic.pack.zs").is_file() {
+            eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", root.display());
+            return;
+        }
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_freestanding_items", Value::s("all")).unwrap();
+        s.set("shuffle_pots", Value::s("all")).unwrap();
+        let spot = |loc: &str| d.pots.has(loc) || d.cat.by_name(loc).is_some_and(crate::slice::pickups::is_world);
+        let mut found = None;
+        for n in 0..30 {
+            let g = crate::slice::generate::generate_data(&d, &s, &format!("ocarina spot {n}"), &crate::slice::GenOpts::default()).unwrap();
+            if let Some((l, _)) = g.seed_file.placements.iter().find(|(l, i)| i.as_str() == "Ocarina" && spot(l)) {
+                found = Some((l.clone(), g));
+                break;
+            }
+        }
+        let Some((loc, g)) = found else {
+            panic!("no seed put an Ocarina at a freestanding spot or a pot in 30 tries");
+        };
+        let load: std::path::PathBuf = std::env::temp_dir().join(format!("ootrr_ocarina_spot_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&load);
+        let b = crate::slice::edit::build(&g.seed_file, &root, &load, "ocarina spot").unwrap_or_else(|e| panic!("{loc}: {e}"));
+        let actor = b.root.join("romfs").join("Pack").join("Actor");
+        assert!(actor.join("Obj_Ocarina_Fairy.pack.zs").is_file() || actor.join("Obj_Ocarina_TimeLand.pack.zs").is_file(), "{loc}");
+        let _ = std::fs::remove_dir_all(&load);
+    }
+}

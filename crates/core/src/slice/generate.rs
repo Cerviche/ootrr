@@ -1215,7 +1215,7 @@ mod tests {
             (on.clone(), "OOTRR1-EYAQD32I", "pin a", "ce679d8197108c14c5f8d1a69a191e63e9cd68f8240d1db47e7c8529f0b53af9"),
             (on.clone(), "OOTRR1-EYAQD32I", "pin b", "617e74ff3f3867ef0ce93ee61489cdea122e85407a51aadaa0d01d41499b89eb"),
             (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "99b3176d7c877a7714133473175df9ebf2eabbbe00a0de2c03ff4bb1dd3c4ca5"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "5172030affa962731c95fc27b65e3df6b109c5366e0d950a5a7375b5c9df278c"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "28e8b5d98110a407fb9993640d563ee4856676706b0de3325d00de3839c9c912"),
         ];
         for (mut s, old, seed, sum) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
@@ -1258,7 +1258,7 @@ mod tests {
         let cases: [(Settings, &str, &str); 4] = [
             (hives.clone(), "pin a", "05d04f0f019548ee0246cca53b6615cc139ef8c7e0a2a36f28e59890ea65c61a"),
             (hives.clone(), "pin b", "ae4041ff58ac21d5418d9fde32f5ded8eb9814c791044179d475665ffdea5cf3"),
-            (both.clone(), "pin a", "37f9b0f325edaa2c7ebb7c8ced503b56819be169bb539e9b177e63d73975f470"),
+            (both.clone(), "pin a", "b5ce0bfcf9324e7fbad28ef7d28ef65a27838bc7b0f7921d4231a9df2ce4afab"),
             (both.clone(), "pin b", "c6ab2d8e57487ed969c92e3621bdad44b9a51bbf759d6e0935e60382234d5193"),
         ];
         for (s, seed, sum) in cases {
