@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use ootrr_core::TITLE_ID;
 use ootrr_core::error::{Error, Res};
-use ootrr_core::tracker::peek::{Peek, peek};
+use crate::tracker::peek::{Peek, peek};
 
 pub const TICK: Duration = Duration::from_millis(500);
 pub const RELIST: Duration = Duration::from_secs(5);

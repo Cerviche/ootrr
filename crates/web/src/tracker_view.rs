@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 
 use ootrr_core::json::Json;
-use ootrr_core::tracker::index::{Index, MapInfo, pin_json};
-use ootrr_core::tracker::project;
-use ootrr_core::tracker::state::{Mark, S};
-use ootrr_core::tracker::targets::{self, How, KINDS, OFF_BY_DEFAULT, Target};
+use crate::tracker::index::{Index, MapInfo, pin_json};
+use crate::tracker::project;
+use crate::tracker::state::{Mark, S};
+use crate::tracker::targets::{self, How, KINDS, OFF_BY_DEFAULT, Target};
 
 use crate::events::{Batch, Ev};
 use crate::pathsafe;

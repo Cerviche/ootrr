@@ -8,5 +8,8 @@ license.workspace = true
 [dependencies]
 ootrr-core = { path = "../core" }
 
+[dev-dependencies]
+ootrr-game = { path = "../game", features = ["fixtures"] }
+
 [lints]
 workspace = true

@@ -1,5 +1,5 @@
-use crate::json::Json;
-use crate::murmur::murmur3_32;
+use ootrr_core::json::Json;
+use ootrr_core::murmur::murmur3_32;
 use crate::tracker::peek::Peek;
 
 pub const MAX_COUNT: u32 = 999;
@@ -287,7 +287,7 @@ pub fn state_json(st: &[St]) -> Json {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::save::fixture::{Cell as Raw, raw};
+    use ootrr_core::save::fixture::{Cell as Raw, raw};
     use crate::tracker::icon_map;
     use crate::tracker::peek::{Lim, peek_with};
     use std::collections::HashSet;

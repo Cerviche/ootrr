@@ -2,13 +2,13 @@ use std::collections::{BTreeMap, HashMap as Map, HashSet as Set};
 use std::fs;
 use std::path::Path as P;
 
-use crate::byml::{Byml, Node};
-use crate::catalog::Catalog;
-use crate::error::{Error, Res};
-use crate::json::{self, Json};
-use crate::placement::hash_of;
-use crate::romfs::Romfs;
-use crate::settings::digest::sha256_hex;
+use ootrr_core::byml::{Byml, Node};
+use ootrr_core::catalog::Catalog;
+use ootrr_core::error::{Error, Res};
+use ootrr_core::json::{self, Json};
+use ootrr_core::placement::hash_of;
+use ootrr_core::romfs::Romfs;
+use ootrr_core::settings::digest::sha256_hex;
 use crate::tracker::project::{self, Cap, Floors};
 use crate::tracker::targets::{self, Target};
 
@@ -380,7 +380,7 @@ pub fn build(root: &P) -> Res<Index> {
     }
     let (by_h, by_g, every): Found = spots(&mut rf, ts)?;
     let cx: Ctx = Ctx { caps, params: ps };
-    let fixed: Map<String, &'static str> = fixed_ages(&Catalog::parse(crate::slice::data::CATALOG_JSON)?);
+    let fixed: Map<String, &'static str> = fixed_ages(&Catalog::parse(ootrr_core::slice::data::CATALOG_JSON)?);
     let mut locs: Vec<Loc> = Vec::with_capacity(ts.len());
     let mut seen: Set<String> = maps.iter().map(|m| m.id.clone()).collect();
     for (i, t) in ts.iter().enumerate() {
@@ -671,7 +671,7 @@ mod tests {
         assert_eq!(ages_of("FireTemple", Some("child")), vec!["child"]);
         assert_eq!(ages_of("KokiriForest_Adult", Some("child")), vec!["adult"]);
         assert_eq!(ages_of("FireTemple", None), vec!["child", "adult"]);
-        let c: Catalog = Catalog::parse(crate::slice::data::CATALOG_JSON).unwrap();
+        let c: Catalog = Catalog::parse(ootrr_core::slice::data::CATALOG_JSON).unwrap();
         let fixed: Map<String, &'static str> = fixed_ages(&c);
         assert_eq!(fixed.get("KF GS Know It All House"), Some(&"child"));
         assert_eq!(fixed.get("KF GS House of Twins"), Some(&"adult"));

@@ -1,6 +1,6 @@
-use crate::error::{Error, Res};
-use crate::murmur::murmur3_32;
-use crate::save::model::{HEAD, MAGIC, SENTINEL};
+use ootrr_core::error::{Error, Res};
+use ootrr_core::murmur::murmur3_32;
+use ootrr_core::save::model::{HEAD, MAGIC, SENTINEL};
 
 pub const POS_HASH: u32 = 0x8773_f02d;
 pub const BANC_SHORT: u32 = 0x4a6b_db7d;
@@ -163,7 +163,7 @@ pub fn peek(b: &[u8]) -> Res<Peek> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::save::fixture::{Cell, h, raw, sample};
+    use ootrr_core::save::fixture::{Cell, h, raw, sample};
 
     #[test]
     fn reads_the_sample_rows_keys_and_place() {

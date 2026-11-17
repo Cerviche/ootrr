@@ -1,12 +1,12 @@
 use std::fs;
 use std::path::Path as P;
 
-use crate::error::{Error, Res};
-use crate::modpack::rel;
-use crate::tex::bntx::{self, Tex};
-use crate::tex::image::Img;
-use crate::tex::png;
-use crate::zs::Zs;
+use ootrr_core::error::{Error, Res};
+use ootrr_core::modpack::rel;
+use ootrr_core::tex::bntx::{self, Tex};
+use ootrr_core::tex::image::Img;
+use ootrr_core::tex::png;
+use ootrr_core::zs::Zs;
 
 pub const VERSION: u32 = 1;
 pub const ICON_DIR: &str = "UI/Tex/Icon";
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn render_shrinks_tints_and_reports_a_missing_texture() {
-        use crate::tex::bntx::fixture::{Fake, build};
+        use ootrr_core::tex::bntx::fixture::{Fake, build};
         fn white(_: usize, _: usize) -> [u8; 4] {
             [255, 255, 255, 255]
         }
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn render_file_reads_a_packed_file_from_a_folder() {
-        use crate::tex::bntx::fixture::{Fake, build};
+        use ootrr_core::tex::bntx::fixture::{Fake, build};
         fn red(_: usize, _: usize) -> [u8; 4] {
             [200, 0, 0, 255]
         }
@@ -198,7 +198,7 @@ mod tests {
         let _ = fs::remove_dir_all(&d);
         fs::create_dir_all(d.join("UI").join("Tex").join("Icon")).unwrap();
         let b: Vec<u8> = build(&[Fake { name: "Item_Bomb", fmt: bntx::ASTC_4X4_SRGB, w: 16, h: 16, layout: 0, comp: [2, 3, 4, 5], rgba: red }]);
-        fs::write(d.join("UI").join("Tex").join("Icon").join("Item_Bomb.bntx.zs"), crate::zs::compress_raw(&b, None).unwrap()).unwrap();
+        fs::write(d.join("UI").join("Tex").join("Icon").join("Item_Bomb.bntx.zs"), ootrr_core::zs::compress_raw(&b, None).unwrap()).unwrap();
         let got: Vec<(&str, Res<Vec<u8>>)> = render_file(&d, "UI/Tex/Icon/Item_Bomb.bntx.zs").unwrap();
         assert_eq!(got.len(), 1);
         assert_eq!(got[0].0, "Item_Bomb");

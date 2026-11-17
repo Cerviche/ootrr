@@ -1,6 +1,6 @@
 use std::collections::BTreeMap as BM;
 
-use crate::items::model::{Item, Mode, Table};
+use ootrr_core::items::model::{Item, Mode, Table};
 use crate::tracker::rules::{Rule, rule_of};
 use crate::tracker::targets::{How, Target};
 
@@ -23,7 +23,7 @@ pub fn rule_for(t: &Target, item: &str, copies: usize, tbl: &Table) -> Rule {
 }
 
 pub fn cow_rule(t: &Target, item: &str) -> Option<Rule> {
-    let flag: String = crate::flow_extra::cows::flag_of(t.ootr.as_deref()?).filter(|_| item != crate::flow_extra::cows::VANILLA)?;
+    let flag: String = ootrr_core::flow_extra::cows::flag_of(t.ootr.as_deref()?).filter(|_| item != ootrr_core::flow_extra::cows::VANILLA)?;
     let mut o: Target = t.clone();
     o.how = How::Flag;
     o.flags = vec![flag];
@@ -37,7 +37,7 @@ pub fn rules(ts: &[Target], placed: &BM<String, String>, tbl: &Table) -> Vec<Opt
             let name: &str = t.ootr.as_deref()?;
             let item: &String = placed.get(name)?;
             match t.kind.as_str() {
-                "gift" | "cow" if crate::flow_extra::cows::is(name) => cow_rule(t, item),
+                "gift" | "cow" if ootrr_core::flow_extra::cows::is(name) => cow_rule(t, item),
                 "gift" => {
                     let n: usize = placed.values().filter(|v| *v == item).count();
                     Some(rule_for(t, item, n, tbl))
@@ -55,12 +55,12 @@ pub fn rewired(over: &[Option<Rule>]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::load;
-    use crate::murmur::murmur3_32;
+    use ootrr_core::items::load;
+    use ootrr_core::murmur::murmur3_32;
     use crate::tracker::peek::{Lim, Peek, peek_with};
     use crate::tracker::rules::{Hit, eval};
     use crate::tracker::targets::all;
-    use crate::save::fixture::{Cell, raw};
+    use ootrr_core::save::fixture::{Cell, raw};
 
     fn gift(ootr: &str) -> &'static Target {
         all().unwrap().iter().find(|t| t.kind == "gift" && t.ootr.as_deref() == Some(ootr)).unwrap()
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn every_cow_row_names_its_location() {
         let ts: &[Target] = all().unwrap();
-        for n in crate::flow_extra::cows::LOCS.iter().chain(crate::flow_extra::cows::OTHER.iter()) {
+        for n in ootrr_core::flow_extra::cows::LOCS.iter().chain(ootrr_core::flow_extra::cows::OTHER.iter()) {
             assert_eq!(ts.iter().filter(|t| t.kind == "cow" && t.ootr.as_deref() == Some(*n)).count(), 1, "{n}");
         }
         assert!(ts.iter().filter(|t| t.kind == "cow").all(|t| t.ootr.is_some()));
@@ -130,11 +130,11 @@ mod tests {
         let ix = |n: &str| ts.iter().position(|t| t.kind == "cow" && t.ootr.as_deref() == Some(n)).unwrap();
         let (home, gv, other): (usize, usize, usize) = (ix("KF Links House Cow"), ix("GV Cow"), ix("Kak Impas House Cow"));
         let o: Vec<Option<Rule>> = rules(ts, &placed(&[("KF Links House Cow", "Hookshot"), ("GV Cow", "Milk"), ("Kak Impas House Cow", "Hookshot")]), &tbl);
-        let flag: String = crate::flow_extra::cows::flag_of("KF Links House Cow").unwrap();
+        let flag: String = ootrr_core::flow_extra::cows::flag_of("KF Links House Cow").unwrap();
         assert_eq!(eval(o[home].as_ref().unwrap(), &peek(&flag)), Hit::On);
         assert_eq!(eval(o[home].as_ref().unwrap(), &peek("HavePlayedEvent.Animal_Cow_LinkHouse_GiveMilk")), Hit::Off);
         assert!(o[gv].is_none());
-        let kak: String = crate::flow_extra::cows::flag_of("Kak Impas House Cow").unwrap();
+        let kak: String = ootrr_core::flow_extra::cows::flag_of("Kak Impas House Cow").unwrap();
         assert_eq!(eval(o[other].as_ref().unwrap(), &peek(&kak)), Hit::On);
         assert_eq!(eval(o[other].as_ref().unwrap(), &peek("HavePlayedEvent.Animal_Cow_GiveMilk")), Hit::Off);
         let gift_home: usize = ts.iter().position(|t| t.kind == "gift" && t.ootr.as_deref() == Some("KF Links House Cow")).unwrap();

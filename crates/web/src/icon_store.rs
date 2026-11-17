@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use ootrr_core::error::{Error, Res};
 use ootrr_core::tex::png;
-use ootrr_core::tracker::icon_map::{self, Src};
+use crate::tracker::icon_map::{self, Src};
 
 use crate::datadir;
 

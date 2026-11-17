@@ -1,8 +1,8 @@
 use std::sync::OnceLock;
 
-use crate::error::{Error, Res};
-use crate::json::{self, Json};
-use crate::murmur::murmur3_32;
+use ootrr_core::error::{Error, Res};
+use ootrr_core::json::{self, Json};
+use ootrr_core::murmur::murmur3_32;
 
 pub const JSON: &str = include_str!("../../../../data/tracker_targets.json");
 
@@ -322,7 +322,7 @@ mod tests {
     #[test]
     fn remake_only_chests_read_like_the_catalog_and_the_boss_rush_reads_plainly() {
         let t: &[Target] = all().unwrap();
-        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        let d: ootrr_core::slice::data::Data = ootrr_core::slice::data::Data::load().unwrap();
         let mut n: usize = 0;
         for l in d.cat.of_kind("chest").filter(|l| l.ev.iter().any(|e| e == "new")) {
             let hit: Vec<&Target> = l.refs.iter().filter_map(|r| t.iter().find(|x| x.id == format!("chest:{}", r.hash))).collect();

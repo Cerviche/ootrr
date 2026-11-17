@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn hidden_mode_never_returns_an_unrevealed_location() {
         let s: Shared = tsh();
-        let ts: &[ootrr_core::tracker::targets::Target] = ootrr_core::tracker::targets::all().unwrap();
+        let ts: &[crate::tracker::targets::Target] = crate::tracker::targets::all().unwrap();
         let shown: &str = &ts.iter().find(|t| t.kind == "chest").unwrap().id;
         let hidden: &str = &ts.iter().filter(|t| t.kind == "chest").nth(5).unwrap().id;
         assert_eq!(handle(&s, &rq("POST", "/api/tracker/mark", &[], &format!("{{\"id\":\"{hidden}\",\"on\":true}}"))).status, 404);

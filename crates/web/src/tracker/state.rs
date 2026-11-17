@@ -1,4 +1,4 @@
-use crate::json::Json;
+use ootrr_core::json::Json;
 use crate::tracker::peek::Peek;
 use crate::tracker::rules::{Hit, Rule, eval, rule_of};
 use crate::tracker::targets::{Life, Target};
@@ -216,8 +216,8 @@ impl Track {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::murmur::murmur3_32;
-    use crate::save::fixture::{Cell, raw};
+    use ootrr_core::murmur::murmur3_32;
+    use ootrr_core::save::fixture::{Cell, raw};
     use crate::tracker::peek::{Lim, peek_with};
     use crate::tracker::targets::{How, all};
 

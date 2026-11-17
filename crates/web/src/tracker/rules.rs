@@ -1,4 +1,4 @@
-use crate::murmur::murmur3_32;
+use ootrr_core::murmur::murmur3_32;
 use crate::tracker::peek::Peek;
 use crate::tracker::targets::{How, Target};
 
@@ -56,7 +56,7 @@ pub fn eval_all(rs: &[Rule], p: &Peek) -> Vec<Hit> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::save::fixture::{Cell, raw};
+    use ootrr_core::save::fixture::{Cell, raw};
     use crate::tracker::peek::{Lim, peek_with};
     use crate::tracker::targets::{Target, all};
 
@@ -200,7 +200,7 @@ mod tests {
         assert_eq!(eval(&rule_of(t), &save_with(&[], &[], &[t.keys2[0]])), Hit::Off);
     }
 
-    fn ids(j: &crate::json::Json, k: &str) -> Vec<String> {
+    fn ids(j: &ootrr_core::json::Json, k: &str) -> Vec<String> {
         let mut v: Vec<String> = j
             .get(k)
             .and_then(|x| x.as_arr())
@@ -229,7 +229,7 @@ mod tests {
             }
             let b: Vec<u8> = std::fs::read(d.join("progress.sav")).unwrap();
             let p: Peek = crate::tracker::peek::peek(&b).unwrap();
-            let j: crate::json::Json = crate::json::parse(&std::fs::read_to_string(&want).unwrap()).unwrap();
+            let j: ootrr_core::json::Json = ootrr_core::json::parse(&std::fs::read_to_string(&want).unwrap()).unwrap();
             let hits: Vec<Hit> = eval_all(&rs, &p);
             let mut got_on: Vec<String> = ts.iter().zip(&hits).filter(|x| *x.1 == Hit::On).map(|x| x.0.id.clone()).collect();
             let mut got_weak: Vec<String> = ts.iter().zip(&hits).filter(|x| *x.1 == Hit::Weak).map(|x| x.0.id.clone()).collect();
@@ -238,7 +238,7 @@ mod tests {
             assert_eq!(got_on, ids(&j, "collected"), "{}", d.display());
             assert_eq!(got_weak, ids(&j, "weak"), "{}", d.display());
             assert_eq!(Some(p.keys.len() as i64), j.get("n_keys").and_then(|x| x.as_i64()), "{}", d.display());
-            let pl: &crate::json::Json = j.get("place").unwrap();
+            let pl: &ootrr_core::json::Json = j.get("place").unwrap();
             assert_eq!(p.place.map.as_deref(), pl.get("map").and_then(|x| x.as_str()), "{}", d.display());
             assert_eq!(Some(p.place.child), pl.get("child").and_then(|x| x.as_bool()), "{}", d.display());
             assert_eq!(p.place.room.map(|r| r as i64), pl.get("room").and_then(|x| x.as_i64()), "{}", d.display());

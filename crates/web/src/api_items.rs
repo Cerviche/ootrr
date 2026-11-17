@@ -1,8 +1,8 @@
 use std::path::PathBuf as PB;
 
 use ootrr_core::json::Json;
-use ootrr_core::tracker::grid;
-use ootrr_core::tracker::icon_map;
+use crate::tracker::grid;
+use crate::tracker::icon_map;
 
 use crate::api_tracker;
 use crate::api_validate;
@@ -63,8 +63,8 @@ mod tests {
     use crate::watch::tests::save_bytes;
     use ootrr_core::murmur::murmur3_32;
     use ootrr_core::tex::png;
-    use ootrr_core::tracker::index::Index;
-    use ootrr_core::tracker::peek::{Lim, Peek, peek_with};
+    use crate::tracker::index::Index;
+    use crate::tracker::peek::{Lim, Peek, peek_with};
     use std::sync::Arc;
 
     fn sh() -> Shared {

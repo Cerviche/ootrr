@@ -27,7 +27,7 @@ mod router;
 pub mod server;
 mod state;
 mod token;
-mod tracker;
+pub mod tracker;
 mod tracker_view;
 mod update;
 mod watch;

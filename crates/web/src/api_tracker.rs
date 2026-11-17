@@ -4,9 +4,9 @@ use std::sync::{Arc, MutexGuard};
 use std::time::Duration;
 
 use ootrr_core::json::Json;
-use ootrr_core::tracker::index::Index;
+use crate::tracker::index::Index;
 use ootrr_core::settings::seed::SeedFile;
-use ootrr_core::tracker::targets::KINDS;
+use crate::tracker::targets::KINDS;
 
 use crate::api_validate::{self, Report};
 use crate::body;

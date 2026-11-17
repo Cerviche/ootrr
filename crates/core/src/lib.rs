@@ -72,6 +72,5 @@ pub mod teleport_flow;
 pub mod teleport_merge;
 pub mod teleport_sim;
 pub mod teleport_start;
-pub mod tracker;
 
 pub const TITLE_ID: &str = "0400486024DEC000";

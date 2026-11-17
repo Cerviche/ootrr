@@ -1,3 +1,13 @@
+pub mod grid;
+pub mod icon_map;
+pub mod index;
+pub mod peek;
+pub mod project;
+pub mod rules;
+pub mod seed;
+pub mod state;
+pub mod targets;
+
 use std::fs;
 use std::path::{Path as P, PathBuf as PB};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -5,15 +15,13 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ootrr_core::error::{Error, Res};
 use ootrr_core::json::{self, Json};
-use ootrr_core::tracker::grid;
-use ootrr_core::tracker::index::{self, Index};
-use ootrr_core::tracker::peek::{Peek, Place};
-use ootrr_core::tracker::rules::Rule;
-use ootrr_core::tracker::seed;
-use ootrr_core::tracker::state::{By, S, Track};
+use index::Index;
+use crate::tracker::peek::{Peek, Place};
+use crate::tracker::rules::Rule;
+use crate::tracker::state::{By, S, Track};
 use ootrr_core::items::load;
 use ootrr_core::settings::seed::SeedFile;
-use ootrr_core::tracker::targets::{self, KINDS, OFF_BY_DEFAULT, Target};
+use targets::{KINDS, OFF_BY_DEFAULT, Target};
 
 use crate::datadir;
 use crate::events::{Ev, Events, MAX_WAIT};
@@ -381,7 +389,7 @@ mod tests {
     use super::*;
     use crate::watch::tests::{put, save_bytes, tmp};
     use ootrr_core::murmur::murmur3_32;
-    use ootrr_core::tracker::peek::{Lim, peek_with};
+    use crate::tracker::peek::{Lim, peek_with};
     use std::thread;
     use std::time::Instant;
 
