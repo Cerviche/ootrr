@@ -223,6 +223,7 @@ pub fn worked(rf: &mut Romfs, pk: &crate::modpack::Pack, o: &Opts) -> Res<Vec<Ou
     let have = |p: &str| -> Option<Vec<u8>> { fs::read(p.split('/').fold(root.clone(), |a, s| a.join(s))).ok() };
     let mut outs: Vec<Out> = if o.edits_files() { stage(rf, o, &have)? } else { Vec::new() };
     outs.extend(darunia::stage(rf, &have)?);
+    outs.extend(crate::gerudo_card::stage(rf, &have)?);
     Ok(outs)
 }
 
