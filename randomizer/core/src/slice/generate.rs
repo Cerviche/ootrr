@@ -276,6 +276,8 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             && !(lay.is_some() && crate::shops::is_loc(&w.locs[*l].name))
             && !crate::slice::junk_spots::only(&p, &w.locs[*l].name)
             && !(p.silver && crate::slice::silver::is_spot(&w.locs[*l].name))
+            // The Light Arrows Cutscene holds Ganon's Boss Key in this mode; its Light Arrows join the pool.
+            && !(p.keys.ganon == Keep::Lacs && w.locs[*l].name == crate::lacs_key::LOC)
         {
             return Err(E::Msg(format!(
                 "the vanilla item {} of {} is not allowed there under these settings",
