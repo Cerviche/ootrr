@@ -909,7 +909,7 @@ pub fn patch_arrows_give(b: &mut Bf, g: &ArrowsGive) -> Res<()> {
 }
 
 /// Market_Adult_Field_GetArrowLight: the event start and the unequip after its fade out.
-const ARROWS_START: (&str, &str) = ("Event164", "Player_Event.EventPlayerEventStartWithDrawn");
+const ARROWS_START: (&str, &str) = ("Event164", "Player_Event.EventTriggerPlayerEventStartWithDrawn");
 const ARROWS_FIRST_UNEQUIP: (&str, &str) = ("Event165", "Player_Event.EventPlayerUnequip");
 
 /// Adds the item get to the story skip's AllSage edit in `late` (or to the game's AllSage).
