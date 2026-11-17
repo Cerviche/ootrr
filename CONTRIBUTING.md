@@ -37,6 +37,7 @@ Never run `ootrr` with no arguments. It starts the local web server and may open
 - `web`: the local web page and the tracker. Everything that is the page lives here, the randomizer lives in `randomizer/`
 - `data/`: location catalogs, logic data (`data/logic`: one file per dungeon in `World`, and one file per overworld area in `World/Overworld`, loaded in the order listed in `randomizer/core/src/slice/world_files.rs`), flag names (`data/flags.json`), start presets
 - `tools/audit.py`: the check that no game data slipped into the repo. Run it before a release.
+- `tools/repath_patch.py`: rewrites a patch made before the move to `randomizer/` and `web/` so it applies to the new paths (`python tools/repath_patch.py old.patch new.patch`). Hunks for the old `data/logic/World/Overworld.json` need moving by hand into its area file.
 - `packaging/`: installers
 
 ## Code style
