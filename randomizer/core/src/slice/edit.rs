@@ -532,12 +532,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     crate::slice::skull_kit::check(&mut rf, &skull_drops, extra)?;
     let kit_pool: &Extra = extra;
     crate::slice::swap_guard::check(&mut rf, &d, &ts, extra)?;
-    let mut skull_hit: BS<u64> = BS::new();
     let gr: crate::dungeon_grant::Grants = crate::slice::dungeon_items::grants(&d, seed, &p)?;
-    let mut marks: crate::dungeon_grant::Marks = crate::dungeon_grant::Marks::default();
     let silver: BM<u64, &'static str> = crate::slice::silver::grants(&d, seed)?;
-    let mut silver_used: BS<&'static str> = BS::new();
-    let mut silver_hit: BS<u64> = BS::new();
+    let mut passes: crate::slice::map_passes::State = crate::slice::map_passes::State::new(&silver, &gr, &skull_drops);
     let mut edits: Vec<Edited> = Vec::new();
     let size_ctx: crate::chest_size::Ctx = crate::chest_size::Ctx { chus: p.chus, owned: p.start.owned.clone() };
     let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.keys.map)) } else { BM::new() };
@@ -569,15 +566,11 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             }),
             (e, None) => e,
         };
-        let e: Option<Edited> = crate::slice::silver::apply(&f, raw, e, &silver, &mut silver_used, &mut silver_hit)?;
-        let e: Option<Edited> = crate::slice::dungeon_items::apply(&f, raw, e, &gr, &mut marks)?;
-        if let Some(e) = crate::slice::skull_edit::apply(&f, raw, e, &skull_drops, &mut skull_hit)? {
+        if let Some(e) = crate::slice::map_passes::run(&f, raw, e, &mut passes)? {
             edits.push(e);
         }
     }
-    crate::slice::skull_edit::all_found(&skull_drops, &skull_hit)?;
-    crate::dungeon_grant::all_marked(&gr, &marks)?;
-    crate::slice::silver::all_found(&silver, &silver_hit)?;
+    crate::slice::map_passes::finish(&passes)?;
     let pot_ts: Vec<crate::pot_slice::targets::Give> = crate::pot_slice::targets::targets_with(&d, seed, &order.assign)?;
     crate::pot_slice::apply::apply(&mut rf, &d, &pot_ts, &mut edits)?;
     let scrub_jobs: Vec<crate::scrubs_b::Job> = crate::scrubs_b::jobs(&d, seed)?;
@@ -636,10 +629,10 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let placed: BM<String, &'static str> = flow_wraps(&d, seed);
     let chest_fams: BS<&str> = upgrades.iter().map(|u| u.0.as_str()).collect();
     let gs: Vec<crate::progressive::Grant> = wrap_grants(&d, seed, &chest_fams, &placed);
-    if !upgrades.is_empty() || roam || gr.active() || !silver_used.is_empty() {
+    if !upgrades.is_empty() || roam || gr.active() || !passes.silver_used.is_empty() {
         let mut outs: Vec<crate::staging::Out> = if !upgrades.is_empty() || roam { stage_upgrades(&mut rf, &upgrades, None, &kids, &keys)? } else { Vec::new() };
-        crate::dungeon_grant::stage(&mut rf, &mut outs, &gr, &marks.used)?;
-        crate::slice::silver::stage(&mut rf, &mut outs, &silver_used)?;
+        crate::dungeon_grant::stage(&mut rf, &mut outs, &gr, &passes.marks.used)?;
+        crate::slice::silver::stage(&mut rf, &mut outs, &passes.silver_used)?;
         scrub_rows = crate::scrubs_b::stage_rows(&mut rf, &scrub_jobs, &mut outs, false)?;
         for o in outs {
             pk.write_romfs(&o.path, &o.z)?;
@@ -688,8 +681,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         roam,
         keys: &keys,
         hearts: &hearts,
-        marked: &marks.used,
-        silver: &silver_used,
+        marked: &passes.marks.used,
+        silver: &passes.silver_used,
         quiet: &quiet,
         work: &work,
         pots: &pots,
