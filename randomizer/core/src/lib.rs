@@ -19,6 +19,7 @@ pub mod boss_heart;
 pub mod calibrate;
 pub mod catalog_free;
 pub mod chest_size;
+pub mod container;
 pub mod cow_clone;
 pub mod deku_bridge;
 pub mod door_fix;
