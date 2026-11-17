@@ -1314,7 +1314,13 @@ pub fn patch_saria_give(b: &mut Bf, g: &SceneGive) -> Res<()> {
     if writes(f, LONG_FLAG).is_err() {
         return Err(Error::Format("story skip: run patch_bridge before Saria's item get"));
     }
-    let after: usize = writes(f, SARIA_AFTER)?;
+    // What follows the gift scene (the field palette flag, then the area change); the flow writes
+    // that flag in another event too.
+    let scene: usize = find(f, GIFT_SCENE)?;
+    let after: usize = next_of(&f.events[scene].kind).ok_or(Error::Format("story skip: Saria's gift scene has no next"))? as usize;
+    if text(&f.events[after], "GameDataName") != Some(SARIA_AFTER) {
+        return Err(Error::Format("story skip: Saria's gift scene is no longer followed by the field palette flag, the game files differ"));
+    }
     let join: usize = find_action(f, SARIA_JOIN)?;
     let unequip: usize = find_action(f, SARIA_UNEQUIP)?;
     let wait: usize = find_action(f, SARIA_BOOL)?;
