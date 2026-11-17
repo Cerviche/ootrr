@@ -377,6 +377,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             family: placed.get(loc).copied(),
             key: gift_keys.iter().find(|g| g.location == loc).map(|g| (g.item, g.dungeon)),
         };
+        if give.key.is_some() {
+            crate::story_skip::stage_window_get(&mut rf, &mut late, &work)?;
+        }
         crate::story_skip::stage_arrows_give(&mut rf, &mut late, &give)?;
     }
     if p.endings {

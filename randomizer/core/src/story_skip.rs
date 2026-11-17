@@ -783,6 +783,75 @@ pub struct ArrowsGive {
 /// that the minigames run with no NPC.
 pub const ITEM_GET: (&str, &str) = ("Dm_SY_GetInEvent", "GetInEvent_NotTurn_NotNpc");
 const ARROWS_ENTRIES: [&str; 2] = ["Market_Adult_Field_GetArrowLight", "GetArrowLight_OcarinaBackTimeTemple"];
+pub const GETIN_FILE: &str = "Event/EventFlow/Dm_SY_GetInEvent.bfevfl.zs";
+/// A copy of ITEM_GET whose pouch get is only the get window, for dungeon items: the pouch add
+/// does not know a key's dungeon, so crate::gift_keys writes the credit after it.
+pub const WINDOW_GET: &str = "OOTRR_GetInEvent_NotTurn_NotNpc_Window";
+const POUCH_GET: (&str, &str) = ("GetPouchContent", "GetPouchContentByActorName_ForGetInEvent");
+
+/// Adds WINDOW_GET to Dm_SY_GetInEvent: the events of ITEM_GET up to its pouch get are copied,
+/// the pouch get becomes GetPouchContent:DisplayGetByActorName, and the copy rejoins ITEM_GET's
+/// own tail (the heart check, putting the item away, the camera and the action guide).
+pub fn add_window_get(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, ITEM_GET.0)?;
+    if f.entries.iter().any(|e| e.name == WINDOW_GET) {
+        return Ok(());
+    }
+    let src: crate::bfevfl::Entry = f.entries.iter().find(|e| e.name == ITEM_GET.1).cloned().ok_or(Error::Format("story skip: Dm_SY_GetInEvent has no GetInEvent_NotTurn_NotNpc"))?;
+    let mut path: Vec<usize> = Vec::new();
+    let mut i: usize = src.main as usize;
+    let get: usize = loop {
+        match &f.events.get(i).ok_or(Error::Format("story skip: the item get runs out of range"))?.kind {
+            Kind::Sub { flow, entry, .. } if flow == POUCH_GET.0 && entry == POUCH_GET.1 => break i,
+            k => {
+                path.push(i);
+                let n: u16 = next_of(k).filter(|n| *n != NONE).ok_or(Error::Format("story skip: the item get ends before its pouch get, the game files differ"))?;
+                if path.len() > 32 {
+                    return Err(Error::Format("story skip: the item get never reaches its pouch get"));
+                }
+                i = n as usize;
+            }
+        }
+    };
+    let tail: u16 = next_of(&f.events[get].kind).ok_or(Error::Format("story skip: the item get's pouch get has no next"))?;
+    let base: usize = f.events.len();
+    let w: u16 = idx(base + path.len())?;
+    for (n, &j) in path.iter().enumerate() {
+        let mut k: Kind = f.events[j].kind.clone();
+        set_next(&mut k, if n + 1 < path.len() { idx(base + n + 1)? } else { w })?;
+        f.events.push(Event { name: format!("OOTRRWin{n}"), kind: k });
+    }
+    f.events.push(Event {
+        name: "OOTRRWinGet".to_string(),
+        kind: Kind::Sub {
+            next: tail,
+            params: Some(Cont { items: vec![("ActorName".to_string(), Val::Arg("ActorName".to_string()))] }),
+            flow: POUCH_GET.0.to_string(),
+            entry: "DisplayGetByActorName".to_string(),
+        },
+    });
+    let map = |x: u16| -> u16 {
+        if x as usize == get {
+            w
+        } else {
+            path.iter().position(|&j| j == x as usize).map_or(x, |p| (base + p) as u16)
+        }
+    };
+    let subs: Vec<u16> = src.subs.iter().map(|&x| map(x)).collect();
+    let main: u16 = if path.is_empty() { w } else { idx(base)? };
+    f.entries.push(crate::bfevfl::Entry { name: WINDOW_GET.to_string(), subs, vars: src.vars.clone(), main, pad: src.pad });
+    Ok(())
+}
+
+/// Adds WINDOW_GET to the Dm_SY_GetInEvent in `late`, in the mod's work folder, or the game's.
+pub fn stage_window_get(rf: &mut Romfs, late: &mut Vec<Out>, work: &std::path::Path) -> Res<()> {
+    if late.iter().any(|o| o.path == GETIN_FILE) {
+        return crate::dungeon_grant::merge(rf, late, GETIN_FILE, |raw| rebuild(raw, add_window_get));
+    }
+    let have = |p: &str| -> Option<Vec<u8>> { fs::read(p.split('/').fold(work.to_path_buf(), |a, s| a.join(s))).ok() };
+    late.push(edit_zs(rf, &have, GETIN_FILE, |raw| rebuild(raw, add_window_get))?);
+    Ok(())
+}
 const ARROWS_GIVE: &str = "OOTRRArrowsGive";
 
 /// Drops the Light Arrows scene (Dm_TimeTemple_0130) entirely: its transition becomes its played
@@ -800,13 +869,15 @@ pub fn patch_arrows_give(b: &mut Bf, g: &ArrowsGive) -> Res<()> {
     }
     transition_to_flag(f, ARROWS_PREFIX, ARROWS_GRANT.0, ARROWS_GRANT.1, None)?;
     let at: u16 = idx(f.events.len())?;
+    // A dungeon item runs the same item get with only the window (WINDOW_GET), then its credit.
+    let entry: &str = if g.key.is_some() { WINDOW_GET } else { ITEM_GET.1 };
     f.events.push(Event {
         name: ARROWS_GIVE.to_string(),
         kind: Kind::Sub {
             next: done,
             params: Some(Cont { items: vec![("ActorName".to_string(), Val::Str(g.actor.clone()))] }),
             flow: ITEM_GET.0.to_string(),
-            entry: ITEM_GET.1.to_string(),
+            entry: entry.to_string(),
         },
     });
     set_next(&mut f.events[fade].kind, at)?;
@@ -817,7 +888,8 @@ pub fn patch_arrows_give(b: &mut Bf, g: &ArrowsGive) -> Res<()> {
         crate::progressive::wrap_grant(f, at as usize, ARROWS_GIVE, "ActorName", family)?;
     }
     if let Some((item, dungeon)) = g.key {
-        crate::gift_keys::edit_flow(f, at as usize, ARROWS_GIVE, item, dungeon)?;
+        let first: u16 = crate::gift_keys::credit(f, item, dungeon, done)?;
+        set_next(&mut f.events[at as usize].kind, first)?;
     }
     Ok(())
 }

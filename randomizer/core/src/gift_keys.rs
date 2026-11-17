@@ -115,7 +115,7 @@ fn action_name(f: &Flow, i: usize) -> Option<String> {
 }
 
 /// The credit writes and the dungeon line, ending on `end`. Returns the first event.
-fn credit(f: &mut Flow, item: Item, d: &'static str, end: u16) -> Res<u16> {
+pub fn credit(f: &mut Flow, item: Item, d: &'static str, end: u16) -> Res<u16> {
     let (a, set): (u16, u16) = action_slot(f, HOLDER, SET)?;
     let (t, say): (u16, u16) = action_slot(f, TALKER, TALK)?;
     let at: u16 = idx(f.events.len())?;
