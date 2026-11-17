@@ -454,14 +454,13 @@ mod tests {
         }
     }
 
-    #[test]
-    fn every_fountain_hands_over_any_reward_to_a_player_who_owns_nothing() {
+    fn fountain_hands_over_any_reward(part: usize) {
         let Some(r) = root() else { return };
         let d: Data = Data::load().unwrap();
         let meter: [&str; 2] = ["Item_FairyBless_MP", "Item_FairyBless_MPDouble"];
         let mut rf: Romfs = Romfs::open(&r).unwrap();
         let mut report: Vec<String> = Vec::new();
-        for (loc, fountain) in FOUNTAINS {
+        for (loc, fountain) in FOUNTAINS.iter().skip(part).take(1) {
             for met in ["false", "true"] {
                 let sc: Scene = scene(fountain, "EntryPoint0", &[("PlayerStatus.CurrentRupee", "500"), ("PlayerStatus.MPMax", "0"), ("GreatFairy_MeetFirst", met)], &[]);
                 let mut base: Sim = sim(&r, HM::new()).unwrap();
@@ -485,9 +484,19 @@ mod tests {
             }
         }
         if let Ok(p) = std::env::var("OOTRR_FAIRY_OUT") {
-            std::fs::write(p, report.join("\n")).unwrap();
+            std::fs::write(format!("{p}.{part}"), report.join("\n")).unwrap();
         }
     }
+
+    parts!(
+        fountain_hands_over_any_reward,
+        every_fountain_hands_over_any_reward_to_a_player_who_owns_nothing_part_1 = 0,
+        every_fountain_hands_over_any_reward_to_a_player_who_owns_nothing_part_2 = 1,
+        every_fountain_hands_over_any_reward_to_a_player_who_owns_nothing_part_3 = 2,
+        every_fountain_hands_over_any_reward_to_a_player_who_owns_nothing_part_4 = 3,
+        every_fountain_hands_over_any_reward_to_a_player_who_owns_nothing_part_5 = 4,
+        every_fountain_hands_over_any_reward_to_a_player_who_owns_nothing_part_6 = 5,
+    );
 
     #[test]
     fn medigoron_sells_once_even_with_the_biggoron_sword() {

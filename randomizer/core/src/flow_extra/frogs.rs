@@ -210,12 +210,11 @@ mod tests {
         (scene(entry, &set), set)
     }
 
-    #[test]
-    fn the_first_bug_win_pays_the_item_and_sets_the_flag_and_later_wins_stay_blue_rupees() {
+    fn first_bug_win(part: usize) {
         let Some(r) = root() else { return };
         let mut rf: Romfs = Romfs::open(&r).unwrap();
         let fl: HM<String, Flow> = edited(&mut rf, BUG, BUG_ITEM).unwrap();
-        for retry in [false, true] {
+        for retry in [[false, true][part]] {
             let (first, _) = bug_state(false, retry);
             let (a, b): (Vec<Fin>, Vec<Fin>) = sims(&r, fl.clone(), &first);
             assert!(a.iter().any(|f| granted(f, "Obj_Heart_Piece") == 1), "{retry}");
@@ -236,6 +235,12 @@ mod tests {
             assert_eq!(broken(&b), broken(&a), "{retry}");
         }
     }
+
+    parts!(
+        first_bug_win,
+        the_first_bug_win_pays_the_item_and_sets_the_flag_and_later_wins_stay_blue_rupees = 0,
+        the_first_bug_win_on_a_retry_pays_the_item_and_sets_the_flag_and_later_wins_stay_blue_rupees = 1,
+    );
 
     #[test]
     fn the_bug_edit_touches_only_the_two_heart_piece_callers() {
