@@ -4,6 +4,8 @@ use crate::slice::support::Plan;
 
 pub const POUCH_ONLY: [&str; 1] = ["GC Medigoron"];
 
+pub const MEDIGORON: &str = "GC Medigoron";
+
 pub fn open(l: &Loc, p: &Plan) -> bool {
     if crate::scrubs_a::is_a(l) {
         return p.scrubs;
@@ -30,7 +32,10 @@ pub fn open(l: &Loc, p: &Plan) -> bool {
         return p.potion;
     }
     if crate::open_world::skips::is_bean_sale(&l.name) {
-        return p.open.beans;
+        return p.bean_sale;
+    }
+    if l.name == MEDIGORON {
+        return p.medigoron;
     }
     !l.gated || p.extra
 }
@@ -73,8 +78,8 @@ mod tests {
     }
 
     #[test]
-    fn the_setting_is_off_by_default_and_needs_supported_rewards() {
-        assert!(!plan(&Settings::default()).unwrap().extra);
+    fn the_setting_is_on_by_default_and_needs_supported_rewards() {
+        assert!(plan(&Settings::default()).unwrap().extra);
         assert!(!plan(&with(Some(false))).unwrap().extra);
         assert!(plan(&with(Some(true))).unwrap().extra);
         let mut s: Settings = Settings::default();
@@ -89,16 +94,20 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let names: Vec<String> = gated(&d);
         assert_eq!(names.len(), 3);
-        for (extra, n) in [(None, 0), (Some(false), 1)] {
-            let g: Generated = generate_data(&d, &with(extra), &format!("gate {n}"), &GenOpts::default()).unwrap();
-            assert!(names.iter().all(|x| !g.seed_file.placements.contains_key(x)), "{extra:?}");
+        let g: Generated = generate_data(&d, &with(Some(false)), "gate 1", &GenOpts::default()).unwrap();
+        assert!(names.iter().all(|x| !g.seed_file.placements.contains_key(x)));
+        // On by default, and Medigoron follows Shuffle Merchants, which is off by default.
+        let g: Generated = generate_data(&d, &with(None), "gate 0", &GenOpts::default()).unwrap();
+        for x in &names {
+            assert_eq!(g.seed_file.placements.contains_key(x), x != super::MEDIGORON, "{x}");
         }
     }
 
     #[test]
-    fn the_setting_adds_three_beatable_locations_and_rolling_goron_needs_no_setting() {
+    fn the_setting_and_shuffle_merchants_add_three_beatable_locations_and_rolling_goron_needs_no_setting() {
         let d: Data = Data::load().unwrap();
-        let s: Settings = with(Some(true));
+        let mut s: Settings = with(Some(true));
+        s.set(crate::flow_extra::MERCHANTS_SETTING, Value::s("no_beans")).unwrap();
         let off: Generated = generate_data(&d, &with(Some(false)), "extra", &GenOpts::default()).unwrap();
         for n in 0..3 {
             let g: Generated = generate_data(&d, &s, &format!("extra {n}"), &GenOpts::default()).unwrap();

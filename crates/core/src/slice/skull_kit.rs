@@ -7,7 +7,7 @@ use crate::error::{Error as E, Res};
 use crate::flow_locations::dict_id;
 use crate::modpack::Pack;
 use crate::pickup_pack::build::Plan;
-use crate::pickup_pack::kit::{copy_rows, fresh_sizes, name_of, parent_of, plan, shared_files, sources, token_pack, verify, world, TOKEN};
+use crate::pickup_pack::kit::{copy_rows, fresh_sizes, hang_of, parent_of, plan, shared_files, sources, token_pack, verify, world, TOKEN};
 use crate::pickup_pack::rows::{ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO};
 use crate::pickup_pack::{pack_of, Spec, Style, PACK_DICT};
 use crate::pickup_persist::{kept, rows, Extra};
@@ -21,7 +21,7 @@ use crate::zs;
 pub const TABLES: [&str; 3] = [ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO];
 
 pub fn kit_actor(pickup: &str) -> String {
-    if pickup == TOKEN { pickup.to_string() } else { name_of(pickup) }
+    if pickup == TOKEN { pickup.to_string() } else { hang_of(pickup) }
 }
 
 pub fn actors(ds: &[Drop]) -> BS<&str> {
@@ -113,7 +113,7 @@ mod tests {
     use crate::byml::Node;
     use crate::modpack::Host;
     use crate::pickup_pack::build::pool_of;
-    use crate::pickup_pack::kit::{dropped, is_kit, touch, SKULL_DEATH};
+    use crate::pickup_pack::kit::{dropped, is_kit, token_like, touch, SKULL_DEATH};
     use crate::pickup_pack::rows;
     use crate::pickup_pack::write::{Done, Opts};
     use crate::placement::banc_files;
@@ -150,9 +150,11 @@ mod tests {
 
     #[test]
     fn a_kit_name_is_the_pickup_name_with_a_mark_and_the_token_stays() {
-        assert_eq!(kit_actor("Obj_Rupee_Red"), "Obj_Rupee_Red_GS");
+        assert_eq!(kit_actor("Obj_Rupee_Red"), "Obj_Rupee_Red_GH");
         assert_eq!(kit_actor(TOKEN), TOKEN);
         assert_eq!(spec("Obj_Heart_GS").unwrap().item, "Obj_Heart");
+        assert_eq!(spec("Obj_Heart_GH").unwrap().item, "Obj_Heart");
+        assert!(spec("_GH").is_err());
         assert!(spec("Obj_Heart").is_err());
         assert!(spec("_GS").is_err());
         let ds: Vec<Drop> = vec![drop("Obj_Heart_GS", 1), drop("Obj_Heart_GS", 2), drop("Obj_Bomb_GS", 3)];
@@ -175,7 +177,8 @@ mod tests {
             let es: Vec<Entry> = sarc::parse(&pl.sarc).unwrap();
             assert_eq!(verify(&es, &kit, &token).unwrap().len(), 3, "{kit}");
             assert!(is_kit(&es, &kit), "{kit}");
-            assert!(touch(&pool_of(&[es.clone()]).unwrap(), &kit).unwrap(), "{kit}");
+            assert!(!touch(&pool_of(&[es.clone()]).unwrap(), &kit).unwrap(), "{kit}");
+            assert!(token_like(&pool_of(&[es.clone()]).unwrap(), &pool_of(&[token.clone()]).unwrap(), &kit).unwrap(), "{kit}");
             let own: Vec<Entry> = sarc::parse(&rf.read_zs(&pack_of(a)).unwrap()).unwrap();
             if !touch(&pool_of(&[own.clone()]).unwrap(), a).unwrap() {
                 press.push(a.as_str());
@@ -220,7 +223,7 @@ mod tests {
         let seed: SeedFile = g.seed_file;
         let ds: Vec<Drop> = drops(&d, &seed).unwrap();
         assert!(!ds.is_empty());
-        assert!(ds.iter().all(|x| x.actor.ends_with("_GS")));
+        assert!(ds.iter().all(|x| x.actor.ends_with("_GH")));
         let load: PB = temp("seed");
         let b: Built = build_for(&seed, &root, &load, "kits", Host::Hookshot).unwrap();
         let romfs: PB = b.root.join("romfs");

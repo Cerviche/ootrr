@@ -41,7 +41,7 @@ const SHUFFLE = (what) => [
 const COLORS = [
   { id: "off", label: "Off, keep the original colours" },
   { id: "random", label: "A random colour for each item" },
-  { id: "shared", label: "One random hue turn for everything" },
+  { id: "shared", label: "One random colour for everything" },
 ];
 
 const CONFIG = { id: "config", label: "Configuration", heading: "Configuration" };

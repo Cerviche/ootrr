@@ -48,6 +48,7 @@ pub fn loc_of(w: &World, name: &str) -> Res<LocId> {
 }
 
 pub fn item_of(w: &World, name: &str) -> Res<ItemId> {
+    let name: &str = crate::spoiler::unshown(name);
     if let Some(i) = w.item(name) {
         return Ok(i);
     }

@@ -33,7 +33,7 @@ export function marked(text, terms) {
 
 function tip_content(s, vals) {
   return () => {
-    const kids = [h("div", null, s.tip)];
+    const kids = [h("div", { class: "tiptext" }, s.tip)];
     const cs = (s.choices || []).filter((c) => c.tip);
     if (s.kind === "choice" && cs.length) kids.push(h("dl", null, cs.map((c) => [h("dt", null, c.label), h("dd", null, c.tip)])));
     if (s.kind === "number") kids.push(h("dl", null, h("dd", null, `From ${s.min} to ${max_of(s, vals())}. Default ${s.default}.`)));
@@ -237,11 +237,15 @@ export function make_row(schema, s, ctx, opts = {}) {
     el,
     sync(eff, on) {
       vals = eff;
-      c.sync(eff[s.id], on, eff);
-      el.classList.toggle("off", !on);
+      const locked = Boolean(s.unsupported) && same(eff[s.id], s.default);
+      c.sync(eff[s.id], on && !locked, eff);
+      el.classList.toggle("off", !on || locked);
       el.hidden = !on && s.kind === "number" && !opts.keep;
       rst.hidden = !on || same(eff[s.id], s.default);
-      why.textContent = on ? "" : `Needs ${dep_text(schema, s)}`;
+      if (!on) why.textContent = `Needs ${dep_text(schema, s)}`;
+      else if (locked) why.textContent = "Not implemented yet. Only the default works.";
+      else if (s.unsupported) why.textContent = "Not implemented yet. This value stops the build. Reset it.";
+      else why.textContent = "";
     },
   };
 }

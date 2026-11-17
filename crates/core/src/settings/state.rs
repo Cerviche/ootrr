@@ -87,6 +87,7 @@ impl Schema {
         let mut warn: Vec<String> = Vec::new();
         for (k, x) in m {
             match self.get(k) {
+                None if super::list::retired_id(k) => warn.push(format!("setting {k} was removed, its value is ignored")),
                 None => warn.push(format!("unknown setting {k} ignored")),
                 Some(s) => {
                     let val: Value = Value::from_json(x).map_err(|e| Error::Msg(format!("setting {k}: {e}")))?;

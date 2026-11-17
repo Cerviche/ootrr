@@ -74,6 +74,8 @@ pub struct Plan {
     pub hints: bool,
     pub fast: bool,
     pub chest_sizes: bool,
+    /// Logic names of the starting items (chest size matches contents reads them).
+    pub owned: Vec<&'static str>,
     pub intro: bool,
     pub start: Reward,
     pub forest: Forest,
@@ -100,6 +102,11 @@ pub struct Plan {
     pub shops: crate::shops::Opts,
     pub bridge: bool,
     pub silver: bool,
+    pub medigoron: bool,
+    pub bean_sale: bool,
+    pub scrub_prices: crate::scrub_prices::Mode,
+    pub scrub_hint: bool,
+    pub merchant_prices: crate::scrub_prices::Mode,
 }
 
 const GEAR: &[(&str, &str, &str)] = &[
@@ -141,6 +148,10 @@ const UNCHANGED: [&str; 21] = [
 ];
 
 const APPLIED: [&str; 2] = ["starting_hearts", "starting_songs"];
+
+pub fn not_yet(id: &str) -> bool {
+    UNCHANGED.contains(&id) && !APPLIED.contains(&id)
+}
 
 const OFF_ONLY: [&str; 1] = ["shuffle_scrubs"];
 
@@ -236,7 +247,7 @@ impl Plan {
         if self.drops.remake != Mode::Off {
             out.push((crate::pot_slice::remake::KEY, crate::pot_slice::remake::ON));
         }
-        if self.world == crate::slice::pickups::Free::All {
+        if self.world.remake() {
             out.push((crate::spots::free::KEY, crate::spots::free::ON));
         }
         if self.dungeon_rewards {
@@ -332,11 +343,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
             bad.push(e.to_string());
             false
         });
-    let cows_other: bool = rewards
-        && s.flag(crate::flow_extra::cows::SETTING_OTHER).unwrap_or_else(|e| {
-            bad.push(e.to_string());
-            false
-        });
+    let cows_other: bool = cows;
     let frog_songs: bool = rewards
         && s.flag(crate::flow_extra::frogs::SONGS_SETTING).unwrap_or_else(|e| {
             bad.push(e.to_string());
@@ -438,6 +445,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         }
     }
     let kit: crate::start_items::Kit = crate::start_items::read(s, &mut bad);
+    let owned: Vec<&'static str> = chosen.iter().filter_map(|id| crate::start_items::table::opt(id)).filter_map(|o| crate::start_items::table::group(o.group)).map(|g| g.logic).collect();
     // Settings that would hand out the same check twice.
     // The schema disables the open gate behind a closed forest (the page greys it out and a
     // settings string decodes it as zelda); a value set directly falls back the same way.
@@ -449,19 +457,25 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         bad.push("starting_songs includes zeldas_lullaby while open_kakariko is open, which already hands out that check at new game; drop one of them".to_string());
     }
     let skulls: crate::slice::skulls::Mode = crate::slice::skulls::mode(s, &mut bad);
-    let remake: bool = crate::slice::remake_chests::mode(s, &mut bad);
+    let remake: bool = chests != Mode::Off;
     let chus: bool = crate::slice::bombchus::mode(s, &mut bad);
     let chest_sizes: bool = crate::chest_size::mode(s, &mut bad);
     let qol: crate::qol::Opts = crate::qol::read(s, &mut bad);
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
+    let (bean_merchant, medigoron_merchant): (bool, bool) = crate::flow_extra::merchants(s, &mut bad);
+    let medigoron: bool = rewards && medigoron_merchant;
+    let bean_sale: bool = open.beans && bean_merchant;
+    let scrub_prices: crate::scrub_prices::Mode = crate::scrub_prices::read(s, &mut bad);
+    let scrub_hint: bool = crate::scrub_prices::read_hint(s, &mut bad);
+    let merchant_prices: crate::scrub_prices::Mode = crate::merchant_prices::read(s, &mut bad);
     // Always on in this randomizer, like the other cutscene skips (no setting).
     let story: bool = true;
     let endings: bool = true;
     let shops: crate::shops::Opts = crate::shops::plan::read(s, &mut bad);
     let bridge: bool = crate::deku_bridge::mode(s, &mut bad);
-    let silver: bool = crate::slice::silver::mode(s, chests, remake, &mut bad);
+    let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
     let excluded: Vec<String> = s.items("disabled_locations").map(|v| v.to_vec()).unwrap_or_default();
     if !bad.is_empty() {
         let lines: Vec<String> = bad.iter().map(|b| format!("  {b}")).collect();
@@ -550,7 +564,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if silver {
         notes.push(crate::slice::silver::NOTE.to_string());
     }
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, potion, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, story, endings })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, potion, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, owned, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, medigoron, bean_sale, scrub_prices, scrub_hint, merchant_prices, story, endings })
 }
 
 #[cfg(test)]
@@ -565,8 +579,10 @@ mod tests {
         assert_eq!(p.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 6);
-        assert!(p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
+        assert_eq!(p.notes.len(), 11);
+        assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
+        assert!(p.remake && p.hearts && p.extra);
+        assert_eq!(p.world, crate::slice::pickups::Free::Pieces);
         assert!(p.notes.iter().any(|n| n.contains("world clock runs from the start")));
         assert_eq!(p.open, crate::open_world::Opts { time: true, ..crate::open_world::Opts::default() });
         assert!(!p.door);
@@ -603,6 +619,29 @@ mod tests {
         let p: Plan = plan(&s).unwrap();
         assert_eq!(p.small, Keep::Vanilla);
         assert_eq!(p.chests, Mode::Dungeons);
+    }
+
+    #[test]
+    fn every_setting_flagged_as_not_yet_is_refused_at_a_non_default_value() {
+        let sch: &crate::settings::Schema = crate::settings::schema();
+        let ids: Vec<&str> = UNCHANGED.iter().copied().filter(|i| not_yet(i)).collect();
+        assert_eq!(ids.len(), UNCHANGED.len() - APPLIED.len());
+        assert!(not_yet("bridge_medallions") && not_yet("ganon_bosskey_medallions"));
+        assert!(APPLIED.iter().all(|i| !not_yet(i)));
+        assert!(!not_yet("shuffle_chests"));
+        for id in ids {
+            let st: &crate::settings::Setting = sch.get(id).unwrap_or_else(|| panic!("no setting {id}"));
+            let alt: Value = match &st.default {
+                Value::Bool(b) => Value::Bool(!b),
+                Value::Str(d) => Value::s(&st.choices.iter().find(|c| &c.id != d).unwrap().id),
+                Value::Int(n) => Value::Int(if *n < st.max { n + 1 } else { n - 1 }),
+                Value::Set(_) => panic!("{id} is a set"),
+            };
+            let mut s: Settings = Settings::default();
+            s.set(id, alt).unwrap();
+            let e: String = plan(&s).err().unwrap_or_else(|| panic!("{id} was accepted")).to_string();
+            assert!(e.contains(&format!("{id} is")), "{id}: {e}");
+        }
     }
 
     #[test]

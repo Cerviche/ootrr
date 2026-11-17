@@ -76,6 +76,23 @@ pub fn base(f: &mut Flow) -> Res<()> {
     Ok(())
 }
 
+/// Whether `index` and `name` are the one time sale event that base() turns into a call with
+/// arguments.
+pub fn is_sale(index: usize, name: &str) -> bool {
+    (index, name) == SALE
+}
+
+/// Sets an argument that the heart scrub rows pass to the one time sale after base(), such as
+/// SalePrice or SaleMsg. The Death Mountain Crater scrub sells through these rows, so another
+/// edit of its price or text goes here and not to the sale event, which only names the argument.
+pub fn set_rows(f: &mut Flow, arg: &str, v: &Val) -> Res<()> {
+    for r in ROWS {
+        let c: &mut Cont = call(f, r, POUCH)?;
+        *slot(c, arg)? = v.clone();
+    }
+    Ok(())
+}
+
 fn find(f: &Flow, query: bool, name: &str) -> Res<(u16, u16)> {
     let i: usize = f
         .actors
@@ -141,7 +158,7 @@ pub fn edit(f: &mut Flow, sales: &[Sale], label: &str) -> Res<()> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::bfevfl::{Actor, Bf};
 
@@ -157,7 +174,7 @@ mod tests {
         Val::Str(x.to_string())
     }
 
-    fn sample() -> Bf {
+    pub(crate) fn sample() -> Bf {
         let mut events: Vec<Event> = (0..400).map(|i| ev(&format!("Pad{i}"), Kind::Join { next: NONE })).collect();
         let greet = || vec![("Greeting_00", s("G0")), ("Greeting_01", s("G1")), ("Greeting02", s("G2"))];
         events[154] = ev("Event305", Kind::Action { next: NONE, actor: 1, act: 0, params: None });

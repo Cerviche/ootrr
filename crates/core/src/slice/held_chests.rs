@@ -25,13 +25,19 @@ mod tests {
     use crate::slice::generate::{allowed, generate_data, GenOpts, Generated};
     use crate::slice::logic::world;
     use crate::slice::pick::pick;
-    use crate::slice::remake_chests::{self as rc, SETTING};
+    use crate::slice::remake_chests as rc;
     use crate::slice::support::{plan, Plan};
     use crate::world::World;
 
     fn on() -> Settings {
         let mut s: Settings = Settings::default();
-        s.set(SETTING, Value::s("on")).unwrap();
+        s.set("shuffle_chests", Value::s("all")).unwrap();
+        s
+    }
+
+    fn off() -> Settings {
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_chests", Value::s("off")).unwrap();
         s
     }
 
@@ -51,10 +57,10 @@ mod tests {
     }
 
     #[test]
-    fn the_default_keeps_them_vanilla_and_the_remake_setting_frees_them() {
+    fn chests_off_keeps_them_vanilla_and_chest_shuffle_frees_them() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();
-        let p: Plan = plan(&Settings::default()).unwrap();
+        let p: Plan = plan(&off()).unwrap();
         let off: Vec<String> = pick(&d, &w, &p).free.iter().map(|l| w.locs[*l].name.clone()).collect();
         assert!(off.iter().all(|n| !gated(n)));
         let q: Plan = plan(&on()).unwrap();

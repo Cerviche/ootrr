@@ -1,12 +1,29 @@
-//! Quest skips that edit game files: the Gerudo Valley bridge and the one-sale bean salesman.
-//! The Epona race, the mask quest and the planted beans are flag list edits
+//! Quest skips that edit game files: Epona's Song registering Epona, the Gerudo Valley bridge
+//! and the one-sale bean salesman. The mask quest and the planted beans are flag list edits
 //! (data/start_presets.json).
 
 use crate::ainb::Ainb;
-use crate::bfevfl::{Bf, Cont, Event, Flow, Val};
+use crate::bfevfl::flow::NONE;
+use crate::bfevfl::{Actor, Bf, Case, Cont, Event, Flow, Kind, Val};
 use crate::error::{Error, Res};
 
-pub const EPONA_FILE: &str = "Event/EventFlow/Get_Epona.bfevfl.zs";
+pub const EPONA_FILE: &str = "Event/EventFlow/Dm_SY_Ocarina_EponaSong.bfevfl.zs";
+pub const EPONA_FLOW: &str = "Dm_SY_Ocarina_EponaSong";
+/// The adult song's first question: does Link own a horse (case 0) or not (case 1).
+pub const ASK_OWNED: &str = "Event1";
+pub const HAS_HORSE: &str = "EventQueryHasOwnedHorse";
+pub const CAN_RIDE: &str = "EventQueryIsCurrentSceneEnableRide";
+pub const EPONA_ACTOR: &str = "Animal_Epona_Adult";
+/// Owning a horse is engine state (the owned horse list), not game data: only this action on an
+/// Epona actor writes it, and Epona's Song only calls an owned horse. In the original game it runs
+/// during the ranch escape (Get_Epona's Sub_Get_Epona_EscapeRanch_*_Warp entries).
+pub const REGISTER: &str = "EventCopyAndRegisterOwnedHorse";
+pub const WARP: &str = "EventWarpToTargetActor";
+pub const OFFSTAGE: &str = "EventGoOffstageForUser";
+pub const SET_ENUM: &str = "EventTriggerSetGameDataEnum";
+pub const EPONA_STEP: &str = "Step_Get_Epona";
+pub const EPONA_PREFIX: &str = "OOTRREpona";
+pub const EPONA_NOTE: &str = "Epona's Song is enough to own Epona: the first time an adult Link plays it where a horse can be ridden, the song's event makes an Epona, registers her as Link's horse the way the ranch escape does, and calls her. The Epona quest is set complete at the same time, so Ingo's race and the ranch visit are skipped. Experimental and untested in the game.";
 pub const BRIDGE_MODULE: &str = "Logic/GerudoValley_Adult_Prefab_9e43.logic.module.ainb";
 pub const BEAN_FILE: &str = "Event/EventFlow/Npc_Hylia_047_Child.bfevfl.zs";
 pub const BEAN_FLOW: &str = "Npc_Hylia_047_Child";
@@ -127,6 +144,172 @@ pub fn bean_bytes(raw: &[u8]) -> Res<Vec<u8>> {
     Ok(out)
 }
 
+const TRUE: u32 = 0x8000_0001;
+const FALSE: u32 = 0;
+
+fn event_at(f: &Flow, name: &str) -> Res<usize> {
+    let v: Vec<usize> = (0..f.events.len()).filter(|&i| f.events[i].name == name).collect();
+    match v.as_slice() {
+        [i] => Ok(*i),
+        _ => Err(Error::Msg(format!("skips: expected one event named {name} in {EPONA_FLOW}, found {}", v.len()))),
+    }
+}
+
+fn text<'a>(e: &'a Event, key: &str) -> Option<&'a str> {
+    match e.kind.params()?.get(key)? {
+        Val::Str(s) => Some(s.as_str()),
+        _ => None,
+    }
+}
+
+fn kv(k: &str, v: Val) -> (String, Val) {
+    (k.to_string(), v)
+}
+
+fn action_slot(f: &mut Flow, actor: usize, action: &str) -> u16 {
+    let a: &mut Actor = &mut f.actors[actor];
+    match a.actions.iter().position(|x| x == action) {
+        Some(j) => j as u16,
+        None => {
+            a.actions.push(action.to_string());
+            (a.actions.len() - 1) as u16
+        }
+    }
+}
+
+/// An Epona the event itself creates (member create method 1, as events do for Kaepora or
+/// Sheik), with the member settings Get_Epona gives its ranch Epona.
+fn epona_member(base: &Actor) -> Actor {
+    let mut items: Vec<(String, Val)> = vec![
+        kv("EventMemberCreateMethod", Val::Int(1)),
+        kv("IsBindNearestActor", Val::Bool(FALSE)),
+        kv("IsGrounding", Val::Bool(FALSE)),
+        kv("IsWorld", Val::Bool(FALSE)),
+    ];
+    for k in ["UseEventModelAnime", "UseEventAS"] {
+        if let Some(v) = base.params.as_ref().and_then(|c| c.get(k)) {
+            items.push(kv(k, v.clone()));
+        }
+    }
+    for slot in ["Weapon", "SubWeapon", "Shield", "Bow"] {
+        items.push(kv(&format!("EquipmentUser_{slot}"), Val::Str(String::new())));
+        items.push(kv(&format!("EquipmentUser_{slot}_EquipmentState"), Val::Int(0)));
+    }
+    for slot in ["Tool", "SubTool", "Accessory1", "Accessory2", "Accessory3", "Accessory4"] {
+        items.push(kv(&format!("EquipmentUser_{slot}"), Val::Str(String::new())));
+    }
+    Actor {
+        name: EPONA_ACTOR.to_string(),
+        sub: String::new(),
+        arg: String::new(),
+        actions: Vec::new(),
+        queries: Vec::new(),
+        params: Some(Cont { items }),
+        ep: base.ep,
+        cut: base.cut,
+    }
+}
+
+/// When an adult plays Epona's Song without owning a horse, in a place where riding is allowed:
+/// create an Epona next to Link, register her as Link's horse, take the created one off stage,
+/// mark the Epona quest complete, and go on to the game's own "owned horse" path, which calls
+/// her. Elsewhere, and once she is owned, the song is unchanged. Returns the added events.
+pub fn patch_epona(b: &mut Bf) -> Res<usize> {
+    let f: &mut Flow = flow_mut(b, EPONA_FLOW)?;
+    if f.events.iter().any(|e| e.name.starts_with(EPONA_PREFIX)) {
+        return Err(Error::Msg(format!("skips: {EPONA_FLOW} already registers Epona")));
+    }
+    let ask: usize = event_at(f, ASK_OWNED)?;
+    let (owned, unowned): (u16, u16) = match &f.events[ask].kind {
+        Kind::Switch { actor, query, cases, .. } if f.actors.get(*actor as usize).and_then(|a| a.queries.get(*query as usize)).is_some_and(|q| q == HAS_HORSE) => {
+            match (cases.iter().find(|c| c.val == 0), cases.iter().find(|c| c.val == 1)) {
+                (Some(a), Some(b)) => (a.ev, b.ev),
+                _ => return Err(Error::Msg(format!("skips: {ASK_OWNED} has no owned and unowned case"))),
+            }
+        }
+        _ => return Err(Error::Msg(format!("skips: {ASK_OWNED} does not ask whether Link owns a horse, the game files differ"))),
+    };
+    let (ra, rq): (u16, u16) = match &f.events[owned as usize].kind {
+        Kind::Switch { actor, query, .. } if f.actors.get(*actor as usize).and_then(|a| a.queries.get(*query as usize)).is_some_and(|q| q == CAN_RIDE) => (*actor, *query),
+        _ => return Err(Error::Msg(format!("skips: the owned horse path of {EPONA_FLOW} does not start with the riding check"))),
+    };
+    let ga: usize = f.actors.iter().position(|a| a.name == "GameDataActor" && a.sub.is_empty()).ok_or(Error::Format("skips: the song flow has no GameDataActor"))?;
+    let base: Actor = f.actors.first().cloned().ok_or(Error::Format("skips: the song flow has no actors"))?;
+    if f.actors.iter().any(|a| a.name == EPONA_ACTOR) {
+        return Err(Error::Msg(format!("skips: {EPONA_FLOW} already has an Epona member")));
+    }
+    f.actors.push(epona_member(&base));
+    let ea: usize = f.actors.len() - 1;
+    let (warp, reg, off): (u16, u16, u16) = (action_slot(f, ea, WARP), action_slot(f, ea, REGISTER), action_slot(f, ea, OFFSTAGE));
+    let set: u16 = action_slot(f, ga, SET_ENUM);
+    let n: usize = f.events.len();
+    if n + 5 >= NONE as usize {
+        return Err(Error::Format("skips: too many events in the song flow"));
+    }
+    let at = |k: usize| (n + k) as u16;
+    let ea: u16 = ea as u16;
+    let chain: Vec<Kind> = vec![
+        Kind::Switch { actor: ra, query: rq, cases: vec![Case { val: 0, ev: at(1) }, Case { val: 1, ev: unowned }], params: None },
+        Kind::Action {
+            next: at(2),
+            actor: ea,
+            act: warp,
+            params: Some(Cont {
+                items: vec![
+                    kv("IsWaitEnd", Val::Bool(TRUE)),
+                    kv("TargetActorKind", Val::Int(1)),
+                    kv("ActorName", Val::Str("Player_Event".to_string())),
+                    kv("InstanceName", Val::Str(String::new())),
+                    kv("OffsetBase", Val::Int(1)),
+                    kv("PositionOffset", Val::Floats(vec![-2.0, 0.0, 0.0])),
+                    kv("YAngle", Val::Int(0)),
+                    kv("ClothWarpMode", Val::Int(-1)),
+                ],
+            }),
+        },
+        Kind::Action { next: at(3), actor: ea, act: reg, params: Some(Cont { items: vec![kv("IsWaitEnd", Val::Bool(TRUE))] }) },
+        Kind::Action {
+            next: at(4),
+            actor: ea,
+            act: off,
+            params: Some(Cont {
+                items: vec![
+                    kv("IsWaitEnd", Val::Bool(TRUE)),
+                    kv("IsSleepXLink", Val::Bool(TRUE)),
+                    kv("ExecuteSetSpeedZeroEveryFrame", Val::Bool(FALSE)),
+                    kv("IsRidingTargetGoOffstage", Val::Bool(FALSE)),
+                ],
+            }),
+        },
+        Kind::Action {
+            next: owned,
+            actor: ga as u16,
+            act: set,
+            params: Some(Cont { items: vec![kv("GameDataName", Val::Str(EPONA_STEP.to_string())), kv("Value", Val::Str("Complete".to_string())), kv("Index", Val::Int(-1))] }),
+        },
+    ];
+    let added: usize = chain.len();
+    for (k, kind) in chain.into_iter().enumerate() {
+        f.events.push(Event { name: format!("{EPONA_PREFIX}{k}"), kind });
+    }
+    if let Kind::Switch { cases, .. } = &mut f.events[ask].kind {
+        for c in cases.iter_mut().filter(|c| c.val == 1) {
+            c.ev = at(0);
+        }
+    }
+    Ok(added)
+}
+
+pub fn epona_bytes(raw: &[u8]) -> Res<Vec<u8>> {
+    let mut b: Bf = Bf::parse(raw)?;
+    patch_epona(&mut b)?;
+    let out: Vec<u8> = b.write()?;
+    if Bf::parse(&out)? != b {
+        return Err(Error::Format("skips: the Epona's Song flow does not parse back"));
+    }
+    Ok(out)
+}
+
 pub fn is_bean_sale(name: &str) -> bool {
     name == BEAN_SALESMAN
 }
@@ -163,6 +346,53 @@ mod tests {
         assert!(bridge_gate(&b).is_err());
         assert!(crate::ainb::audit(&b).is_empty());
         assert_eq!(b.els.len(), a.els.len());
+    }
+
+    #[test]
+    fn an_unowned_adult_song_registers_epona_and_then_calls_her() {
+        let Some(mut rf) = real() else {
+            return;
+        };
+        let raw: Vec<u8> = rf.read_zs(EPONA_FILE).unwrap();
+        let old: Bf = Bf::parse(&raw).unwrap();
+        let of: &Flow = old.flows.iter().find(|x| x.name == EPONA_FLOW).unwrap();
+        let out: Vec<u8> = epona_bytes(&raw).unwrap();
+        let b: Bf = Bf::parse(&out).unwrap();
+        let f: &Flow = b.flows.iter().find(|x| x.name == EPONA_FLOW).unwrap();
+        assert_eq!(f.events.len(), of.events.len() + 5);
+        let ask: usize = event_at(f, ASK_OWNED).unwrap();
+        for i in 0..of.events.len() {
+            if i != ask {
+                assert_eq!(f.events[i], of.events[i], "{}", of.events[i].name);
+            }
+        }
+        let Kind::Switch { cases, .. } = &f.events[ask].kind else { panic!() };
+        let Kind::Switch { cases: was, .. } = &of.events[ask].kind else { panic!() };
+        assert_eq!(cases[0], was[0]);
+        let first: &Event = &f.events[cases.iter().find(|c| c.val == 1).unwrap().ev as usize];
+        assert_eq!(first.name, format!("{EPONA_PREFIX}0"));
+        let names = |e: &Event| -> (String, String) {
+            match &e.kind {
+                Kind::Action { actor, act, .. } => (f.actors[*actor as usize].name.clone(), f.actors[*actor as usize].actions[*act as usize].clone()),
+                Kind::Switch { actor, query, .. } => (f.actors[*actor as usize].name.clone(), f.actors[*actor as usize].queries[*query as usize].clone()),
+                _ => (String::new(), String::new()),
+            }
+        };
+        let got: Vec<(String, String)> = (0..5).map(|k| names(&f.events[of.events.len() + k])).collect();
+        let want: Vec<(String, String)> = vec![
+            ("GameSystemActor".to_string(), CAN_RIDE.to_string()),
+            (EPONA_ACTOR.to_string(), WARP.to_string()),
+            (EPONA_ACTOR.to_string(), REGISTER.to_string()),
+            (EPONA_ACTOR.to_string(), OFFSTAGE.to_string()),
+            ("GameDataActor".to_string(), SET_ENUM.to_string()),
+        ];
+        assert_eq!(got, want);
+        let Kind::Action { next, .. } = &f.events[of.events.len() + 4].kind else { panic!() };
+        assert_eq!(*next, was[0].ev, "after registering, the owned horse path calls her");
+        assert_eq!(text(&f.events[of.events.len() + 4], "Value"), Some("Complete"));
+        let ep = f.actors.iter().find(|a| a.name == EPONA_ACTOR).unwrap();
+        assert_eq!(ep.params.as_ref().unwrap().get("EventMemberCreateMethod"), Some(&Val::Int(1)));
+        assert!(epona_bytes(&out).is_err());
     }
 
     #[test]

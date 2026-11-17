@@ -370,6 +370,32 @@ mod tests {
         }
     }
 
+    #[test]
+    fn a_pickup_hands_over_the_improved_spin_to_a_player_who_holds_only_double_magic() {
+        let Some(r) = root() else { return };
+        let mut rf: Romfs = Romfs::open(&r).unwrap();
+        let fl: HM<String, Flow> = edited(&mut rf, "DMT Great Fairy Reward", "Item_DinFire").unwrap();
+        assert!(fl.contains_key("Dm_SY_Get"));
+        let cases: [(&[(&str, &str)], i64); 4] = [
+            (&[("IsGet.Item_FairyBless_MPDouble", "true"), ("IsGet.Item_FairyBless_MP", "false")], 1),
+            (&[("IsGet.Item_FairyBless_MPDouble", "true"), ("IsGet.Item_FairyBless_MP", "true")], 0),
+            (&[("IsGet.Item_FairyBless_MPDouble", "false"), ("IsGet.Item_FairyBless_MP", "true")], 0),
+            (&[("IsGet.Item_FairyBless_MPDouble", "false"), ("IsGet.Item_FairyBless_MP", "false")], 0),
+        ];
+        for (set, want) in cases {
+            let sc: Scene = scene("Dm_SY_Get", "PouchAddItem", set, &[]);
+            let mut base: Sim = sim(&r, HM::new()).unwrap();
+            let a: Vec<Fin> = run_args(&mut base, &sc, &[("ActorName", "Obj_FairyBless_MPDouble")]).unwrap();
+            let mut s: Sim = sim(&r, fl.clone()).unwrap();
+            let b: Vec<Fin> = run_args(&mut s, &sc, &[("ActorName", "Obj_FairyBless_MPDouble")]).unwrap();
+            assert!(!b.is_empty(), "{set:?}");
+            assert_eq!(broken(&b), broken(&a), "{set:?}");
+            assert!(b.iter().all(|f| granted(f, "Item_FairyBless_MP") == want), "{set:?}");
+            assert!(b.iter().all(|f| granted(f, "Item_FairyBless_MPDouble") == want), "{set:?}");
+            assert!(a.iter().all(|f| granted(f, "Item_FairyBless_MP") == 0), "{set:?}");
+        }
+    }
+
     const FOUNTAINS: [(&str, &str); 6] = [
         ("HC Great Fairy Reward", "Dm_FairyFountain_Power"),
         ("ZF Great Fairy Reward", "Dm_FairyFountain_Frore"),

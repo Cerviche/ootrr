@@ -16,3 +16,23 @@ pub use gate::{bound, fits, open, pouch, POUCH_ONLY};
 pub use op::{apply as apply_op, How, Once, Op, ITEM};
 
 pub const SETTING: &str = "shuffle_rewards_extra";
+
+pub const MERCHANTS: u16 = 97;
+pub const MERCHANTS_SETTING: &str = "shuffle_merchants";
+
+pub fn merchants(s: &crate::settings::Settings, bad: &mut Vec<String>) -> (bool, bool) {
+    match s.text(MERCHANTS_SETTING) {
+        Ok("off") => (false, false),
+        Ok("beans") => (true, false),
+        Ok("no_beans") => (false, true),
+        Ok("all") => (true, true),
+        Ok(v) => {
+            bad.push(format!("{MERCHANTS_SETTING} is {v}, which is not a known choice"));
+            (false, false)
+        }
+        Err(e) => {
+            bad.push(e.to_string());
+            (false, false)
+        }
+    }
+}

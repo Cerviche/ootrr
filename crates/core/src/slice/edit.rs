@@ -109,8 +109,12 @@ fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
         if crate::pot_slice::targets::is_loc(d, loc) || crate::shops::seed::skip(loc) || crate::slice::silver::is_spot(loc) {
             continue;
         }
-        let vanilla: &str = d.vanilla_of(loc).ok_or_else(|| E::Msg(format!("{loc} has no vanilla item")))?;
-        pool.entry(vanilla.to_string()).or_default().push(vanilla_actor(d, loc)?);
+        let vanilla: &str = d.pool_item(loc).ok_or_else(|| E::Msg(format!("{loc} has no vanilla item")))?;
+        let actor: String = match d.flow.by_name(loc).and_then(|l| l.item.clone()) {
+            Some(a) if Some(vanilla) != d.vanilla_of(loc) => a,
+            _ => vanilla_actor(d, loc)?,
+        };
+        pool.entry(vanilla.to_string()).or_default().push(actor);
         if !crate::slice::silver::is_item(item) {
             dests.entry(item.clone()).or_default().push(loc.clone());
         }
@@ -140,10 +144,17 @@ fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
     Ok(out)
 }
 
+/// The targets of a seed as the build sees them once slice::seed_packs has written the
+/// pickup packs its freestanding spots need (Pieces of Heart on the ground are always shuffled,
+/// so most seeds need some).
 #[cfg(test)]
 fn targets(d: &Data, seed: &SeedFile) -> Res<(Vec<Target>, usize, Vec<Choice>)> {
     let v: crate::slice::tier_order::Verdict = crate::slice::tier_order::fixed_actors(d, seed)?;
-    targets_with(d, seed, false, &v.assign, &Extra::default())
+    let mut extra: Extra = Extra::default();
+    for w in crate::slice::seed_packs::need(d, seed, &v.assign)?.into_values() {
+        extra.packs.insert(w.name, Vec::new());
+    }
+    targets_with(d, seed, false, &v.assign, &extra)
 }
 
 fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<String, String>, extra: &Extra) -> Res<(Vec<Target>, usize, Vec<Choice>)> {
@@ -243,7 +254,9 @@ fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<String, String
             None
         };
         let l: &crate::catalog::Loc = d.cat.by_name(loc).ok_or_else(|| E::Msg(format!("{loc} is not in the catalog")))?;
-        if family.is_none() && key.is_none() && new_actor == l.item {
+        // A bomb item in a chest that already held bombs still needs the bomb bag guard, or the
+        // vanilla get event hands out a usable bomb bag along with the bombs.
+        if family.is_none() && key.is_none() && new_actor == l.item && !guarded(&new_actor) {
             same += 1;
             continue;
         }
@@ -262,7 +275,36 @@ fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<String, String
             });
         }
     }
+    out.extend(unshuffled_bomb_chests(d, seed));
     Ok((out, same, flows))
+}
+
+/// Chests that keep their vanilla bombs because this seed does not shuffle them. Opened before
+/// the bomb bag is found, their vanilla get event would hand out a usable bag with the bombs, so
+/// they take the same bomb bag guard as a shuffled bomb chest.
+fn unshuffled_bomb_chests(d: &Data, seed: &SeedFile) -> Vec<Target> {
+    let mut out: Vec<Target> = Vec::new();
+    for l in d.cat.locs.iter().filter(|l| l.kind == "chest" && guarded(&l.item) && !seed.placements.contains_key(&l.name)) {
+        if d.state_of(&l.name) != Some(State::Eligible) || d.keeps_event(&l.name) || special::sized(l.refs.first().map(|r| r.hash).unwrap_or(0)).is_some() {
+            continue;
+        }
+        let vanilla: String = d.vanilla_of(&l.name).unwrap_or(&l.vanilla).to_string();
+        for r in &l.refs {
+            out.push(Target {
+                name: l.name.clone(),
+                hash: r.hash,
+                files: r.files.clone(),
+                old_item: vanilla.clone(),
+                new_item: vanilla.clone(),
+                old_actor: l.item.clone(),
+                new_actor: l.item.clone(),
+                ev: d.event_mode(r.hash),
+                family: None,
+                key: None,
+            });
+        }
+    }
+    out
 }
 
 pub struct Edited {
@@ -277,10 +319,11 @@ pub struct Edited {
 }
 
 pub fn edit_file(file: &str, raw: &[u8], ts: &[Target]) -> Res<Option<Edited>> {
-    edit_file_with(file, raw, ts, false)
+    edit_file_with(file, raw, ts, false, &BS::new())
 }
 
-pub fn edit_file_with(file: &str, raw: &[u8], ts: &[Target], keys: bool) -> Res<Option<Edited>> {
+/// `small` lists boss heart hashes that become a small chest (chest size matches contents).
+pub fn edit_file_with(file: &str, raw: &[u8], ts: &[Target], keys: bool, small: &BS<u64>) -> Res<Option<Edited>> {
     let mut y: Byml = Byml::parse(raw)?;
     let mut hits: Vec<(usize, Found)> = Vec::new();
     let mut used: Vec<(String, Size)> = Vec::new();
@@ -289,7 +332,8 @@ pub fn edit_file_with(file: &str, raw: &[u8], ts: &[Target], keys: bool) -> Res<
     let mut touched: Vec<u64> = Vec::new();
     for (i, t) in ts.iter().enumerate() {
         let n: usize = if t.old_actor == HEART {
-            let n: usize = swap(&mut y, t.hash, &t.new_actor, CHEST);
+            let chest: &str = if small.contains(&t.hash) { crate::chest_size::PAIRS[0].0 } else { CHEST };
+            let n: usize = swap(&mut y, t.hash, &t.new_actor, chest);
             if n > 0 {
                 hearts.push((t.hash, heart_ids(&y, t.hash)));
             }
@@ -310,7 +354,8 @@ pub fn edit_file_with(file: &str, raw: &[u8], ts: &[Target], keys: bool) -> Res<
             }
             if let Some(f) = t.family {
                 if special::of(t.hash).is_some() {
-                    used.push((f.to_string(), Size::Big));
+                    let g: String = find(&y, file, t.hash).into_iter().next().map(|x| x.gyaml).unwrap_or_default();
+                    used.push((f.to_string(), Size::of_gyaml(&g)));
                     wraps.push((t.hash, f.to_string()));
                 } else {
                     let size: Size = route(&mut y, t.hash, f).ok_or(E::Format("edited actor vanished"))?;
@@ -494,7 +539,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let mut silver_used: BS<&'static str> = BS::new();
     let mut silver_hit: BS<u64> = BS::new();
     let mut edits: Vec<Edited> = Vec::new();
-    let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, p.chus, crate::slice::dungeon_items::credited(p.map)) } else { BM::new() };
+    let size_ctx: crate::chest_size::Ctx = crate::chest_size::Ctx { chus: p.chus, owned: p.owned.clone() };
+    let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.map)) } else { BM::new() };
+    let small_hearts: BS<u64> = if p.chest_sizes { crate::chest_size::small_hearts(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.map)) } else { BS::new() };
     let moves: crate::chest_size::Moves = if sizes.is_empty() { crate::chest_size::Moves::default() } else { crate::chest_size::moves(&crate::chest_size::scan(&mut rf, &sizes)?, &sizes) };
     let mut resized_n: usize = 0;
     for f in banc_files(&rf)? {
@@ -504,7 +551,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             b
         });
         let raw: &[u8] = resized.as_deref().unwrap_or(&vanilla);
-        let e: Option<Edited> = edit_file_with(&f, raw, &ts, roam)?;
+        let e: Option<Edited> = edit_file_with(&f, raw, &ts, roam, &small_hearts)?;
         let e: Option<Edited> = match (e, &resized) {
             (Some(mut e), Some(_)) => {
                 e.old_len = vanilla.len();
@@ -572,11 +619,20 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let mut scrub_rows: usize = 0;
     let wraps: Vec<(u64, String)> = edits.iter().flat_map(|e| e.wraps.clone()).collect();
     let touched: Vec<u64> = edits.iter().flat_map(|e| e.touched.clone()).collect();
-    let (special_outs, kids): (Vec<crate::staging::Out>, Vec<(String, String)>) = if wraps.is_empty() && !touched.contains(&special::DAMPE_HOOK) {
+    let retarget: Vec<(u64, Size)> = crate::chest_size::retargets(&sizes, &moves);
+    let (mut special_outs, kids): (Vec<crate::staging::Out>, Vec<(String, String)>) = if wraps.is_empty() && retarget.is_empty() && !touched.contains(&special::DAMPE_HOOK) {
         (Vec::new(), Vec::new())
     } else {
-        special::stage(&mut rf, &wraps, &touched)?
+        special::stage(&mut rf, &wraps, &retarget, &touched)?
     };
+    if !kids.is_empty() && upgrades.is_empty() && !roam {
+        // No upgrade stage writes the analyzed table, so the resized chests list their open event here.
+        special_outs.push(crate::staging::rewrite(&mut rf, crate::progressive::ANALYZED_TABLE, |raw| {
+            let mut y: Byml = Byml::parse(raw)?;
+            crate::progressive::add_children(&mut y, &kids);
+            y.write()
+        })?);
+    }
     let placed: BM<String, &'static str> = flow_wraps(&d, seed);
     let chest_fams: BS<&str> = upgrades.iter().map(|u| u.0.as_str()).collect();
     let gs: Vec<crate::progressive::Grant> = wrap_grants(&d, seed, &chest_fams, &placed);
@@ -602,6 +658,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut staged: Stage = flow_locations::stage_merged(&mut rf, &d.flow, &flows, &gs, &FlowOpts { songs: p.songs != Songs::Off, ..FlowOpts::default() })?;
     crate::scrubs_b::stage_flow(&mut rf, &scrub_jobs, &mut staged.files)?;
+    crate::scrub_prices::stage(&mut rf, &d, seed, p.scrub_prices, &mut staged.files)?;
+    crate::merchant_prices::stage_medigoron(&mut rf, seed, p.merchant_prices, p.medigoron, &mut staged.files)?;
     if p.songs != Songs::Off {
         crate::song_lessons::stage_flow(&mut rf, &mut staged.files)?;
     }
@@ -633,13 +691,14 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         more.extend(hints::stage(&mut rf, &d, seed, p.hints, &keys, &p.npc)?);
     }
     crate::dungeon_grant::stage_text(&mut rf, &mut more, &marks.used)?;
+    crate::scrub_prices::stage_text(&mut rf, &d, seed, p.scrub_hint, &mut more)?;
     crate::slice::silver::stage_text(&mut rf, &mut more, &silver_used)?;
     more.push(stage_pouch(&mut rf, roam)?);
     more.extend(crate::bomb_lift::stage(&mut rf)?);
-    if crate::bomb_pickup::needed(&pot_ts) {
-        more.push(crate::bomb_pickup::stage(&mut rf)?);
-    }
+    let quiet: Vec<&str> = crate::bomb_pickup::wanted(pot_ts.iter().map(|t| t.actor.as_str()).chain(ts.iter().map(|t| t.new_actor.as_str())).chain(skull_drops.iter().map(|x| x.actor.as_str())));
+    more.extend(crate::bomb_pickup::stage_all(&mut rf, &quiet)?);
     more.extend(crate::door_fix::stage(&mut rf)?);
+    more.push(crate::no_tutorials::stage(&mut rf)?);
     if p.door {
         more.extend(crate::door_open::stage_door(&mut rf)?);
     }
@@ -648,7 +707,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         crate::medal_gate::stage(&mut rf, &mut more, Some(&pk.work.join("romfs")))?;
     }
     let reward: Option<&str> = crate::start_reward::pick(&seed.seed, p.start).map(|(_, a)| a);
-    let flags: Vec<(String, bool)> = p.start_flags();
+    let mut flags: Vec<(String, bool)> = p.start_flags();
+    flags.extend(crate::no_tutorials::start_flags());
     let mut give: Vec<&str> = p.pouch.clone();
     if let Some(a) = reward {
         give.push(a);
@@ -715,6 +775,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut late: Vec<crate::staging::Out> = if p.qol.any() { crate::qol::worked(&mut rf, &pk, &p.qol)? } else { Vec::new() };
     late.extend(crate::open_world::worked(&mut rf, &pk, &p.open)?);
+    crate::merchant_prices::stage_bean(&mut rf, seed, p.merchant_prices, p.bean_sale, &mut late)?;
     if p.story {
         late.extend(crate::story_skip::worked(&mut rf, &pk)?);
     }
@@ -775,7 +836,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     };
     let mut notes: Vec<String> = p.notes.clone();
     if p.chest_sizes {
-        notes.push(crate::chest_size::report(resized_n, moves.tight.len()));
+        notes.push(crate::chest_size::report(resized_n + small_hearts.len(), moves.tight.len()));
     }
     if p.world.on() && !seed.placements.keys().any(|k| pu::listed(&d, k)) {
         notes.retain(|n| !pu::is_note(n));
@@ -810,9 +871,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             notes.push(format!("{n} pots, crates, flying pots or beehives and {w} rocks or grass tufts hold other items, none of these edits is tested in the game yet:"));
         }
         notes.extend(crate::pot_slice::apply::lines(&pot_ts, LISTED));
-        if crate::pot_slice::apply::variants(&pot_ts) {
-            notes.push(crate::slice::key_spots::LOST.to_string());
-        }
+        notes.push(crate::slice::key_spots::LOST.to_string());
     }
     if !flows.is_empty() {
         notes.push(format!("{} reward events changed in {} flow files:", flows.len(), staged.files.len()));
@@ -952,6 +1011,23 @@ mod tests {
     }
 
     #[test]
+    fn a_boss_heart_holding_a_minor_item_becomes_a_small_chest() {
+        let heart = |h: u64| -> Node {
+            Node::Map(vec![
+                ("Gyaml".to_string(), Node::Str(HEART.to_string())),
+                ("Hash".to_string(), Node::U64(h)),
+                ("Translate".to_string(), Node::Arr(vec![Node::F32(1.0), Node::F32(2.0), Node::F32(3.0)])),
+            ])
+        };
+        let b: Vec<u8> = raw(vec![heart(1), heart(2)]);
+        let ts: Vec<Target> = vec![target(1, HEART, "TBox_Rupee_Red"), target(2, HEART, "Item_Hookshot")];
+        let e: Edited = edit_file_with("Banc/Area/a.bcett.byml.zs", &b, &ts, false, &BS::from([1])).unwrap().unwrap();
+        let back: Byml = Byml::parse(&e.bytes).unwrap();
+        let g: Vec<&str> = back.root.get("Actors").unwrap().as_arr().unwrap().iter().map(|a| a.get("Gyaml").unwrap().as_str().unwrap()).collect();
+        assert_eq!(g, vec!["Obj_TBox_A_01", CHEST]);
+    }
+
+    #[test]
     fn a_file_without_the_hash_is_untouched() {
         let b: Vec<u8> = raw(vec![actor(1, "Item_A")]);
         assert!(edit_file("Banc/Area/a.bcett.byml.zs", &b, &[target(5, "Item_A", "X")]).unwrap().is_none());
@@ -989,14 +1065,16 @@ mod tests {
             let mut before: Vec<String> = Vec::new();
             let mut after: Vec<String> = Vec::new();
             for (loc, actor) in &given {
-                before.push(d.cat.by_name(loc).unwrap().item.clone());
+                // The Gerudo Valley waterfall piece has an actor of its own, and moves as the plain one.
+                let v: &str = &d.cat.by_name(loc).unwrap().item;
+                before.push(if v == "Obj_GerudoValley_Heart_Piece" { "Obj_Heart_Piece".to_string() } else { v.to_string() });
                 after.push(actor.clone());
             }
             before.sort();
             after.sort();
             assert_eq!(before, after, "seed tiers {n}");
             let (ts, same, flows): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
-            let moved: std::collections::BTreeSet<&str> = ts.iter().map(|t| t.name.as_str()).collect();
+            let moved: std::collections::BTreeSet<&str> = ts.iter().map(|t| t.name.as_str()).filter(|n| g.seed_file.placements.contains_key(*n)).collect();
             assert_eq!(moved.len() + same + flows.len(), g.seed_file.placements.len());
         }
     }
@@ -1011,7 +1089,8 @@ mod tests {
         for n in 0..4 {
             let g = generate_data(&d, &Settings::default(), &format!("wrap {n}"), &GenOpts::default()).unwrap();
             let (ts, _, _): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
-            for t in &ts {
+            // Freestanding spots hand out a fixed tier (slice::tier_order), not a chest wrapper.
+            for t in ts.iter().filter(|t| !d.cat.by_name(&t.name).is_some_and(crate::slice::pickups::is_world)) {
                 match (t.family, d.family(&t.new_item)) {
                     (Some(f), _) => {
                         seen.insert(f);
@@ -1047,7 +1126,7 @@ mod tests {
             assert!(pots > 20);
             assert!(g.seed_file.placements.keys().filter(|k| d.pots.has(k)).all(|k| !given.contains_key(k.as_str())));
             let (ts, same, flows): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
-            let moved: BS<&str> = ts.iter().map(|t| t.name.as_str()).collect();
+            let moved: BS<&str> = ts.iter().map(|t| t.name.as_str()).filter(|n| g.seed_file.placements.contains_key(*n)).collect();
             assert_eq!(moved.len() + same + flows.len() + pots, g.seed_file.placements.len());
         }
     }
@@ -1063,7 +1142,7 @@ mod tests {
         let (_, _, flows): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
         assert!(!flows.is_empty());
         for c in &flows {
-            assert!(d.flow.usable(&c.item), "{} -> {}", c.location, c.item);
+            assert!(d.flow.usable(&c.item) || c.location == crate::slice::flow_rules::SARIA, "{} -> {}", c.location, c.item);
             assert!(d.flow_ok(&c.location), "{}", c.location);
         }
         let mut vanilla: Settings = Settings::default();
@@ -1085,14 +1164,14 @@ mod tests {
             let g = generate_data(&d, &st, &format!("split {n}"), &GenOpts::default()).unwrap();
             let (ts, same, flows): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
             let wrapped: BM<String, &'static str> = flow_wraps(&d, &g.seed_file);
-            let moved: BS<&str> = ts.iter().map(|t| t.name.as_str()).collect();
+            let moved: BS<&str> = ts.iter().map(|t| t.name.as_str()).filter(|n| g.seed_file.placements.contains_key(*n)).collect();
             assert_eq!(moved.len() + same + flows.len() + wrapped.len(), g.seed_file.placements.len(), "seed split {n}");
             for (loc, f) in &wrapped {
                 assert_eq!(d.family(&g.seed_file.placements[loc]), Some(*f));
                 assert!(d.flow_ok(loc));
             }
             for c in &flows {
-                assert!(d.flow.usable(&c.item), "{} -> {}", c.location, c.item);
+                assert!(d.flow.usable(&c.item) || c.location == crate::slice::flow_rules::SARIA, "{} -> {}", c.location, c.item);
             }
             let given: BM<String, String> = actors_for(&d, &g.seed_file).unwrap();
             for (loc, actor) in &given {
@@ -1100,6 +1179,26 @@ mod tests {
                     assert!(!actor.starts_with("Obj_Rupee"), "{loc} {actor}");
                 }
             }
+        }
+    }
+
+    #[test]
+    fn a_bomb_chest_always_takes_the_bomb_bag_guard() {
+        use crate::settings::Settings;
+        let d: Data = Data::load().unwrap();
+        let homes: Vec<&crate::catalog::Loc> = d.cat.locs.iter().filter(|l| l.kind == "chest" && guarded(&l.item) && d.state_of(&l.name) == Some(State::Eligible)).collect();
+        assert!(!homes.is_empty());
+        for l in &homes {
+            let (home, item): (&str, &str) = (l.name.as_str(), d.vanilla_of(&l.name).unwrap());
+            let m: BM<String, String> = [(home.to_string(), item.to_string())].into_iter().collect();
+            let s: SeedFile = SeedFile::new("s", &Settings::default(), &d.scan.game, m).unwrap();
+            let (ts, _, _): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &s).unwrap();
+            assert!(ts.iter().any(|t| t.name == home && guarded(&t.new_actor)), "{item}");
+        }
+        let s: SeedFile = SeedFile::new("s", &Settings::default(), &d.scan.game, BM::new()).unwrap();
+        let (ts, _, _): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &s).unwrap();
+        for l in &homes {
+            assert!(ts.iter().any(|t| t.name == l.name && t.new_actor == l.item), "{}", l.name);
         }
     }
 }

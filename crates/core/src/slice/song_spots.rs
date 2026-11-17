@@ -152,8 +152,7 @@ mod tests {
         for (k, v) in [("shuffle_shops", "deals_4"), ("shuffle_chests", "all"), ("shuffle_songs", "anywhere")] {
             s.set(k, Value::s(v)).unwrap();
         }
-        s.set("shop_price_max", Value::Int(700)).unwrap();
-        s.set("shop_deal_items", Value::set(&["stacks", "hearts", "songs"])).unwrap();
+        s.set("shopsanity_prices", Value::s("giant")).unwrap();
         for n in 0..2 {
             let g: Generated = generate_data(&d, &s, &format!("room for deals {n}"), &GenOpts::default()).unwrap_or_else(|e| panic!("{n}: {e}"));
             let songs: usize = g.seed_file.placements.values().filter(|i| d.item(i).is_some_and(is_song_item)).count();
@@ -173,7 +172,7 @@ mod tests {
         let s: SeedFile = SeedFile::new("s", &Settings::default(), "g", m).unwrap();
         let w: BM<String, Want> = need(&d, &s, &BM::new()).unwrap();
         let names: Vec<&str> = w.keys().map(|k| k.as_str()).collect();
-        assert_eq!(names, vec!["Obj_Melody_SariaSong_GS", "Obj_Melody_SunSong"]);
+        assert_eq!(names, vec!["Obj_Melody_SariaSong_GH", "Obj_Melody_SunSong"]);
         assert_eq!(w["Obj_Melody_SunSong"].kind, Kind::Free);
         for x in w.values() {
             assert_eq!(x.spec().unwrap().1.model.as_deref(), Some(crate::pickup_pack::model::HARP));

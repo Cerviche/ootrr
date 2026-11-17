@@ -104,7 +104,7 @@ fn deal_slots(t: &Table, o: &Opts, room: Room, rng: &mut Rng) -> (BS<String>, us
     for (_, si, name) in all {
         if t.shops[si].once && once > 0 {
             once -= 1;
-        } else if any > 0 && !(t.shops[si].once && o.kinds.once()) {
+        } else if any > 0 {
             any -= 1;
         } else {
             cut += 1;
@@ -186,7 +186,7 @@ pub fn make(o: &Opts, seed: &str, room: Room) -> Res<Layout> {
     for s in &t.slots {
         if deals.contains(&s.name) {
             let cap: i32 = t.shop(&s.shop).and_then(|x| x.cap).unwrap_or(i32::MAX);
-            let p: i32 = price::draw(o, s.price, &mut rng).min(cap);
+            let p: i32 = price::draw(o, &mut rng).min(cap);
             let pool: String = if o.kinds != Kinds::default() && !t.flex.is_empty() { t.flex[rng.below(t.flex.len() as u64) as usize].clone() } else { rupee(t, &mut rng) };
             places.push(Place { loc: s.name.clone(), item: String::new(), actor: String::new(), price: p, deal: true, pool });
             continue;

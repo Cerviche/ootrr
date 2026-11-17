@@ -23,7 +23,8 @@ pub fn changes(p: &Plan) -> Vec<&'static str> {
     if p.drops.wild() {
         out.push("shuffle fewer rocks and grass");
     }
-    if p.world.on() {
+    // Pieces of Heart on the ground are always shuffled, so only a wider mode can shrink.
+    if p.world.remake() {
         out.push("shuffle fewer freestanding items");
     }
     out

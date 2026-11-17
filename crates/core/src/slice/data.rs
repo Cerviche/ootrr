@@ -358,6 +358,21 @@ impl Data {
         self.remake.get(base).or_else(|| self.vanilla.get(base)).map(|s| s.as_str())
     }
 
+    /// The item a shuffled location adds to the pool. It is the vanilla item, except at the
+    /// tiered minigame prizes (the shooting galleries, horseback archery, the bowling first
+    /// prize, the target in the woods and the child rolling Goron): the remake data gives them a
+    /// junk vanilla item because their own events hand out a fixed upgrade tier, but the pool
+    /// keeps their OoTR progressive item, so a seed holds every OoTR copy of the Bow, the Bomb
+    /// Bag and the Slingshot instead of one of each.
+    pub fn pool_item(&self, loc: &str) -> Option<&str> {
+        let now: &str = self.vanilla_of(loc)?;
+        let base: &str = loc.split(SEP).next().unwrap_or(loc);
+        match self.vanilla.get(base).map(|s| s.as_str()) {
+            Some(ootr) if ootr != now && self.family(ootr).is_some() && self.item(now).is_some_and(|i| !i.adv) => Some(ootr),
+            _ => Some(now),
+        }
+    }
+
     pub fn state_of(&self, name: &str) -> Option<State> {
         self.scan.rows.iter().find(|r| r.name == name).map(|r| r.state)
     }

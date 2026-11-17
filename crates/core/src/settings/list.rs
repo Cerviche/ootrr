@@ -2,12 +2,33 @@ use super::model::{Group, Schema, Setting, Tag, Value};
 
 pub const SCHEMA_VERSION: u32 = 1;
 
+/// Setting numbers and ids that are gone. An old settings string or file that carries one
+/// still imports, with a warning that its value is ignored, and no setting may reuse them.
+/// 55 and 92 (remake only chests and pots) now follow Chests, Pots and Crates.
+pub const RETIRED: [(u16, &str); 7] = [
+    (55, "shuffle_remake_chests"),
+    (63, "shop_deal_gear"),
+    (92, "shuffle_remake_pots"),
+    crate::shops::plan::OLD[0],
+    crate::shops::plan::OLD[1],
+    crate::shops::plan::OLD[2],
+    crate::shops::plan::OLD[3],
+];
+
+pub fn retired_num(num: u16) -> Option<&'static str> {
+    RETIRED.iter().find(|r| r.0 == num).map(|r| r.1)
+}
+
+pub fn retired_id(id: &str) -> bool {
+    RETIRED.iter().any(|r| r.1 == id)
+}
+
 fn group(id: &str, label: &str, tip: &str) -> Group {
     Group { id: id.to_string(), label: label.to_string(), tip: tip.to_string() }
 }
 
 fn where_checks(s: Setting) -> Setting {
-    s.opt("off", "Vanilla", "These checks keep their original items.")
+    s.opt("off", "Off", "These checks keep their original items.")
         .opt("overworld", "Overworld only", "Only checks outside dungeons are shuffled.")
         .opt("dungeons", "Dungeons only", "Only checks inside dungeons are shuffled.")
         .opt("all", "Everywhere", "Every check of this kind is shuffled.")
@@ -115,7 +136,7 @@ fn starting_items() -> Setting {
             ("bottle", "Empty Bottle"),
             ("magic_beans", "Magic Beans"),
             ("zeldas_letter", "Zelda's Letter"),
-            ("stone_of_agony", "Stone of Agony"),
+            ("stone_of_agony", "Echo Gem (Stone of Agony)"),
             ("gerudo_card", "Gerudo Card"),
             ("goron_bracelet", "Goron's Bracelet"),
             ("silver_scale", "Silver Scale"),
@@ -234,41 +255,35 @@ pub fn build() -> Schema {
         where_checks(
             Setting::choice(8, "shuffle_chests", "shuffle", "Chests", "all")
                 .tag(Tag::Core)
-                .tip("Which treasure chests hold random items."),
+                .tip("Which treasure chests hold random items, including the chests only the remake has."),
         ),
     );
     s.push(
         where_checks(
             Setting::choice(9, "shuffle_pots", "shuffle", "Pots", "off")
-                .tip("Which pots, including flying pots, hold random items. Key items whose pickup pack is built can sit in a pot. A pot that holds a key item is saved as broken only when its item is picked up, so if the item falls into a pit, lands out of reach or is left behind, the pot is back with it the next time the area loads. Rupees, hearts and ammo from a pot are given once and are gone if they are not picked up. Flying pots work the same way."),
+                .tip("Which pots, including flying pots and the pots only the remake has, hold random items. Key items whose pickup pack is built can sit in a pot. A shuffled pot gives its item once and stays broken in the save. An item you do not pick up is lost and can make the seed unbeatable, so save before breaking pots that may hold key items. Flying pots work the same way. Experimental, untested in the game."),
         ),
     );
     s.push(
         where_checks(
             Setting::choice(10, "shuffle_crates", "shuffle", "Crates", "off")
-                .tip("Which crates hold random items. Key items whose pickup pack is built can sit in a crate. A crate that holds a key item is saved as broken only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once."),
+                .tip("Which crates, including the crates only the remake has, hold random items. Key items whose pickup pack is built can sit in a crate. A shuffled crate gives its item once and stays broken in the save. An item you do not pick up is lost and can make the seed unbeatable, so save before breaking crates that may hold key items. Experimental, untested in the game."),
         ),
     );
     s.push(
         Setting::toggle(67, crate::pot_slice::plan::HIVES, "shuffle", "Beehives", false)
-            .tip("Whether the seven beehives in the covered hole of Kakariko Village hold random items. They are the only beehives in the remake that drop an item. Key items whose pickup pack is built can sit in a hive. A hive that holds a key item is saved as fallen only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once. A hive needs an explosive to open the hole and then the Boomerang, the Hookshot or a bow to bring down. Experimental, untested in the game."),
+            .tip("Whether the seven beehives in the covered hole of Kakariko Village hold random items. They are the only beehives in the remake that drop an item. Key items whose pickup pack is built can sit in a hive. A shuffled hive gives its item once and stays fallen in the save. An item you do not pick up is lost and can make the seed unbeatable, so save before bringing down hives that may hold key items. A hive needs an explosive to open the hole and then the Boomerang, the Hookshot or a bow to bring down. Experimental, untested in the game."),
     );
     s.push(
         where_checks(
             Setting::choice(86, "shuffle_rocks", "shuffle", "Small Rocks", "off")
-                .tip("Which small liftable rocks hold random items. The adult and the child copy of a rock are separate checks. Key items whose pickup pack is built can sit under a rock. A rock that holds a key item is saved as broken only when its item is picked up, so if a thrown rock drops it out of reach it is back with the item the next time the area loads. Rupees, hearts and ammo are given once. Experimental, untested in the game."),
+                .tip("Which small liftable rocks hold random items. The adult and the child copy of a rock are separate checks. Key items whose pickup pack is built can sit under a rock. A shuffled rock gives its item once and stays broken in the save. An item you do not pick up is lost, also when a thrown rock drops it out of reach, and that can make the seed unbeatable, so save before lifting rocks that may hold key items. Experimental, untested in the game."),
         ),
     );
     s.push(
         where_checks(
             Setting::choice(87, "shuffle_grass", "shuffle", "Grass", "off")
-                .tip("Which grass tufts hold random items, in the overworld and in the Deku Tree and the Bottom of the Well. Key items whose pickup pack is built can sit in grass. A tuft that holds a key item is saved as cut only when its item is picked up, so it is back with the item the next time the area loads if the item is left behind. Rupees, hearts and ammo are given once. The bug grass of the Lost Woods is left alone. Experimental, untested in the game."),
-        ),
-    );
-    s.push(
-        where_checks(
-            Setting::choice(92, crate::pot_slice::remake::SETTING, "shuffle", "Remake only pots", "off")
-                .tip("Which of the 213 pots, crates and flying pots that only the remake has, with no spot of the original game matched to them, hold random items. They sit in every dungeon but the Deku Tree and the Gerudo Training Ground, and in Kakariko, the Market, the hideout, the fortress, Lon Lon Ranch, Zora's River and Fountain and more. Their logic region comes from the room data and the nearest known checks, the harder one where two fit, so a few may be logically placed too early. They hold the same items as the other pots and crates, key items included. Experimental, untested in the game."),
+                .tip("Which grass tufts hold random items, in the overworld and in the Deku Tree and the Bottom of the Well. Key items whose pickup pack is built can sit in grass. A shuffled tuft gives its item once and stays cut in the save. An item you do not pick up is lost and can make the seed unbeatable, so save before cutting grass that may hold key items. The bug grass of the Lost Woods is left alone. Experimental, untested in the game."),
         ),
     );
     s.push(
@@ -282,9 +297,11 @@ pub fn build() -> Schema {
     s.push(
         Setting::choice(12, "shuffle_freestanding_items", "shuffle", "Freestanding items", "off")
             .tip("Which items lying on the ground hold random items. Rupees, hearts, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every key item whose pickup pack is built can be placed there. A spot that exists once per age only takes items that do no harm when found twice, such as rupees, hearts, ammo and gear that a second copy does not change.")
-            .opt("off", "Vanilla", "Every freestanding item keeps its original item.")
+            .opt("off", "Off", "Only Pieces of Heart are shuffled.")
             .opt("pieces", "Only Pieces of Heart", "Heart pieces on the ground and the three heart piece chests are shuffled. Rupees and recovery hearts on the ground stay as they are.")
-            .opt("all", "Every Freestanding Item", "Heart pieces, rupees and recovery hearts on the ground are all shuffled, also the 98 rupees and hearts that only the remake has, whose logic region comes from the nearest known checks."),
+            .opt("all", "All Items", "Heart pieces, rupees and recovery hearts on the ground are all shuffled, also the 98 rupees and hearts that only the remake has, whose logic region comes from the nearest known checks.")
+            .opt("dungeons", "Dungeons", "Pieces of Heart, and every freestanding item inside dungeons, are shuffled.")
+            .opt("overworld", "Overworld", "Pieces of Heart, and every freestanding item outside dungeons, are shuffled."),
     );
     s.push(
         Setting::list(13, "disabled_locations", "shuffle", "Excluded locations", 500)
@@ -362,7 +379,9 @@ pub fn build() -> Schema {
             .opt("supported", "Supported rewards", "The rewards whose event the tool can edit."),
     );
     s.push(
-        Setting::toggle(51, "shuffle_rewards_extra", "shuffle", "More NPC rewards", false)
+        Setting::toggle(51, "shuffle_rewards_extra", "shuffle", "More NPC rewards", true)
+            .wire_as(Value::Bool(false))
+            .disabled_as(Value::Bool(false))
             .tip("Also shuffle the rewards that need bigger event edits: the 20 token Skulltula reward, Biggoron and Medigoron.")
             .when("shuffle_rewards", "supported"),
     );
@@ -398,12 +417,12 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(90, crate::slice::silver::SETTING, "shuffle", "Silver rupees", false)
-            .tip("The silver rupees of five rooms become items: the Forest and Light Trials in Ganon's Castle, the Ice Cavern push block room, the Bottom of the Well basement and the Gerudo Training Ground slopes room. Each room has five Silver Rupee items that are found in chests anywhere, and the room opens when you have found all five. The spots where the silver rupees hung hold other rupees. Needs Remake chests on, because the other chests are already full. Experimental, untested in the game.")
-            .when(crate::slice::remake_chests::SETTING, "on"),
+            .tip("The silver rupees of five rooms become items: the Forest and Light Trials in Ganon's Castle, the Ice Cavern push block room, the Bottom of the Well basement and the Gerudo Training Ground slopes room. Each room has five Silver Rupee items that are found in chests anywhere, and the room opens when you have found all five. The spots where the silver rupees hung hold other rupees. Needs Chests shuffled, because the Silver Rupee items are only found in chests. Experimental, untested in the game.")
+            .when_not("shuffle_chests", "off"),
     );
     s.push(
         Setting::toggle(46, crate::flow_extra::potion::SETTING, "shuffle", "Market Potion Shop bottle and Red Potion", false)
-            .tip("The free empty bottle the Market Potion Shop keeper gives a child after the meeting with Zelda and the Red Potion he pours as thanks for the escaped bug become two shuffled checks, and one more Bottle joins the pool. While the free bottle holds another item he starts the bug tutorial only for a child who already carries an empty bottle, and his shelves still open after the tutorial.")
+            .tip("The Market Potion Shop keeper's free empty bottle and the Red Potion he pours as thanks for the escaped bug become two shuffled checks, and one more Bottle joins the pool. Both checks need a child who has met Zelda, by day, who carries an empty bottle, because while the free bottle holds another item he starts the bug tutorial only for a child with an empty bottle. His shelves still open after the tutorial.")
             .when("shuffle_rewards", "supported"),
     );
     s.push(
@@ -412,12 +431,49 @@ pub fn build() -> Schema {
             .when("shuffle_rewards", "supported"),
     );
     s.push(
+        Setting::choice(crate::flow_extra::MERCHANTS, "shuffle_merchants", "shuffle", "Shuffle Merchants", "off")
+            .tip("Whether the merchants sell a random item. Medigoron is the only one of All But Beans that is built; the Bean Merchant needs Skip Planting Beans.")
+            .opt("off", "Off", "Medigoron and the Bean Merchant sell their usual items.")
+            .opt("beans", "Bean Merchant Only", "The Bean Merchant sells a random item, when Skip Planting Beans is on.")
+            .opt("no_beans", "All But Beans", "Medigoron sells a random item.")
+            .opt("all", "All", "Medigoron, and the Bean Merchant when Skip Planting Beans is on, sell a random item."),
+    );
+    s.push(
+        Setting::choice(crate::scrub_prices::NUM, crate::scrub_prices::SETTING, "shuffle", "Scrubs Prices", "vanilla")
+            .tip("What the shuffled scrubs charge.")
+            .opt("vanilla", "Vanilla", "The scrub's original price.")
+            .opt("cheap", "Cheap Balanced", "0 to 95 rupees, favoring low prices.")
+            .opt("fixed", "Fixed", "One price for every shuffled scrub."),
+    );
+    s.push(
+        Setting::choice(crate::merchant_prices::NUM, crate::merchant_prices::SETTING, "shuffle", "Merchant Prices", "vanilla")
+            .tip("What the shuffled merchants charge.")
+            .opt("vanilla", "Vanilla", "The merchant's usual price.")
+            .opt("cheap", "Cheap Balanced", "0 to 95 rupees, favoring low prices.")
+            .opt("fixed", "Fixed", "One price for every shuffled merchant."),
+    );
+    s.push(
+        Setting::number(crate::merchant_prices::FIXED_NUM, crate::merchant_prices::FIXED, "shuffle", "Merchant Fixed Price", 10, 0, 99)
+            .tip("The price of every shuffled merchant when Merchant Prices is Fixed.")
+            .when(crate::merchant_prices::SETTING, "fixed"),
+    );
+    s.push(
+        Setting::toggle(crate::scrub_prices::HINT_NUM, crate::scrub_prices::HINT, "world", "Scrub Hint Text", false)
+            .tip("Shuffled scrubs name the item they really sell. Off, they call it a Mystery Item. The price they say is always the price they take."),
+    );
+    s.push(
+        Setting::number(crate::scrub_prices::FIXED_NUM, crate::scrub_prices::FIXED, "shuffle", "Scrubs Fixed Price", 10, 0, 99)
+            .tip("The price of every shuffled scrub when Scrubs Prices is Fixed.")
+            .when(crate::scrub_prices::SETTING, "fixed"),
+    );
+    s.push(
         Setting::toggle(56, "shuffle_scrubs_b", "shuffle", "Menu scrubs as one time sales", false)
             .tip("Also shuffle the Business Scrubs in the Lost Woods scrub grotto and in Jabu Jabu's Belly. A scrub that holds another item sells it once for 20 or 30 rupees instead of its menu, and its sale text still names a heart piece.")
             .when("shuffle_rewards", "supported"),
     );
     s.push(
-        Setting::toggle(39, "shuffle_boss_hearts", "shuffle", "Boss Heart Containers", false)
+        Setting::toggle(39, "shuffle_boss_hearts", "shuffle", "Boss Heart Containers", true)
+            .wire_as(Value::Bool(false))
             .tip("Whether the Heart Containers that bosses leave behind join the item pool. Each one becomes a chest that holds a random item."),
     );
     s.push(
@@ -474,12 +530,6 @@ pub fn build() -> Schema {
             .opt("matched", "Confident and pooled", "Also the pools of skulltulas that share the same logic, and the skulltulas that our hash research pairs with their spot. The skulltulas whose spot is still unsure only drop minor items such as rupees and hearts."),
     );
     s.push(
-        Setting::choice(55, "shuffle_remake_chests", "shuffle", "Remake chests", "off")
-            .tip("Whether the chests that only the remake has, and the dungeon and overworld chests newly paired with their OoTR spot, join the item pool. Their rules come from research. Seven overworld chests whose spot is unproven only take items that are not progression.")
-            .opt("off", "Vanilla", "These chests keep their original items.")
-            .opt("on", "Shuffled", "These chests hold random items."),
-    );
-    s.push(
         Setting::toggle(57, "bombchus_in_logic", "world", "Bombchus in logic (experimental)", false)
             .tip("Experimental. Bombchus count as explosives in the seed logic, so walls, switches and enemies that need an explosive can be handled with Bombchus and no Bomb Bag. This follows the OoTR option that considers Bombchus in logic. Only the logic side is done here, the remake gets no separate Bombchu bag and no Bombchu drops. Caution: in our test of the remake, Bombchus only worked once a Bomb Bag and its ammo maximum were set, and a Bombchu pickup gave a count of 0 without them. The game is also reported to gate Bombchu use on a bag or a defeated Dodongo. A seed with this ticked may expect Bombchus where the game will not let you use them."),
     );
@@ -499,10 +549,11 @@ pub fn build() -> Schema {
             .tip("The Ghost Shop owner in the Market gives the Bottle for the first big poe, where the game wants five. The golden reward after ten big poes is unchanged. The logic needs one big poe."),
     );
     s.push(
-        Setting::choice(78, crate::qol::NAVI, "world", "Return with Navi", "off")
-            .tip("Calling Navi with the D-pad asks whether to head back, like the original game restarting a saved file at the dungeon entrance, in Kokiri Forest or in the Temple of Time. Needs no item. The D-pad calls Navi from the start of a new game, and her room tutorial hints are replaced by the question; enemy hints while targeting stay. Boss rush, final battle and miniboss arena maps never offer it. Experimental, untested in the game.")
+        Setting::choice(78, crate::qol::NAVI, "world", "Return with Navi", "everywhere")
+            .wire_as(Value::s("off"))
+            .tip("Calling Navi with the D-pad asks whether to head back, like the original game restarting a saved file at the dungeon entrance, in Kokiri Forest or in the Temple of Time. Needs no item. The D-pad calls Navi from the start of a new game, and her room tutorial hints are replaced by the question; enemy hints while targeting stay. Boss rooms, miniboss rooms, the boss rush and the final battle never offer it, since leaving a fight that way left the save button disabled. Experimental, untested in the game.")
             .opt("off", "Off", "Navi stays quiet when she has no hint.")
-            .opt("dungeons", "Dungeons", "Inside a dungeon or its boss room, Navi offers a trip back to the dungeon entrance.")
+            .opt("dungeons", "Dungeons", "Inside a dungeon, Navi offers a trip back to the dungeon entrance.")
             .opt("everywhere", "Dungeons and overworld", "Also outside dungeons: back to Kokiri Forest as a child, or the Temple of Time as an adult."),
     );
     s.push(
@@ -514,7 +565,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(81, crate::open_world::EPONA, "world", "Skip Epona's race", false)
-            .tip("Learning Epona's Song counts as having won Epona from Ingo: the game's \"Epona is Link's horse\" flag is rewritten to read whether the song has been learned, so the ranch race against Ingo is skipped and an adult with the song can call Epona. The Epona quest step is left alone, so child Malon's song lesson still works. Experimental, untested in the game."),
+            .tip("Learning Epona's Song is enough to own Epona, with no ranch visit and no race against Ingo. The first time adult Link plays the song where a horse can be ridden, Epona is registered as his horse and comes, and the Epona quest is marked complete. Experimental, untested in the game."),
     );
     s.push(
         Setting::toggle(82, crate::open_world::MASKS, "world", "Skip the mask trading quest", false)
@@ -542,7 +593,7 @@ pub fn build() -> Schema {
             .opt("everything", "Everything", "Dungeons, overworld transitions and later interiors and grottos, each kept in its own pool. Not built yet, a seed with this is refused."),
     );
     s.push(
-        Setting::toggle(crate::deku_bridge::NUM, crate::deku_bridge::KEY, "world", "Deku Tree bridge never breaks", true)
+        Setting::toggle(crate::deku_bridge::NUM, crate::deku_bridge::KEY, "world", "Deku Tree bridge never breaks", false)
             .wire_as(Value::Bool(false))
             .tip("The wooden bridge in the Deku Tree slingshot room stays up when Link walks, rolls or jumps on it, so you never drop into the pit below it. Nothing else in the dungeon changes and the logic is the same, because the room never needed the bridge to break. Without the Slingshot the jump across has a window of about nine frames, so this keeps the room fair when the chests there hold other items. A bridge that already broke in a save stays broken. Experimental, untested in the game."),
     );

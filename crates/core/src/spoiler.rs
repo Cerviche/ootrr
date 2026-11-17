@@ -5,6 +5,35 @@ use crate::logic_items::ItemId;
 use crate::search::{explore, Search};
 use crate::world::{LocId, Placement, World};
 
+/// Items that come in tiers but keep OoTR's plain names in the logic. The spoiler shows them
+/// with a "Progressive" name like the Hookshot, so every tiered item reads the same way.
+pub const SHOWN: [(&str, &str); 5] = [
+    ("Bow", "Progressive Bow"),
+    ("Bomb Bag", "Progressive Bomb Bag"),
+    ("Slingshot", "Progressive Slingshot"),
+    ("Magic Meter", "Progressive Magic Meter"),
+    ("Ocarina", "Progressive Ocarina"),
+];
+
+/// What the tiers of the renamed items are, for the top of the spoiler.
+pub const LEGEND: &str = "Progressive items, in the order they are found:
+  Progressive Bow: Fairy Bow, then the big quiver, then the biggest quiver
+  Progressive Bomb Bag: Bomb Bag, then the big bomb bag, then the biggest bomb bag
+  Progressive Slingshot: Fairy Slingshot, then the big bullet bag, then the biggest bullet bag
+  Progressive Magic Meter: Gift of Improved Spin (gives the magic meter and the magic spin attack), then Gift of Doubled Magic
+  Progressive Ocarina: Fairy Ocarina, then Ocarina of Time
+";
+
+/// The name the spoiler shows for a logic item name.
+pub fn shown(name: &str) -> &str {
+    SHOWN.iter().find(|(n, _)| *n == name).map(|(_, s)| *s).unwrap_or(name)
+}
+
+/// The logic item name behind a shown name, so a name copied from the spoiler still works.
+pub fn unshown(name: &str) -> &str {
+    SHOWN.iter().find(|(_, s)| s.eq_ignore_ascii_case(name.trim())).map(|(n, _)| *n).unwrap_or(name)
+}
+
 #[derive(Clone, Debug)]
 pub struct Spoiler {
     pub spheres: Vec<Vec<(LocId, ItemId)>>,
@@ -81,13 +110,13 @@ impl Spoiler {
         for (n, sphere) in self.spheres.iter().enumerate() {
             let _ = writeln!(out, "Sphere {}", n + 1);
             for (l, i) in sphere {
-                let _ = writeln!(out, "  {}: {}", w.locs[*l].name, w.items.names[*i]);
+                let _ = writeln!(out, "  {}: {}", w.locs[*l].name, shown(&w.items.names[*i]));
             }
         }
         let _ = writeln!(out, "Placement of {} locations", w.real.len());
         for l in &w.real {
             let name: &str = match place.get(*l) {
-                Some(i) => w.items.names[i].as_str(),
+                Some(i) => shown(&w.items.names[i]),
                 None => "(empty)",
             };
             let _ = writeln!(out, "  {}: {}", w.locs[*l].name, name);
@@ -184,6 +213,19 @@ mod tests {
         put(&w, &mut p, "B", "Crown");
         let sp: Spoiler = playthrough(&w, &p).unwrap();
         assert_eq!(sp.spheres.len(), 2);
+    }
+
+    #[test]
+    fn tiered_items_show_progressive_names_and_read_back() {
+        for (n, sh) in SHOWN {
+            assert_eq!(shown(n), sh);
+            assert_eq!(unshown(sh), n);
+            assert_eq!(unshown(&sh.to_lowercase()), n);
+            assert!(LEGEND.contains(sh), "{sh}");
+        }
+        assert_eq!(shown("Progressive Hookshot"), "Progressive Hookshot");
+        assert_eq!(unshown("Bow"), "Bow");
+        assert!(LEGEND.contains("Gift of Improved Spin"));
     }
 
     #[test]

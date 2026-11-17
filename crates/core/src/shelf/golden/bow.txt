@@ -1,4 +1,0 @@
-Bow sells Item_Range_Bow as Weapon_Range_Bow
-  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Quiver_Small IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=1
-  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Arrow_Normal IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=30
-  PouchSystemActor.EventTriggerAddOrRemovePouchContent Actor=Item_Quiver_Large IsEquipDIrect=false IsGetEvent=false IsSetMessageTargetActorName=false Num=1

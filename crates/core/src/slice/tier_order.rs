@@ -150,10 +150,6 @@ pub fn judge(d: &Data, w: &World, place: &Placement, placed: &BM<String, String>
         let name: &str = mine.iter().find(|s| s.give == Give::Open).map(|s| s.item.as_str()).unwrap_or("");
         let it: ItemId = w.item(name).ok_or_else(|| E::Msg(format!("{name} is not in the logic item list")))?;
         for s in mine.iter().filter(|s| s.give != Give::Flow) {
-            if crate::shops::is_loc(&s.loc) {
-                v.assign.insert(s.loc.clone(), t[t.len() - 1].to_string());
-                continue;
-            }
             let Some(l) = w.loc(&s.loc) else {
                 v.bad.push(format!("{} holds {} but is not a logic location", s.loc, s.item));
                 continue;
@@ -295,6 +291,32 @@ mod tests {
         assert_eq!(v.assign.get("KF Midos Top Left Chest").map(|s| s.as_str()), Some("Item_Hookshot"));
         let n: Need = need(&w, &place, hook, w.loc("Water Temple Longshot Chest").unwrap());
         assert_eq!((n.held, n.tight), (1, true));
+    }
+
+    #[test]
+    fn a_shop_deal_gets_the_tier_of_the_reach_order_and_not_the_top_tier() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = with(&[("shuffle_chests", "overworld"), ("shuffle_shops", "deals_2")]);
+        let (w, mut place): (World, Placement) = world_of(&d, &s);
+        let sling: ItemId = w.item("Slingshot").unwrap();
+        let five: ItemId = w.item("Rupees (5)").unwrap();
+        let shop: LocId = w.loc("KF Shop Item 1").unwrap();
+        let chest: LocId = w.loc("Deku Tree Slingshot Chest").unwrap();
+        let alone: Vec<LocId> = (0..w.locs.len()).filter(|l| *l != chest && place.get(*l) == Some(sling)).collect();
+        for l in &alone {
+            place.put(*l, five);
+        }
+        place.put(chest, five);
+        place.put(shop, sling);
+        let placed: BM<String, String> = map(&[("KF Shop Item 1", "Slingshot"), ("Deku Tree Slingshot Chest", "Rupees (5)")]);
+        let v: Verdict = judge(&d, &w, &place, &placed).unwrap();
+        assert_eq!(v.assign.get("KF Shop Item 1").map(|s| s.as_str()), Some("Item_Range_SlingShot"));
+        assert!(!v.bad.iter().any(|b| b.starts_with("KF Shop Item 1")), "{:?}", v.bad);
+        place.put(w.loc("KF Midos Top Left Chest").unwrap(), sling);
+        let early: BM<String, String> = map(&[("KF Shop Item 1", "Slingshot"), ("KF Midos Top Left Chest", "Slingshot"), ("Deku Tree Slingshot Chest", "Rupees (5)")]);
+        let v: Verdict = judge(&d, &w, &place, &early).unwrap();
+        assert_eq!(v.assign.get("KF Shop Item 1").map(|s| s.as_str()), Some("Item_BulletBag_Medium"));
+        assert!(v.bad.iter().any(|b| b.starts_with("KF Shop Item 1")), "{:?}", v.bad);
     }
 
     #[test]

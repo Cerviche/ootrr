@@ -6,9 +6,7 @@ use crate::placement::hash_of;
 use crate::pot_slice::rocks;
 use crate::pot_slice::scan::peek;
 use crate::pot_slice::targets::Give;
-use crate::pickup_pack::kit::name_of;
 use crate::pots::give;
-use crate::slice::pickups::swap_gyaml;
 use crate::romfs::Romfs;
 use crate::slice::banc::fingerprint;
 use crate::slice::data::Data;
@@ -26,15 +24,6 @@ pub fn give_one(y: &mut Byml, t: &Give) -> Res<usize> {
     if t.kind.wild() {
         drop_table(y, t.hash);
     }
-    if t.kit {
-        let old: &str = seen.first().map(|p| p.gyaml.as_str()).unwrap_or("");
-        if !t.kind.actors().contains(&old) {
-            return Err(E::Msg(format!("actor {} of {} is {old:?}, which has no variant that keeps {} until it is picked up", t.hash, t.name, t.item)));
-        }
-        if swap_gyaml(y, t.hash, old, &name_of(old)) == 0 {
-            return Err(E::Msg(format!("actor {} of {} could not become {}", t.hash, t.name, name_of(old))));
-        }
-    }
     Ok(n)
 }
 
@@ -50,10 +39,6 @@ pub fn drop_table(y: &mut Byml, hash: u64) -> usize {
         }
     }
     n
-}
-
-pub fn variants(ts: &[Give]) -> bool {
-    ts.iter().any(|t| t.kit)
 }
 
 pub fn check_game(rf: &Romfs, d: &Data) -> Res<()> {
@@ -185,7 +170,17 @@ mod tests {
     }
 
     fn give_of(h: u64, was: &str, actor: &'static str) -> Give {
-        Give { name: "Pot".to_string(), kind: Kind::Pot, hash: h, files: vec!["f".to_string()], was: was.to_string(), item: "Rupees (5)".to_string(), actor: actor.to_string(), kit: false }
+        Give { name: "Pot".to_string(), kind: Kind::Pot, hash: h, files: vec!["f".to_string()], was: was.to_string(), item: "Rupees (5)".to_string(), actor: actor.to_string() }
+    }
+
+    #[test]
+    fn a_key_item_drops_from_the_game_pot_itself() {
+        let mut y: Byml = file(vec![pot(1, Some("Obj_Rupee_Green"))]);
+        let mut g: Give = give_of(1, "Obj_Rupee_Green", "Obj_HoverBoot");
+        g.item = "Hover Boots".to_string();
+        assert_eq!(give_one(&mut y, &g).unwrap(), 1);
+        let p: Vec<crate::pot_slice::scan::Peek> = peek(&y, 1);
+        assert_eq!((p[0].gyaml.as_str(), p[0].drop.as_str()), ("Obj_Pot_A_01", "Obj_HoverBoot"));
     }
 
     #[test]

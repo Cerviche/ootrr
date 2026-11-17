@@ -187,7 +187,10 @@ impl Schema {
             }
             last = Some(num);
             match self.by_num(num as u16) {
-                None => w.push(format!("unknown setting number {num} ignored")),
+                None => match super::list::retired_num(num as u16) {
+                    Some(id) => w.push(format!("setting number {num} ({id}) was removed, its value is ignored")),
+                    None => w.push(format!("unknown setting number {num} ignored")),
+                },
                 Some(s) => {
                     if let Some(x) = self.dec(s, p, &mut w)? {
                         v.insert(s.id.clone(), x);
@@ -295,6 +298,13 @@ mod tests {
         let t: String = s.encode(&v).unwrap();
         let spaced: String = format!("  {}  ", t.to_lowercase().replace("-", "-\n "));
         assert_eq!(s.decode(&spaced).unwrap().0, v);
+    }
+
+    #[test]
+    fn retired_numbers_are_never_reused() {
+        for (n, id) in super::super::list::RETIRED {
+            assert!(crate::settings::schema().settings.iter().all(|s| s.num != n && s.id != id), "setting number {n} ({id}) is retired");
+        }
     }
 
     #[test]
@@ -433,5 +443,36 @@ mod tests {
             let b: Vec<u8> = (0..n).map(|_| r.next_u64() as u8).collect();
             let _ = s.decode(&wrap(b));
         }
+    }
+
+    #[test]
+    fn an_old_string_with_the_retired_gear_deals_setting_still_imports() {
+        let real: &Schema = crate::settings::schema();
+        assert!(real.by_num(63).is_none() && real.get("shop_deal_gear").is_none());
+        let mut v: Vals = real.defaults();
+        v.insert("shuffle_shops".to_string(), Value::s("deals_2"));
+        real.normalize(&mut v);
+        let t: String = real.encode(&v).unwrap();
+        let (_, rest) = split_prefix(&t).unwrap();
+        let all: Vec<u8> = b32_decode(rest).unwrap();
+        let mut r: Rd = Rd::new(&all[..all.len() - 2]);
+        let mut es: Vec<(u64, Vec<u8>)> = vec![(63, vec![1])];
+        while !r.done() {
+            let num: u64 = r.varint().unwrap();
+            let len: u64 = r.varint().unwrap();
+            es.push((num, r.take(len as usize).unwrap().to_vec()));
+        }
+        es.sort();
+        let mut body: Vec<u8> = Vec::new();
+        for (num, p) in &es {
+            entry(&mut body, *num, p);
+        }
+        let (got, w) = real.decode(&wrap(body)).unwrap();
+        assert_eq!(got, v);
+        assert_eq!(w, vec!["setting number 63 (shop_deal_gear) was removed, its value is ignored".to_string()]);
+        let j: crate::json::Json = crate::json::parse("{\"shuffle_shops\": \"deals_2\", \"shop_deal_gear\": true}").unwrap();
+        let l: crate::settings::Loaded = crate::settings::Settings::from_json(&j).unwrap();
+        assert_eq!(l.settings.get("shuffle_shops"), Some(&Value::s("deals_2")));
+        assert_eq!(l.warnings, vec!["setting shop_deal_gear was removed, its value is ignored".to_string()]);
     }
 }

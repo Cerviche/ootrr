@@ -92,6 +92,12 @@ fn op(j: &Json) -> Res<Op> {
             sub: text(j, "sub")?,
             params: params(j)?,
         }),
+        "backfill" => How::Backfill(crate::flow_extra::op::Backfill {
+            old: ev(j, "old")?,
+            have: text(j, "have")?,
+            lack: text(j, "lack")?,
+            give: j.get("give").and_then(|v| v.as_arr()).ok_or(E::Format("flow_extra json: a backfill needs a give list"))?.iter().map(|v| v.as_str().map(|s| s.to_string()).ok_or(E::Format("flow_extra json: a give entry is not text"))).collect::<Res<Vec<String>>>()?,
+        }),
         _ => return Err(E::Msg(format!("flow_extra json: unknown edit kind {kind}"))),
     };
     Ok(Op { file, index, event, how })
@@ -148,7 +154,7 @@ mod tests {
             assert!((l.gated && !l.supported) || (l.supported && (l.cat == "great_fairy" || l.name == "GC Rolling Goron as Child")), "{}", s.name);
             assert!(!s.ops.is_empty() && !s.why.is_empty(), "{}", s.name);
         }
-        assert_eq!(x.always.iter().map(|s| s.name.as_str()).collect::<Vec<&str>>(), vec!["Din fountain gauge", "Fire Arrow pickup gauge", "Fairy fountains without Din's Fire", "Summit owl without Din's Fire"]);
+        assert_eq!(x.always.iter().map(|s| s.name.as_str()).collect::<Vec<&str>>(), vec!["Din fountain gauge", "Fire Arrow pickup gauge", "Doubled magic without the improved spin", "Fairy fountains without Din's Fire", "Summit owl without Din's Fire"]);
         for s in &x.always {
             assert!(!s.ops.is_empty() && !s.why.is_empty() && d.by_name(&s.name).is_none(), "{}", s.name);
             assert!(x.by_name(&s.name).is_none(), "{}", s.name);

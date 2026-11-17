@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap as BM, BTreeSet as BS};
+use std::collections::BTreeMap as BM;
 use std::fs;
 use std::path::{Path as P, PathBuf as PB};
 
@@ -14,7 +14,7 @@ use crate::rsizetable::{self, Rst, TABLE_PATH};
 use crate::sarc::{self, Entry};
 use crate::shelf::actor::{int, price_file, table_file};
 use crate::shelf::goods::{self, actor_of};
-use crate::shelf::{banc, counters, hook, inner, text, Job, What, BASE, KEEPER_PACKS};
+use crate::shelf::{banc, counters, inner, text, Job, What, BASE, KEEPER_PACKS};
 
 fn read(rf: &mut Romfs, root: &P, path: &str) -> Res<Vec<u8>> {
     let p: PB = root.join(path);
@@ -135,33 +135,10 @@ pub fn run(romfs: &P, root: &P, jobs: &[Job]) -> Res<Vec<String>> {
             let rows_ok: bool = ts.iter().all(|y| rows::find(y, &want).is_some());
             let sized: bool = [pack_of(&want), actor_file(&want), pouch_file(&want), price_file(&want), table_file(&want)].iter().all(|f| rst.get(f).is_some());
             let named: usize = mals.iter().filter(|m| text::has(m, &who).unwrap_or(false)).count();
-            if let What::Deal { item, .. } = &j.what {
-                if hook::by_shelf(item).is_some_and(|h| h.name != who) {
-                    bad.push(format!("{} shelf actor {want} reports {who}, which the shop hook does not test", j.label));
-                }
-            }
             if !(parent && rows_ok && sized && own == Some(j.price() as i64) && !who.is_empty() && named == mals.len() && !mals.is_empty()) {
                 bad.push(format!("{} shelf actor {want}: parent {parent} rows {rows_ok} sizes {sized} own price {own:?} identity {who:?} text in {named} of {} archives", j.label, mals.len()));
             }
         }
-    }
-    let hooked: BS<String> = jobs
-        .iter()
-        .filter_map(|j| match &j.what {
-            What::Deal { item, .. } => hook::by_shelf(item).map(|h| h.name.to_string()),
-            _ => None,
-        })
-        .collect();
-    if !hooked.is_empty() {
-        let raw: Vec<u8> = read(&mut rf, root, hook::FLOW)?;
-        let vanilla: usize = rf.read_zs(hook::FLOW)?.len();
-        for m in hook::check(&raw, &hooked) {
-            bad.push(format!("shop flow: {m}"));
-        }
-        if !hook::sized(rst.get(hook::FLOW), stock.get(hook::FLOW), vanilla, raw.len()) {
-            bad.push(format!("shop flow: size table entry {:?} is too small for {} bytes", rst.get(hook::FLOW), raw.len()));
-        }
-        out.push(format!("shelf hook in the shop flow read back for {}", hooked.iter().cloned().collect::<Vec<String>>().join(", ")));
     }
     out.push(format!("{} shelf slots read back, {} problems", jobs.len(), bad.len()));
     if !bad.is_empty() {

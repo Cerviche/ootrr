@@ -28,7 +28,7 @@ pub const CONTENT: &str = "TBox_Rupee_Green";
 pub const ASK: &str = "EventQueryIsGameDataBool";
 pub const ENTRY: &str = "Success_Silver_";
 pub const NOTE: &str = "Silver rupees are shuffled in the Forest and Light Trials of Ganon's Castle, the Ice Cavern push block room, the Bottom of the Well basement and the Gerudo Training Ground slopes room. Each room has five Silver Rupee items, found only in chests. Each one gives one rupee and counts on a spare saved flag, and the fifth sets the flag that opens the room. The spots where these silver rupees hung hold rupees. None of this is tested in the game yet.";
-pub const NEEDS_CHESTS: &str = "shuffle_silver_rupees needs shuffle_chests and shuffle_remake_chests on, because the 25 Silver Rupee items can only be found in chests and the other chests are already full of items that have nowhere else to go";
+pub const NEEDS_CHESTS: &str = "shuffle_silver_rupees needs shuffle_chests on, because the 25 Silver Rupee items can only be found in chests and the other chests are already full of items that have nowhere else to go";
 pub const LEFT: &str = "silver rupee spot is not in the logic world";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -120,12 +120,12 @@ pub const ROOMS: [Room; 5] = [
     },
 ];
 
-pub fn mode(s: &Settings, chests: Mode, remake: bool, bad: &mut Vec<String>) -> bool {
+pub fn mode(s: &Settings, chests: Mode, bad: &mut Vec<String>) -> bool {
     let on: bool = s.flag(SETTING).unwrap_or_else(|e| {
         bad.push(e.to_string());
         false
     });
-    if on && (chests == Mode::Off || !remake) {
+    if on && chests == Mode::Off {
         bad.push(NEEDS_CHESTS.to_string());
     }
     on
@@ -495,9 +495,6 @@ mod tests {
     fn with(on: bool) -> Settings {
         let mut s: Settings = Settings::default();
         s.set(SETTING, Value::Bool(on)).unwrap();
-        if on {
-            s.set(crate::slice::remake_chests::SETTING, Value::s("on")).unwrap();
-        }
         s
     }
 
@@ -695,9 +692,10 @@ mod tests {
         let mut s: Settings = with(true);
         s.set("shuffle_chests", Value::s("off")).unwrap();
         assert!(plan(&s).unwrap_err().to_string().contains(NEEDS_CHESTS));
+        // Chests are shuffled by default, which is all the Silver Rupee items need.
         let mut s: Settings = Settings::default();
         s.set(SETTING, Value::Bool(true)).unwrap();
-        assert!(plan(&s).unwrap_err().to_string().contains(NEEDS_CHESTS));
+        assert!(plan(&s).unwrap().silver);
         let logic: &str = include_str!("../../../../data/logic/settings.json");
         assert!(logic.contains("\"shuffle_silver_rupees\": false"));
     }

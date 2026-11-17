@@ -57,6 +57,9 @@ fn setting_json(s: &Setting) -> Json {
     if let Some(d) = &s.disabled {
         o.put("disabled", d.to_json());
     }
+    if crate::slice::support::not_yet(&s.id) {
+        o.put("unsupported", true.into());
+    }
     o
 }
 
@@ -117,6 +120,29 @@ mod tests {
                 "number" => assert!(s.get("min").is_some() && s.get("max").is_some()),
                 "list" => assert!(s.get("max_items").is_some()),
                 _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn settings_the_build_cannot_apply_yet_are_marked_for_the_menu() {
+        let j: Json = schema_json(schema(), &[]);
+        let all: &[Json] = j.get("settings").and_then(|x| x.as_arr()).unwrap();
+        let marked: Vec<&str> = all
+            .iter()
+            .filter(|s| s.get("unsupported").and_then(|x| x.as_bool()) == Some(true))
+            .filter_map(|s| s.get("id").and_then(|x| x.as_str()))
+            .collect();
+        for id in ["bridge", "bridge_medallions", "ganon_bosskey_medallions", "trials", "triforce_hunt", "logic_rules"] {
+            assert!(marked.contains(&id), "{id}");
+        }
+        for id in ["starting_hearts", "starting_songs", "shuffle_chests", "shuffle_potion_shop"] {
+            assert!(!marked.contains(&id), "{id}");
+        }
+        assert_eq!(marked.len(), 19);
+        for s in all {
+            if let Some(u) = s.get("unsupported") {
+                assert_eq!(u.as_bool(), Some(true));
             }
         }
     }

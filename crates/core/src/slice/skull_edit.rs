@@ -203,7 +203,7 @@ mod tests {
             let g: Generated = generate_data(&d, &s, &format!("drops {n}"), &GenOpts::default()).unwrap();
             let ds: Vec<Drop> = drops(&d, &g.seed_file).unwrap();
             for x in &ds {
-                assert!(x.actor.starts_with("Obj_") && x.actor.ends_with("_GS"), "{}", x.actor);
+                assert!(x.actor.starts_with("Obj_") && x.actor.ends_with("_GH"), "{}", x.actor);
                 assert_ne!(x.item, TOKEN);
                 assert!(is_skull(&d, &x.name));
             }

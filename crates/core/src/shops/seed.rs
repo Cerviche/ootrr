@@ -79,7 +79,7 @@ mod tests {
 
     #[test]
     fn a_layout_survives_the_seed_file() {
-        let o: Opts = Opts { level: Level::Deals(1), prices: Prices::Uniform, min: 20, max: 400, kinds: crate::shops::plan::Kinds::default() };
+        let o: Opts = Opts { level: Level::Deals(1), prices: Prices::Weighted, min: 20, max: 400, kinds: crate::shops::plan::Kinds::default() };
         let mut l: Layout = make(&o, "seed rt", crate::shops::layout::Room::any(64)).unwrap();
         let got: BM<String, String> = l.deals().map(|p| (p.loc.clone(), "Boomerang".to_string())).collect();
         fill_deals(&mut l, &got).unwrap();

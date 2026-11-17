@@ -1,4 +1,4 @@
-use std::collections::HashMap as HM;
+use std::collections::{BTreeSet as BS, HashMap as HM};
 
 use crate::error::{Error as E, Res};
 use crate::slice::generate::allowed;
@@ -18,7 +18,6 @@ pub enum Class {
     Unique,
     Stack,
     Upgrade,
-    Gear,
     Heart,
     Song,
 }
@@ -33,7 +32,6 @@ impl Class {
             Class::Unique => true,
             Class::Stack => o.kinds.stacks,
             Class::Upgrade => o.kinds.upgrades,
-            Class::Gear => o.kinds.gear,
             Class::Heart => o.kinds.hearts,
             Class::Song => o.kinds.songs && songs,
         }
@@ -50,9 +48,6 @@ pub fn class(d: &Data, item: &str) -> Option<Class> {
     }
     if t.hearts.iter().any(|i| i == item) {
         return Some(Class::Heart);
-    }
-    if d.family(item).is_some_and(|f| crate::shelf::hook::by_family(f).is_some()) {
-        return Some(Class::Gear);
     }
     if d.family(item).is_some_and(|f| t.upgrades.iter().any(|u| u == f)) {
         return Some(Class::Upgrade);
@@ -74,7 +69,9 @@ pub fn at(d: &Data, o: &Opts, songs: bool, name: &str, item: &str) -> Option<boo
     }
     let t: &Table = table().ok()?;
     let once: bool = t.slot(name).and_then(|s| t.shop(&s.shop)).is_some_and(|s| s.once);
-    Some(class(d, item).is_some_and(|c| c.on(o, songs) && if once && o.kinds.once() { c.once_only() } else { once || !c.once_only() }))
+    // A shop with one keeper closes a slot after one purchase, so it can sell anything once.
+    // The others sell a deal again and again, so only items that cannot be held twice.
+    Some(class(d, item).is_some_and(|c| c.on(o, songs) && (once || !c.once_only())))
 }
 
 pub fn room(d: &Data, p: &Plan) -> Res<Room> {
@@ -87,8 +84,15 @@ pub fn room(d: &Data, p: &Plan) -> Res<Room> {
     let v: Placement = vanilla_place(&w, d)?;
     let mut any: usize = 0;
     let mut once: usize = 0;
+    // Only one copy of each upgrade family counts. A shelf sells the tier the reach order
+    // forces (slice::tier_order), so a second copy on a shelf fits only when the first one is
+    // always found before that shop. Counting every copy opened deals that only duplicate
+    // upgrades could fill, and no fill then kept the tiers in order.
+    let mut fams: BS<&str> = BS::new();
     for i in pk.free.iter().filter_map(|l| v.get(*l)) {
-        match class(d, &w.items.names[i]).filter(|c| c.on(&p.shops, songs)) {
+        let name: &str = &w.items.names[i];
+        match class(d, name).filter(|c| c.on(&p.shops, songs)) {
+            Some(Class::Upgrade) if !d.family(name).is_some_and(|f| fams.insert(f)) => {}
             Some(c) if c.once_only() => once += 1,
             Some(_) => any += 1,
             None => {}
@@ -154,9 +158,7 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let off: Opts = Opts::default();
         let on: Opts = Opts { level: Level::Deals(2), prices: Prices::Weighted, min: 10, max: 200, kinds: Kinds::default() };
-        let all: Opts = Opts { kinds: Kinds { stacks: true, upgrades: true, hearts: true, songs: true, gear: false }, ..on };
-        let gear: Opts = Opts { kinds: Kinds { gear: true, ..Kinds::default() }, ..on };
-        let both: Opts = Opts { kinds: Kinds { gear: true, ..all.kinds }, ..on };
+        let all: Opts = Opts { kinds: Kinds { stacks: true, upgrades: true, hearts: true, songs: true }, ..on };
         let plain: Opts = Opts { level: Level::Shuffle, ..on };
         assert_eq!(at(&d, &off, true, "KF Shop Item 1", "Boomerang"), None);
         assert_eq!(at(&d, &on, true, "KF Midos Top Left Chest", "Boomerang"), None);
@@ -171,7 +173,8 @@ mod tests {
         assert_eq!(at(&d, &all, true, "GC Shop Item 5", "Bombs (10)"), Some(false));
         assert_eq!(at(&d, &all, true, "Market Bazaar Item 1", "Bombs (10)"), Some(true));
         assert_eq!(at(&d, &all, true, "Market Bazaar Item 1", "Piece of Heart"), Some(true));
-        assert_eq!(at(&d, &all, true, "Market Bazaar Item 1", "Boomerang"), Some(false));
+        assert_eq!(at(&d, &all, true, "Market Bazaar Item 1", "Boomerang"), Some(true), "a one keeper shop sells anything once");
+        assert_eq!(at(&d, &all, true, "Market Bazaar Item 1", "Progressive Hookshot"), Some(true));
         assert_eq!(at(&d, &on, true, "Market Bazaar Item 1", "Boomerang"), Some(true));
         assert_eq!(at(&d, &all, true, "KF Shop Item 1", "Piece of Heart"), Some(false));
         for bad in ["Bow", "Slingshot", "Bomb Bag", "Magic Meter", "Bombchus (10)", "Small Key (Forest Temple)", "Kokiri Emerald", "Bottle", "Bottle with Fish", "Rupees (20)"] {
@@ -180,15 +183,13 @@ mod tests {
         assert_eq!(class(&d, "Progressive Wallet"), Some(Class::Upgrade));
         assert_eq!(class(&d, "Recovery Heart"), Some(Class::Stack));
         for g in ["Bow", "Slingshot", "Bomb Bag", "Magic Meter"] {
-            assert_eq!(class(&d, g), Some(Class::Gear), "{g}");
-            assert_eq!(at(&d, &on, true, "GC Shop Item 5", g), Some(false), "{g}");
+            assert_eq!(class(&d, g), None, "{g}");
             assert_eq!(at(&d, &all, true, "GC Shop Item 5", g), Some(false), "{g}");
-            assert_eq!(at(&d, &gear, true, "GC Shop Item 5", g), Some(true), "{g}");
-            assert_eq!(at(&d, &gear, true, "Market Bazaar Item 1", g), Some(true), "{g}");
-            assert_eq!(at(&d, &both, true, "Market Bazaar Item 1", g), Some(false), "{g}");
         }
+        assert_eq!(class(&d, "Progressive Strength Upgrade"), Some(Class::Upgrade));
+        assert_eq!(at(&d, &all, true, "GC Shop Item 5", "Progressive Strength Upgrade"), Some(true));
         for bad in ["Small Key (Forest Temple)", "Boss Key (Forest Temple)", "Map (Forest Temple)", "Compass (Forest Temple)", "Progressive Hookshot", "Bottle"] {
-            assert_eq!(at(&d, &gear, true, "GC Shop Item 5", bad), Some(false), "{bad}");
+            assert_eq!(at(&d, &on, true, "GC Shop Item 5", bad), Some(false), "{bad}");
         }
     }
 }

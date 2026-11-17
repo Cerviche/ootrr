@@ -180,6 +180,7 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let mut s: Settings = with(true, Some(true));
         s.set(crate::flow_extra::SETTING, Value::Bool(true)).unwrap();
+        s.set(crate::flow_extra::MERCHANTS_SETTING, Value::s("no_beans")).unwrap();
         let g: Generated = generate_data(&d, &s, "both", &GenOpts::default()).unwrap();
         for x in NEW.iter().chain(["GC Medigoron", "DMT Biggoron"].iter()) {
             assert!(g.seed_file.placements.contains_key(*x), "{x}");

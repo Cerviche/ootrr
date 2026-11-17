@@ -137,7 +137,7 @@ fn ensure_query(f: &mut Flow) -> Res<(u16, u16)> {
     ensure(f, HOLDER, QUERY)
 }
 
-fn ensure(f: &mut Flow, holder: &str, query: &str) -> Res<(u16, u16)> {
+pub(crate) fn ensure(f: &mut Flow, holder: &str, query: &str) -> Res<(u16, u16)> {
     let i: usize = match f.actors.iter().position(|a| a.name == holder && a.sub.is_empty()) {
         Some(i) => i,
         None => {
@@ -227,7 +227,7 @@ pub fn guard(f: &mut Flow, actor: &str) -> Res<()> {
     Ok(())
 }
 
-fn chain(f: &mut Flow, a: u16, q: u16, family: &str, o: &[&str], gives: &[u16]) -> Res<Kind> {
+pub(crate) fn chain(f: &mut Flow, a: u16, q: u16, family: &str, o: &[&str], gives: &[u16]) -> Res<Kind> {
     let s: Vec<Step> = crate::tier_chain::of(family, gives.len());
     let mut at: Vec<u16> = gives.to_vec();
     let mut root: Option<Kind> = None;

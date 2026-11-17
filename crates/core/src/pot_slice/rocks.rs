@@ -360,7 +360,7 @@ mod tests {
         let seed: SeedFile = SeedFile::new("s", &Settings::default(), "g", m).unwrap();
         let ts: Vec<Give> = targets(&d, &seed).unwrap();
         assert_eq!(ts.len(), 4);
-        assert!(ts.iter().all(|t| t.kind.wild() && !t.kit));
+        assert!(ts.iter().all(|t| t.kind.wild()));
         let mut rf: Romfs = Romfs::open(&root).unwrap();
         let mut edits: Vec<Edited> = Vec::new();
         assert_eq!(crate::pot_slice::apply::apply(&mut rf, &d, &ts, &mut edits).unwrap(), 4);

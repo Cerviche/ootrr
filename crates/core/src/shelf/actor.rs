@@ -24,6 +24,12 @@ pub struct Shelf {
     pub who: String,
 }
 
+pub const IDENTITY: [(&str, &str); 1] = [("Item_Gauntlet_Goron", "Armor_Child_Gauntlet_Goron")];
+
+pub fn shelf_identity(who: &str) -> &str {
+    IDENTITY.iter().find(|x| x.0 == who).map(|x| x.1).unwrap_or(who)
+}
+
 pub fn price_file(name: &str) -> String {
     format!("GameParameter/PriceParam/{name}.game__pouchcontent__PriceParam.bgyml")
 }
@@ -99,7 +105,7 @@ pub fn make(rf: &mut Romfs, base: Option<&PB>, item: &str, model: Option<&str>, 
     actor.set(PARENT, s(&work(&actor_file(BASE))));
     actor.set(COMPONENTS, comps);
     let sp: Spec = Spec { item: item.to_string(), name: name.to_string(), style: Style::Touch, heap: None };
-    let who: String = identity(&p, &sp, &it, &item_pouch)?;
+    let who: String = shelf_identity(&identity(&p, &sp, &it, &item_pouch)?).to_string();
     let mut pouch: Node = Node::Map(Vec::new());
     pouch.set(PARENT, s(&work(&item_pouch)));
     pouch.set(POUCH_ACTOR, s(&work(&actor_file(&who))));
@@ -166,6 +172,8 @@ mod tests {
 
     #[test]
     fn the_price_and_table_files_follow_the_shipped_shelf_names() {
+        assert_eq!(shelf_identity("Item_Gauntlet_Goron"), "Armor_Child_Gauntlet_Goron");
+        assert_eq!(shelf_identity("Armor_Adult_Gauntlet_Silver"), "Armor_Adult_Gauntlet_Silver");
         assert_eq!(price_file("Shop_OOTRR_Item_Boomerang_20"), "GameParameter/PriceParam/Shop_OOTRR_Item_Boomerang_20.game__pouchcontent__PriceParam.bgyml");
         assert!(table_file("X").ends_with("X.engine__actor__GameParameterTable.bgyml"));
     }

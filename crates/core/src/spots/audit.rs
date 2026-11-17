@@ -161,7 +161,7 @@ mod tests {
     fn a_seed_with_remake_spots_lists_its_key_items_riskiest_first() {
         let d: Data = Data::load().unwrap();
         let mut s: Settings = Settings::default();
-        for (k, v) in [(crate::pot_slice::remake::SETTING, "all"), ("shuffle_pots", "all"), (pickups::SETTING, "all")] {
+        for (k, v) in [("shuffle_crates", "all"), ("shuffle_pots", "all"), (pickups::SETTING, "all")] {
             s.set(k, Value::s(v)).unwrap();
         }
         let g: Generated = generate_data(&d, &s, "spot audit", &GenOpts::default()).unwrap();

@@ -327,6 +327,13 @@
 ]
 },
 {
+"name": "Doubled magic without the improved spin",
+"why": "pots, rocks, grass, flying pots and skulltulas drop a fixed tier, so a doubled magic drop picked up out of order would leave the Gift of Improved Spin missing for good. Right after a pickup puts itself in the pouch (event 7, AddOwnToPouch, before event 183 picks the gauge birth) a player who holds Item_FairyBless_MPDouble but not Item_FairyBless_MP gets the first gift, then the doubled magic again in case the first gift lowered the bar, both handed over as a chest does",
+"ops": [
+{"kind": "backfill", "file": "Dm_SY_Get.bfevfl", "index": 7, "event": "Event35", "old": 183, "have": "Item_FairyBless_MPDouble", "lack": "Item_FairyBless_MP", "give": ["Item_FairyBless_MP", "Item_FairyBless_MPDouble"]}
+]
+},
+{
 "name": "Fairy fountains without Din's Fire",
 "why": "after Zelda's Lullaby on the Triforce mark every fountain but the Din one asks IsGet.Item_DinFire (event 3 of TriForcePoint, shared by all six fountains) and without the spell Navi gives a hint and the fountain stays shut, the fountains are free from the start, so the no case also goes to event 57, the riddle sound and the transition to the fountain",
 "ops": [

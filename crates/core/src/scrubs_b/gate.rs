@@ -150,6 +150,7 @@ mod tests {
         let mut s: Settings = with(true, Some(true));
         s.set(crate::scrubs_a::SETTING, Value::Bool(true)).unwrap();
         s.set(crate::flow_extra::SETTING, Value::Bool(true)).unwrap();
+        s.set(crate::flow_extra::MERCHANTS_SETTING, Value::s("no_beans")).unwrap();
         let g: Generated = generate_data(&d, &s, "all scrubs", &GenOpts::default()).unwrap();
         for x in NEW.iter().chain(["DMC Deku Scrub", "LW Deku Scrub Near Bridge", "GC Medigoron"].iter()) {
             assert!(g.seed_file.placements.contains_key(*x), "{x}");
