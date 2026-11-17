@@ -79,7 +79,7 @@ fn song_models(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn hints(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    if c.p.hints || c.roam || c.p.npc.any() {
+    if c.p.hints || c.roam || c.p.npc.any() || !c.keys.is_empty() {
         more.extend(crate::hints::stage(rf, c.d, c.seed, c.p.hints, c.keys, &c.p.npc)?);
     }
     Ok(())
@@ -139,9 +139,6 @@ fn medal_gate(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
         crate::medal_gate::stage(rf, more, Some(c.work))?;
     } else if c.p.lacs.is_some() {
         crate::medal_gate::stage_lacs(rf, more, Some(c.work))?;
-    }
-    if c.p.lacs.is_some() && crate::lacs_key::placed(c.seed) {
-        crate::lacs_key::stage(rf, more, c.marked)?;
     }
     Ok(())
 }

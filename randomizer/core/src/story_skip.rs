@@ -305,7 +305,10 @@ pub fn patch_gift(b: &mut Bf) -> Res<()> {
     let grant: usize = find(f, GIFT_GRANT)?;
     let show: usize = find(f, GIFT_SHOW)?;
     let wrapped = |i: usize| matches!(f.events[i].kind, Kind::Switch { .. });
-    if !wrapped(grant) && action(f, grant).as_deref() != Some(POUCH_ADD) {
+    // A dungeon item replaces the pouch add with its credit writes (crate::gift_keys), a chain
+    // that already ends where the add did.
+    let credited: bool = action(f, grant).is_some_and(|a| a.starts_with("GameDataActor."));
+    if !wrapped(grant) && !credited && action(f, grant).as_deref() != Some(POUCH_ADD) {
         return Err(Error::Format("story skip: the gift scene's grant is not a pouch add, the game files differ"));
     }
     if !wrapped(show) && !matches!(&f.events[show].kind, Kind::Sub { flow, entry, .. } if flow == "GetPouchContent" && entry == "DisplayGetByActorName") {
@@ -322,7 +325,9 @@ pub fn patch_gift(b: &mut Bf) -> Res<()> {
     e.subs = subs;
     let after: u16 = ends(f, show)?;
     retarget(f, show, after, g)?;
-    retarget(f, grant, ends(f, grant)?, NONE)?;
+    if !credited {
+        retarget(f, grant, ends(f, grant)?, NONE)?;
+    }
     Ok(())
 }
 

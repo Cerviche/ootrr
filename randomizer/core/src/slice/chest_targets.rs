@@ -126,11 +126,6 @@ pub(crate) fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<Str
             out.extend(t);
             continue;
         }
-        // Ganon's Boss Key on the Light Arrows cutscene has its own scene edit (crate::lacs_key).
-        if loc == crate::lacs_key::LOC && item == crate::lacs_key::ITEM {
-            same += 1;
-            continue;
-        }
         if is_sale(d, loc) {
             if !d.flow_ok(loc) && !d.song_ok(loc) {
                 return Err(E::Msg(format!("{loc} cannot be placed, its reward event is not supported")));

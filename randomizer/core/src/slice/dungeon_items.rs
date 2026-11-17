@@ -186,12 +186,9 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, i: &Item, l: LocId) -> bool {
         Keep::Anywhere | Keep::Start => true,
         Keep::Vanilla | Keep::Dungeon | Keep::Lacs => false,
     };
-    spot
-        && i.dungeon.is_some()
-        && d.flow.by_name(name).is_none()
-        && !d.special(name)
-        && chest_ok(d, name)
-        && d.cat.by_name(name).is_some_and(|c| c.kind == "chest")
+    // A gift scene hands a dungeon item out through crate::gift_keys, a chest through its own credit.
+    let chest: bool = d.flow.by_name(name).is_none() && !d.special(name) && chest_ok(d, name) && d.cat.by_name(name).is_some_and(|c| c.kind == "chest");
+    spot && i.dungeon.is_some() && (chest || crate::gift_keys::spot(d, name))
 }
 
 pub fn chest_ok(d: &Data, name: &str) -> bool {
@@ -259,8 +256,8 @@ pub fn grants(d: &Data, seed: &SeedFile, p: &Plan) -> Res<Grants> {
     let sweep: Vec<Kind> = KINDS.iter().copied().filter(|k| keeps(p, *k).into_iter().any(|x| credited(x) && x != Keep::Start)).collect();
     let mut credits: BM<u64, (Kind, &'static str)> = BM::new();
     for (loc, item) in &seed.placements {
-        // The Light Arrows cutscene gives Ganon's Boss Key through its own scene edit (crate::lacs_key).
-        if loc == crate::lacs_key::LOC && item == crate::lacs_key::ITEM {
+        // Gift scenes give dungeon items through their own scene edit (crate::gift_keys).
+        if crate::gift_keys::spot(d, loc) {
             continue;
         }
         let Some(i) = d.item(item) else {

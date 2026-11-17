@@ -27,11 +27,6 @@ pub fn linked(i: &Item, actor: &str) -> bool {
 /// pouch item fits (the Hookshot, the Gauntlets, the bags, the Bow and the Slingshot included).
 pub const SARIA: &str = "LW Gift from Saria";
 
-/// Pouch items a plain add cannot hand out on its own: dungeon items (the add does not know the
-/// dungeon), filled bottles and the letter (bottle contents), ammo bundles, Gold Skulltula tokens
-/// (a counter) and the dungeon rewards (held by their own scenes).
-const SARIA_REFUSES: [&str; 6] = ["Item_Dungeon_", "Item_Bottle_", "Item_Token_Gold", "Item_Stone_", "Item_Medal_", "Item_ScrubBusinessSeed"];
-
 /// Gift scenes: cutscenes, Great Fairies and the dungeon reward scenes. Every grant they run ends
 /// in the game's generic pouch get, GetPouchContent:GetPouchContent, which shows the get window
 /// (SetForGetWindow and OpenGetWindow, the same steps as GetPouchContent:DisplayGetByActorName)
@@ -48,28 +43,26 @@ pub fn gift_scene(l: &Loc) -> bool {
         && l.edits.iter().filter(|e| e.role == "grant").all(|e| GENERIC_GRANTS.iter().any(|v| e.via.starts_with(v)))
 }
 
-/// Items a generic pouch get hands out: Saria's, plus the Stones and Medallions, which the dungeon
-/// reward scenes already hand out through GetPouchContentByActorName.
+/// Items a generic pouch get hands out. Treasure chests run the same routine
+/// (GetPouchContent:GetPouchContentByActorNameForTreasureBox reaches GetPouchContent:GetPouchContent)
+/// with their content actor, so every item a chest gives works: rupees and ammo (TBox_ and Tbox_
+/// contents), shields, Heart Containers and Pieces of Heart, filled bottles (the get window has its
+/// bottle branch), Gold Skulltula Tokens (and its token branch), Stones and Medallions. Dungeon
+/// items need their dungeon credited, which crate::gift_keys does instead of the pouch add.
 fn gift_form(a: &str) -> bool {
-    (a.starts_with("Item_") || a.starts_with("Weapon_"))
-        && !a.contains("Bundle")
-        && !SARIA_REFUSES.iter().filter(|p| !matches!(**p, "Item_Stone_" | "Item_Medal_")).any(|p| a.starts_with(p))
+    !a.is_empty() && !a.starts_with("Item_Dungeon_")
 }
 
 /// An item a gift scene can hand out: one the game's events already hand out, or one whose every
-/// form a generic pouch get can add.
+/// form a chest can give.
 pub fn gift_takes(d: &Data, i: &Item) -> bool {
-    d.flow_accepts(i) || (crate::flow_extra::pouch(i) && i.actor.as_deref().is_some_and(gift_form) && i.tiers.iter().all(|t| gift_form(t)))
+    d.flow_accepts(i) || (i.actor.as_deref().is_some_and(gift_form) && i.tiers.iter().all(|t| gift_form(t)))
 }
 
-fn saria_form(a: &str) -> bool {
-    (a.starts_with("Item_") || a.starts_with("Weapon_")) && !a.contains("Bundle") && !SARIA_REFUSES.iter().any(|p| a.starts_with(p))
-}
-
-/// An item Saria can hand out: one the game's events already hand out, or one whose every form
-/// is a plain pouch item.
+/// An item Saria can hand out: the same as any gift scene (her grant is the bare pouch add and her
+/// window its own event, the two steps of the generic pouch get).
 pub fn saria_takes(d: &Data, i: &Item) -> bool {
-    d.flow_accepts(i) || (crate::flow_extra::pouch(i) && i.actor.as_deref().is_some_and(saria_form) && i.tiers.iter().all(|t| saria_form(t)))
+    gift_takes(d, i)
 }
 
 pub fn ok(d: &Data, name: &str) -> bool {
@@ -110,14 +103,10 @@ pub fn allows(d: &Data, name: &str, i: &Item) -> bool {
     let Some(l) = d.flow.by_name(name) else {
         return true;
     };
-    if name == SARIA {
-        return saria_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
-    }
-    if gift_scene(l) {
-        let fits: bool = gift_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
-        // An upgrade is wrapped into tier checks around its grant, which needs a scene whose
-        // edits are all grants (a display event would name one tier).
-        return fits && (family_of(&i.tiers).is_none() || grants_only(l));
+    if name == SARIA || gift_scene(l) {
+        // An upgrade is wrapped into tier checks around every edit of the scene (flow_wrap::grants),
+        // and the display events of these scenes run before the grant, so all name the same tier.
+        return gift_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
     }
     if family_of(&i.tiers).is_some() {
         return (grants_only(l) && l.cat != "scrub_sale" && d.flow_accepts(i)) || crate::scrubs_a::home(d, name, &i.name);
@@ -175,7 +164,12 @@ mod tests {
         // Other flow locations keep the accept list.
         assert!(!allows(&d, "Kak 50 Gold Skulltula Reward", item(&d, "Progressive Hookshot")));
         assert!(!d.flow_ok("HF Ocarina of Time Item"), "the Ocarina of Time scene stays pinned");
-        for n in ["Small Key (Forest Temple)", "Map (Deku Tree)", "Bottle with Milk", "Bombs (5)", "Gold Skulltula Token"] {
+        // Every item a chest gives works through the generic pouch get; dungeon items go through
+        // crate::gift_keys instead.
+        for n in ["Bottle with Milk", "Bombs (5)", "Gold Skulltula Token", "Rupees (20)", "Deku Shield", "Heart Container"] {
+            assert!(saria_takes(&d, item(&d, n)), "{n}");
+        }
+        for n in ["Small Key (Forest Temple)", "Map (Deku Tree)"] {
             assert!(!saria_takes(&d, item(&d, n)), "{n}");
         }
     }

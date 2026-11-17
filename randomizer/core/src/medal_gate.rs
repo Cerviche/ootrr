@@ -71,9 +71,9 @@ pub fn exps() -> Vec<Edit> {
     ]
 }
 
-// Setting number 96 is a placeholder until the maintainer gives this branch a range.
+// Setting number 103 is a placeholder until the maintainer gives this branch a range.
 pub fn settings() -> Vec<crate::settings::Setting> {
-    vec![crate::settings::Setting::number(96, LACS_REWARDS, "keys", "Rewards for the Light Arrows Cutscene", 9, 1, 9)
+    vec![crate::settings::Setting::number(103, LACS_REWARDS, "keys", "Rewards for the Light Arrows Cutscene", 9, 1, 9)
         .tip("How many Stones and Medallions together make the Light Arrows Cutscene play, which then gives Ganon's Boss Key. Any mix of the three Spiritual Stones and six Medallions counts.")
         .when("shuffle_ganon_bosskey", crate::lacs_key::VALUE)]
 }

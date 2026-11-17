@@ -70,7 +70,7 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
         Some(i) if scoped(p, &i.kind) => {
             i.dungeon.is_some()
                 && i.dungeon.as_deref() == w.regions[w.locs[l].region].dungeon.as_deref()
-                && (d.flow.by_name(&w.locs[l].name).is_none() || d.flow_accepts(i))
+                && (d.flow.by_name(&w.locs[l].name).is_none() || d.flow_accepts(i) || crate::gift_keys::spot(d, &w.locs[l].name))
                 && !crate::slice::dungeon_items::blocked(d, p, &i.kind, &w.locs[l].name)
         }
         Some(i) if crate::slice::dungeon_items::handles(p, &i.kind) => crate::slice::dungeon_items::allowed(d, w, p, i, l),
@@ -81,12 +81,8 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
                 Keep::AnyDungeon => dungeon,
                 _ => true,
             };
-            place
-                && i.dungeon.is_some()
-                && d.flow.by_name(name).is_none()
-                && !d.special(name)
-                && d.state_of(name) == Some(State::Eligible)
-                && d.cat.by_name(name).is_some_and(|c| c.kind == "chest")
+            let chest: bool = d.flow.by_name(name).is_none() && !d.special(name) && d.state_of(name) == Some(State::Eligible) && d.cat.by_name(name).is_some_and(|c| c.kind == "chest");
+            place && i.dungeon.is_some() && (chest || crate::gift_keys::spot(d, name))
         }
         Some(i) => {
             let name: &str = &w.locs[l].name;
