@@ -128,7 +128,7 @@ const EPONA: View = View {
 const GANON_BK: View = View {
     id: "shuffle_ganon_bosskey",
     label: "Ganon's Boss Key",
-    tip: "Vanilla - Ganon's Boss Key will appear in the vanilla location.\n\nOwn dungeon - Ganon's Boss Key can appear anywhere inside Ganon's Castle.\n\nStart with - Places Ganon's Boss Key in your starting inventory.\n\nAny dungeon - Ganon's Boss Key can only appear inside of any dungeon.\n\nOverworld - Ganon's Boss Key can only appear outside of dungeons.\n\nAnywhere - Ganon's Boss Key can appear anywhere in the world.\n\nTrigger - These settings put the boss key on a trigger, granting the key once the requirements are met:\n- Stones: Obtain the specified amount of Spiritual Stones.\n- Medallions: Obtain the specified amount of medallions.\n- Dungeon rewards: Obtain the specified total sum of Spiritual Stones or medallions.\n- Dungeons: Complete the specified amount of dungeons. Dungeons are considered complete after stepping into the blue warp after the boss.\n- Tokens: Obtain the specified amount of Skulltula tokens.\n- Triforce Pieces: Obtain the specified amount of Triforce Pieces.\n\nSame Region - Ganon's Boss Key can only appear in Ganon's Castle or a nearby area.",
+    tip: "Vanilla - Ganon's Boss Key will appear in the vanilla location.\n\nOwn dungeon - Ganon's Boss Key can appear anywhere inside Ganon's Castle.\n\nStart with - Places Ganon's Boss Key in your starting inventory.\n\nAny dungeon - Ganon's Boss Key can only appear inside of any dungeon.\n\nOverworld - Ganon's Boss Key can only appear outside of dungeons.\n\nAnywhere - Ganon's Boss Key can appear anywhere in the world.\n\nTrigger - These settings put the boss key on a trigger, granting the key once the requirements are met:\n- Stones: Obtain the specified amount of Spiritual Stones.\n- Medallions: Obtain the specified amount of medallions.\n- Dungeon rewards: Obtain the specified total sum of Spiritual Stones or medallions.\n- Dungeons: Complete the specified amount of dungeons. Dungeons are considered complete after stepping into the blue warp after the boss.\n- Tokens: Obtain the specified amount of Skulltula tokens.\n- Triforce Pieces: Obtain the specified amount of Triforce Pieces.\n\nLACS - Dungeon Rewards - Zelda gives Ganon's Boss Key in the Light Arrows Cutscene, which plays once you hold the set number of Stones and Medallions together. The Light Arrows are shuffled into the item pool. Experimental, untested in the game.\n\nSame Region - Ganon's Boss Key can only appear in Ganon's Castle or a nearby area.",
     kind: Kind::Pick,
     opts: &[
         yes("Vanilla", "vanilla"),
@@ -137,6 +137,7 @@ const GANON_BK: View = View {
         yes("Any Dungeon", "any_dungeon"),
         yes("Overworld", "overworld"),
         yes("Anywhere", "keysanity"),
+        yes("LACS - Dungeon Rewards", "lacs_dungeons"),
         broken("Trigger-Stones", "stones"),
         broken("Trigger-Medallions", "medallions"),
         broken("Trigger-Rewards", "dungeons"),
@@ -360,6 +361,7 @@ const WIN_CONDITION: PortSection = port(
                         "Any dungeon - Triforce pieces can only appear inside of any dungeon.\n\nOverworld - Triforce pieces can only appear outside of dungeons.\n\nAnywhere - Triforce pieces can appear anywhere in the world.",
                     ),
                     Entry::View(&GANON_BK),
+                    Entry::Plain("lacs_rewards"),
                     Entry::Hidden("ganon_bosskey_stones"),
                     Entry::Hidden("ganon_bosskey_medallions"),
                     Entry::Hidden("ganon_bosskey_rewards"),
@@ -676,12 +678,6 @@ pub const MENU: &[Page] = &[
         sections: &[sec("Time of day", &["time_always_passes", "early_beds"]), sec("Link and Navi", &["navi_return", "bunny_hood"])],
     },
     Page { id: "hints", label: "Hints", heading: GAMEPLAY, sections: &[sec("Hints", &["gossip_hints", "chests_match_contents", "misc_hints", "scrub_hint_text"])] },
-    Page {
-        id: "lacs",
-        label: "Light Arrows Cutscene",
-        heading: IN_DEV,
-        sections: &[sec("Light Arrows Cutscene", &["lacs_condition", "lacs_rewards"])],
-    },
 ];
 
 pub fn problems(sch: &Schema) -> Vec<String> {

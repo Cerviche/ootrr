@@ -33,6 +33,7 @@ pub mod flow_extra;
 pub mod flow_sim;
 pub mod hints;
 pub mod intro_skip;
+pub mod lacs_key;
 pub mod medal_gate;
 pub mod npc_hints;
 pub mod open_world;

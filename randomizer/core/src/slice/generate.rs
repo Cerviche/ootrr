@@ -299,6 +299,8 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     let lock: Vec<(LocId, ItemId)> = crate::slice::entry_key::forced(&w, &p, &pk.free, &base, &plan, &ok)?;
     let mut plan: Vec<(LocId, ItemId)> = plan;
     plan.extend(lock.iter().copied());
+    let lacs: Vec<(LocId, ItemId)> = crate::lacs_key::forced(&w, &p, &pk.free, &base, &plan)?;
+    plan.extend(lacs);
     let mut rng: Rng = Rng::from_text(seed);
     let shelf = |it: ItemId, l: LocId| ok(it, l) && !(crate::shops::is_loc(&w.locs[l].name) && d.family(&w.items.names[it]).is_some());
     let mut run = |careful: bool, reach: bool| -> Res<Placement> {

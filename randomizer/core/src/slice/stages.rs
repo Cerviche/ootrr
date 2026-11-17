@@ -140,6 +140,9 @@ fn medal_gate(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     } else if c.p.lacs.is_some() {
         crate::medal_gate::stage_lacs(rf, more, Some(c.work))?;
     }
+    if c.p.lacs.is_some() && crate::lacs_key::placed(c.seed) {
+        crate::lacs_key::stage(rf, more, c.marked)?;
+    }
     Ok(())
 }
 

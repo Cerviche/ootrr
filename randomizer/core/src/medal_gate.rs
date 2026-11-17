@@ -22,8 +22,8 @@ pub const LACS_AREA_HASH: u64 = 11085071794120779663;
 pub const ALL_SAGE: &str = "Work/Challenge/AllSage.game__challenge__Challenge.gyml";
 pub const LACS_STEP: &str = "Step02";
 
-/// Light Arrows cutscene condition. "vanilla" keeps the old trigger (the story step, or the
-/// Shadow and Spirit Medallions when Stones and Medallions are shuffled).
+/// The logic's Light Arrows cutscene condition (data/logic/LogicHelpers.json can_trigger_lacs).
+/// It has no setting of its own: Ganon's Boss Key "LACS - Dungeon Rewards" sets it.
 pub const LACS_SETTING: &str = "lacs_condition";
 pub const LACS_REWARDS: &str = "lacs_rewards";
 pub const LACS_NOTE: &str = "The Light Arrows scene in the Temple of Time plays once you hold the set number of Stones and Medallions together, in place of its usual trigger. The computed flag AllSage_IsAfter_Step02_Exp is rewritten to count the nine rewards, and the scene's logic module and its area in the Temple of Time map are edited to read it. Experimental and untested in the game.";
@@ -71,37 +71,23 @@ pub fn exps() -> Vec<Edit> {
     ]
 }
 
-// Setting numbers 96 and 97 are placeholders until the maintainer gives this branch a range.
+// Setting number 96 is a placeholder until the maintainer gives this branch a range.
 pub fn settings() -> Vec<crate::settings::Setting> {
-    use crate::settings::Setting;
-    vec![
-        Setting::choice(96, LACS_SETTING, "goal", "Light Arrows Cutscene", "vanilla")
-            .tip("What it takes for Zelda to give you the Light Arrows in the Temple of Time as adult. Experimental, untested in the game.")
-            .opt("vanilla", "Vanilla", "The usual trigger: the Shadow and Spirit Medallions when Stones and Medallions are shuffled, otherwise the story step after the Shadow and Spirit Sages.")
-            .opt("dungeons", "Dungeon rewards", "Collect a set number of Stones and Medallions together."),
-        Setting::number(97, LACS_REWARDS, "goal", "Rewards for the Light Arrows Cutscene", 9, 1, 9)
-            .tip("How many Stones and Medallions together make the Light Arrows Cutscene play. Any mix of the three Spiritual Stones and six Medallions counts.")
-            .when(LACS_SETTING, "dungeons"),
-    ]
+    vec![crate::settings::Setting::number(96, LACS_REWARDS, "keys", "Rewards for the Light Arrows Cutscene", 9, 1, 9)
+        .tip("How many Stones and Medallions together make the Light Arrows Cutscene play, which then gives Ganon's Boss Key. Any mix of the three Spiritual Stones and six Medallions counts.")
+        .when("shuffle_ganon_bosskey", crate::lacs_key::VALUE)]
 }
 
-/// Reads the Light Arrows cutscene setting: Some(n) when the scene waits for n dungeon rewards.
-pub fn read_lacs(s: &crate::settings::Settings, bad: &mut Vec<String>) -> Option<u8> {
-    match s.text(LACS_SETTING) {
-        Ok("vanilla") => None,
-        Ok("dungeons") => match s.int(LACS_REWARDS) {
-            Ok(n) if (1..=9).contains(&n) => Some(n as u8),
-            Ok(n) => {
-                bad.push(format!("{LACS_REWARDS} is {n}, which is not between 1 and 9"));
-                None
-            }
-            Err(e) => {
-                bad.push(e.to_string());
-                None
-            }
-        },
-        Ok(v) => {
-            bad.push(format!("{LACS_SETTING} is {v}, which this build cannot apply (only vanilla or dungeons work)"));
+/// Reads the Light Arrows cutscene count: Some(n) when Ganon's Boss Key is on the cutscene and
+/// the scene waits for n dungeon rewards.
+pub fn read_lacs(s: &crate::settings::Settings, ganon: crate::slice::support::Keep, bad: &mut Vec<String>) -> Option<u8> {
+    if ganon != crate::slice::support::Keep::Lacs {
+        return None;
+    }
+    match s.int(LACS_REWARDS) {
+        Ok(n) if (1..=9).contains(&n) => Some(n as u8),
+        Ok(n) => {
+            bad.push(format!("{LACS_REWARDS} is {n}, which is not between 1 and 9"));
             None
         }
         Err(e) => {
@@ -645,13 +631,17 @@ mod tests {
         let p = crate::slice::support::plan(&s).unwrap();
         assert_eq!(p.lacs, None);
         assert!(!p.logic().iter().any(|(k, _)| *k == LACS_SETTING));
-        s.set(LACS_SETTING, Value::s("dungeons")).unwrap();
+        s.set("shuffle_ganon_bosskey", Value::s(crate::lacs_key::VALUE)).unwrap();
         s.set(LACS_REWARDS, Value::Int(5)).unwrap();
         let p = crate::slice::support::plan(&s).unwrap();
         assert_eq!(p.lacs, Some(5));
         assert!(p.logic().contains(&(LACS_SETTING, "dungeons")));
         assert!(p.logic().contains(&(LACS_REWARDS, "5")));
         assert!(p.notes.iter().any(|n| n == LACS_NOTE));
+        assert!(p.notes.iter().any(|n| n == crate::lacs_key::NOTE));
+        assert_eq!(p.keys.ganon, crate::slice::support::Keep::Lacs);
+        s.set("shuffle_rewards", Value::s("off")).unwrap();
+        assert!(crate::slice::support::plan(&s).is_err(), "the cutscene must be shuffled to hold the key");
     }
 
     #[test]

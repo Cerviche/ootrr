@@ -16,7 +16,8 @@ pub struct Spot<'a> {
 
 pub type Rule = fn(&Spot) -> Option<bool>;
 
-pub const RULES: [(&str, Rule); 14] = [
+pub const RULES: [(&str, Rule); 15] = [
+    ("ganon's boss key on the light arrows cutscene", lacs_key),
     ("excluded locations", excluded),
     ("junk only spots", junk),
     ("silver rupees", silver),
@@ -35,6 +36,16 @@ pub const RULES: [(&str, Rule); 14] = [
 
 pub fn verdict(s: &Spot) -> Option<bool> {
     RULES.iter().find_map(|(_, r)| r(s))
+}
+
+fn lacs_key(s: &Spot) -> Option<bool> {
+    if s.p.keys.ganon != crate::slice::support::Keep::Lacs {
+        return None;
+    }
+    if s.name == crate::lacs_key::LOC {
+        return Some(s.item == crate::lacs_key::ITEM);
+    }
+    (s.item == crate::lacs_key::ITEM).then_some(false)
 }
 
 fn excluded(s: &Spot) -> Option<bool> {
