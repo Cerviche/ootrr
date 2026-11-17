@@ -25,6 +25,7 @@ name = "ootrr-cosmetics"
 version = "0.6.2"
 dependencies = [
  "ootrr-game",
+ "ruzstd",
 ]
 
 [[package]]
