@@ -891,8 +891,26 @@ pub fn patch_arrows_give(b: &mut Bf, g: &ArrowsGive) -> Res<()> {
         let first: u16 = crate::gift_keys::credit(f, item, dungeon, done)?;
         set_next(&mut f.events[at as usize].kind, first)?;
     }
+    // No fades or camera moves around it: the event start goes straight to the unequip and the
+    // scene flags (skipping the player camera, the slow walk stop and the fade out), and the last
+    // scene flag goes straight to the item get (skipping the camera and Navi reset, the second
+    // unequip and the fade in).
+    let start: usize = find_action(f, ARROWS_START)?;
+    let unequip: usize = find_action(f, ARROWS_FIRST_UNEQUIP)?;
+    set_next(&mut f.events[start].kind, idx(unequip)?)?;
+    let last: Vec<usize> = (0..f.events.len())
+        .filter(|&i| f.events[i].kind.params().is_some_and(|c| c.items.iter().any(|(k, v)| k == "GameDataName" && matches!(v, Val::Str(s) if s == "HavePlayedEvent.Dm_TimeTemple_0135"))))
+        .collect();
+    let [last] = last.as_slice() else {
+        return Err(Error::Msg(format!("story skip: AllSage writes the Dm_TimeTemple_0135 flag {} times, expected once", last.len())));
+    };
+    set_next(&mut f.events[*last].kind, at)?;
     Ok(())
 }
+
+/// Market_Adult_Field_GetArrowLight: the event start and the unequip after its fade out.
+const ARROWS_START: (&str, &str) = ("Event164", "Player_Event.EventPlayerEventStartWithDrawn");
+const ARROWS_FIRST_UNEQUIP: (&str, &str) = ("Event165", "Player_Event.EventPlayerUnequip");
 
 /// Adds the item get to the story skip's AllSage edit in `late` (or to the game's AllSage).
 pub fn stage_arrows_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &ArrowsGive) -> Res<()> {
