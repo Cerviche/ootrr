@@ -1,6 +1,8 @@
+pub mod cond;
 pub mod grid;
 pub mod icon_map;
 pub mod index;
+pub mod npc_flags;
 pub mod peek;
 pub mod project;
 pub mod rules;
@@ -426,14 +428,14 @@ mod tests {
         use std::collections::BTreeMap;
         let t: Tracker = Tracker::new(None);
         let ts: &[Target] = targets::all().unwrap();
-        let impa: usize = ts.iter().position(|x| x.ootr.as_deref() == Some("Song from Impa")).unwrap();
+        let impa: usize = ts.iter().position(|x| x.ootr.as_deref() == Some("ZD King Zora Thawed")).unwrap();
         let sheik: usize = ts.iter().position(|x| x.ootr.as_deref() == Some("Sheik in Forest")).unwrap();
         let fl: u32 = murmur3_32(b"HavePlayedGetEvent.Item_Melody_ForestMinuet", 0);
         let a: Peek = peek_with(&save_bytes(&[(fl, 1)], &[]), &Lim::ANY).unwrap();
         t.publish("slot_00", &a, None, vec!["slot_00".into()]);
         assert_eq!(t.lock().track.marks[sheik].s, S::Found);
         let mut p: BTreeMap<String, String> = BTreeMap::new();
-        p.insert("Song from Impa".into(), "Minuet of Forest".into());
+        p.insert("ZD King Zora Thawed".into(), "Minuet of Forest".into());
         p.insert("Sheik in Forest".into(), "Zeldas Lullaby".into());
         let sf: SeedFile = SeedFile::new("abc", &Settings::default(), "oot-remake:test", p).unwrap();
         let s: Seeded = t.set_seed(Some(&sf)).unwrap().unwrap();

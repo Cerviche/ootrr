@@ -1,4 +1,5 @@
 use ootrr_core::murmur::murmur3_32;
+use crate::tracker::cond;
 use crate::tracker::peek::Peek;
 use crate::tracker::targets::{How, Target};
 
@@ -14,6 +15,7 @@ pub enum Hit {
 pub struct Rule {
     pub how: How,
     pub flags: Vec<u32>,
+    pub eqs: Vec<(u32, u32)>,
     pub keys: Vec<u64>,
     pub weak: bool,
 }
@@ -21,7 +23,8 @@ pub struct Rule {
 pub fn rule_of(t: &Target) -> Rule {
     Rule {
         how: t.how,
-        flags: t.flags.iter().map(|f| murmur3_32(f.as_bytes(), 0)).collect(),
+        flags: t.flags.iter().filter(|f| cond::eq_of(f).is_none()).map(|f| murmur3_32(f.as_bytes(), 0)).collect(),
+        eqs: t.flags.iter().filter_map(|f| cond::eq_of(f)).collect(),
         keys: t.keys.clone(),
         weak: t.weak,
     }
@@ -30,7 +33,7 @@ pub fn rule_of(t: &Target) -> Rule {
 pub fn eval(r: &Rule, p: &Peek) -> Hit {
     match r.how {
         How::Flag => {
-            if !r.flags.iter().any(|h| p.on(*h)) {
+            if !r.flags.iter().any(|h| p.on(*h)) && !r.eqs.iter().any(|e| cond::holds(p, e)) {
                 Hit::Off
             } else if r.weak {
                 Hit::Weak
