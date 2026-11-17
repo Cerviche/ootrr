@@ -780,7 +780,7 @@ pub struct SceneGive {
 }
 
 /// The checks whose scenes are dropped for the standard item get.
-pub const DROPPED: [&str; 2] = ["ToT Light Arrows Cutscene", "LW Gift from Saria"];
+pub const DROPPED: [&str; 3] = ["ToT Light Arrows Cutscene", "LW Gift from Saria", "ToT Reward from Rauru"];
 
 /// The standard item get (the item shown, Link holding it up, the get window and the pouch add)
 /// that the minigames run with no NPC.
@@ -953,6 +953,48 @@ pub fn patch_reward_gives(b: &mut Bf, gives: &[(&str, &[&str], SceneGive)]) -> R
 /// Adds the reward item gets to the endings edit in `late` (or to the game's ending flow).
 pub fn stage_reward_gives(rf: &mut Romfs, late: &mut Vec<Out>, gives: &[(&str, &[&str], SceneGive)]) -> Res<()> {
     crate::dungeon_grant::merge(rf, late, ENDING_FILE, |raw| rebuild(raw, |b| patch_reward_gives(b, gives)))
+}
+
+pub const RAURU_LOC: &str = "ToT Reward from Rauru";
+const RAURU_GIVE: &str = "OOTRRRauruGive";
+
+/// The first Master Sword draw (patch_draw) gives Rauru's check with a bare pouch add in its
+/// chain. That add becomes a fade in and the standard item get with what the check holds (with
+/// its tier checks or its dungeon credit), still before the transition to the adult temple.
+/// Runs after patch_draw.
+pub fn patch_rauru_give(b: &mut Bf, g: &SceneGive) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, DOOR_FLOW)?;
+    let adds: Vec<usize> = (0..f.events.len())
+        .filter(|&i| f.events[i].name.starts_with(DOOR_PREFIX) && action(f, i).as_deref() == Some("PouchSystemActor.EventTriggerAddOrRemovePouchContent") && text(&f.events[i], "Actor") != Some("Weapon_Sword_Master"))
+        .collect();
+    let [gift] = adds.as_slice() else {
+        return Err(Error::Msg(format!("story skip: the Master Sword draw gives Rauru's check {} times, expected once (run patch_draw first)", adds.len())));
+    };
+    let gift: usize = *gift;
+    let next: u16 = next_of(&f.events[gift].kind).ok_or(Error::Format("story skip: Rauru's gift has no next"))?;
+    let entries: Vec<String> = entries_reaching(f, gift);
+    let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
+    let at: u16 = item_get(f, RAURU_GIVE, g, next, &names)?;
+    let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, FADE_IN.0, FADE_IN.1)?;
+    f.events[gift].kind = Kind::Action {
+        next: at,
+        actor: a,
+        act: x,
+        params: Some(Cont {
+            items: vec![
+                ("Color".to_string(), Val::Int(0)),
+                ("IsNoPlayAnime".to_string(), Val::Bool(0)),
+                ("Length".to_string(), Val::Int(1)),
+                ("IsWaitEnd".to_string(), Val::Bool(1)),
+            ],
+        }),
+    };
+    Ok(())
+}
+
+/// Adds Rauru's item get to the story skip's DoorOfTime edit in `late` (or to the game's).
+pub fn stage_rauru_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &SceneGive) -> Res<()> {
+    crate::dungeon_grant::merge(rf, late, DOOR_FILE, |raw| rebuild(raw, |b| patch_rauru_give(b, g)))
 }
 
 /// Saria's gift (KokiriForest_ArriveLostWood in Goto_HyruleCastle). The event starts, Link joins
