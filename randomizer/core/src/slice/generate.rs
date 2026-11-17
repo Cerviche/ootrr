@@ -1013,21 +1013,22 @@ mod tests {
     #[test]
     fn seeds_that_generated_before_keep_their_exact_placements() {
         let d: Data = Data::load().unwrap();
-        let cases: [(&[(&str, &str)], &str, usize, u64); 4] = [
-            (&[], "default 0", 178, 0x0830_df3d_49f4_d35e),
-            (&[], "default 1", 178, 0xced5_e7fb_79f8_1d14),
-            (&[("shuffle_chests", "overworld")], "chests_ow 0", 65, 0xcbfe_8c32_ecd1_f9c7),
-            (&[("shuffle_chests", "dungeons")], "dungeons 0", 138, 0x077a_8137_9fdd_1621),
+        let cases: [(&[(&str, &str)], &str); 4] = [
+            (&[], "default 0"),
+            (&[], "default 1"),
+            (&[("shuffle_chests", "overworld")], "chests_ow 0"),
+            (&[("shuffle_chests", "dungeons")], "dungeons 0"),
         ];
-        for (pairs, seed, n, want) in cases {
+        let mut got: BM<String, String> = BM::new();
+        for (pairs, seed) in cases {
             let mut all: Vec<(&str, &str)> = vec![("shuffle_rewards", "off")];
             all.extend_from_slice(pairs);
             let mut s: Settings = with(&all);
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
-            assert_eq!(g.seed_file.placements.len(), n, "{seed}");
-            assert_eq!(digest(&g.seed_file.placements), want, "{seed}");
+            got.insert(seed.to_string(), format!("{} {:016x}", g.seed_file.placements.len(), digest(&g.seed_file.placements)));
         }
+        crate::slice::pins::verify("old_seeds", &got);
     }
 
     #[test]
@@ -1207,17 +1208,18 @@ mod tests {
         let mut pots: Settings = on.clone();
         pots.set("shuffle_pots", Value::s("all")).unwrap();
         pots.set("shuffle_crates", Value::s("all")).unwrap();
-        let cases: [(Settings, &str, &str, &str); 8] = [
-            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin a", "0a29525eaa06113e92cc6cda07854cf9e20f1ba25d782453bcf46caf9698b044"),
-            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b", "ee3ab45aa7b7ffdddb016af5b24f3ca2d4ff10a13c8ad9365b7636a7776cff2d"),
-            (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a", "44cb78034320d6f89253023b766ef5f2f4f63c9447a9209b6fc6905b0c2475c5"),
-            (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b", "100cc34c15e51369412d1f6654bac18df62feb5d39df0a875faa65d1534203e9"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin a", "8c738f430ca9f1ee3d2d47b8f3a82029ec406aba41c23e1ec3e47fb64c34fe32"),
-            (on.clone(), "OOTRR1-EYAQD32I", "pin b", "78f4d272c98d9a4aa35921b7ec379bc4bfaaa2195bedc02fec16d7d56a78d609"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a", "e3f2ced9a1cdf958e0abaa7f813ae9b1992b3d06f0d1055b75613863872d3094"),
-            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b", "47d24f16a45f281c9f9e41819f01bd2c8c6ffdae132857ead30e149b34935cb2"),
+        let cases: [(Settings, &str, &str); 8] = [
+            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin a"),
+            (with(&[("shuffle_rewards", "off")]), "OOTRR1-XZLA", "pin b"),
+            (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin a"),
+            (with(&[("shuffle_rewards", "off"), ("shuffle_chests", "overworld")]), "OOTRR1-BAAQCQ5V", "pin b"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin a"),
+            (on.clone(), "OOTRR1-EYAQD32I", "pin b"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin a"),
+            (pots.clone(), "OOTRR1-BEAQGCQBAMTACAK2JA", "pin b"),
         ];
-        for (mut s, old, seed, sum) in cases {
+        let mut got: BM<String, String> = BM::new();
+        for (mut s, old, seed) in cases {
             s.set(crate::open_world::TIME, Value::Bool(false)).unwrap();
             s.set(crate::deku_bridge::KEY, Value::Bool(false)).unwrap();
             // The defaults these strings were written with.
@@ -1232,8 +1234,9 @@ mod tests {
                 assert_eq!(f.settings_string, old);
             }
             f.settings_string = old.to_string();
-            assert_eq!(f.checksum(), sum, "{old} {seed}");
+            got.insert(format!("{old} {seed}"), f.checksum());
         }
+        crate::slice::pins::verify("rewards_off_and_stones", &got);
     }
 
     #[test]
@@ -1256,18 +1259,20 @@ mod tests {
         both.set("shuffle_pots", Value::s("all")).unwrap();
         both.set("shuffle_crates", Value::s("all")).unwrap();
         let cases: [(Settings, &str, &str); 4] = [
-            (hives.clone(), "pin a", "40928b7e5832b4d1f74c643631fed9e56b37b9f1aaa461e6f5956ddc34698dfe"),
-            (hives.clone(), "pin b", "3146ca0c1f0364dddae9726bb5e7ae5407738232422bec178fe6341732d9d4b5"),
-            (both.clone(), "pin a", "c8f0b0fd088b4c5b008642029dd851800ea5f811b87fc0211c9c1ccfbb2fa870"),
-            (both.clone(), "pin b", "5e1930368e2105904bf2e288b090f3cd633133aefbd2be1278ea42cd5b35ad42"),
+            (hives.clone(), "hives", "pin a"),
+            (hives.clone(), "hives", "pin b"),
+            (both.clone(), "hives pots and crates", "pin a"),
+            (both.clone(), "hives pots and crates", "pin b"),
         ];
-        for (s, seed, sum) in cases {
+        let mut got: BM<String, String> = BM::new();
+        for (s, name, seed) in cases {
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
             let mut f: SeedFile = g.seed_file.clone();
             f.settings_string = "pinned".to_string();
             assert_eq!(f.placements.keys().filter(|k| k.starts_with("Kak Hole")).count(), 7);
-            assert_eq!(f.checksum(), sum, "{seed}");
+            got.insert(format!("{name} {seed}"), f.checksum());
         }
+        crate::slice::pins::verify("beehives", &got);
     }
 
     #[test]

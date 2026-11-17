@@ -19,6 +19,8 @@ pub mod key_spots;
 pub mod logic;
 pub mod minigame_logic;
 pub mod pick;
+#[cfg(test)]
+pub mod pins;
 pub mod pickups;
 pub mod plando;
 pub mod remake_chests;

@@ -19,6 +19,8 @@ cargo test --workspace
 
 `cargo test` builds with the `test` profile: our code at opt level 1 and the dependencies at opt level 3, so the slow seed and game file tests run several times faster than plain debug and the build stays quick. CI runs `cargo test --workspace --profile ci`, a release build without LTO. Avoid `cargo test --release`, it compiles with LTO and one codegen unit and takes minutes before the first test runs.
 
+Seed pins live in `data/pins/*.json`, one file per pin test (`old_seeds`, `rewards_off_and_stones`, `beehives`). A change that moves the item pool moves them. When that is intended, run the pin tests with `OOTRR_UPDATE_PINS=1` set, check that only the pins you expected changed, and commit the json. Two branches that both move a pin conflict only in that file: take either side and run the update again after the merge.
+
 A test that loops over many independent cases (every catalog pack, every combination) runs on one thread. Split it with the `parts!` macro from `lib.rs`: write a function that takes a part number and checks only the cases whose index matches, and let `parts!` make one test per part.
 
 Many tests read the extracted game. Set `OOTRR_ROMFS` to your extracted game folder (the one with Pack, Banc, Event and System) so they run. Without it they skip. A few tracker tests read `OOTRR_TEST_ROMFS` and `OOTRR_TEST_SAVES`. The release build must have no warnings.
