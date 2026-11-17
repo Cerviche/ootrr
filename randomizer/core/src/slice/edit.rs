@@ -3,9 +3,9 @@ use std::fmt::Write as W;
 use std::path::{Path as P, PathBuf as PB};
 
 use crate::TITLE_ID;
-use crate::boss_heart::{heart_ids, stage as stage_hearts, swap, CHEST, HEART};
+use crate::boss_heart::{heart_ids, swap, CHEST, HEART};
 use crate::byml::Byml;
-use crate::dungeon_credit::{key_dungeon, place as place_key, stage_pouch, sweep, KEY_DUNGEONS};
+use crate::dungeon_credit::{key_dungeon, place as place_key, sweep, KEY_DUNGEONS};
 use crate::flow_locations::{self, Choice, Opts as FlowOpts, Stage};
 use crate::error::{Error as E, Res};
 use crate::modpack::{Host, Pack};
@@ -16,7 +16,7 @@ use crate::romfs::Romfs;
 use crate::rsizetable::{self, Rst};
 use crate::settings::seed::SeedFile;
 use crate::slice::support::Songs;
-use crate::{hints, songs, special};
+use crate::special;
 use crate::slice::banc::{find, fingerprint, set_drop_ev, Found};
 use crate::slice::data::{Data, Ev, State};
 use crate::slice::flow_pool::{dest_form, pool_actor};
@@ -678,51 +678,25 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut more: Vec<crate::staging::Out> = special_outs;
     let hearts: Vec<(u64, Vec<String>)> = edits.iter().flat_map(|e| e.hearts.clone()).collect();
-    if !hearts.is_empty() {
-        more.extend(stage_hearts(&mut rf, &d, &hearts, true)?);
-    }
-    if p.songs != Songs::Off {
-        more.push(songs::stage(&mut rf)?);
-    }
-    if p.songs == Songs::Anywhere {
-        more.extend(crate::song_models::stage(&mut rf)?);
-    }
-    if p.hints || roam || p.npc.any() {
-        more.extend(hints::stage(&mut rf, &d, seed, p.hints, &keys, &p.npc)?);
-    }
-    crate::dungeon_grant::stage_text(&mut rf, &mut more, &marks.used)?;
-    crate::scrub_prices::stage_text(&mut rf, &d, seed, p.scrub_hint, &mut more)?;
-    crate::slice::silver::stage_text(&mut rf, &mut more, &silver_used)?;
-    more.push(stage_pouch(&mut rf, roam)?);
-    more.extend(crate::bomb_lift::stage(&mut rf)?);
     let quiet: Vec<&str> = crate::bomb_pickup::wanted(pot_ts.iter().map(|t| t.actor.as_str()).chain(ts.iter().map(|t| t.new_actor.as_str())).chain(skull_drops.iter().map(|x| x.actor.as_str())));
-    more.extend(crate::bomb_pickup::stage_all(&mut rf, &quiet)?);
-    more.extend(crate::door_fix::stage(&mut rf)?);
-    more.push(crate::no_tutorials::stage(&mut rf)?);
-    if p.door {
-        more.extend(crate::door_open::stage_door(&mut rf)?);
-    }
-    more.extend(crate::door_open::stage_pedestal(&mut rf, Some(&pk.work.join("romfs")))?);
-    if p.dungeon_rewards {
-        crate::medal_gate::stage(&mut rf, &mut more, Some(&pk.work.join("romfs")))?;
-    }
-    let reward: Option<&str> = crate::start_reward::pick(&seed.seed, p.start).map(|(_, a)| a);
-    let mut flags: Vec<(String, bool)> = p.start_flags();
-    flags.extend(crate::no_tutorials::start_flags());
-    let mut give: Vec<&str> = p.pouch.clone();
-    if let Some(a) = reward {
-        give.push(a);
-    }
-    if !give.is_empty() || !flags.is_empty() {
-        more.push(crate::start_reward::stage_all(&mut rf, &give, &flags)?);
-    }
-    crate::start_items::stage::stage(&mut rf, &mut more, &p.kit)?;
-    crate::start_items::dpad::stage(&mut rf, &mut more, &crate::start_items::dpad::actors(&[&p.kit], &p.pouch))?;
-    crate::pot_slice::rows::stage(&mut rf, &mut more, &crate::pot_slice::apply::hashes(&pot_ts))?;
-    crate::start_defaults::stage(&mut rf, &mut more, &crate::start_defaults::presets::chosen(&p.defaults())?)?;
-    if scrub_rows == 0 {
-        crate::scrubs_b::stage_rows(&mut rf, &scrub_jobs, &mut more, true)?;
-    }
+    let work: PB = pk.work.join("romfs");
+    let pots: Vec<u64> = crate::pot_slice::apply::hashes(&pot_ts);
+    let c: crate::slice::stages::Ctx = crate::slice::stages::Ctx {
+        d: &d,
+        seed,
+        p: &p,
+        roam,
+        keys: &keys,
+        hearts: &hearts,
+        marked: &marks.used,
+        silver: &silver_used,
+        quiet: &quiet,
+        work: &work,
+        pots: &pots,
+        scrub_jobs: &scrub_jobs,
+        scrub_rows,
+    };
+    crate::slice::stages::run(&mut rf, &c, &mut more)?;
     for o in more {
         pk.write_romfs(&o.path, &o.z)?;
         extra += 1;

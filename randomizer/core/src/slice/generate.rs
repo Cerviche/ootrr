@@ -63,40 +63,7 @@ pub fn is_song(actor: &str) -> bool {
 }
 
 fn by_place(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> Option<bool> {
-    let name: &str = &w.locs[l].name;
-    let item: &str = &w.items.names[it];
-    if let Some(ok) = crate::shops::rules::at(d, &p.shops, p.songs == Songs::Anywhere, name, item) {
-        return Some(ok);
-    }
-    if let Some(ok) = crate::slice::song_spots::gate(d, p, name, item) {
-        return Some(ok);
-    }
-    if let Some(ok) = crate::slice::treasure::at(p.treasure, name, item) {
-        return Some(ok);
-    }
-    if p.remake && crate::slice::remake_overworld::keeps_out(d, name, item) {
-        return Some(false);
-    }
-    if p.world.on() {
-        if let Some(ok) = pu::at(d, name, item) {
-            return Some(ok);
-        }
-        if pu::keeps_out(d, name, item) {
-            return Some(false);
-        }
-    }
-    if let Some(ok) = crate::pot_slice::rules::at(d, name, item) {
-        return Some(ok);
-    }
-    if p.skulls != crate::slice::skulls::Mode::Off {
-        if let Some(ok) = crate::slice::skulls::accepts(d, w, it, l) {
-            return Some(ok);
-        }
-    }
-    if pu::WORLD_ONLY.contains(&item) || d.pots.only.contains(item) {
-        return Some(false);
-    }
-    None
+    crate::slice::place_rules::verdict(&crate::slice::place_rules::Spot { d, w, p, it, l, name: &w.locs[l].name, item: &w.items.names[it] })
 }
 
 pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {

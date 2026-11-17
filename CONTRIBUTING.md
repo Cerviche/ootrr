@@ -40,6 +40,12 @@ Never run `ootrr` with no arguments. It starts the local web server and may open
 - `tools/repath_patch.py`: rewrites a patch made before the move to `randomizer/` and `web/` so it applies to the new paths (`python tools/repath_patch.py old.patch new.patch`). Hunks for the old `data/logic/World/Overworld.json` need moving by hand into its area file.
 - `packaging/`: installers
 
+## Adding a feature
+
+- A rule about which item may sit at which spot goes in `randomizer/core/src/slice/place_rules.rs`: write a function that answers for the spots it knows (Some) and passes on the rest (None), and add it to `RULES`. The first rule with an answer wins, so its place in the list matters.
+- A file the build adds or edits after the chests goes in `randomizer/core/src/slice/stages.rs`: write a stage function that pushes its files, and add it to `STAGES`. Stages run in list order. If a stage needs something new from the build, add it to `Ctx`.
+- Settings go in the feature's own module where it has one (see `shops/plan.rs`), and on an In Dev menu page.
+
 ## Code style
 
 1. No comments of any kind. No `//`, `///`, `//!` or `/* */`. Explanations go in the pull request or the docs.

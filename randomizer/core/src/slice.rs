@@ -19,6 +19,7 @@ pub mod key_spots;
 pub mod logic;
 pub mod minigame_logic;
 pub mod pick;
+pub mod place_rules;
 #[cfg(test)]
 pub mod pins;
 pub mod pickups;
@@ -33,6 +34,7 @@ pub mod skull_kit;
 pub mod skull_names;
 pub mod skull_rules;
 pub mod skulls;
+pub mod stages;
 pub mod song_spots;
 pub mod starts;
 pub mod support;
