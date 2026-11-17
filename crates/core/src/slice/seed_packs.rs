@@ -78,6 +78,12 @@ pub fn need(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Res<BM<Str
         let w: &mut Want = out.entry(name.clone()).or_insert_with(|| Want { name, pick: p, kind: k, spots: Vec::new() });
         w.spots.push(loc.clone());
     }
+    // An Ocarina at an NPC gift that holds the item up is handed out as its pickup actor, which
+    // either tier's branch can show, so both packs are built (crate::ocarina_hold).
+    for (loc, p) in crate::ocarina_hold::wanted(d, seed) {
+        let w: &mut Want = out.entry(p.pack.clone()).or_insert_with(|| Want { name: p.pack.clone(), pick: p, kind: Kind::Free, spots: Vec::new() });
+        w.spots.push(loc);
+    }
     for w in out.values() {
         w.spec()?;
     }

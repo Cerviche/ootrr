@@ -738,18 +738,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         }
     }
     let ocarina_held: bool = crate::ocarina_hold::needed(&d, seed);
-    if ocarina_held {
-        for o in crate::ocarina_hold::stage(&mut rf)? {
-            pk.write_romfs(&o.path, &o.z)?;
-            extra += 1;
-            if rst.is_none() {
-                rst = Some(rsizetable::load(&mut rf)?);
-            }
-            if let Some(t) = rst.as_mut() {
-                grown += crate::staging::grow_out(&mut rf, t, &o)?;
-            }
-        }
-    }
     if p.fast {
         extra += crate::fast::apply(&mut rf, &pk)?;
     }
@@ -1161,7 +1149,7 @@ mod tests {
         let (_, _, flows): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
         assert!(!flows.is_empty());
         for c in &flows {
-            assert!(d.flow.usable(&c.item) || crate::slice::flow_rules::ANY_POUCH.contains(&c.location.as_str()), "{} -> {}", c.location, c.item);
+            assert!(d.flow.usable(&c.item) || crate::slice::flow_rules::ANY_POUCH.contains(&c.location.as_str()) || crate::ocarina_hold::is_form(&c.item), "{} -> {}", c.location, c.item);
             assert!(d.flow_ok(&c.location), "{}", c.location);
         }
         let mut vanilla: Settings = Settings::default();
@@ -1190,7 +1178,7 @@ mod tests {
                 assert!(d.flow_ok(loc));
             }
             for c in &flows {
-                assert!(d.flow.usable(&c.item) || crate::slice::flow_rules::ANY_POUCH.contains(&c.location.as_str()), "{} -> {}", c.location, c.item);
+                assert!(d.flow.usable(&c.item) || crate::slice::flow_rules::ANY_POUCH.contains(&c.location.as_str()) || crate::ocarina_hold::is_form(&c.item), "{} -> {}", c.location, c.item);
             }
             let given: BM<String, String> = actors_for(&d, &g.seed_file).unwrap();
             for (loc, actor) in &given {

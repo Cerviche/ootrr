@@ -332,7 +332,7 @@ impl Data {
                 continue;
             }
             for e in l.edits.iter().filter(|e| e.role == "grant") {
-                out.push(Grant { file: e.file.clone(), index: e.index, event: e.event.clone(), param: e.param.clone(), family, wrap: Wrap::Chain });
+                out.push(Grant { file: e.file.clone(), index: e.index, event: e.event.clone(), param: e.param.clone(), family, wrap: Wrap::Chain, forms: Vec::new() });
             }
         }
         out

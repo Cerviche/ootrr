@@ -261,7 +261,17 @@ fn with_param(k: &Kind, param: &str, value: &str) -> Res<Kind> {
 }
 
 pub fn wrap_grant(f: &mut Flow, index: usize, event: &str, param: &str, family: &str) -> Res<()> {
-    let t: &[&str] = tiers(family)?;
+    wrap_grant_as(f, index, event, param, family, &[])
+}
+
+/// wrap_grant, with each tier's branch handing out `forms[i]` instead of the tier actor (the
+/// ownership questions still ask about the tier actors). Empty `forms` means the tiers.
+pub fn wrap_grant_as(f: &mut Flow, index: usize, event: &str, param: &str, family: &str, forms: &[String]) -> Res<()> {
+    let tiers_of: &[&str] = tiers(family)?;
+    if !forms.is_empty() && forms.len() != tiers_of.len() {
+        return Err(Error::Msg(format!("progressive: {family} has {} tiers but {} forms", tiers_of.len(), forms.len())));
+    }
+    let t: Vec<&str> = if forms.is_empty() { tiers_of.to_vec() } else { forms.iter().map(|s| s.as_str()).collect() };
     let o: &[&str] = owners(family)?;
     let base: Kind = {
         let e: &Event = f.events.get(index).ok_or_else(|| Error::Msg(format!("event index {index} is out of range")))?;
@@ -352,12 +362,15 @@ pub struct Grant {
     pub param: String,
     pub family: &'static str,
     pub wrap: Wrap,
+    /// The actor each tier's branch hands out, when it is not the tier actor itself
+    /// (crate::ocarina_hold). Empty means the tiers.
+    pub forms: Vec<String>,
 }
 
 impl Grant {
     pub fn apply(&self, f: &mut Flow) -> Res<()> {
         match self.wrap {
-            Wrap::Chain => wrap_grant(f, self.index, &self.event, &self.param, self.family),
+            Wrap::Chain => wrap_grant_as(f, self.index, &self.event, &self.param, self.family, &self.forms),
             Wrap::Base { plain } => guard_grant(f, self.index, &self.event, &self.param, self.family, plain),
         }
     }

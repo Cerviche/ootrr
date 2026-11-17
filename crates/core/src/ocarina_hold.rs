@@ -2,110 +2,120 @@
 //!
 //! Every NPC gift that has Link hold the item up (each Dm_SY_GetInEvent entry reaches
 //! :Item_Position) shows the item with Player_Event.EventIgnitionShowItem, IsAsPlay true and
-//! ASCommand Rotate_GetDemo, which plays that animation on the item actor itself. Item actors
-//! carry it through three components their packs share: ASInfoRef
-//! (Component/ASInfo/Item_GetDemo, 98 item packs), ASRef ?AS/Item_Common.root.asb (the shared
-//! item animation set that holds Rotate_GetDemo) and AnimationRef (an AnimationParam that loads
-//! Item_Common_Animation). The two Ocarina actors are built as equipment accessories and have none
-//! of the three, so the hold up crashed the game; chests play Rotate_GetDemo on a separate guest
-//! performer and never touch the actor's own animation.
+//! ASCommand Rotate_GetDemo, which plays that animation on the actor it was handed. The two
+//! Ocarina item actors are equipment accessories with no animation at all, so the game crashed.
+//! Giving those actors the item animation components (ASInfo, ASRef Item_Common, AnimationRef)
+//! still crashed in the game, right after the patched pack loaded.
 //!
-//! The Ocarina packs get the three components. Both files they point at are copied byte for byte
-//! from the game's own packs (ASInfo from Item_Hookshot, the AnimationParam of Item_Bottle, which
-//! loads Item_Common_Animation and the bottle's own animations), so the resource size table
-//! already knows them; only the actor param and the pack itself grow.
+//! The game's own hold up gifts also hand out pickup actors: the Death Mountain Crater scrub's
+//! sale gives Obj_Heart_Piece. A pickup actor is built on Obj_Item_Base with the shared Item_Common
+//! animation, and its PouchContentParam names the item it adds (PouchActor). So at a hold up gift
+//! the Ocarina is handed out as its pickup actor from the pickup catalog (Obj_Ocarina_Fairy,
+//! Obj_Ocarina_TimeLand): the chain's ownership questions still ask about Item_Ocarina_Fairy and
+//! Item_Ocarina_Time, and each branch hands out the matching pickup actor. The seed build writes
+//! both pickup packs, since the chain picks the tier in the game. The Ocarina actors stay vanilla.
 
-use crate::byml::{Byml, Node};
-use crate::error::{Error, Res};
-use crate::romfs::Romfs;
-use crate::sarc;
 use crate::settings::seed::SeedFile;
 use crate::slice::data::Data;
-use crate::staging::{rewrite, Out};
+use crate::slice::key_spots::{pick, Pick};
 
-pub const ACTORS: [&str; 2] = ["Item_Ocarina_Fairy", "Item_Ocarina_Time"];
-const AS_INFO: (&str, &str) = ("Item_Hookshot", "Component/ASInfo/Item_GetDemo.engine__component__ASInfo.bgyml");
-const ANIMATION: (&str, &str) = ("Item_Bottle", "Component/AnimationParam/Item_Bottle.engine__component__AnimationParam.bgyml");
-const AS: &str = "?AS/Item_Common.root.asb";
-const COMPONENTS: &str = "Components";
+/// The item actors with no animation that a hold up cannot show.
+pub const NO_ANIM: [&str; 2] = ["Item_Ocarina_Fairy", "Item_Ocarina_Time"];
 
-pub const NOTE: &str = "An Ocarina is handed out by an NPC who holds the item up, so both Ocarina actors get the item get animation every other item has (the shared Item_Common animation set). Experimental, untested in the game.";
+pub const NOTE: &str = "An Ocarina is handed out by an NPC who holds the item up, so it is handed out as its pickup actor (the Ocarina actors have no item animation), and both Ocarina pickup packs are written into the mod. Experimental, untested in the game.";
 
-pub fn pack_of(actor: &str) -> String {
-    format!("Pack/Actor/{actor}.pack.zs")
+/// The pickup actor a hold up hands out in place of `actor`, if `actor` cannot be shown.
+pub fn shown(actor: &str) -> Option<String> {
+    if !NO_ANIM.contains(&actor) {
+        return None;
+    }
+    pick(actor).map(|p| p.pack)
 }
 
-fn param_of(actor: &str) -> String {
-    format!("Actor/{actor}.engine__actor__ActorParam.bgyml")
+/// Whether `actor` is one of the pickup actors handed out in place of an Ocarina.
+pub fn is_form(actor: &str) -> bool {
+    NO_ANIM.iter().any(|a| shown(a).as_deref() == Some(actor))
 }
 
-/// The three component references, as the actor param holds them.
-fn refs() -> [(&'static str, String); 3] {
-    [("ASInfoRef", format!("?{}", AS_INFO.1)), ("ASRef", AS.to_string()), ("AnimationRef", format!("?{}", ANIMATION.1))]
+fn holds_up(d: &Data, loc: &str) -> bool {
+    d.flow.by_name(loc).is_some_and(crate::slice::flow_rules::holds_up)
+}
+
+/// The actor `loc` hands out for `actor`: its pickup actor at a hold up gift.
+pub fn shown_at(d: &Data, loc: &str, actor: &str) -> Option<String> {
+    if !holds_up(d, loc) {
+        return None;
+    }
+    shown(actor)
+}
+
+/// The actors each tier's branch of the progressive chain at `loc` hands out, or nothing when the
+/// tiers themselves can be shown.
+pub fn forms(d: &Data, loc: &str, family: &str) -> Vec<String> {
+    if !holds_up(d, loc) {
+        return Vec::new();
+    }
+    let Ok(t) = crate::progressive::tiers(family) else {
+        return Vec::new();
+    };
+    if !t.iter().any(|a| NO_ANIM.contains(a)) {
+        return Vec::new();
+    }
+    t.iter().map(|a| shown(a).unwrap_or_else(|| a.to_string())).collect()
+}
+
+fn ocarina(d: &Data, item: &str) -> bool {
+    d.item(item).is_some_and(|i| i.actor.iter().chain(i.tiers.iter()).any(|a| NO_ANIM.contains(&a.as_str())))
+}
+
+/// The hold up locations that hand out an Ocarina.
+pub fn spots(d: &Data, seed: &SeedFile) -> Vec<String> {
+    seed.placements.iter().filter(|(loc, item)| ocarina(d, item) && holds_up(d, loc) && d.vanilla_of(loc) != Some(item.as_str())).map(|(l, _)| l.clone()).collect()
 }
 
 /// Whether the seed puts an Ocarina (any tier) at an NPC gift that holds the item up.
 pub fn needed(d: &Data, seed: &SeedFile) -> bool {
-    seed.placements.iter().any(|(loc, item)| {
-        d.item(item).is_some_and(|i| i.actor.iter().chain(i.tiers.iter()).any(|a| ACTORS.contains(&a.as_str())))
-            && d.flow.by_name(loc).is_some_and(crate::slice::flow_rules::holds_up)
-            && d.vanilla_of(loc) != Some(item.as_str())
-    })
+    !spots(d, seed).is_empty()
 }
 
-/// Adds the item animation components to one Ocarina actor pack.
-pub fn patch(raw: &[u8], actor: &str, as_info: &[u8], animation: &[u8]) -> Res<Vec<u8>> {
-    let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
-    let name: String = param_of(actor);
-    let e: &sarc::Entry = sarc::get(&es, &name).ok_or_else(|| Error::Msg(format!("ocarina: {actor}'s pack has no {name}")))?;
-    let mut y: Byml = Byml::parse(&e.data)?;
-    let comps: &mut Node = y.root.get_mut(COMPONENTS).ok_or_else(|| Error::Msg(format!("ocarina: {name} has no {COMPONENTS}")))?;
-    for (k, v) in refs() {
-        if comps.get(k).is_some() {
-            return Err(Error::Msg(format!("ocarina: {name} already has {k}")));
-        }
-        comps.set(k, Node::Str(v));
-    }
-    sarc::set(&mut es, &name, y.write()?);
-    for (file, data) in [(AS_INFO.1, as_info), (ANIMATION.1, animation)] {
-        if sarc::set(&mut es, file, data.to_vec()) {
-            return Err(Error::Msg(format!("ocarina: {actor}'s pack already holds {file}")));
+/// The pickup packs the seed build writes for those locations: every Ocarina tier's, at each.
+pub fn wanted(d: &Data, seed: &SeedFile) -> Vec<(String, Pick)> {
+    let mut out: Vec<(String, Pick)> = Vec::new();
+    for loc in spots(d, seed) {
+        for a in NO_ANIM {
+            if let Some(p) = pick(a) {
+                out.push((loc.clone(), p));
+            }
         }
     }
-    sarc::write(&es)
-}
-
-fn donor(rf: &mut Romfs, (pack, file): (&str, &str)) -> Res<Vec<u8>> {
-    let es: Vec<sarc::Entry> = sarc::parse(&rf.read_zs(&pack_of(pack))?)?;
-    sarc::get(&es, file).map(|e| e.data.clone()).ok_or_else(|| Error::Msg(format!("ocarina: {pack}'s pack has no {file}")))
-}
-
-pub fn stage(rf: &mut Romfs) -> Res<Vec<Out>> {
-    let as_info: Vec<u8> = donor(rf, AS_INFO)?;
-    let animation: Vec<u8> = donor(rf, ANIMATION)?;
-    ACTORS.iter().map(|a| rewrite(rf, &pack_of(a), |raw| patch(raw, a, &as_info, &animation))).collect()
+    out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn dump() -> Option<Romfs> {
-        let p: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("D:/Oot/romfs"));
-        if !p.join("Pack").join("ZsDic.pack.zs").is_file() {
-            eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", p.display());
-            return None;
-        }
-        Some(Romfs::open(&p).unwrap())
+    #[test]
+    fn a_hold_up_gift_hands_out_the_ocarina_pickup_actors() {
+        let d: Data = Data::load().unwrap();
+        assert_eq!(shown("Item_Ocarina_Fairy").as_deref(), Some("Obj_Ocarina_Fairy"));
+        assert_eq!(shown("Item_Ocarina_Time").as_deref(), Some("Obj_Ocarina_TimeLand"));
+        assert_eq!(shown("Item_Hookshot"), None);
+        assert!(is_form("Obj_Ocarina_TimeLand") && !is_form("Obj_Heart_Piece"));
+        assert_eq!(forms(&d, "Kak Man on Roof", "Ocarina"), vec!["Obj_Ocarina_Fairy".to_string(), "Obj_Ocarina_TimeLand".to_string()]);
+        assert!(forms(&d, "Kak Man on Roof", "Hookshot").is_empty());
+        // Saria's gift shows a get window, no hold up.
+        assert!(forms(&d, "LW Gift from Saria", "Ocarina").is_empty());
+        assert_eq!(crate::slice::flow_pool::dest_form(&d, "Ocarina", "Kak Anju as Child", "Item_Ocarina_Fairy".to_string()), "Obj_Ocarina_Fairy");
     }
 
     #[test]
-    fn a_seed_with_the_ocarina_at_the_man_on_the_roof_builds_the_patched_ocarina_packs() {
-        let Some(rf) = dump() else {
-            return;
-        };
-        drop(rf);
+    fn a_seed_with_the_ocarina_at_the_man_on_the_roof_builds_both_pickup_packs_and_hands_them_out() {
         let root: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("D:/Oot/romfs"));
+        if !root.join("Pack").join("ZsDic.pack.zs").is_file() {
+            eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", root.display());
+            return;
+        }
         let d: Data = Data::load().unwrap();
         let mut g = crate::slice::generate::generate_data(&d, &crate::settings::Settings::default(), "ocarina held", &crate::slice::GenOpts::default()).unwrap();
         // Trade one Ocarina copy with the man on the roof's item; only the build is tested here.
@@ -118,39 +128,27 @@ mod tests {
         let load: std::path::PathBuf = std::env::temp_dir().join(format!("ootrr_ocarina_hold_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&load);
         let b = crate::slice::edit::build(&g.seed_file, &root, &load, "ocarina").unwrap();
-        for a in ACTORS {
-            let p: std::path::PathBuf = pack_of(a).split('/').fold(b.root.join("romfs"), |x, s| x.join(s));
-            assert!(p.is_file(), "{a} pack not written");
+        let romfs: std::path::PathBuf = b.root.join("romfs");
+        for a in NO_ANIM {
+            let p: std::path::PathBuf = format!("Pack/Actor/{}.pack.zs", shown(a).unwrap()).split('/').fold(romfs.clone(), |x, s| x.join(s));
+            assert!(p.is_file(), "{a}'s pickup pack not written");
+            let item: std::path::PathBuf = format!("Pack/Actor/{a}.pack.zs").split('/').fold(romfs.clone(), |x, s| x.join(s));
+            assert!(!item.is_file(), "{a}'s own pack stays vanilla");
         }
+        // The man on the roof's gift hands out the pickup actors.
+        let l = d.flow.by_name(roof).unwrap();
+        let file: String = crate::flow_locations::path_of(&l.edits[0].file);
+        let mut rf: crate::romfs::Romfs = crate::romfs::Romfs::open(&root).unwrap();
+        let z: Vec<u8> = std::fs::read(file.split('/').fold(romfs.clone(), |x, s| x.join(s))).unwrap();
+        let raw: Vec<u8> = rf.zs.decompress(&z).unwrap();
+        let bf = crate::bfevfl::Bf::parse(&raw).unwrap();
+        // Hand out events only: the chain's ownership questions still ask about the item actors.
+        let named = |n: &str| {
+            bf.flows.iter().flat_map(|f| f.events.iter()).filter(|e| !matches!(e.kind, crate::bfevfl::Kind::Switch { .. })).any(|e| e.kind.params().and_then(|c| c.get(&l.edits[0].param)) == Some(&crate::bfevfl::Val::Str(n.to_string())))
+        };
+        assert!(named("Obj_Ocarina_Fairy") && named("Obj_Ocarina_TimeLand"));
+        assert!(!named("Item_Ocarina_Fairy"));
         let _ = std::fs::remove_dir_all(&load);
-    }
-
-    #[test]
-    fn the_real_ocarinas_get_the_item_animation_components_of_the_hookshot() {
-        let Some(mut rf) = dump() else {
-            return;
-        };
-        let hook: Byml = {
-            let es = sarc::parse(&rf.read_zs(&pack_of("Item_Hookshot")).unwrap()).unwrap();
-            Byml::parse(&sarc::get(&es, &param_of("Item_Hookshot")).unwrap().data).unwrap()
-        };
-        let outs: Vec<Out> = stage(&mut rf).unwrap();
-        assert_eq!(outs.len(), 2);
-        for (o, a) in outs.iter().zip(ACTORS) {
-            assert!(o.new > o.old);
-            let raw: Vec<u8> = rf.zs.decompress(&o.z).unwrap();
-            let es = sarc::parse(&raw).unwrap();
-            let y: Byml = Byml::parse(&sarc::get(&es, &param_of(a)).unwrap().data).unwrap();
-            let comps = y.root.get(COMPONENTS).unwrap();
-            assert_eq!(comps.get("ASRef"), hook.root.get(COMPONENTS).unwrap().get("ASRef"), "{a}");
-            assert_eq!(comps.get("ASInfoRef"), hook.root.get(COMPONENTS).unwrap().get("ASInfoRef"), "{a}");
-            assert!(sarc::get(&es, AS_INFO.1).is_some() && sarc::get(&es, ANIMATION.1).is_some(), "{a}");
-            // The rest of the actor stays as it was: the pouch, model and accessory components.
-            for k in ["PouchContentRef", "ModelInfoRef", "AccessoryRef"] {
-                assert!(comps.get(k).is_some(), "{a} {k}");
-            }
-            assert!(patch(&raw, a, b"x", b"y").is_err(), "{a} is already patched");
-        }
     }
 }
 
