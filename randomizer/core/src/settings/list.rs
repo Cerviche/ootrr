@@ -85,7 +85,8 @@ fn ganon_key() -> Vec<Setting> {
     let k: Setting = reward_goal(key_places(
         Setting::choice(18, "shuffle_ganon_bosskey", "keys", "Ganon's Boss Key", "dungeon")
             .tag(Tag::Core)
-            .tip("Where Ganon's Castle Boss Key is, or what earns it."),
+            .tip("Where Ganon's Castle Boss Key is, or what earns it.")
+            .opt(crate::lacs_key::VALUE, "LACS - Dungeon Rewards", "Zelda gives the key in the Light Arrows Cutscene, which plays once you hold a set number of Stones and Medallions together. The Light Arrows are shuffled into the item pool. Experimental, untested in the game."),
     ));
     vec![
         k,
@@ -342,6 +343,7 @@ pub fn build() -> Schema {
     );
     s.extend(ganon_key());
     s.extend(bridge());
+    s.extend(crate::medal_gate::settings());
     s.push(
         Setting::toggle(30, "trials_random", "goal", "Random Ganon's Trials", false)
             .tip("Pick the number of trials to clear at random."),

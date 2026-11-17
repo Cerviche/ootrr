@@ -70,7 +70,7 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
         Some(i) if scoped(p, &i.kind) => {
             i.dungeon.is_some()
                 && i.dungeon.as_deref() == w.regions[w.locs[l].region].dungeon.as_deref()
-                && (d.flow.by_name(&w.locs[l].name).is_none() || d.flow_accepts(i))
+                && (d.flow.by_name(&w.locs[l].name).is_none() || d.flow_accepts(i) || crate::gift_keys::spot(d, &w.locs[l].name))
                 && !crate::slice::dungeon_items::blocked(d, p, &i.kind, &w.locs[l].name)
         }
         Some(i) if crate::slice::dungeon_items::handles(p, &i.kind) => crate::slice::dungeon_items::allowed(d, w, p, i, l),
@@ -81,12 +81,8 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
                 Keep::AnyDungeon => dungeon,
                 _ => true,
             };
-            place
-                && i.dungeon.is_some()
-                && d.flow.by_name(name).is_none()
-                && !d.special(name)
-                && d.state_of(name) == Some(State::Eligible)
-                && d.cat.by_name(name).is_some_and(|c| c.kind == "chest")
+            let chest: bool = d.flow.by_name(name).is_none() && !d.special(name) && d.state_of(name) == Some(State::Eligible) && d.cat.by_name(name).is_some_and(|c| c.kind == "chest");
+            place && i.dungeon.is_some() && (chest || crate::gift_keys::spot(d, name))
         }
         Some(i) => {
             let name: &str = &w.locs[l].name;
@@ -276,6 +272,8 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             && !(lay.is_some() && crate::shops::is_loc(&w.locs[*l].name))
             && !crate::slice::junk_spots::only(&p, &w.locs[*l].name)
             && !(p.silver && crate::slice::silver::is_spot(&w.locs[*l].name))
+            // The Light Arrows Cutscene holds Ganon's Boss Key in this mode; its Light Arrows join the pool.
+            && !(p.keys.ganon == Keep::Lacs && w.locs[*l].name == crate::lacs_key::LOC)
         {
             return Err(E::Msg(format!(
                 "the vanilla item {} of {} is not allowed there under these settings",
@@ -299,6 +297,8 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     let lock: Vec<(LocId, ItemId)> = crate::slice::entry_key::forced(&w, &p, &pk.free, &base, &plan, &ok)?;
     let mut plan: Vec<(LocId, ItemId)> = plan;
     plan.extend(lock.iter().copied());
+    let lacs: Vec<(LocId, ItemId)> = crate::lacs_key::forced(&w, &p, &pk.free, &base, &plan)?;
+    plan.extend(lacs);
     let mut rng: Rng = Rng::from_text(seed);
     let shelf = |it: ItemId, l: LocId| ok(it, l) && !(crate::shops::is_loc(&w.locs[l].name) && d.family(&w.items.names[it]).is_some());
     let mut run = |careful: bool, reach: bool| -> Res<Placement> {

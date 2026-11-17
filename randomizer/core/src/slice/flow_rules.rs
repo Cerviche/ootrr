@@ -31,25 +31,80 @@ pub const SARIA: &str = "LW Gift from Saria";
 /// out the Silver or Golden Gauntlets). Its grant, Dm_Goron_0030's sub
 /// Dm_SY_GetInEvent:GetInEvent_Goron, adds arg:ActorName to the pouch and opens the get window for
 /// it, so it holds any pouch item Saria holds; a placed progressive item wraps the grant into tier
-/// checks. The hold up rules out the Ocarinas and songs (holds_up, no_hold).
+/// checks. It holds the item up, so the Ocarinas and songs go through crate::ocarina_hold.
 pub const DARUNIA: &str = "GC Darunias Joy";
 
 /// The NPC gifts that add any pouch item generically.
 pub const ANY_POUCH: [&str; 2] = [SARIA, DARUNIA];
 
-/// Pouch items a plain add cannot hand out on its own: dungeon items (the add does not know the
-/// dungeon), filled bottles and the letter (bottle contents), ammo bundles, Gold Skulltula tokens
-/// (a counter) and the dungeon rewards (held by their own scenes).
-const SARIA_REFUSES: [&str; 6] = ["Item_Dungeon_", "Item_Bottle_", "Item_Token_Gold", "Item_Stone_", "Item_Medal_", "Item_ScrubBusinessSeed"];
+/// Gift scenes: cutscenes, Great Fairies and the dungeon reward scenes. Every grant they run ends
+/// in the game's generic pouch get, GetPouchContent:GetPouchContent, which shows the get window
+/// (SetForGetWindow and OpenGetWindow, the same steps as GetPouchContent:DisplayGetByActorName)
+/// and then adds the item (PouchSystemActor.EventTriggerAddOrRemovePouchContent, with the same
+/// parameters as Saria's grant). GetPouchContentByActorName is that call, and every
+/// Dm_SY_GetInEvent variant reaches it through GetPouchContentByActorName_ForGetInEvent after
+/// its presentation. So like Saria they hand out any pouch item, not only the accept list.
+pub const GIFT_CATS: [&str; 3] = ["cutscene_gift", "great_fairy", "dungeon_reward"];
+const GENERIC_GRANTS: [&str; 3] = ["GetPouchContent:", "PouchSystemActor.EventTriggerAddOrRemovePouchContent", "Dm_SY_GetInEvent:"];
 
-fn saria_form(a: &str) -> bool {
-    (a.starts_with("Item_") || a.starts_with("Weapon_")) && !a.contains("Bundle") && !SARIA_REFUSES.iter().any(|p| a.starts_with(p))
+pub fn gift_scene(l: &Loc) -> bool {
+    GIFT_CATS.contains(&l.cat.as_str())
+        && l.edits.iter().any(|e| e.role == "grant")
+        && l.edits.iter().filter(|e| e.role == "grant").all(|e| GENERIC_GRANTS.iter().any(|v| e.via.starts_with(v)))
 }
 
-/// An item Saria can hand out: one the game's events already hand out, or one whose every form
-/// is a plain pouch item.
+/// The give routines of the other reward events (NPCs, minigames, Skulltula rewards). Each was
+/// traced in the game's flows to the same generic pouch get: the NpcCommon handovers through
+/// Dm_SY_GetInEvent:GetInEvent_NotTurn, the Gold Skulltula rewards' TakenReward_Common_Event*
+/// through GetInEvent_NotTurn and GetInEvent_NotTurn_PosCam_InvNPC, the rolling Goron's handover
+/// through GetInEvent_NotTurn_BombBag, and every Dm_SY_GetInEvent:GetInEvent* routine but the
+/// bottle ones (those push into a bottle instead). Dungeon items run a window-only copy of the
+/// routine (crate::item_window) and their credit (crate::gift_keys).
+const ROUTINES: [&str; 4] = ["Dm_SY_GetInEvent:GetInEvent", "NpcCommon:NpcCommon_HandOver_NpcToPlayer_NoDisplay", ":TakenReward_Common_Event", ":NpcCommon_HandOver_NpcToPlayer_NoDisplay_BombBag"];
+const BOTTLE_ROUTINES: [&str; 3] = ["Dm_SY_GetInEvent:GetInEventInBottle", "Dm_SY_GetInEvent:GetInEventInEquipedBottle", "Dm_SY_GetInEvent:GetInEventInBottle_BlueBottleShop"];
+
+/// Reward events built by their own modules (clones, tiers of a chain, sales with prices).
+fn own_module(l: &Loc) -> bool {
+    crate::flow_extra::trade::is(&l.name)
+        || crate::flow_extra::cows::is(&l.name)
+        || crate::flow_extra::frogs::is(&l.name)
+        || crate::flow_extra::potion::is(&l.name)
+        || crate::scrubs_a::is_a(l)
+        || crate::scrubs_b::is_b(l)
+}
+
+/// A reward event that hands out any item a chest can, dungeon items included: a gift scene, or an
+/// NPC or minigame whose give routine ends in the generic pouch get.
+pub fn any_item(l: &Loc) -> bool {
+    if gift_scene(l) {
+        return true;
+    }
+    let grants: Vec<&crate::flow_locations::Edit> = l.edits.iter().filter(|e| e.role == "grant").collect();
+    !own_module(l)
+        && !grants.is_empty()
+        && grants.iter().all(|e| ROUTINES.iter().any(|v| e.via.starts_with(v)) && !BOTTLE_ROUTINES.contains(&e.via.as_str()))
+}
+
+/// Items a generic pouch get hands out. Treasure chests run the same routine
+/// (GetPouchContent:GetPouchContentByActorNameForTreasureBox reaches GetPouchContent:GetPouchContent)
+/// with their content actor, so every item a chest gives works: rupees and ammo (TBox_ and Tbox_
+/// contents), shields, Heart Containers and Pieces of Heart, filled bottles (the get window has its
+/// bottle branch), Gold Skulltula Tokens (and its token branch), Stones and Medallions. Dungeon
+/// items need their dungeon credited, which crate::gift_keys does instead of the pouch add.
+fn gift_form(a: &str) -> bool {
+    !a.is_empty() && !a.starts_with("Item_Dungeon_")
+}
+
+/// An item a gift scene can hand out: one the game's events already hand out, or one whose every
+/// form a chest can give.
+pub fn gift_takes(d: &Data, i: &Item) -> bool {
+    d.flow_accepts(i) || (i.actor.as_deref().is_some_and(gift_form) && i.tiers.iter().all(|t| gift_form(t)))
+}
+
+/// An item Saria can hand out: the same as any gift scene (her grant is the bare pouch add and her
+/// window its own event, the two steps of the generic pouch get).
 pub fn saria_takes(d: &Data, i: &Item) -> bool {
-    d.flow_accepts(i) || (crate::flow_extra::pouch(i) && i.actor.as_deref().is_some_and(saria_form) && i.tiers.iter().all(|t| saria_form(t)))
+    gift_takes(d, i)
 }
 
 pub fn ok(d: &Data, name: &str) -> bool {
@@ -86,25 +141,14 @@ pub fn ok(d: &Data, name: &str) -> bool {
     linked(i, actor)
 }
 
-/// Item actors whose actor pack has no animation (no ASRef): every song. The game only hands them
-/// out with a get window or a timeline. An NPC gift that has Link hold the item up (every
-/// Dm_SY_GetInEvent entry reaches :Item_Position, EventIgnitionShowItem with ASCommand
-/// Rotate_GetDemo) crashes the game with one of these. The two Ocarinas lacked it too;
-/// crate::ocarina_hold gives them the shared item animation when a seed needs it, so they can go
-/// anywhere.
-const SONG: &str = "Item_Melody_";
-
 /// Gift routes that show the item in a get window and never hold it up: the pouch add of Saria's
 /// gift and the Ocarina of Time scene, GetPouchContent (Sheik, Impa, Malon, the bosses) and the
 /// cows' bottle hand over.
 pub const WINDOW: [&str; 3] = ["PouchSystemActor.EventTriggerAddOrRemovePouchContent", "GetPouchContent:GetPouchContentByActorName", "Dm_SY_GetInEvent:GetInEventInBottle"];
 
-/// An item that crashes a hold up: a song.
-pub fn no_hold(i: &Item) -> bool {
-    i.actor.iter().chain(i.tiers.iter()).any(|a| a.starts_with(SONG))
-}
-
-/// Whether the location's gift has Link hold the item up. The menu scrubs sell through the one
+/// Whether the location's gift has Link hold the item up (Dm_SY_GetInEvent :Item_Position plays
+/// Rotate_GetDemo on the item). Items with no animation of their own (the Ocarinas and the
+/// songs) are handed out there as their pickup actor (crate::ocarina_hold). The menu scrubs sell through the one
 /// time scrub sale, which holds it up too.
 pub fn holds_up(l: &Loc) -> bool {
     l.cat == "scrub_menu" || l.edits.iter().any(|e| e.role == "grant" && !WINDOW.contains(&e.via.as_str()))
@@ -114,11 +158,15 @@ pub fn allows(d: &Data, name: &str, i: &Item) -> bool {
     let Some(l) = d.flow.by_name(name) else {
         return true;
     };
-    if no_hold(i) && holds_up(l) && d.vanilla_of(name) != Some(i.name.as_str()) {
-        return false;
+    if name == SARIA || ANY_POUCH.contains(&name) || gift_scene(l) {
+        // An upgrade is wrapped into tier checks around every edit of the scene (flow_wrap::grants),
+        // and the display events of these scenes run before the grant, so all name the same tier.
+        return gift_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
     }
-    if ANY_POUCH.contains(&name) {
-        return saria_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
+    if any_item(l) {
+        // An NPC's display events may follow its grant, so an upgrade still wants grants only.
+        let fits: bool = gift_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
+        return fits && (family_of(&i.tiers).is_none() || grants_only(l) || d.vanilla_of(name) == Some(i.name.as_str()));
     }
     if family_of(&i.tiers).is_some() {
         return (grants_only(l) && l.cat != "scrub_sale" && d.flow_accepts(i)) || crate::scrubs_a::home(d, name, &i.name);
@@ -167,45 +215,26 @@ mod tests {
     }
 
     #[test]
-    fn songs_never_go_to_a_gift_that_holds_the_item_up_and_the_ocarina_does() {
+    fn the_ocarina_and_songs_go_to_gifts_that_hold_the_item_up() {
         let d: Data = Data::load().unwrap();
         let ocarina: &Item = item(&d, "Ocarina");
         let song: &Item = item(&d, "Minuet of Forest");
-        assert!(!no_hold(ocarina) && no_hold(song) && !no_hold(item(&d, "Boomerang")));
-        for n in ["LW Skull Kid", "Kak Man on Roof", "HC Malon Egg", "ZD Diving Minigame", "LW Ocarina Memory Game", "Deku Theater Skull Mask", "Kak Anju as Child"] {
+        for n in ["LW Skull Kid", "Kak Man on Roof", "HC Malon Egg", "ZD Diving Minigame", "Deku Theater Skull Mask", "Kak Anju as Child"] {
             assert!(holds_up(d.flow.by_name(n).unwrap()), "{n}");
-            assert!(!allows(&d, n, song), "{n}");
+            assert!(allows(&d, n, ocarina) && allows(&d, n, song), "{n}");
         }
-        assert!(allows(&d, DARUNIA, ocarina));
-        // Saria and the Ocarina of Time scene add the item and show a get window.
-        assert!(!holds_up(d.flow.by_name(SARIA).unwrap()) && allows(&d, SARIA, ocarina));
-        assert!(!holds_up(d.flow.by_name("Song from Impa").unwrap()));
-        let d0: Data = Data::load().unwrap();
-        for (loc, it) in &generate_data(&d0, &{
-            let mut s: Settings = Settings::default();
-            s.set("shuffle_songs", Value::s("anywhere")).unwrap();
-            s
-        }, "no hold", &GenOpts::default())
-        .unwrap()
-        .seed_file
-        .placements
-        {
-            if let (Some(l), Some(i)) = (d.flow.by_name(loc), d.item(it)) {
-                assert!(!(no_hold(i) && holds_up(l)) || d.vanilla_of(loc) == Some(it.as_str()), "{loc} holds {it}");
-            }
-        }
+        assert!(allows(&d, DARUNIA, ocarina) && allows(&d, SARIA, ocarina));
+        assert!(!holds_up(d.flow.by_name(SARIA).unwrap()));
     }
 
     #[test]
-    fn darunia_holds_any_pouch_item_but_the_ocarinas_and_songs() {
+    fn darunia_holds_any_pouch_item() {
         let d: Data = Data::load().unwrap();
         assert!(d.flow_ok(DARUNIA));
         for n in ["Progressive Strength Upgrade", "Bomb Bag", "Boomerang", "Progressive Hookshot", "Bow"] {
             assert!(allows(&d, DARUNIA, item(&d, n)), "{n}");
         }
-        for n in ["Sarias Song", "Small Key (Dodongos Cavern)", "Gold Skulltula Token"] {
-            assert!(d.item(n).is_none() || !allows(&d, DARUNIA, item(&d, n)), "{n}");
-        }
+        assert!(!allows(&d, DARUNIA, item(&d, "Small Key (Forest Temple)")));
     }
 
     #[test]
@@ -218,7 +247,12 @@ mod tests {
         // Other flow locations keep the accept list.
         assert!(!allows(&d, "Kak 50 Gold Skulltula Reward", item(&d, "Progressive Hookshot")));
         assert!(!d.flow_ok("HF Ocarina of Time Item"), "the Ocarina of Time scene stays pinned");
-        for n in ["Small Key (Forest Temple)", "Map (Deku Tree)", "Bottle with Milk", "Bombs (5)", "Gold Skulltula Token"] {
+        // Every item a chest gives works through the generic pouch get; dungeon items go through
+        // crate::gift_keys instead.
+        for n in ["Bottle with Milk", "Bombs (5)", "Gold Skulltula Token", "Rupees (20)", "Deku Shield", "Heart Container"] {
+            assert!(saria_takes(&d, item(&d, n)), "{n}");
+        }
+        for n in ["Small Key (Forest Temple)", "Map (Deku Tree)"] {
             assert!(!saria_takes(&d, item(&d, n)), "{n}");
         }
     }

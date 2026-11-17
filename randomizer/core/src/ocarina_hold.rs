@@ -1,49 +1,85 @@
-//! Lets an NPC hold the Ocarina up.
+//! Lets Link hold up the items that have no animation: the two Ocarinas and the songs.
 //!
-//! Every NPC gift that has Link hold the item up (each Dm_SY_GetInEvent entry reaches
-//! :Item_Position) shows the item with Player_Event.EventIgnitionShowItem, IsAsPlay true and
-//! ASCommand Rotate_GetDemo, which plays that animation on the actor it was handed. The two
-//! Ocarina item actors are equipment accessories with no animation at all, so the game crashed.
-//! Giving those actors the item animation components (ASInfo, ASRef Item_Common, AnimationRef)
-//! still crashed in the game, right after the patched pack loaded.
+//! Every gift that has Link hold the item up (each Dm_SY_GetInEvent entry reaches :Item_Position)
+//! shows the item with Player_Event.EventIgnitionShowItem, IsAsPlay true and ASCommand
+//! Rotate_GetDemo, which plays that animation on the actor it was handed. The Ocarina item actors
+//! (equipment accessories) and the song actors have no animation at all, so the game crashed.
+//! Giving the Ocarina actors the item animation components still crashed in the game.
 //!
 //! The game's own hold up gifts also hand out pickup actors: the Death Mountain Crater scrub's
 //! sale gives Obj_Heart_Piece. A pickup actor is built on Obj_Item_Base with the shared Item_Common
-//! animation, and its PouchContentParam names the item it adds (PouchActor). So at a hold up gift
-//! the Ocarina is handed out as its pickup actor from the pickup catalog (Obj_Ocarina_Fairy,
-//! Obj_Ocarina_TimeLand): the chain's ownership questions still ask about Item_Ocarina_Fairy and
-//! Item_Ocarina_Time, and each branch hands out the matching pickup actor. The seed build writes
-//! both pickup packs, since the chain picks the tier in the game. The Ocarina actors stay vanilla.
+//! animation, and its PouchContentParam names the item it adds (PouchActor). So where Link holds
+//! one of these items up, he is handed its pickup actor from the pickup catalog (Obj_Ocarina_Fairy,
+//! Obj_Ocarina_TimeLand, Obj_Melody_* on Sheik's harp model). A progressive chain still asks about
+//! the item actors and each branch hands out the matching pickup actor.
+//!
+//! Adding the pickup actor puts the item in the save, but the running game only sets an Ocarina up
+//! for the D-pad after a reload. Saria's gift adds the Ocarina item itself, which sets it up at
+//! once, so the gift then adds the item the same way (no window) and, for an Ocarina, writes the
+//! equip slot as the starting items do ([`after`]).
+//!
+//! This covers the NPC gifts that hold the item up (slice::flow_rules::holds_up) and the reward
+//! scenes the story skips turn into the standard item get (story_skip::item_get and
+//! patch_song_grant), for a placed item or the scene's own. The seed build writes the pickup packs
+//! all of those can hand out.
 
+use std::sync::OnceLock;
+
+use crate::bfevfl::{Cont, Flow, Kind, Val};
+use crate::error::{Error, Res};
 use crate::settings::seed::SeedFile;
 use crate::slice::data::Data;
 use crate::slice::key_spots::{pick, Pick};
 
-/// The item actors with no animation that a hold up cannot show.
-pub const NO_ANIM: [&str; 2] = ["Item_Ocarina_Fairy", "Item_Ocarina_Time"];
+/// The Ocarina item actors.
+pub const OCARINAS: [&str; 2] = ["Item_Ocarina_Fairy", "Item_Ocarina_Time"];
+const SONG: &str = "Item_Melody_";
 
 /// The player's equipped Ocarina. Adding the pickup actor gives the Ocarina but leaves this empty,
 /// so the D-pad cannot play it; the starting items write it the same way (start_items::give).
 pub const EQUIP: &str = "PlayerStatus.EquipOcarina";
 
-/// The game data the gift writes after handing out `tier`'s pickup actor, if any.
-pub fn equip_key(tier: &str) -> Option<&'static str> {
-    NO_ANIM.contains(&tier).then_some(EQUIP)
+pub const NOTE: &str = "An Ocarina or a song is handed to Link with the item get that holds the item up, so it is handed out as its pickup actor (those items have no item animation), then added like Saria's gift, and its pickup pack is written into the mod. Experimental.";
+
+/// Whether `actor` has no animation of its own, so a hold up cannot show it.
+pub fn no_anim(actor: &str) -> bool {
+    OCARINAS.contains(&actor) || actor.starts_with(SONG)
 }
 
-pub const NOTE: &str = "An Ocarina is handed out by an NPC who holds the item up, so it is handed out as its pickup actor (the Ocarina actors have no item animation), and both Ocarina pickup packs are written into the mod. Experimental, untested in the game.";
+/// The game data the gift writes after handing out `tier`'s pickup actor, if any.
+pub fn equip_key(tier: &str) -> Option<&'static str> {
+    OCARINAS.contains(&tier).then_some(EQUIP)
+}
 
 /// The pickup actor a hold up hands out in place of `actor`, if `actor` cannot be shown.
 pub fn shown(actor: &str) -> Option<String> {
-    if !NO_ANIM.contains(&actor) {
+    if !no_anim(actor) {
         return None;
     }
     pick(actor).map(|p| p.pack)
 }
 
-/// Whether `actor` is one of the pickup actors handed out in place of an Ocarina.
+/// Every item actor with no animation that has a pickup pack, and that pack.
+fn table() -> &'static Vec<(String, String)> {
+    static T: OnceLock<Vec<(String, String)>> = OnceLock::new();
+    T.get_or_init(|| {
+        crate::pickup_pack::catalog::load()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|e| no_anim(&e.item))
+            .filter_map(|e| shown(&e.item).map(|p| (e.item, p)))
+            .collect()
+    })
+}
+
+/// The item actor whose pickup actor `form` is.
+pub fn tier_of(form: &str) -> Option<&'static str> {
+    table().iter().find(|(_, p)| p == form).map(|(i, _)| i.as_str())
+}
+
+/// Whether `actor` is one of the pickup actors handed out in place of such an item.
 pub fn is_form(actor: &str) -> bool {
-    NO_ANIM.iter().any(|a| shown(a).as_deref() == Some(actor))
+    tier_of(actor).is_some()
 }
 
 fn holds_up(d: &Data, loc: &str) -> bool {
@@ -58,41 +94,114 @@ pub fn shown_at(d: &Data, loc: &str, actor: &str) -> Option<String> {
     shown(actor)
 }
 
-/// The actors each tier's branch of the progressive chain at `loc` hands out, or nothing when the
-/// tiers themselves can be shown.
-pub fn forms(d: &Data, loc: &str, family: &str) -> Vec<String> {
-    if !holds_up(d, loc) {
-        return Vec::new();
-    }
+/// The actors each tier's branch of a progressive chain that holds the item up hands out, or
+/// nothing when the tiers themselves can be shown.
+pub fn forms_of(family: &str) -> Vec<String> {
     let Ok(t) = crate::progressive::tiers(family) else {
         return Vec::new();
     };
-    if !t.iter().any(|a| NO_ANIM.contains(a)) {
+    if !t.iter().any(|a| no_anim(a)) {
         return Vec::new();
     }
     t.iter().map(|a| shown(a).unwrap_or_else(|| a.to_string())).collect()
 }
 
-fn ocarina(d: &Data, item: &str) -> bool {
-    d.item(item).is_some_and(|i| i.actor.iter().chain(i.tiers.iter()).any(|a| NO_ANIM.contains(&a.as_str())))
+/// forms_of, for the chain of an NPC gift at `loc` (nothing where the gift shows a window).
+pub fn forms(d: &Data, loc: &str, family: &str) -> Vec<String> {
+    if !holds_up(d, loc) {
+        return Vec::new();
+    }
+    forms_of(family)
 }
 
-/// The hold up locations that hand out an Ocarina.
-pub fn spots(d: &Data, seed: &SeedFile) -> Vec<String> {
-    seed.placements.iter().filter(|(loc, item)| ocarina(d, item) && holds_up(d, loc) && d.vanilla_of(loc) != Some(item.as_str())).map(|(l, _)| l.clone()).collect()
+/// Adds, after the gift handed out the pickup actor of `tier`, the tier item like Saria's gift
+/// (no window, no equip) and, for an Ocarina, the equip slot. Returns the first added event,
+/// whose chain ends at `then`.
+pub fn after(f: &mut Flow, tier: &str, then: u16) -> Res<u16> {
+    let push = |f: &mut Flow, k: Kind| -> Res<u16> {
+        let i: u16 = u16::try_from(f.events.len()).map_err(|_| Error::Format("ocarina: the flow has too many events"))?;
+        f.events.push(crate::bfevfl::Event { name: format!("OOTRRHeldAdd{i}"), kind: k });
+        Ok(i)
+    };
+    let mut next: u16 = then;
+    if let Some(key) = equip_key(tier) {
+        let (da, dx): (u16, u16) = crate::start_state::slot(f, "GameDataActor", "EventTriggerSetGameDataString64")?;
+        let items: Vec<(String, Val)> = vec![("GameDataName".to_string(), Val::Str(key.to_string())), ("Value".to_string(), Val::Str(tier.to_string())), ("Index".to_string(), Val::Int(-1))];
+        next = push(f, Kind::Action { next, actor: da, act: dx, params: Some(Cont { items }) })?;
+    }
+    let (pa, px): (u16, u16) = crate::start_state::slot(f, "PouchSystemActor", "EventTriggerAddOrRemovePouchContent")?;
+    let add: Vec<(String, Val)> = vec![
+        ("Num".to_string(), Val::Int(1)),
+        ("IsEquipDIrect".to_string(), Val::Bool(0)),
+        ("IsSetMessageTargetActorName".to_string(), Val::Bool(0)),
+        ("Actor".to_string(), Val::Str(tier.to_string())),
+        ("IsGetEvent".to_string(), Val::Bool(0)),
+    ];
+    push(f, Kind::Action { next, actor: pa, act: px, params: Some(Cont { items: add }) })
 }
 
-/// Whether the seed puts an Ocarina (any tier) at an NPC gift that holds the item up.
+fn forms_in(d: &Data, item: &str) -> Vec<String> {
+    d.item(item).map(|i| i.actor.iter().chain(i.tiers.iter()).filter(|a| no_anim(a)).cloned().collect()).unwrap_or_default()
+}
+
+/// The reward scenes the story skips turn into the standard item get (story_skip), which holds the
+/// item up whatever the check holds.
+pub fn scene_locs(d: &Data) -> Vec<String> {
+    let mut out: Vec<String> = vec![crate::lacs_key::LOC.to_string(), crate::slice::flow_rules::SARIA.to_string(), crate::story_skip::RAURU_LOC.to_string()];
+    out.extend(crate::story_skip::FAIRIES.iter().map(|x| x.0.to_string()));
+    out.extend(crate::story_skip::REWARD_SCENES.iter().map(|x| x.0.to_string()));
+    for t in &crate::story_skip::SONG_TRIGGERS {
+        out.push(t.loc.to_string());
+        out.extend(t.also.iter().map(|x| x.to_string()));
+    }
+    for c in &crate::story_skip::SHEIK_CUTS {
+        let file: String = format!("{}.bfevfl", c.scene);
+        out.extend(d.flow.locs.iter().filter(|l| l.edits.iter().any(|e| e.role == "grant" && e.file == file)).map(|l| l.name.clone()));
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// The locations that hand out an item with no animation by holding it up, with the item actors
+/// they can hand out: placed items at NPC gifts that hold them up, and placed or vanilla items at
+/// the reward scenes turned into the item get.
+pub fn spots(d: &Data, seed: &SeedFile) -> Vec<(String, Vec<String>)> {
+    let mut out: Vec<(String, Vec<String>)> = Vec::new();
+    for (loc, item) in &seed.placements {
+        if holds_up(d, loc) && d.vanilla_of(loc) != Some(item.as_str()) {
+            let fs: Vec<String> = forms_in(d, item);
+            if !fs.is_empty() {
+                out.push((loc.clone(), fs));
+            }
+        }
+    }
+    for loc in scene_locs(d) {
+        if out.iter().any(|x| x.0 == loc) {
+            continue;
+        }
+        let Some(item) = seed.placements.get(&loc).map(|s| s.as_str()).or_else(|| d.vanilla_of(&loc)) else {
+            continue;
+        };
+        let fs: Vec<String> = forms_in(d, item);
+        if !fs.is_empty() {
+            out.push((loc, fs));
+        }
+    }
+    out
+}
+
+/// Whether the seed hands out such an item by holding it up anywhere.
 pub fn needed(d: &Data, seed: &SeedFile) -> bool {
     !spots(d, seed).is_empty()
 }
 
-/// The pickup packs the seed build writes for those locations: every Ocarina tier's, at each.
+/// The pickup packs the seed build writes for those locations.
 pub fn wanted(d: &Data, seed: &SeedFile) -> Vec<(String, Pick)> {
     let mut out: Vec<(String, Pick)> = Vec::new();
-    for loc in spots(d, seed) {
-        for a in NO_ANIM {
-            if let Some(p) = pick(a) {
+    for (loc, actors) in spots(d, seed) {
+        for a in actors {
+            if let Some(p) = pick(&a) {
                 out.push((loc.clone(), p));
             }
         }
@@ -113,8 +222,18 @@ mod tests {
         assert!(is_form("Obj_Ocarina_TimeLand") && !is_form("Obj_Heart_Piece"));
         assert_eq!(forms(&d, "Kak Man on Roof", "Ocarina"), vec!["Obj_Ocarina_Fairy".to_string(), "Obj_Ocarina_TimeLand".to_string()]);
         assert!(forms(&d, "Kak Man on Roof", "Hookshot").is_empty());
-        // Saria's gift shows a get window, no hold up.
+        // Saria's gift shows a get window, no hold up, until the story skips turn it into the item get.
         assert!(forms(&d, "LW Gift from Saria", "Ocarina").is_empty());
+        assert_eq!(forms_of("Ocarina"), vec!["Obj_Ocarina_Fairy".to_string(), "Obj_Ocarina_TimeLand".to_string()]);
+        assert_eq!(shown("Item_Melody_ForestMinuet").as_deref(), Some("Obj_Melody_ForestMinuet"));
+        assert_eq!(tier_of("Obj_Melody_ForestMinuet"), Some("Item_Melody_ForestMinuet"));
+        assert_eq!(tier_of("Obj_Ocarina_TimeLand"), Some("Item_Ocarina_Time"));
+        assert!(equip_key("Item_Melody_ForestMinuet").is_none() && equip_key("Item_Ocarina_Time") == Some(EQUIP));
+        let scenes: Vec<String> = scene_locs(&d);
+        for l in ["LW Gift from Saria", "Song from Impa", "ToT Reward from Rauru", "DMT Great Fairy Reward", "Queen Gohma"] {
+            assert!(scenes.iter().any(|x| x == l), "{l}");
+        }
+        assert!(scenes.iter().any(|l| l.starts_with("Sheik")), "{scenes:?}");
         assert_eq!(crate::slice::flow_pool::dest_form(&d, "Ocarina", "Kak Anju as Child", "Item_Ocarina_Fairy".to_string()), "Obj_Ocarina_Fairy");
     }
 
@@ -138,7 +257,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&load);
         let b = crate::slice::edit::build(&g.seed_file, &root, &load, "ocarina").unwrap();
         let romfs: std::path::PathBuf = b.root.join("romfs");
-        for a in NO_ANIM {
+        for a in OCARINAS {
             let p: std::path::PathBuf = format!("Pack/Actor/{}.pack.zs", shown(a).unwrap()).split('/').fold(romfs.clone(), |x, s| x.join(s));
             assert!(p.is_file(), "{a}'s pickup pack not written");
             let item: std::path::PathBuf = format!("Pack/Actor/{a}.pack.zs").split('/').fold(romfs.clone(), |x, s| x.join(s));
@@ -157,11 +276,11 @@ mod tests {
         };
         assert!(named("Obj_Ocarina_Fairy") && named("Obj_Ocarina_TimeLand"));
         // Each pickup branch then adds its Ocarina tier like Saria's gift and equips it.
-        for t in NO_ANIM {
+        for t in OCARINAS {
             let adds = bf.flows.iter().flat_map(|f| f.events.iter()).any(|e| e.kind.params().is_some_and(|c| c.get("Actor") == Some(&crate::bfevfl::Val::Str(t.to_string())) && c.get("IsGetEvent") == Some(&crate::bfevfl::Val::Bool(0))));
             assert!(adds, "{t} is not added after its pickup actor");
         }
-        for t in NO_ANIM {
+        for t in OCARINAS {
             let equips = bf.flows.iter().flat_map(|f| f.events.iter()).any(|e| {
                 e.kind.params().is_some_and(|c| c.get("GameDataName") == Some(&crate::bfevfl::Val::Str(EQUIP.to_string())) && c.get("Value") == Some(&crate::bfevfl::Val::Str(t.to_string())))
             });

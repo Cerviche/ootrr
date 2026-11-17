@@ -305,7 +305,10 @@ pub fn patch_gift(b: &mut Bf) -> Res<()> {
     let grant: usize = find(f, GIFT_GRANT)?;
     let show: usize = find(f, GIFT_SHOW)?;
     let wrapped = |i: usize| matches!(f.events[i].kind, Kind::Switch { .. });
-    if !wrapped(grant) && action(f, grant).as_deref() != Some(POUCH_ADD) {
+    // A dungeon item replaces the pouch add with its credit writes (crate::gift_keys), a chain
+    // that already ends where the add did.
+    let credited: bool = action(f, grant).is_some_and(|a| a.starts_with("GameDataActor."));
+    if !wrapped(grant) && !credited && action(f, grant).as_deref() != Some(POUCH_ADD) {
         return Err(Error::Format("story skip: the gift scene's grant is not a pouch add, the game files differ"));
     }
     if !wrapped(show) && !matches!(&f.events[show].kind, Kind::Sub { flow, entry, .. } if flow == "GetPouchContent" && entry == "DisplayGetByActorName") {
@@ -322,7 +325,9 @@ pub fn patch_gift(b: &mut Bf) -> Res<()> {
     e.subs = subs;
     let after: u16 = ends(f, show)?;
     retarget(f, show, after, g)?;
-    retarget(f, grant, ends(f, grant)?, NONE)?;
+    if !credited {
+        retarget(f, grant, ends(f, grant)?, NONE)?;
+    }
     Ok(())
 }
 
@@ -867,6 +872,602 @@ pub fn patch_light_arrows(b: &mut Bf) -> Res<()> {
     set_next(&mut f.events[unequip].kind, idx(fade)?)?;
     set_next(&mut f.events[fade].kind, idx(done)?)?;
     Ok(())
+}
+
+/// What a check whose scene is dropped gives: the placed item's actor, its upgrade family when it
+/// is one, and its dungeon credit when it is a dungeon item.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SceneGive {
+    pub actor: String,
+    pub family: Option<&'static str>,
+    pub key: Option<(crate::gift_keys::Item, &'static str)>,
+}
+
+/// The checks whose scenes are dropped for the standard item get.
+pub const DROPPED: [&str; 3] = ["ToT Light Arrows Cutscene", "LW Gift from Saria", "ToT Reward from Rauru"];
+
+/// The standard item get (the item shown, Link holding it up, the get window and the pouch add)
+/// that the minigames run with no NPC.
+pub const ITEM_GET: (&str, &str) = ("Dm_SY_GetInEvent", "GetInEvent_NotTurn_NotNpc");
+
+/// Adds the item get for `g` to `f`, ending on `then`, and returns its first event. A dungeon item
+/// runs the item get's window-only copy (crate::item_window), then its credit; an upgrade gets its
+/// tier checks. The call joins the preload list (subs) of `entries`.
+fn item_get(f: &mut Flow, name: &str, g: &SceneGive, then: u16, entries: &[&str]) -> Res<u16> {
+    if f.events.iter().any(|e| e.name == name) {
+        return Err(Error::Msg(format!("story skip: the item get {name} is already in {}", f.name)));
+    }
+    let at: u16 = idx(f.events.len())?;
+    let window: String = crate::item_window::name(ITEM_GET.1);
+    let entry: &str = if g.key.is_some() { &window } else { ITEM_GET.1 };
+    f.events.push(Event {
+        name: name.to_string(),
+        kind: Kind::Sub {
+            next: then,
+            params: Some(Cont { items: vec![("ActorName".to_string(), Val::Str(g.actor.clone()))] }),
+            flow: ITEM_GET.0.to_string(),
+            entry: entry.to_string(),
+        },
+    });
+    for e in f.entries.iter_mut().filter(|e| entries.contains(&e.name.as_str())) {
+        e.subs.push(at);
+    }
+    if let Some(family) = g.family {
+        crate::progressive::wrap_grant_as(f, at as usize, name, "ActorName", family, &crate::ocarina_hold::forms_of(family))?;
+    } else {
+        held(f, at as usize, "ActorName")?;
+    }
+    if let Some((item, dungeon)) = g.key {
+        let first: u16 = crate::gift_keys::credit(f, item, dungeon, then)?;
+        set_next(&mut f.events[at as usize].kind, first)?;
+    }
+    Ok(at)
+}
+
+/// The item get at `at` holds up the actor in its `param`. An item with no animation (an Ocarina or
+/// a song) is handed out as its pickup actor, then added like Saria's gift (crate::ocarina_hold).
+/// An actor the location patcher already turned into the pickup actor gets the add too.
+fn held(f: &mut Flow, at: usize, param: &str) -> Res<()> {
+    let actor: String = match f.events[at].kind.params().and_then(|c| c.get(param)) {
+        Some(Val::Str(s)) => s.clone(),
+        _ => return Ok(()),
+    };
+    let (form, tier): (String, String) = match (crate::ocarina_hold::shown(&actor), crate::ocarina_hold::tier_of(&actor)) {
+        (Some(p), _) => (p, actor),
+        (None, Some(t)) => (actor, t.to_string()),
+        (None, None) => return Ok(()),
+    };
+    if let Some(c) = f.events[at].kind.params_mut()
+        && let Some((_, v)) = c.items.iter_mut().find(|(k, _)| k == param)
+    {
+        *v = Val::Str(form);
+    }
+    let then: u16 = next_of(&f.events[at].kind).ok_or(Error::Format("story skip: the item get has no next"))?;
+    let added: u16 = crate::ocarina_hold::after(f, &tier, then)?;
+    set_next(&mut f.events[at].kind, added)
+}
+
+/// The one event of `f` whose GameDataName parameter is `flag`.
+fn writes(f: &Flow, flag: &str) -> Res<usize> {
+    let hits: Vec<usize> = (0..f.events.len())
+        .filter(|&i| f.events[i].kind.params().is_some_and(|c| c.items.iter().any(|(k, v)| k == "GameDataName" && matches!(v, Val::Str(s) if s == flag))))
+        .collect();
+    match hits.as_slice() {
+        [i] => Ok(*i),
+        _ => Err(Error::Msg(format!("story skip: {} writes {flag} {} times, expected once", f.name, hits.len()))),
+    }
+}
+
+const ARROWS_ENTRIES: [&str; 2] = ["Market_Adult_Field_GetArrowLight", "GetArrowLight_OcarinaBackTimeTemple"];
+const ARROWS_GIVE: &str = "OOTRRArrowsGive";
+/// Market_Adult_Field_GetArrowLight: the event start and the unequip after its fade out.
+const ARROWS_START: (&str, &str) = ("Event164", "Player_Event.EventTriggerPlayerEventStartWithDrawn");
+const ARROWS_FIRST_UNEQUIP: (&str, &str) = ("Event165", "Player_Event.EventPlayerUnequip");
+
+/// Drops the Light Arrows scene (Dm_TimeTemple_0130) entirely: its transition becomes its played
+/// flag and Link runs the standard item get with the placed item, then the quest steps follow as
+/// before. No fades or camera moves around it: the event start goes straight to the unequip and
+/// the scene flags (skipping the player camera, the slow walk stop and the fade out), and the last
+/// scene flag straight to the item get (skipping the camera and Navi reset, the second unequip and
+/// the fade in). Runs after patch_light_arrows.
+pub fn patch_arrows_give(b: &mut Bf, g: &SceneGive) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, ARROWS_FLOW)?;
+    let fade: usize = find_action(f, ARROWS_FADE_IN)?;
+    let done: u16 = next_of(&f.events[fade].kind).ok_or(Error::Format("story skip: the Light Arrows fade in has no next"))?;
+    if action(f, done as usize).as_deref() != Some(ARROWS_DONE.1) {
+        return Err(Error::Format("story skip: run patch_light_arrows before the Light Arrows item get"));
+    }
+    transition_to_flag(f, ARROWS_PREFIX, ARROWS_GRANT.0, ARROWS_GRANT.1, None)?;
+    let at: u16 = item_get(f, ARROWS_GIVE, g, done, &ARROWS_ENTRIES)?;
+    let start: usize = find_action(f, ARROWS_START)?;
+    let unequip: usize = find_action(f, ARROWS_FIRST_UNEQUIP)?;
+    set_next(&mut f.events[start].kind, idx(unequip)?)?;
+    let last: usize = writes(f, "HavePlayedEvent.Dm_TimeTemple_0135")?;
+    set_next(&mut f.events[last].kind, at)?;
+    Ok(())
+}
+
+/// Adds the item get to the story skip's AllSage edit in `late` (or to the game's AllSage).
+pub fn stage_arrows_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &SceneGive) -> Res<()> {
+    crate::dungeon_grant::merge(rf, late, ARROWS_FILE, |raw| rebuild(raw, |b| patch_arrows_give(b, g)))
+}
+
+/// The Spiritual Stone and Medallion checks, their reward scenes in the dungeon ending flow
+/// (Dm_SY_BancChange_EscapeDungeon), and the flags those scenes write of their own.
+pub const REWARD_SCENES: [(&str, &str, &[&str]); 8] = [
+    ("Queen Gohma", "Dm_Kokiri_0130", &[]),
+    ("King Dodongo", "Dm_DeathMtTrail_0025", &[]),
+    ("Barinade", "Dm_ZoraFountain_0030", &[]),
+    ("Phantom Ganon", "Dm_Awake_Forest_Get", &["AllSage_AwakeSage_Fire_Or_Forest"]),
+    ("Volvagia", "Dm_Awake_Fire_Get", &["AllSage_AwakeSage_Fire_Or_Forest"]),
+    ("Morpha", "Dm_Awake_Water_Get", &[]),
+    ("Bongo Bongo", "Dm_Awake_Shadow_Get", &[]),
+    ("Twinrova", "Dm_Awake_Spirit_Get", &[]),
+];
+const REWARD_PREFIX: &str = "OOTRRReward";
+const FADE_IN: (&str, &str) = ("UISystemActor", "EventEventFadeIn");
+
+/// The entries of `f` whose events reach event `i`.
+fn entries_reaching(f: &Flow, i: usize) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for e in &f.entries {
+        let mut seen: Vec<bool> = vec![false; f.events.len()];
+        let mut todo: Vec<u16> = vec![e.main];
+        while let Some(x) = todo.pop() {
+            let x: usize = x as usize;
+            if x >= f.events.len() || seen[x] {
+                continue;
+            }
+            seen[x] = true;
+            match &f.events[x].kind {
+                Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } => todo.push(*next),
+                Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => todo.extend(cases.iter().map(|c| c.ev)),
+                Kind::Fork { join, forks } => {
+                    todo.push(*join);
+                    todo.extend(forks.iter().copied());
+                }
+                Kind::Label { .. } => {}
+            }
+        }
+        if seen[i] {
+            out.push(e.name.clone());
+        }
+    }
+    out
+}
+
+/// Drops each Spiritual Stone and Medallion reward scene for the standard item get: the scene's
+/// transition becomes its played flag (and the flags the scene wrote), then a fade in (the area
+/// may still be black after the skipped scenes before it) and the item get with what the check
+/// holds, then the flow goes on as after the scene (the area change out). Runs after patch_endings.
+pub fn patch_reward_gives(b: &mut Bf, gives: &[(&str, &[&str], SceneGive)]) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, ENDING_FLOW)?;
+    for (scene, extra, g) in gives {
+        let hits: Vec<usize> = (0..f.events.len())
+            .filter(|&i| action(f, i).as_deref() == Some("EventSystemActor.EventTransition") && text(&f.events[i], "EventName") == Some(*scene))
+            .collect();
+        let [i] = hits.as_slice() else {
+            return Err(Error::Msg(format!("story skip: the dungeon endings play {scene} {} times, expected once", hits.len())));
+        };
+        let i: usize = *i;
+        let next: u16 = next_of(&f.events[i].kind).ok_or(Error::Format("story skip: a reward scene has no next"))?;
+        let entries: Vec<String> = entries_reaching(f, i);
+        let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
+        let at: u16 = item_get(f, &format!("{REWARD_PREFIX}{scene}"), g, next, &names)?;
+        let mut kinds: Vec<Kind> = Vec::new();
+        for flag in *extra {
+            kinds.push(set_bool(f, flag, true)?);
+        }
+        let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, FADE_IN.0, FADE_IN.1)?;
+        kinds.push(Kind::Action {
+            next: NONE,
+            actor: a,
+            act: x,
+            params: Some(Cont {
+                items: vec![
+                    ("Color".to_string(), Val::Int(0)),
+                    ("IsNoPlayAnime".to_string(), Val::Bool(0)),
+                    ("Length".to_string(), Val::Int(1)),
+                    ("IsWaitEnd".to_string(), Val::Bool(1)),
+                ],
+            }),
+        });
+        let first: u16 = chain(f, &format!("{REWARD_PREFIX}{scene}_"), kinds, at)?;
+        let name: String = f.events[i].name.clone();
+        transition_to_flag(f, REWARD_PREFIX, &name, scene, Some(first))?;
+    }
+    Ok(())
+}
+
+/// Adds the reward item gets to the endings edit in `late` (or to the game's ending flow).
+pub fn stage_reward_gives(rf: &mut Romfs, late: &mut Vec<Out>, gives: &[(&str, &[&str], SceneGive)]) -> Res<()> {
+    crate::dungeon_grant::merge(rf, late, ENDING_FILE, |raw| rebuild(raw, |b| patch_reward_gives(b, gives)))
+}
+
+/// The Great Fairy checks and their fountain flows.
+pub const FAIRIES: [(&str, &str); 6] = [
+    ("DMT Great Fairy Reward", "Dm_FairyFountain_Din"),
+    ("HC Great Fairy Reward", "Dm_FairyFountain_Power"),
+    ("DMC Great Fairy Reward", "Dm_FairyFountain_Wisdom"),
+    ("ZF Great Fairy Reward", "Dm_FairyFountain_Frore"),
+    ("Colossus Great Fairy Reward", "Dm_FairyFountain_Nayru"),
+    ("OGC Great Fairy Reward", "Dm_FairyFountain_Courage"),
+];
+const FAIRY_PREFIX: &str = "OOTRRFairy";
+
+fn wait0(f: &mut Flow, next: u16) -> Res<Kind> {
+    let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, "EventSystemActor", "EventWait")?;
+    Ok(Kind::Action { next, actor: a, act: x, params: Some(Cont { items: vec![("IsWaitEnd".to_string(), Val::Bool(1)), ("Frames".to_string(), Val::Int(0))] }) })
+}
+
+fn targets_of(k: &Kind) -> Vec<u16> {
+    match k {
+        Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } => vec![*next],
+        Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => cases.iter().map(|c| c.ev).collect(),
+        Kind::Fork { join, forks } => std::iter::once(*join).chain(forks.iter().copied()).collect(),
+        Kind::Label { .. } => Vec::new(),
+    }
+}
+
+fn is_sub_to(k: &Kind, entry: &str) -> bool {
+    matches!(k, Kind::Sub { entry: e, .. } if e == entry)
+}
+
+/// A Great Fairy, once paid. The talk and the payment stay. The music stop, the skip marker and the
+/// fairy rising (GreatFairy_Appear) before her gift scene become zero-frame waits, the gift scene
+/// becomes the release of the music mute and the standard item get with what the check holds, and
+/// her leaving (GreatFairy_Disappear: her parting talk, the "all fairies met" message and the
+/// heal) becomes only the heal (TriForcePoint:Recover). Din's MP check before the gift stays.
+pub fn patch_fairy_give(b: &mut Bf, flow: &str, g: &SceneGive) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, flow)?;
+    let gifts: Vec<usize> = (0..f.events.len()).filter(|&i| matches!(&f.events[i].kind, Kind::Sub { flow: fl, entry, .. } if fl.is_empty() && entry == flow)).collect();
+    let [gift] = gifts.as_slice() else {
+        return Err(Error::Msg(format!("story skip: {flow} runs its gift scene {} times, expected once", gifts.len())));
+    };
+    let gift: usize = *gift;
+    let n: usize = f.events.len();
+    let mut pred: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for i in 0..n {
+        for t in targets_of(&f.events[i].kind) {
+            if (t as usize) < n {
+                pred[t as usize].push(i);
+            }
+        }
+    }
+    // The rising: an Appear call that reaches the gift within three steps.
+    let near = |from: usize| -> bool {
+        let mut todo: Vec<(usize, u8)> = vec![(from, 0)];
+        while let Some((i, d)) = todo.pop() {
+            if i == gift {
+                return true;
+            }
+            if d < 3 && i < n {
+                todo.extend(targets_of(&f.events[i].kind).into_iter().map(|t| (t as usize, d + 1)));
+            }
+        }
+        false
+    };
+    let appears: Vec<usize> = (0..n).filter(|&i| is_sub_to(&f.events[i].kind, "GreatFairy_Appear") && near(i)).collect();
+    if appears.is_empty() {
+        return Err(Error::Msg(format!("story skip: {flow} has no fairy rising before its gift, the game files differ")));
+    }
+    let mut quiet: Vec<usize> = appears.clone();
+    for &a in &appears {
+        let mut at: usize = a;
+        for want in ["EventSystemActor.EventTriggerSkipAcceptStart", "SoundSystemActor.EventTriggerStopInGameBgm"] {
+            if let [p] = pred[at].as_slice()
+                && action(f, *p).as_deref() == Some(want)
+            {
+                quiet.push(*p);
+                at = *p;
+            }
+        }
+    }
+    for i in quiet {
+        let next: u16 = next_of(&f.events[i].kind).ok_or(Error::Format("story skip: a fairy event has no next"))?;
+        f.events[i].kind = wait0(f, next)?;
+    }
+    // The leaving: the Disappear call a few steps after the gift.
+    let mut i: u16 = next_of(&f.events[gift].kind).ok_or(Error::Format("story skip: the fairy gift has no next"))?;
+    let mut leave: Option<usize> = None;
+    for _ in 0..4 {
+        if i == NONE {
+            break;
+        }
+        if is_sub_to(&f.events[i as usize].kind, "GreatFairy_Disappear") {
+            leave = Some(i as usize);
+            break;
+        }
+        i = next_of(&f.events[i as usize].kind).unwrap_or(NONE);
+    }
+    let leave: usize = leave.ok_or_else(|| Error::Msg(format!("story skip: {flow} has no fairy leaving after its gift, the game files differ")))?;
+    let after: u16 = next_of(&f.events[leave].kind).ok_or(Error::Format("story skip: the fairy leaving has no next"))?;
+    f.events[leave].kind = Kind::Sub { next: after, params: None, flow: "TriForcePoint".to_string(), entry: "Recover".to_string() };
+    // The gift: the release of the music mute from the gift scene, then the item get.
+    let release: Option<Kind> = f
+        .entries
+        .iter()
+        .find(|e| e.name == flow)
+        .map(|e| e.main)
+        .and_then(|m| {
+            let mut seen: Vec<bool> = vec![false; n];
+            let mut todo: Vec<u16> = vec![m];
+            while let Some(x) = todo.pop() {
+                let x: usize = x as usize;
+                if x >= n || seen[x] {
+                    continue;
+                }
+                seen[x] = true;
+                if action(f, x).as_deref() == Some("SoundSystemActor.EventSoundReleaseDucking") {
+                    return Some(f.events[x].kind.clone());
+                }
+                todo.extend(targets_of(&f.events[x].kind));
+            }
+            None
+        });
+    let then: u16 = next_of(&f.events[gift].kind).ok_or(Error::Format("story skip: the fairy gift has no next"))?;
+    let entries: Vec<String> = entries_reaching(f, gift);
+    let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
+    let at: u16 = item_get(f, &format!("{FAIRY_PREFIX}{flow}"), g, then, &names)?;
+    f.events[gift].kind = match release {
+        Some(mut k) => {
+            set_next(&mut k, at)?;
+            k
+        }
+        None => wait0(f, at)?,
+    };
+    Ok(())
+}
+
+/// Adds a Great Fairy's item get to her flow in `late`, in the mod's work folder, or the game's.
+pub fn stage_fairy_give(rf: &mut Romfs, late: &mut Vec<Out>, work: &std::path::Path, flow: &str, g: &SceneGive) -> Res<()> {
+    let path: String = format!("Event/EventFlow/{flow}.bfevfl.zs");
+    if late.iter().any(|o| o.path == path) {
+        return crate::dungeon_grant::merge(rf, late, &path, |raw| rebuild(raw, |b| patch_fairy_give(b, flow, g)));
+    }
+    let have = |p: &str| -> Option<Vec<u8>> { fs::read(p.split('/').fold(work.to_path_buf(), |a, s| a.join(s))).ok() };
+    late.push(edit_zs(rf, &have, &path, |raw| rebuild(raw, |b| patch_fairy_give(b, flow, g)))?);
+    Ok(())
+}
+
+// ---------------------------------------------------------------- song lessons
+
+/// A song lesson played from another flow: the check, the flow that plays it, every scene of the
+/// lesson that flow plays, the scene that hands over the song, and other checks that scene gives.
+pub struct SongTrigger {
+    pub loc: &'static str,
+    pub flow: &'static str,
+    pub cut: &'static [&'static str],
+    pub give: &'static str,
+    pub also: &'static [&'static str],
+}
+
+pub const SONG_TRIGGERS: [SongTrigger; 6] = [
+    SongTrigger { loc: "Song from Impa", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Zelda", also: &[] },
+    SongTrigger { loc: "Song from Malon", flow: "SubEvent_GetEponaSong", cut: &[], give: "Dm_MelodyGet_Epona", also: &[] },
+    SongTrigger { loc: "Song from Saria", flow: "SacredForestMeadow", cut: &[], give: "Dm_MelodyGet_Saria", also: &[] },
+    // The lesson, then one of the day or night flips (the time change after each stays), then Sun_03.
+    SongTrigger {
+        loc: "Song from Royal Familys Tomb",
+        flow: "GimmickFlow_RoyalFamilyTomb",
+        cut: &["Dm_MelodyGet_Sun", "Dm_MelodyGet_Sun_01", "Dm_MelodyGet_Sun_04", "Dm_MelodyGet_Sun_05", "Dm_MelodyGet_Sun_06", "Dm_MelodyGet_Sun_07", "Dm_MelodyGet_Sun_08", "Dm_MelodyGet_Sun_09", "Dm_MelodyGet_Sun_10"],
+        give: "Dm_MelodyGet_Sun_03",
+        also: &[],
+    },
+    // The Ocarina of Time scene also hands over the Ocarina.
+    SongTrigger { loc: "Song from Ocarina of Time", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Time", also: &["HF Ocarina of Time Item"] },
+    SongTrigger { loc: "Song from Windmill", flow: "Npc_Hylia_009_Adult", cut: &[], give: "Dm_MelodyGet_Storm", also: &[] },
+];
+const SONG_PREFIX: &str = "OOTRRSong";
+
+/// A write a scene makes of its own (a flag, a counter, a quest step), to run in place of it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Write {
+    pub actor: String,
+    pub act: String,
+    pub params: Option<Cont>,
+}
+
+/// The writes `scene` makes besides its item: its GameDataActor and ChallengeSystemActor actions.
+pub fn scene_writes(rf: &mut Romfs, scene: &str) -> Res<Vec<Write>> {
+    let raw: Vec<u8> = rf.read_zs(&format!("Event/EventFlow/{scene}.bfevfl.zs"))?;
+    let b: Bf = Bf::parse(&raw)?;
+    let f: &Flow = b.flows.first().ok_or_else(|| Error::Msg(format!("story skip: {scene} holds no flow")))?;
+    let mut out: Vec<Write> = Vec::new();
+    for e in &f.events {
+        if let Kind::Action { actor, act, params, .. } = &e.kind {
+            let Some(a) = f.actors.get(*actor as usize) else { continue };
+            if (a.name == "GameDataActor" || a.name == "ChallengeSystemActor") && a.sub.is_empty() {
+                let x: String = a.actions.get(*act as usize).cloned().unwrap_or_default();
+                out.push(Write { actor: a.name.clone(), act: x, params: params.clone() });
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn fade_in(f: &mut Flow) -> Res<Kind> {
+    let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, FADE_IN.0, FADE_IN.1)?;
+    Ok(Kind::Action {
+        next: NONE,
+        actor: a,
+        act: x,
+        params: Some(Cont {
+            items: vec![
+                ("Color".to_string(), Val::Int(0)),
+                ("IsNoPlayAnime".to_string(), Val::Bool(0)),
+                ("Length".to_string(), Val::Int(1)),
+                ("IsWaitEnd".to_string(), Val::Bool(1)),
+            ],
+        }),
+    })
+}
+
+/// The transitions of `f` that play `scene`.
+fn plays(f: &Flow, scene: &str) -> Vec<usize> {
+    (0..f.events.len()).filter(|&i| action(f, i).as_deref() == Some("EventSystemActor.EventTransition") && text(&f.events[i], "EventName") == Some(scene)).collect()
+}
+
+/// Drops a song lesson played from `t.flow`: each scene of the lesson becomes its played flag, and
+/// the scene that hands over the song becomes its played flag, the writes it made, a fade in and
+/// the standard item get of each of `gives` (the extra checks of `also`, then the song).
+pub fn patch_song_trigger(b: &mut Bf, t: &SongTrigger, writes: &[Write], gives: &[SceneGive]) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, t.flow)?;
+    for scene in t.cut {
+        for i in plays(f, scene) {
+            let name: String = f.events[i].name.clone();
+            transition_to_flag(f, SONG_PREFIX, &name, scene, None)?;
+        }
+    }
+    let at: Vec<usize> = plays(f, t.give);
+    if at.is_empty() {
+        return Err(Error::Msg(format!("story skip: {} no longer plays {}, the game files differ", t.flow, t.give)));
+    }
+    for i in at {
+        let next: u16 = next_of(&f.events[i].kind).ok_or(Error::Format("story skip: a song scene has no next"))?;
+        let entries: Vec<String> = entries_reaching(f, i);
+        let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
+        let mut then: u16 = next;
+        for (k, g) in gives.iter().enumerate().rev() {
+            then = item_get(f, &format!("{SONG_PREFIX}{}_{i}_{k}", t.give), g, then, &names)?;
+        }
+        let mut kinds: Vec<Kind> = Vec::new();
+        for w in writes {
+            let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, &w.actor, &w.act)?;
+            kinds.push(Kind::Action { next: NONE, actor: a, act: x, params: w.params.clone() });
+        }
+        kinds.push(fade_in(f)?);
+        let first: u16 = chain(f, &format!("{SONG_PREFIX}{}_{i}_", t.give), kinds, then)?;
+        let name: String = f.events[i].name.clone();
+        transition_to_flag(f, SONG_PREFIX, &name, t.give, Some(first))?;
+    }
+    Ok(())
+}
+
+/// Turns a song scene's grant (the get window and pouch add of GetPouchContentByActorName, or a
+/// tier check over several of them) into the standard item get with the same item, so Link holds
+/// the song up. Runs on Sheik's six scenes after patch_sheik has cut them to the grant.
+pub fn patch_song_grant(b: &mut Bf, scene: &str, grant: &str) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, scene)?;
+    let g: usize = find(f, grant)?;
+    let subs: Vec<usize> = match &f.events[g].kind {
+        Kind::Switch { cases, .. } => cases.iter().map(|c| c.ev as usize).collect(),
+        _ => vec![g],
+    };
+    let mut done: usize = 0;
+    for i in subs {
+        if let Kind::Sub { flow, entry, .. } = &mut f.events[i].kind
+            && flow == "GetPouchContent"
+            && (entry == "GetPouchContentByActorName" || entry == "DisplayGetByActorName")
+        {
+            let window: bool = entry == "DisplayGetByActorName";
+            *flow = ITEM_GET.0.to_string();
+            *entry = if window { crate::item_window::name(ITEM_GET.1) } else { ITEM_GET.1.to_string() };
+            done += 1;
+            if !window {
+                held(f, i, "ActorName")?;
+            }
+        }
+    }
+    if done == 0 {
+        return Err(Error::Msg(format!("story skip: {grant} in {scene} is not a song grant, the game files differ")));
+    }
+    Ok(())
+}
+
+/// Stages an edit of `flow` in `late`, in the mod's work folder, or the game's.
+pub fn stage_late(rf: &mut Romfs, late: &mut Vec<Out>, work: &std::path::Path, flow: &str, edit: impl FnOnce(&mut Bf) -> Res<()>) -> Res<()> {
+    let path: String = format!("Event/EventFlow/{flow}.bfevfl.zs");
+    if late.iter().any(|o| o.path == path) {
+        return crate::dungeon_grant::merge(rf, late, &path, |raw| rebuild(raw, edit));
+    }
+    let have = |p: &str| -> Option<Vec<u8>> { fs::read(p.split('/').fold(work.to_path_buf(), |a, s| a.join(s))).ok() };
+    late.push(edit_zs(rf, &have, &path, |raw| rebuild(raw, edit))?);
+    Ok(())
+}
+
+pub const RAURU_LOC: &str = "ToT Reward from Rauru";
+const RAURU_GIVE: &str = "OOTRRRauruGive";
+
+/// The first Master Sword draw (patch_draw) gives Rauru's check with a bare pouch add in its
+/// chain. That add becomes a fade in and the standard item get with what the check holds (with
+/// its tier checks or its dungeon credit), still before the transition to the adult temple.
+/// Runs after patch_draw.
+pub fn patch_rauru_give(b: &mut Bf, g: &SceneGive) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, DOOR_FLOW)?;
+    let adds: Vec<usize> = (0..f.events.len())
+        .filter(|&i| f.events[i].name.starts_with(DOOR_PREFIX) && action(f, i).as_deref() == Some("PouchSystemActor.EventTriggerAddOrRemovePouchContent") && text(&f.events[i], "Actor") != Some("Weapon_Sword_Master"))
+        .collect();
+    let [gift] = adds.as_slice() else {
+        return Err(Error::Msg(format!("story skip: the Master Sword draw gives Rauru's check {} times, expected once (run patch_draw first)", adds.len())));
+    };
+    let gift: usize = *gift;
+    let next: u16 = next_of(&f.events[gift].kind).ok_or(Error::Format("story skip: Rauru's gift has no next"))?;
+    let entries: Vec<String> = entries_reaching(f, gift);
+    let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
+    let at: u16 = item_get(f, RAURU_GIVE, g, next, &names)?;
+    let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, FADE_IN.0, FADE_IN.1)?;
+    f.events[gift].kind = Kind::Action {
+        next: at,
+        actor: a,
+        act: x,
+        params: Some(Cont {
+            items: vec![
+                ("Color".to_string(), Val::Int(0)),
+                ("IsNoPlayAnime".to_string(), Val::Bool(0)),
+                ("Length".to_string(), Val::Int(1)),
+                ("IsWaitEnd".to_string(), Val::Bool(1)),
+            ],
+        }),
+    };
+    Ok(())
+}
+
+/// Adds Rauru's item get to the story skip's DoorOfTime edit in `late` (or to the game's).
+pub fn stage_rauru_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &SceneGive) -> Res<()> {
+    crate::dungeon_grant::merge(rf, late, DOOR_FILE, |raw| rebuild(raw, |b| patch_rauru_give(b, g)))
+}
+
+/// Saria's gift (KokiriForest_ArriveLostWood in Goto_HyruleCastle). The event starts, Link joins
+/// and unequips, the trigger's event bool is set, then both scenes (Dm_Kokiri_0150, already a flag
+/// through patch_bridge, and the gift scene Dm_Kokiri_0155) are only marked as played and Link runs
+/// the standard item get with the placed item; the field palette flag and the area change follow
+/// as before. The player camera, the fade out, the Saria, Navi and Link warps and the sound ducking
+/// no longer run. Runs after patch_bridge.
+const SARIA_ENTRY: &str = "KokiriForest_ArriveLostWood";
+const SARIA_GIVE: &str = "OOTRRSariaGive";
+const SARIA_JOIN: (&str, &str) = ("Event18", "Player_Event.EventTriggerParticipateEvent");
+const SARIA_UNEQUIP: (&str, &str) = ("Event52", "Player_Event.EventPlayerUnequip");
+const SARIA_BOOL: (&str, &str) = ("Event17", "EventSystemActor.EventWait");
+const SARIA_AFTER: &str = "HyruleField_ChangeENV";
+
+pub fn patch_saria_give(b: &mut Bf, g: &SceneGive) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, BRIDGE_FLOW)?;
+    if writes(f, LONG_FLAG).is_err() {
+        return Err(Error::Format("story skip: run patch_bridge before Saria's item get"));
+    }
+    // What follows the gift scene (the field palette flag, then the area change); the flow writes
+    // that flag in another event too.
+    let scene: usize = find(f, GIFT_SCENE)?;
+    let after: usize = next_of(&f.events[scene].kind).ok_or(Error::Format("story skip: Saria's gift scene has no next"))? as usize;
+    if text(&f.events[after], "GameDataName") != Some(SARIA_AFTER) {
+        return Err(Error::Format("story skip: Saria's gift scene is no longer followed by the field palette flag, the game files differ"));
+    }
+    let join: usize = find_action(f, SARIA_JOIN)?;
+    let unequip: usize = find_action(f, SARIA_UNEQUIP)?;
+    let wait: usize = find_action(f, SARIA_BOOL)?;
+    let at: u16 = item_get(f, SARIA_GIVE, g, idx(after)?, &[SARIA_ENTRY])?;
+    let k1: Kind = set_bool(f, LONG_FLAG, true)?;
+    let k2: Kind = set_bool(f, "HavePlayedEvent.Dm_Kokiri_0155", true)?;
+    let first: u16 = chain(f, SARIA_GIVE, vec![k1, k2], at)?;
+    set_next(&mut f.events[join].kind, idx(unequip)?)?;
+    set_next(&mut f.events[wait].kind, first)?;
+    Ok(())
+}
+
+/// Adds Saria's item get to the story skip's bridge edit in `late` (or to the game's).
+pub fn stage_saria_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &SceneGive) -> Res<()> {
+    crate::dungeon_grant::merge(rf, late, BRIDGE_FILE, |raw| rebuild(raw, |b| patch_saria_give(b, g)))
 }
 
 pub fn stage_arrows(rf: &mut Romfs, have: Have) -> Res<Out> {
