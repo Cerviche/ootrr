@@ -1224,6 +1224,12 @@ pub fn patch_fairy_give(b: &mut Bf, flow: &str, g: &SceneGive) -> Res<()> {
         }
         None => wait0(f, at)?,
     };
+    // An entry's preload list (subs) names its sub calls. The rising and the gift scene call are
+    // no longer sub calls, and a list that names another event makes the game refuse the event.
+    let is_sub: Vec<bool> = f.events.iter().map(|e| matches!(e.kind, Kind::Sub { .. } | Kind::SubSwitch { .. })).collect();
+    for e in f.entries.iter_mut() {
+        e.subs.retain(|&i| is_sub.get(i as usize).copied().unwrap_or(false));
+    }
     Ok(())
 }
 
