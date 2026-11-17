@@ -1094,6 +1094,8 @@ pub const FAIRIES: [(&str, &str); 6] = [
     ("OGC Great Fairy Reward", "Dm_FairyFountain_Courage"),
 ];
 const FAIRY_PREFIX: &str = "OOTRRFairy";
+/// The part of each fairy's gift scene that runs her give (her own item get routine).
+const FAIRY_GIVE: &str = "C15-01";
 
 fn wait0(f: &mut Flow, next: u16) -> Res<Kind> {
     let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, "EventSystemActor", "EventWait")?;
@@ -1115,8 +1117,8 @@ fn is_sub_to(k: &Kind, entry: &str) -> bool {
 
 /// A Great Fairy, once paid. The talk and the payment stay. The music stop, the skip marker and the
 /// fairy rising (GreatFairy_Appear) before her gift scene become zero-frame waits, the gift scene
-/// becomes the release of the music mute and the standard item get with what the check holds, and
-/// her leaving (GreatFairy_Disappear: her parting talk, the "all fairies met" message and the
+/// becomes the release of the music mute and only her own give (her C15-01 part: the fairy item get
+/// routine, built for this scene's Link, with what the check holds), and her leaving (GreatFairy_Disappear: her parting talk, the "all fairies met" message and the
 /// heal) becomes only the heal (TriForcePoint:Recover). Din's MP check before the gift stays.
 pub fn patch_fairy_give(b: &mut Bf, flow: &str, g: &SceneGive) -> Res<()> {
     let f: &mut Flow = flow_mut(b, flow)?;
@@ -1206,9 +1208,15 @@ pub fn patch_fairy_give(b: &mut Bf, flow: &str, g: &SceneGive) -> Res<()> {
             None
         });
     let then: u16 = next_of(&f.events[gift].kind).ok_or(Error::Format("story skip: the fairy gift has no next"))?;
-    let entries: Vec<String> = entries_reaching(f, gift);
-    let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
-    let at: u16 = item_get(f, &format!("{FAIRY_PREFIX}{flow}"), g, then, &names)?;
+    if !f.entries.iter().any(|e| e.name == FAIRY_GIVE) {
+        return Err(Error::Msg(format!("story skip: {flow} has no {FAIRY_GIVE} give part, the game files differ")));
+    }
+    let _ = g;
+    let at: u16 = idx(f.events.len())?;
+    f.events.push(Event { name: format!("{FAIRY_PREFIX}Give"), kind: Kind::Sub { next: then, params: None, flow: String::new(), entry: FAIRY_GIVE.to_string() } });
+    for e in f.entries.iter_mut().filter(|e| e.subs.contains(&idx(gift).unwrap_or(NONE))) {
+        e.subs.push(at);
+    }
     f.events[gift].kind = match release {
         Some(mut k) => {
             set_next(&mut k, at)?;
