@@ -169,7 +169,9 @@ fn pot_rows(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    crate::start_defaults::stage(rf, more, &crate::start_defaults::presets::chosen(&c.p.defaults())?)
+    let mut edits: Vec<crate::start_defaults::Edit> = crate::start_defaults::presets::chosen(&c.p.defaults())?;
+    edits.extend(crate::gerudo_card::exps());
+    crate::start_defaults::stage(rf, more, &edits)
 }
 
 fn scrub_rows(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {

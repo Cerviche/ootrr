@@ -2,7 +2,9 @@ use std::collections::BTreeMap as BM;
 
 use crate::ainb::build::{Spec, QUERY};
 use crate::ainb::Ainb;
+use crate::byml::{Byml, Node};
 use crate::error::{Error, Res};
+use crate::start_defaults::Edit;
 use crate::qol::{edit_plain, Have};
 use crate::romfs::Romfs;
 use crate::staging::Out;
@@ -19,6 +21,34 @@ pub const BOOL_IN: usize = 16;
 pub const MULTI_COUNT: usize = 0x1c;
 pub const TRUE_OUT: i16 = 1;
 pub const FALSE_OUT: u16 = 0;
+pub const AREA: &str = "ActorLogicAreaActor";
+pub const CREATE: &str = "Logic_Create";
+pub const STEP_CHECK: &str = "HoldChallengeCurrentStepCheckOrder";
+pub const ARCHERY: (&str, &str) = ("Logic/MiniGame_HorsebackArchery_8380.logic.module.ainb", "Area_a5fa");
+pub const QUEST_EXP: &str = "SageOfSpirit_IsAfter_Step01_Exp";
+pub const MEMBER_EXP: &str = "Defeat_Ganon_IsAfter_Step09_Exp";
+pub const READ_OP: i32 = 0;
+pub const READ_EXP_OP: i32 = 10;
+pub const OR_OP: i32 = 4;
+pub const GATE_FLOW: &str = "Npc_Gerudo_006.bfevfl";
+pub const SCHEDULE: (&str, &str) = ("Component/AIScheduleParam/", ".game__component__AIScheduleParam.bgyml");
+
+pub const MEMBERS: [&str; 14] = [
+    "Npc_Gerudo_003_Adult",
+    "Npc_Gerudo_004",
+    "Npc_Gerudo_006",
+    "Npc_Gerudo_007",
+    "Npc_Gerudo_009",
+    "Npc_Gerudo_010",
+    "Npc_Gerudo_011",
+    "Npc_Gerudo_012",
+    "Npc_Gerudo_013",
+    "Npc_Gerudo_014",
+    "Npc_Gerudo_015",
+    "Npc_Gerudo_016",
+    "Npc_Gerudo_017",
+    "Npc_Gerudo_018",
+];
 
 pub const MODULES: [&str; 7] = [
     "Logic/GerudoFortress_Common_178b.logic.module.ainb",
@@ -143,29 +173,59 @@ pub fn patch(a: &mut Ainb, tag: &str) -> Res<usize> {
                 x
             }
         };
-        let at: usize = g * BOOL_IN;
-        let to: i16 = i16::try_from(gate).map_err(|_| Error::Format("gerudo card: element index too large"))?;
-        i16_at(&mut a.ins[BOOL], at + 4, to);
-        i16_at(&mut a.ins[BOOL], at + 6, TRUE_OUT);
-        let p = &mut a.params[*i];
-        let (n0, s0): (usize, usize) = (p.pl[0][0] as usize, p.pl[0][1] as usize);
-        let hit: usize = (s0..s0 + n0)
-            .find(|&k| p.plugs[k].a == *src as u32 && p.plugs[k].b == enable)
-            .ok_or(Error::Format("gerudo card: a guard has no plug for its security input"))?;
-        p.plugs[hit].a = gate as u32;
-        let mut want: Vec<u16> = queries(a, *i);
-        let q: u16 = qpos(a, gate)?;
-        if !want.contains(&q) {
-            want.push(q);
-            give_queries(a, *i, &want)?;
-        }
+        rewire(a, *i, *g, *src, enable, gate)?;
     }
     Ok(linked.len())
+}
+
+fn rewire(a: &mut Ainb, i: usize, g: usize, src: i16, name: u32, gate: usize) -> Res<()> {
+    let at: usize = g * BOOL_IN;
+    let to: i16 = i16::try_from(gate).map_err(|_| Error::Format("gerudo card: element index too large"))?;
+    i16_at(&mut a.ins[BOOL], at + 4, to);
+    i16_at(&mut a.ins[BOOL], at + 6, TRUE_OUT);
+    let p = &mut a.params[i];
+    let (n0, s0): (usize, usize) = (p.pl[0][0] as usize, p.pl[0][1] as usize);
+    let hit: usize = (s0..s0 + n0)
+        .find(|&k| p.plugs[k].a == src as u32 && p.plugs[k].b == name)
+        .ok_or(Error::Format("gerudo card: a rewired input has no plug"))?;
+    p.plugs[hit].a = gate as u32;
+    let mut want: Vec<u16> = queries(a, i);
+    let q: u16 = qpos(a, gate)?;
+    if !want.contains(&q) {
+        want.push(q);
+        give_queries(a, i, &want)?;
+    }
+    Ok(())
+}
+
+pub fn area_of(a: &Ainb, instance: &str) -> Option<(usize, usize)> {
+    a.find_els(AREA).into_iter().find(|&i| a.prop_str(i, "InstanceName") == Some(instance)).and_then(|i| a.find_in(i, BOOL, CREATE).map(|g| (i, g)))
+}
+
+pub fn open_area(a: &mut Ainb, instance: &str, tag: &str) -> Res<usize> {
+    let (i, g): (usize, usize) = area_of(a, instance).ok_or(Error::Format("gerudo card: the member area is missing, the game files differ"))?;
+    let x = a.input(BOOL, g).ok_or(Error::Format("gerudo card: the member area has no create input"))?;
+    let (src, plug): (i16, i16) = (x.src, x.plug);
+    if src < 0 || a.el_name(src as usize) != STEP_CHECK || plug != 0 {
+        return Err(Error::Format("gerudo card: the member area is not created by the quest step, the game files differ"));
+    }
+    let held: Option<usize> = a.find_els(GET_BOOL).into_iter().filter(|&k| a.in_str(k, "GameDataNameBool") == Some(CARD)).last();
+    let card: usize = match held {
+        Some(k) => k,
+        None => card_node(a, &format!("ootrr gerudo card {tag} member read"))?,
+    };
+    let gate: usize = multi_node(a, OR, &format!("ootrr gerudo card {tag} member"), &[(src as usize, 0), (card, 0)])?;
+    let create: u32 = a.pool.add(CREATE);
+    rewire(a, i, g, src, create, gate)?;
+    Ok(gate)
 }
 
 pub fn patch_bytes(raw: &[u8], tag: &str) -> Res<Vec<u8>> {
     let mut a: Ainb = Ainb::parse(raw)?;
     patch(&mut a, tag)?;
+    if tag == ARCHERY.0 {
+        open_area(&mut a, ARCHERY.1, tag)?;
+    }
     let out: Vec<u8> = a.write()?;
     let back: Ainb = Ainb::parse(&out)?;
     if back.write()? != out || !crate::ainb::audit(&back).is_empty() {
@@ -174,8 +234,40 @@ pub fn patch_bytes(raw: &[u8], tag: &str) -> Res<Vec<u8>> {
     Ok(out)
 }
 
+pub fn exps() -> Vec<Edit> {
+    vec![Edit::Exp(MEMBER_EXP.to_string(), vec![(READ_EXP_OP, QUEST_EXP.to_string()), (READ_OP, CARD.to_string()), (OR_OP, String::new())])]
+}
+
+pub fn schedule_path(npc: &str) -> String {
+    format!("{}{npc}{}", SCHEDULE.0, SCHEDULE.1)
+}
+
+pub fn member_schedule(raw: &[u8]) -> Res<Vec<u8>> {
+    let mut y: Byml = Byml::parse(raw)?;
+    let list: &mut Vec<Node> = y
+        .root
+        .get_mut("ConditionalSchedule")
+        .and_then(|c| c.as_arr_mut())
+        .ok_or(Error::Format("gerudo card: a schedule has no conditional list, the game files differ"))?;
+    let mut n: usize = 0;
+    for c in list.iter_mut() {
+        if c.get("ConditionFlag").and_then(|v| v.as_str()) == Some(QUEST_EXP) {
+            c.set("ConditionFlag", Node::Str(MEMBER_EXP.to_string()));
+            n += 1;
+        }
+    }
+    if n != 1 {
+        return Err(Error::Format("gerudo card: a schedule does not check membership once, the game files differ"));
+    }
+    y.write()
+}
+
 pub fn stage(rf: &Romfs, have: Have) -> Res<Vec<Out>> {
-    MODULES.iter().map(|m| edit_plain(rf, have, m, |raw| patch_bytes(raw, m))).collect()
+    let mut outs: Vec<Out> = MODULES.iter().map(|m| edit_plain(rf, have, m, |raw| patch_bytes(raw, m))).collect::<Res<_>>()?;
+    for npc in MEMBERS {
+        outs.push(edit_plain(rf, have, &schedule_path(npc), member_schedule)?);
+    }
+    Ok(outs)
 }
 
 #[cfg(test)]
@@ -228,9 +320,10 @@ mod tests {
         };
         let rf: Romfs = Romfs::open(&root).unwrap();
         let outs: Vec<Out> = stage(&rf, &|_: &str| None).unwrap();
-        assert_eq!(outs.len(), MODULES.len());
+        assert_eq!(outs.len(), MODULES.len() + MEMBERS.len());
         let mut total: usize = 0;
         for (m, o) in MODULES.iter().zip(&outs) {
+            let skip: Option<usize> = if *m == ARCHERY.0 { area_of(&Ainb::parse(&rf.read(m).unwrap()).unwrap(), ARCHERY.1).map(|x| x.0) } else { None };
             let old: Ainb = Ainb::parse(&rf.read(m).unwrap()).unwrap();
             let new: Ainb = Ainb::parse(&o.z).unwrap();
             assert!(crate::ainb::audit(&new).is_empty(), "{m}");
@@ -255,7 +348,7 @@ mod tests {
                 total += 1;
             }
             for i in 0..old.els.len() {
-                if old.el_name(i) == GUARD {
+                if old.el_name(i) == GUARD || Some(i) == skip {
                     continue;
                 }
                 for k in 0..6 {
@@ -276,5 +369,94 @@ mod tests {
             }
             assert!(patch(&mut a.clone(), m).is_err(), "{m}");
         }
+    }
+
+    #[test]
+    fn the_archery_area_is_created_for_a_member_or_a_card_holder() {
+        let Some(root) = real() else {
+            return;
+        };
+        let rf: Romfs = Romfs::open(&root).unwrap();
+        let old: Ainb = Ainb::parse(&rf.read(ARCHERY.0).unwrap()).unwrap();
+        let new: Ainb = Ainb::parse(&patch_bytes(&rf.read(ARCHERY.0).unwrap(), ARCHERY.0).unwrap()).unwrap();
+        let (i, g) = area_of(&old, ARCHERY.1).unwrap();
+        let (step, plug) = src_of(&old, g);
+        assert_eq!((old.el_name(step as usize), plug), (STEP_CHECK, 0));
+        let (j, h) = area_of(&new, ARCHERY.1).unwrap();
+        assert_eq!(i, j);
+        let (gate, out) = src_of(&new, h);
+        assert_eq!((new.el_name(gate as usize), out), (OR, TRUE_OUT));
+        let srcs: Vec<(u16, u16)> = multi_of(&new, gate as usize);
+        assert_eq!(srcs.len(), 2);
+        assert_eq!(srcs[0], (step as u16, 0));
+        assert_eq!(new.in_str(srcs[1].0 as usize, "GameDataNameBool"), Some(CARD));
+        assert_eq!(new.els[gate as usize][MULTI_COUNT], 2);
+        assert!(queries(&new, j).contains(&(gate as u16)));
+        assert!(crate::ainb::audit(&new).is_empty());
+    }
+
+    #[test]
+    fn only_the_gerudo_schedules_swap_the_quest_check_for_the_member_check() {
+        let Some(root) = real() else {
+            return;
+        };
+        let rf: Romfs = Romfs::open(&root).unwrap();
+        let dir: PB = root.join(SCHEDULE.0.trim_end_matches('/'));
+        let mut named: Vec<String> = Vec::new();
+        for e in std::fs::read_dir(&dir).unwrap() {
+            let p: PB = e.unwrap().path();
+            let raw: Vec<u8> = std::fs::read(&p).unwrap();
+            if raw.windows(QUEST_EXP.len()).any(|w| w == QUEST_EXP.as_bytes()) {
+                named.push(p.file_name().unwrap().to_string_lossy().trim_end_matches(SCHEDULE.1).to_string());
+            }
+        }
+        named.sort();
+        let mut want: Vec<String> = MEMBERS.iter().map(|s| s.to_string()).collect();
+        want.push("Npc_Hylia_012_Adult".to_string());
+        want.sort();
+        assert_eq!(named, want);
+        for npc in MEMBERS {
+            let raw: Vec<u8> = rf.read(&schedule_path(npc)).unwrap();
+            let old: Byml = Byml::parse(&raw).unwrap();
+            let mut new: Byml = Byml::parse(&member_schedule(&raw).unwrap()).unwrap();
+            let list: &mut Vec<Node> = new.root.get_mut("ConditionalSchedule").unwrap().as_arr_mut().unwrap();
+            let hits: Vec<usize> = (0..list.len()).filter(|&k| list[k].get("ConditionFlag").and_then(|v| v.as_str()) == Some(MEMBER_EXP)).collect();
+            assert_eq!(hits.len(), 1, "{npc}");
+            list[hits[0]].set("ConditionFlag", Node::Str(QUEST_EXP.to_string()));
+            assert_eq!(new.root, old.root, "{npc}");
+        }
+    }
+
+    #[test]
+    fn the_member_check_is_a_spare_formula_made_of_the_quest_step_or_the_card() {
+        let Some(root) = real() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let raw: Vec<u8> = rf.read_zs(crate::chest_slot::LIST).unwrap();
+        let mut y: Byml = Byml::parse(&raw).unwrap();
+        let num = |n: &Node| -> u32 {
+            match n {
+                Node::I32(x) => *x as u32,
+                Node::U32(x) => *x,
+                Node::I64(x) => *x as u32,
+                Node::U64(x) => *x as u32,
+                _ => panic!("not a number"),
+            }
+        };
+        let rows = |y: &Byml| -> Vec<Node> { y.root.get("Data").and_then(|d| d.get("BoolExp")).and_then(|v| v.as_arr()).unwrap().to_vec() };
+        let key = |n: &str| crate::start_defaults::key(n);
+        let hash = |r: &Node| r.get("Hash").map(num);
+        let terms = |r: &Node| -> Vec<Vec<u32>> { r.get("Values").and_then(|v| v.as_arr()).unwrap().iter().map(|t| t.as_arr().unwrap().iter().map(num).collect()).collect() };
+        let exps0: Vec<Node> = rows(&y);
+        let names: Vec<u32> = exps0.iter().filter_map(hash).collect();
+        assert!(names.contains(&key(MEMBER_EXP)) && names.contains(&key(QUEST_EXP)));
+        assert!(exps0.iter().all(|r| terms(r).iter().all(|t| !(t.len() == 2 && t[1] == key(MEMBER_EXP)))));
+        assert!(exps0.iter().any(|r| terms(r).iter().any(|t| t.len() == 2 && t[0] == READ_EXP_OP as u32 && names.contains(&t[1]))));
+        assert_eq!(crate::start_defaults::apply(&mut y, &exps()).unwrap(), 1);
+        let row: Node = rows(&y).into_iter().find(|r| hash(r) == Some(key(MEMBER_EXP))).unwrap();
+        assert_eq!(terms(&row), vec![vec![READ_EXP_OP as u32, key(QUEST_EXP)], vec![READ_OP as u32, key(CARD)], vec![OR_OP as u32]]);
+        let Ok(a) = Byml::parse(&y.write().unwrap()) else { panic!() };
+        assert_eq!(a.root, y.root);
     }
 }
