@@ -315,10 +315,10 @@ mod tests {
 
     #[test]
     fn the_first_talk_skips_the_mask_introduction() {
-        let root: std::path::PathBuf = match std::env::var_os("OOTRR_ROMFS") {
-            Some(p) => std::path::PathBuf::from(p),
-            None => return,
-        };
+        let root: std::path::PathBuf = ootrr_game::test_romfs::path();
+        if !root.join("Pack").join("ZsDic.pack.zs").is_file() {
+            return;
+        }
         let mut rf: Romfs = Romfs::open(&root).unwrap();
         let z: Vec<u8> = rf.read(FLOW).unwrap();
         let raw: Vec<u8> = rf.zs.decompress(&z).unwrap();

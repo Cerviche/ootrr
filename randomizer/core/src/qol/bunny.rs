@@ -220,7 +220,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn dump() -> Option<PathBuf> {
-        let p: PathBuf = std::env::var_os("OOTRR_ROMFS").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
+        let p: PathBuf = ootrr_game::test_romfs::path();
         if p.is_dir() {
             Some(p)
         } else {

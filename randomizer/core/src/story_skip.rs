@@ -1029,7 +1029,7 @@ mod tests {
     use super::*;
 
     fn dump() -> Option<std::path::PathBuf> {
-        let p: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("D:/Oot/romfs"));
+        let p: std::path::PathBuf = ootrr_game::test_romfs::path();
         if p.is_dir() {
             Some(p)
         } else {

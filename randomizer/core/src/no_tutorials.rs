@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn every_entry_of_the_real_action_guide_ends_at_once() {
-        let p: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("D:/Oot/romfs"));
+        let p: std::path::PathBuf = ootrr_game::test_romfs::path();
         if !p.is_dir() {
             eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", p.display());
             return;

@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn the_shipped_bomb_pickup_plays_its_get_event_at_a_full_pouch_until_the_edit() {
-        let p: PB = std::env::var("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|_| PB::from("C:/o/nup dump/updates/131072/romfs"));
+        let p: PB = ootrr_game::test_romfs::path();
         if !p.join("Pack").join("ZsDic.pack.zs").is_file() {
             eprintln!("skipped, no RomFS dump at {} (set OOTRR_ROMFS)", p.display());
             return;
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn every_shipped_bomb_and_arrow_pickup_is_quieted_without_growing_any_file() {
-        let p: PB = std::env::var("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|_| PB::from("C:/o/nup dump/updates/131072/romfs"));
+        let p: PB = ootrr_game::test_romfs::path();
         if !p.join("Pack").join("ZsDic.pack.zs").is_file() {
             eprintln!("skipped, no RomFS dump at {} (set OOTRR_ROMFS)", p.display());
             return;

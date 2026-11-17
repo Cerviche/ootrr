@@ -120,7 +120,7 @@ mod tests {
     #[test]
     fn gated_ops_param_edits_and_wraps_share_the_real_files() {
         use std::path::PathBuf as PB;
-        let r: PB = std::env::var_os("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|| PB::from("C:/o/nup dump/updates/131072/romfs"));
+        let r: PB = ootrr_game::test_romfs::path();
         if !r.join("Event/EventFlow").is_dir() {
             eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", r.display());
             return;

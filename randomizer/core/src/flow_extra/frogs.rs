@@ -84,7 +84,6 @@ mod tests {
     use crate::slice::support::plan as plan_of;
 
     const FLAGS: &str = include_str!("../../../../data/flags.json");
-    const DUMP: &str = "C:/o/nup dump/updates/131072/romfs";
     const FLOW: &str = "MiniGame_FrogTenors";
     const MELODY: &str = "PlayOcarinaForFrogMiniGame_Melody";
     const COUNT: &str = "MiniGame_FrogTenors_GetCount";
@@ -102,7 +101,7 @@ mod tests {
     const BUG_ITEM: &str = "Item_Arrow_Ice";
 
     fn root() -> Option<PB> {
-        let p: PB = std::env::var_os("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|| PB::from(DUMP));
+        let p: PB = ootrr_game::test_romfs::path();
         if p.join("Event/EventFlow").is_dir() {
             Some(p)
         } else {

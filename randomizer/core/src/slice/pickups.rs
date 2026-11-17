@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn every_ground_actor_stays_collected_once_taken() {
-        let root: std::path::PathBuf = std::env::var("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|_| std::path::PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
+        let root: std::path::PathBuf = ootrr_game::test_romfs::path();
         if !root.join("Pack").join("ZsDic.pack.zs").is_file() {
             eprintln!("skipped, no RomFS dump at {} (set OOTRR_ROMFS)", root.display());
             return;

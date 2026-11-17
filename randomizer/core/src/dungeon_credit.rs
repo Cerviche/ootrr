@@ -827,7 +827,7 @@ mod tests {
     #[test]
     fn the_seed_pouch_table_always_loses_the_magic_raise_of_the_non_meter_rows() {
         use crate::pickup_pack::meter;
-        let r: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
+        let r: std::path::PathBuf = ootrr_game::test_romfs::path();
         if !r.join("Event/EventFlow").is_dir() {
             eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", r.display());
             return;

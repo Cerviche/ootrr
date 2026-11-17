@@ -286,7 +286,7 @@ mod tests {
     }
 
     fn real() -> Option<std::path::PathBuf> {
-        let p: std::path::PathBuf = std::env::var("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|_| std::path::PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
+        let p: std::path::PathBuf = ootrr_game::test_romfs::path();
         if p.join("Pack").join("ZsDic.pack.zs").is_file() {
             Some(p)
         } else {

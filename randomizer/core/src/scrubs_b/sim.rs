@@ -19,14 +19,13 @@ mod tests {
     use crate::slice::edit::Edited;
     use crate::staging::Out;
 
-    const DUMP: &str = "C:/o/nup dump/updates/131072/romfs";
     const FLOW: &str = "Enemy_Scrub_Business_Common";
     const NEW: &str = "Item_Longshot";
     const SPARE: &str = "HavePlayedEvent.Enemy_Scrub_Business_Shield_Deku_01";
     const FLAGS: &str = include_str!("../../../../data/flags.json");
 
     fn root() -> Option<PB> {
-        let p: PB = std::env::var_os("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|| PB::from(DUMP));
+        let p: PB = ootrr_game::test_romfs::path();
         if p.join("Event/EventFlow").is_dir() {
             Some(p)
         } else {

@@ -30,4 +30,6 @@ pub mod rsizetable;
 pub mod sarc;
 pub mod save;
 pub mod tex;
+#[cfg(any(test, feature = "fixtures"))]
+pub mod test_romfs;
 pub mod zs;

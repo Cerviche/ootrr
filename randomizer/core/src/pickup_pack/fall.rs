@@ -385,7 +385,7 @@ mod tests {
     use crate::pickup_persist::{respawn_flags, verdict_with, Extra, Verdict};
 
     fn real() -> Option<PB> {
-        let p: PB = std::env::var("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|_| PB::from("C:/o/nup dump/updates/131072/romfs"));
+        let p: PB = ootrr_game::test_romfs::path();
         if p.join("Pack").join("ZsDic.pack.zs").is_file() {
             Some(p)
         } else {

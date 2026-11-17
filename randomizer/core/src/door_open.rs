@@ -354,7 +354,7 @@ mod tests {
     }
 
     fn real() -> Option<PB> {
-        let p: PB = std::env::var("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|_| PB::from("C:/o/nup dump/updates/131072/romfs"));
+        let p: PB = ootrr_game::test_romfs::path();
         if p.join("Pack").join("ZsDic.pack.zs").is_file() {
             Some(p)
         } else {
@@ -444,7 +444,7 @@ mod tests {
 
     #[test]
     fn the_real_map_moves_sheik_with_her_anchors() {
-        let p: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
+        let p: std::path::PathBuf = ootrr_game::test_romfs::path();
         if !p.is_dir() {
             eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", p.display());
             return;

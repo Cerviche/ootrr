@@ -147,11 +147,10 @@ mod tests {
     use super::*;
     use std::path::PathBuf as PB;
 
-    const DUMP: &str = "C:/o/nup dump/updates/131072/romfs";
     const NEW: &str = "Item_Longshot";
 
     fn root() -> Option<PB> {
-        let p: PB = std::env::var_os("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|| PB::from(DUMP));
+        let p: PB = ootrr_game::test_romfs::path();
         if p.join("Event/EventFlow").is_dir() {
             Some(p)
         } else {

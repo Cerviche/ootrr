@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn flow_apply_writes_the_event_rows_and_sizes_a_cow_edit_needs() {
-        let r: PB = std::env::var_os("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|| PB::from("C:/o/nup dump/updates/131072/romfs"));
+        let r: PB = ootrr_game::test_romfs::path();
         if !r.join("Event/EventFlow").is_dir() {
             eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", r.display());
             return;

@@ -511,7 +511,7 @@ mod tests {
 
     #[test]
     fn the_real_game_files_take_the_change() {
-        let p: std::path::PathBuf = std::env::var("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|_| std::path::PathBuf::from("D:/Oot/romfs"));
+        let p: std::path::PathBuf = ootrr_game::test_romfs::path();
         if !p.join("Pack").join("ZsDic.pack.zs").is_file() {
             eprintln!("skipped, no RomFS dump at {}", p.display());
             return;

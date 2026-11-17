@@ -123,7 +123,7 @@ mod tests {
     fn a_built_seed_with_rewards_off_carries_the_guards_and_keeps_the_vanilla_branch() {
         use crate::bfevfl::{Bf, Kind, Val};
         use crate::slice::generate::{generate_data, GenOpts, Generated};
-        let r: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
+        let r: std::path::PathBuf = ootrr_game::test_romfs::path();
         if !r.join("Pack").join("ZsDic.pack.zs").is_file() {
             return;
         }

@@ -57,7 +57,7 @@ mod tests {
     use crate::qol::Opts;
 
     fn dump() -> Option<std::path::PathBuf> {
-        let p: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("C:/o/nup dump/updates/131072/romfs"));
+        let p: std::path::PathBuf = ootrr_game::test_romfs::path();
         if p.is_dir() {
             Some(p)
         } else {

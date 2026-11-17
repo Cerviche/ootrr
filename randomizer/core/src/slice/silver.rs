@@ -480,10 +480,9 @@ mod tests {
 
     const FLAGS: &str = include_str!("../../../../data/flags.json");
     const EXTRA: &str = include_str!("../../../../data/flow_extra.json");
-    const DUMP: &str = "C:/o/nup dump/updates/131072/romfs";
 
     fn root() -> Option<PB> {
-        let p: PB = std::env::var_os("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|| PB::from(DUMP));
+        let p: PB = ootrr_game::test_romfs::path();
         if p.join("Pack").join("ZsDic.pack.zs").is_file() {
             Some(p)
         } else {

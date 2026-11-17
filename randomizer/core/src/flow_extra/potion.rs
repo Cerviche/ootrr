@@ -87,7 +87,6 @@ mod tests {
     use crate::slice::support::plan as plan_of;
     use crate::world::{Placement, World};
 
-    const DUMP: &str = "C:/o/nup dump/updates/131072/romfs";
     const NEW: &str = "Item_Longshot";
     const FLOW: &str = "Npc_Hylia_020_Shop_Child";
     const TALK: &str = "Item_Bottle_TutorialEvent_Talk";
@@ -99,7 +98,7 @@ mod tests {
     const WAIT: &str = "RestrictedDoor_Market_12";
 
     fn root() -> Option<PB> {
-        let p: PB = std::env::var_os("OOTRR_ROMFS").map(PB::from).unwrap_or_else(|| PB::from(DUMP));
+        let p: PB = ootrr_game::test_romfs::path();
         if p.join("Event/EventFlow").is_dir() {
             Some(p)
         } else {
