@@ -501,7 +501,6 @@ mod tests {
     fn all_chests() -> Settings {
         let mut s: Settings = Settings::default();
         s.set("shuffle_chests", Value::s("all")).unwrap();
-        s.set(crate::slice::remake_chests::SETTING, Value::s("on")).unwrap();
         s
     }
 
@@ -1007,7 +1006,6 @@ mod tests {
             ("shuffle_rewards", "supported"),
             ("shuffle_songs", "anywhere"),
             ("shuffle_skulltulas", "matched"),
-            (crate::slice::remake_chests::SETTING, "on"),
         ]);
         for k in ["shuffle_boss_hearts", "gossip_hints", "faster_chests"] {
             s.set(k, Value::Bool(true)).unwrap();

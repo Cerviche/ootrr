@@ -100,6 +100,11 @@ pub struct Plan {
     pub shops: crate::shops::Opts,
     pub bridge: bool,
     pub silver: bool,
+    pub medigoron: bool,
+    pub bean_sale: bool,
+    pub scrub_prices: crate::scrub_prices::Mode,
+    pub scrub_hint: bool,
+    pub merchant_prices: crate::scrub_prices::Mode,
 }
 
 const GEAR: &[(&str, &str, &str)] = &[
@@ -236,7 +241,7 @@ impl Plan {
         if self.drops.remake != Mode::Off {
             out.push((crate::pot_slice::remake::KEY, crate::pot_slice::remake::ON));
         }
-        if self.world == crate::slice::pickups::Free::All {
+        if self.world.remake() {
             out.push((crate::spots::free::KEY, crate::spots::free::ON));
         }
         if self.dungeon_rewards {
@@ -332,11 +337,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
             bad.push(e.to_string());
             false
         });
-    let cows_other: bool = rewards
-        && s.flag(crate::flow_extra::cows::SETTING_OTHER).unwrap_or_else(|e| {
-            bad.push(e.to_string());
-            false
-        });
+    let cows_other: bool = cows;
     let frog_songs: bool = rewards
         && s.flag(crate::flow_extra::frogs::SONGS_SETTING).unwrap_or_else(|e| {
             bad.push(e.to_string());
@@ -449,19 +450,25 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         bad.push("starting_songs includes zeldas_lullaby while open_kakariko is open, which already hands out that check at new game; drop one of them".to_string());
     }
     let skulls: crate::slice::skulls::Mode = crate::slice::skulls::mode(s, &mut bad);
-    let remake: bool = crate::slice::remake_chests::mode(s, &mut bad);
+    let remake: bool = chests != Mode::Off;
     let chus: bool = crate::slice::bombchus::mode(s, &mut bad);
     let chest_sizes: bool = crate::chest_size::mode(s, &mut bad);
     let qol: crate::qol::Opts = crate::qol::read(s, &mut bad);
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
+    let (bean_merchant, medigoron_merchant): (bool, bool) = crate::flow_extra::merchants(s, &mut bad);
+    let medigoron: bool = rewards && medigoron_merchant;
+    let bean_sale: bool = open.beans && bean_merchant;
+    let scrub_prices: crate::scrub_prices::Mode = crate::scrub_prices::read(s, &mut bad);
+    let scrub_hint: bool = crate::scrub_prices::read_hint(s, &mut bad);
+    let merchant_prices: crate::scrub_prices::Mode = crate::merchant_prices::read(s, &mut bad);
     // Always on in this randomizer, like the other cutscene skips (no setting).
     let story: bool = true;
     let endings: bool = true;
     let shops: crate::shops::Opts = crate::shops::plan::read(s, &mut bad);
     let bridge: bool = crate::deku_bridge::mode(s, &mut bad);
-    let silver: bool = crate::slice::silver::mode(s, chests, remake, &mut bad);
+    let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
     let excluded: Vec<String> = s.items("disabled_locations").map(|v| v.to_vec()).unwrap_or_default();
     if !bad.is_empty() {
         let lines: Vec<String> = bad.iter().map(|b| format!("  {b}")).collect();
@@ -550,7 +557,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if silver {
         notes.push(crate::slice::silver::NOTE.to_string());
     }
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, potion, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, story, endings })
+    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, potion, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, medigoron, bean_sale, scrub_prices, scrub_hint, merchant_prices, story, endings })
 }
 
 #[cfg(test)]

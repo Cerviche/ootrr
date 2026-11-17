@@ -8,6 +8,8 @@ use crate::murmur::murmur3_32;
 pub const PREFIX: &str = "OOTRR";
 pub const STRING_VERSION: u32 = 1;
 
+pub const RETIRED: [u16; 2] = [55, 92];
+
 fn tag(body: &[u8]) -> [u8; 2] {
     let h: u32 = murmur3_32(body, 0x4F4F_5452);
     ((h ^ (h >> 16)) as u16).to_be_bytes()
@@ -187,6 +189,7 @@ impl Schema {
             }
             last = Some(num);
             match self.by_num(num as u16) {
+                None if RETIRED.contains(&(num as u16)) => {}
                 None => w.push(format!("unknown setting number {num} ignored")),
                 Some(s) => {
                     if let Some(x) = self.dec(s, p, &mut w)? {
@@ -295,6 +298,13 @@ mod tests {
         let t: String = s.encode(&v).unwrap();
         let spaced: String = format!("  {}  ", t.to_lowercase().replace("-", "-\n "));
         assert_eq!(s.decode(&spaced).unwrap().0, v);
+    }
+
+    #[test]
+    fn retired_numbers_are_never_reused() {
+        for n in RETIRED {
+            assert!(crate::settings::schema().settings.iter().all(|s| s.num != n), "setting number {n} is retired");
+        }
     }
 
     #[test]

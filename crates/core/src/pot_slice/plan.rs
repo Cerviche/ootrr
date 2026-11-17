@@ -48,11 +48,17 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Drops {
         hives,
         rocks: mode_of(s, ROCKS, bad),
         grass: mode_of(s, GRASS, bad),
-        remake: mode_of(s, crate::pot_slice::remake::SETTING, bad),
+        remake: Mode::Off,
     }
+    .with_remake()
 }
 
 impl Drops {
+    fn with_remake(mut self) -> Drops {
+        self.remake = if self.pots != Mode::Off || self.crates != Mode::Off { Mode::All } else { Mode::Off };
+        self
+    }
+
     pub fn off() -> Drops {
         Drops { pots: Mode::Off, crates: Mode::Off, hives: Mode::Off, rocks: Mode::Off, grass: Mode::Off, remake: Mode::Off }
     }
@@ -83,7 +89,7 @@ impl Drops {
             out.push("Grass tufts hold shuffled items. The adult and the child copy of a tuft are two checks. Grass takes any item the game ships as a world pickup or whose pickup pack is built. A shuffled tuft stays cut, a key item in it comes back with the tuft until it is picked up. Bug grass in the Lost Woods is left alone. Experimental and untested in the game.".to_string());
         }
         if self.remake != Mode::Off {
-            out.push("Pots, crates and flying pots that only the remake has hold shuffled items, key items included. Their logic region comes from the room data and the nearest known checks, the harder one where two fit, and was never checked in the game, so report a spot that the logic expects too early. A shuffled pot gives its item once, its saved row is made permanent. Experimental and untested in the game.".to_string());
+            out.push("Pots, crates and flying pots that only the remake has hold shuffled items when their kind is shuffled, key items included. Their logic region comes from the room data and the nearest known checks, the harder one where two fit, and was never checked in the game, so report a spot that the logic expects too early. A shuffled pot gives its item once, its saved row is made permanent. Experimental and untested in the game.".to_string());
         }
         out
     }

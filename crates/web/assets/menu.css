@@ -173,6 +173,7 @@ html[data-theme="hyrule"] body {
 .tip { position: fixed; z-index: 50; max-width: 340px; background: var(--m-side); color: var(--m-text); border: 1px solid var(--m-line); border-radius: var(--m-r);
   padding: 10px 12px; font: 0.93em/1.5 var(--m-sans); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); pointer-events: none; }
 .tip[hidden] { display: none; }
+.tiptext { white-space: pre-line; }
 .tip dl { margin: 8px 0 0; display: grid; gap: 3px; }
 .tip dt { font-weight: 600; }
 .tip dd { margin: 0 0 4px; color: var(--m-muted); }

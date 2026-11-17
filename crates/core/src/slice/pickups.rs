@@ -73,6 +73,8 @@ pub fn keeps_out(d: &Data, name: &str, item: &str) -> bool {
 pub enum Free {
     Off,
     Pieces,
+    Dungeons,
+    Overworld,
     All,
 }
 
@@ -85,14 +87,21 @@ impl Free {
         match self {
             Free::Off => None,
             Free::Pieces => Some(PIECES_NOTE),
-            Free::All => Some(NOTE),
+            Free::Dungeons | Free::Overworld | Free::All => Some(NOTE),
         }
     }
 
-    fn covers(self, l: &Loc) -> bool {
+    pub fn remake(self) -> bool {
+        matches!(self, Free::Dungeons | Free::Overworld | Free::All)
+    }
+
+    fn covers(self, l: &Loc, dungeon: bool) -> bool {
+        let piece: bool = l.kind == "heart" || is_held(&l.name);
         match self {
             Free::Off => false,
-            Free::Pieces => l.kind == "heart" || is_held(&l.name),
+            Free::Pieces => piece,
+            Free::Dungeons => piece || dungeon,
+            Free::Overworld => piece || !dungeon,
             Free::All => true,
         }
     }
@@ -104,8 +113,9 @@ pub fn is_note(n: &str) -> bool {
 
 pub fn mode(s: &Settings, bad: &mut Vec<String>) -> Free {
     match s.text(SETTING) {
-        Ok("off") => Free::Off,
-        Ok("pieces") => Free::Pieces,
+        Ok("off") | Ok("pieces") => Free::Pieces,
+        Ok("dungeons") => Free::Dungeons,
+        Ok("overworld") => Free::Overworld,
         Ok("all") => Free::All,
         Ok(v) => {
             bad.push(format!("{SETTING} is {v}, which is not a known choice"));
@@ -213,7 +223,8 @@ pub fn select(d: &Data, w: &World, p: &Plan, free: &mut Vec<LocId>, left: &mut B
             count(left, "location is not in the logic world");
             continue;
         };
-        if !p.world.covers(l) {
+        let dungeon: bool = w.regions[w.locs[x].region].dungeon.is_some();
+        if !p.world.covers(l, dungeon) {
             count(left, "freestanding item shuffle does not cover its kind");
         } else if held(&l.name) == Some(true) && !d.event_ok(&l.name) {
             count(left, "chest runs a story event that can grant its own item");

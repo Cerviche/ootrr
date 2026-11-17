@@ -4,6 +4,8 @@ use crate::slice::support::Plan;
 
 pub const POUCH_ONLY: [&str; 1] = ["GC Medigoron"];
 
+pub const MEDIGORON: &str = "GC Medigoron";
+
 pub fn open(l: &Loc, p: &Plan) -> bool {
     if crate::scrubs_a::is_a(l) {
         return p.scrubs;
@@ -30,7 +32,10 @@ pub fn open(l: &Loc, p: &Plan) -> bool {
         return p.potion;
     }
     if crate::open_world::skips::is_bean_sale(&l.name) {
-        return p.open.beans;
+        return p.bean_sale;
+    }
+    if l.name == MEDIGORON {
+        return p.medigoron;
     }
     !l.gated || p.extra
 }

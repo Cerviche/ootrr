@@ -13,7 +13,6 @@ use crate::slice::data::Data;
 
 pub const CATALOG_JSON: &str = include_str!("../../../../data/pots_remake.json");
 pub const SCAN_JSON: &str = include_str!("../../../../data/pots_remake_scan.json");
-pub const SETTING: &str = "shuffle_remake_pots";
 pub const KEY: &str = "remake_pot_spots";
 pub const ON: &str = "on";
 pub const MARK: &str = "remake";
@@ -157,8 +156,8 @@ mod tests {
             assert_eq!(on.regions[on.locs[l].region].name, s.region, "{}", s.name);
         }
         assert!(!wanted(&plan(&Settings::default()).unwrap().logic()));
-        assert!(wanted(&plan(&with(&[(SETTING, "all")])).unwrap().logic()));
-        assert!(!wanted(&plan(&with(&[("shuffle_pots", "all")])).unwrap().logic()));
+        assert!(wanted(&plan(&with(&[("shuffle_pots", "all")])).unwrap().logic()));
+        assert!(wanted(&plan(&with(&[("shuffle_crates", "dungeons")])).unwrap().logic()));
     }
 
     #[test]
@@ -181,7 +180,7 @@ mod tests {
     fn remake_spots_take_what_a_matched_spot_of_their_kind_takes() {
         let d: Data = Data::load().unwrap();
         let w: World = world_with(&d, &crate::spots::FULL).unwrap();
-        let p: Plan = plan(&with(&[(SETTING, "all"), ("shuffle_pots", "all"), ("shuffle_crates", "all")])).unwrap();
+        let p: Plan = plan(&with(&[("shuffle_pots", "all"), ("shuffle_crates", "all")])).unwrap();
         let ok = |item: &str, loc: &str| allowed(&d, &w, &p, w.item(item).unwrap(), w.loc(loc).unwrap());
         let items: [&str; 8] = ["Rupees (20)", "Recovery Heart", "Progressive Hookshot", "Megaton Hammer", "Fire Arrows", "Gold Skulltula Token", "Heart Container", "Small Key (Fire Temple)"];
         for (mine, theirs) in [
@@ -199,11 +198,13 @@ mod tests {
     }
 
     #[test]
-    fn modes_follow_the_new_setting_and_not_the_pot_setting() {
+    fn remake_spots_join_in_with_pots_or_crates() {
         let mut bad: Vec<String> = Vec::new();
-        let d: crate::pot_slice::Drops = crate::pot_slice::plan::read(&with(&[(SETTING, "dungeons")]), &mut bad);
+        let d: crate::pot_slice::Drops = crate::pot_slice::plan::read(&with(&[("shuffle_pots", "dungeons")]), &mut bad);
         assert!(bad.is_empty());
-        assert_eq!((d.remake, d.pots), (Mode::Dungeons, Mode::Off));
+        assert_eq!((d.remake, d.pots, d.crates), (Mode::All, Mode::Dungeons, Mode::Off));
+        let c: crate::pot_slice::Drops = crate::pot_slice::plan::read(&with(&[("shuffle_crates", "overworld")]), &mut bad);
+        assert_eq!(c.remake, Mode::All);
         assert_eq!(crate::pot_slice::plan::read(&Settings::default(), &mut bad).remake, Mode::Off);
     }
 
@@ -222,8 +223,9 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let mut moved: usize = 0;
         let mut keys: usize = 0;
-        for (remake, pots) in [("all", "off"), ("dungeons", "all"), ("overworld", "off")] {
-            let s: Settings = with(&[(SETTING, remake), ("shuffle_pots", pots)]);
+        for remake in ["all", "dungeons", "overworld"] {
+            let pots: &str = remake;
+            let s: Settings = with(&[("shuffle_pots", remake), ("shuffle_crates", remake)]);
             let p: Plan = plan(&s).unwrap();
             let w: World = world_with(&d, &p.logic()).unwrap();
             for n in 0..2 {
@@ -258,12 +260,14 @@ mod tests {
     }
 
     #[test]
-    fn the_default_settings_and_the_old_pot_settings_never_touch_a_remake_pot() {
+    fn the_defaults_never_touch_a_remake_pot_and_each_kind_follows_its_own_setting() {
         let d: Data = Data::load().unwrap();
-        for s in [Settings::default(), with(&[("shuffle_pots", "all"), ("shuffle_crates", "all")])] {
-            let g: Generated = generate_data(&d, &s, "no remake pots", &GenOpts::default()).unwrap();
-            assert!(g.seed_file.placements.keys().all(|k| !d.pots.is_remake(k)));
-        }
+        let g: Generated = generate_data(&d, &Settings::default(), "no remake pots", &GenOpts::default()).unwrap();
+        assert!(g.seed_file.placements.keys().all(|k| !d.pots.is_remake(k)));
+        let g: Generated = generate_data(&d, &with(&[("shuffle_pots", "all")]), "pots only", &GenOpts::default()).unwrap();
+        let remade: Vec<&String> = g.seed_file.placements.keys().filter(|k| d.pots.is_remake(k)).collect();
+        assert!(!remade.is_empty());
+        assert!(remade.iter().all(|k| d.pots.kind_of(k) != Some(crate::pot_slice::data::Kind::Crate)), "{remade:?}");
     }
 
     #[test]

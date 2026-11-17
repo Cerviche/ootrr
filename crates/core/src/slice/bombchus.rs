@@ -179,7 +179,6 @@ mod tests {
             ("shuffle_pots", "all"),
             ("shuffle_crates", "all"),
             ("shuffle_freestanding_items", "all"),
-            ("shuffle_remake_chests", "on"),
         ] {
             s.set(k, Value::s(v)).unwrap();
         }

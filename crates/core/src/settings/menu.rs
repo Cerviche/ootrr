@@ -20,81 +20,610 @@ const fn sec(label: &'static str, ids: &'static [&'static str]) -> Section {
     Section { label, ids }
 }
 
+pub enum Widget {
+    Check,
+    Pick(&'static [&'static str], usize),
+    Slider(i64, i64, i64),
+}
+
+pub enum Entry {
+    Stub(&'static str, Widget, &'static str),
+    View(&'static View),
+    Plain(&'static str),
+    Hidden(&'static str),
+}
+
+pub struct View {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub tip: &'static str,
+    pub kind: Kind,
+    pub opts: &'static [Opt],
+}
+
+pub enum Kind {
+    Pick,
+    Check,
+    Steps(i64, i64),
+    Number(i64, i64, bool),
+}
+
+pub struct Opt {
+    pub label: &'static str,
+    pub ours: &'static str,
+    pub live: bool,
+    pub needs: &'static str,
+}
+
+const fn yes(label: &'static str, ours: &'static str) -> Opt {
+    Opt { label, ours, live: true, needs: "" }
+}
+
+const fn needs(label: &'static str, ours: &'static str, on: &'static str) -> Opt {
+    Opt { label, ours, live: true, needs: on }
+}
+
+const fn broken(label: &'static str, ours: &'static str) -> Opt {
+    Opt { label, ours, live: false, needs: "" }
+}
+
+const fn missing(label: &'static str) -> Opt {
+    Opt { label, ours: "", live: false, needs: "" }
+}
+
+const fn gray_check(label: &'static str, tip: &'static str) -> Entry {
+    Entry::Stub(label, Widget::Check, tip)
+}
+
+const fn gray_pick(label: &'static str, opts: &'static [&'static str], at: usize, tip: &'static str) -> Entry {
+    Entry::Stub(label, Widget::Pick(opts, at), tip)
+}
+
+const fn gray_slider(label: &'static str, min: i64, max: i64, at: i64, tip: &'static str) -> Entry {
+    Entry::Stub(label, Widget::Slider(min, max, at), tip)
+}
+
+
+
+const NO_LOGIC: View = View {
+    id: "logic_rules",
+    label: "No Logic",
+    tip: "Item placement is completely random without any verification for obtainability. MAY BE IMPOSSIBLE TO BEAT.",
+    kind: Kind::Check,
+    opts: &[yes("Off", "glitchless"), broken("On", "no_logic")],
+};
+
+const STARTING_AGE: View = View {
+    id: "starting_age",
+    label: "Starting Age",
+    tip: "Choose which age Link will start as.\n\nStarting as adult means you start with the Master Sword in your inventory.\nThe child option is forcefully set if it would conflict with other options.",
+    kind: Kind::Pick,
+    opts: &[yes("Child", "child"), broken("Adult", "adult"), broken("Random", "random")],
+};
+
+const BIG_POE: View = View {
+    id: "big_poe_one",
+    label: "Big Poe Target Count",
+    tip: "The Poe collector will give a reward for turning in this many Big Poes.",
+    kind: Kind::Steps(1, 5),
+    opts: &[yes("1", "true"), yes("5", "false")],
+};
+
+const PLANT_BEANS: View = View {
+    id: "plant_beans",
+    label: "Skip Planting Beans",
+    tip: "Beans will be planted once you find beans.\nIf bean souls are shuffled, you must still find the soul.",
+    kind: Kind::Check,
+    opts: &[yes("Off", "false"), yes("On", "true")],
+};
+
+const EPONA: View = View {
+    id: "skip_epona_race",
+    label: "Skip Epona Race",
+    tip: "Epona can be summoned with Epona's Song without needing to race Ingo.",
+    kind: Kind::Check,
+    opts: &[yes("Don't Skip", "false"), yes("Skip", "true")],
+};
+
+const GANON_BK: View = View {
+    id: "shuffle_ganon_bosskey",
+    label: "Ganon's Boss Key",
+    tip: "Vanilla - Ganon's Boss Key will appear in the vanilla location.\n\nOwn dungeon - Ganon's Boss Key can appear anywhere inside Ganon's Castle.\n\nStart with - Places Ganon's Boss Key in your starting inventory.\n\nAny dungeon - Ganon's Boss Key can only appear inside of any dungeon.\n\nOverworld - Ganon's Boss Key can only appear outside of dungeons.\n\nAnywhere - Ganon's Boss Key can appear anywhere in the world.\n\nTrigger - These settings put the boss key on a trigger, granting the key once the requirements are met:\n- Stones: Obtain the specified amount of Spiritual Stones.\n- Medallions: Obtain the specified amount of medallions.\n- Dungeon rewards: Obtain the specified total sum of Spiritual Stones or medallions.\n- Dungeons: Complete the specified amount of dungeons. Dungeons are considered complete after stepping into the blue warp after the boss.\n- Tokens: Obtain the specified amount of Skulltula tokens.\n- Triforce Pieces: Obtain the specified amount of Triforce Pieces.\n\nSame Region - Ganon's Boss Key can only appear in Ganon's Castle or a nearby area.",
+    kind: Kind::Pick,
+    opts: &[
+        yes("Vanilla", "vanilla"),
+        yes("Own Dungeon", "dungeon"),
+        yes("Start With", "remove"),
+        yes("Any Dungeon", "any_dungeon"),
+        yes("Overworld", "overworld"),
+        yes("Anywhere", "keysanity"),
+        broken("Trigger-Stones", "stones"),
+        broken("Trigger-Medallions", "medallions"),
+        broken("Trigger-Rewards", "dungeons"),
+        missing("Trigger-Dungeons"),
+        broken("Trigger-Tokens", "tokens"),
+        missing("Trigger-Triforce Pieces"),
+        yes("Same Region", "regional"),
+    ],
+};
+
+const FOREST: View = View {
+    id: "open_forest",
+    label: "Kokiri Forest",
+    tip: "Whether the way out of the forest and into the Deku Tree is blocked.\n\nOpen - Nothing blocks the forest or the Deku Tree.\n\nClosed Deku - The forest exit is open but the Deku Tree is closed.\n\nClosed - The forest and the Deku Tree stay closed until the story opens them.",
+    kind: Kind::Pick,
+    opts: &[yes("Open", "open"), yes("Closed Deku", "closed_deku"), yes("Closed", "closed")],
+};
+
+const GV_BRIDGE: View = View {
+    id: "gerudo_bridge_open",
+    label: "Gerudo Valley Bridge",
+    tip: "Vanilla - The bridge in Gerudo Valley is broken until the carpenters are rescued.\n\nRepaired - The broken bridge in Gerudo Valley is repaired from the start, so adult Link can cross without Epona or the Longshot. The carpenters in the Thieves' Hideout are not rescued, so the guards, the rescue and the Gerudo Membership Card stay as they are. Experimental, untested in the game.",
+    kind: Kind::Pick,
+    opts: &[yes("Vanilla", "false"), yes("Repaired", "true")],
+};
+
+const DOOR_OF_TIME: View = View {
+    id: "open_door_of_time",
+    label: "Door of Time",
+    tip: "Closed - The Ocarina of Time, the Song of Time and all three Spiritual Stones are required to open the Door of Time.\n\nSong only - Play the Song of Time in front of the Door of Time to open it.\n\nOpen - The Door of Time is permanently open with no requirements.",
+    kind: Kind::Pick,
+    opts: &[yes("Closed", "false"), missing("Song only"), yes("Open", "true")],
+};
+
+const ZORAS_FOUNTAIN: View = View {
+    id: "zora_fountain",
+    label: "Zora's Fountain",
+    tip: "Closed - King Zora obstructs the way to Zora's Fountain. Ruto's Letter must be shown as child Link in order to move him in both time periods.\n\nClosed as child - Ruto's Letter is only required to move King Zora as child Link. Zora's Fountain starts open as adult.\n\nOpen - King Zora has already mweeped out of the way in both time periods. Ruto's Letter is removed from the item pool.",
+    kind: Kind::Pick,
+    opts: &[yes("Closed", "closed"), broken("Closed as child", "adult"), yes("Open", "open")],
+};
+
+const JABU: View = View {
+    id: "jabu_open",
+    label: "Jabu-Jabu",
+    tip: "Closed - A fish is required to open Jabu-Jabu's mouth.\n\nOpen - Jabu-Jabu's mouth opens without the need for a fish.",
+    kind: Kind::Pick,
+    opts: &[yes("Closed", "false"), yes("Open", "true")],
+};
+
+const CARPENTERS: View = View {
+    id: "gerudo_fortress",
+    label: "Fortress Carpenters",
+    tip: "Sets the state of the carpenters captured by Gerudo in Gerudo Fortress, and with it the number of guards that spawn.\n\nNormal - All 4 carpenters are required to be saved.\n\nFast - Only the bottom left carpenter requires rescuing.\n\nFree - Bridge is repaired from start, and Nabooru cannot spawn.\nIf the Gerudo Membership Card isn't shuffled, you start with it.\n\nOnly \"Normal\" is compatible with Gerudo Fortress Keyrings.",
+    kind: Kind::Pick,
+    opts: &[yes("Normal", "normal"), broken("Fast", "fast"), broken("Free", "open")],
+};
+
+const TRIALS: View = View {
+    id: "trials_random",
+    label: "Ganon's Trials",
+    tip: "Sets the number of Ganon's Trials required to dispel the barrier.\n\nSkip - No Trials are required and the barrier is already dispelled.\n\nSet Number - Select a number of trials that will be required from the slider below. Which specific trials you need to complete will be random.\n\nRandom Number - A random number and set of trials will be required.",
+    kind: Kind::Pick,
+    opts: &[missing("Skip"), yes("Set Number", "false"), broken("Random Number", "true")],
+};
+
+const TRIAL_COUNT: View = View {
+    id: "trials",
+    label: "Ganon's Trials Count",
+    tip: "Set the number of trials required to enter Ganon's Tower.",
+    kind: Kind::Number(0, 6, false),
+    opts: &[],
+};
+
+const DUNGEON_ENTRANCES: View = View {
+    id: "shuffle_entrances",
+    label: "Shuffle Dungeon Entrances",
+    tip: "Shuffle the pool of dungeon entrances, including Bottom of the Well, Ice Cavern and Gerudo Training Ground.\n\nShuffling Ganon's Castle can be enabled separately.\n\nAdditionally, the entrances of Deku Tree, Fire Temple, Bottom of the Well and Gerudo Training Ground are opened for both child and adult.\n\n- Deku Tree will be open for adult after Mido has seen child Link with a sword and a shield.\n- Bottom of the Well will be open for adult after playing Song of Storms to the Windmill guy as child.\n- Gerudo Training Ground will be open for child after adult has paid to open the gate once.",
+    kind: Kind::Pick,
+    opts: &[yes("Off", "off"), yes("On", "dungeons"), missing("On + Ganon")],
+};
+
+const WIN_CONDITION_TIP: &str = "Defeat Ganon - Defeat Ganon to complete the game.\n\nAnywhere - Collect the Triforce to complete the game. It can appear anywhere in the world.\n\nTrigger - These settings put the completing the game on a trigger, playing the credits when the requirements are met:\n- Stones: Obtain the specified amount of Spiritual Stones.\n- Medallions: Obtain the specified amount of medallions.\n- Dungeon rewards: Obtain the specified total sum of Spiritual Stones or medallions.\n- Dungeons: Complete the specified amount of dungeons. Dungeons are considered complete after stepping into the blue warp after the boss.\n- Tokens: Obtain the specified amount of Skulltula tokens.\n- Triforce Pieces: Obtain the specified amount of Triforce Pieces.";
+
+const RAINBOW_BRIDGE_TIP: &str = "Alters the requirements to open the bridge to Ganon's Castle.\n\nVanilla - Obtain the Shadow Medallion, Spirit Medallion and Light Arrows.\n\nAlways open - No requirements.\n\nStones - Obtain the specified amount of Spiritual Stones.\n\nMedallions - Obtain the specified amount of medallions.\n\nDungeon rewards - Obtain the specified total sum of Spiritual Stones or medallions.\n\nDungeons - Complete the specified amount of dungeons. Dungeons are considered complete after stepping into the blue warp after the boss.\n\nTokens - Obtain the specified amount of Skulltula tokens.\n\nGreg - Find Greg the Green Rupee";
+
+
+const MAPS: View = View {
+    id: "shuffle_mapcompass",
+    label: "Maps/Compasses",
+    tip: "Start with - You will start with Maps & Compasses from all dungeons.\n\nVanilla - Maps & Compasses will appear in their vanilla locations.\n\nOwn dungeon - Maps & Compasses can only appear in their respective dungeon.\n\nAny dungeon - Maps & Compasses can only appear inside of any dungeon.\n\nOverworld - Maps & Compasses can only appear outside of dungeons.\n\nAnywhere - Maps & Compasses can appear anywhere in the world.\n\nSame Region - Maps & Compasses can only appear in their dungeon or a nearby area.",
+    kind: Kind::Pick,
+    opts: &[
+        yes("Start With", "startwith"),
+        yes("Vanilla", "vanilla"),
+        yes("Own Dungeon", "dungeon"),
+        yes("Any Dungeon", "any_dungeon"),
+        broken("Overworld", "overworld"),
+        yes("Anywhere", "keysanity"),
+        yes("Same Region", "regional"),
+    ],
+};
+
+const SMALL_KEYS: View = View {
+    id: "shuffle_smallkeys",
+    label: "Small Key Shuffle",
+    tip: "Start with - You will start with all Small Keys from all dungeons.\n\nVanilla - Small Keys will appear in their vanilla locations. You start with 3 keys in Spirit Temple MQ because the vanilla key layout is not beatable in logic.\n\nOwn dungeon - Small Keys can only appear in their respective dungeon. If Fire Temple is not a Master Quest dungeon, the door to the Boss Key chest will be unlocked.\n\nAny dungeon - Small Keys can only appear inside of any dungeon.\n\nOverworld - Small Keys can only appear outside of dungeons.\n\nAnywhere - Small Keys can appear anywhere in the world.",
+    kind: Kind::Pick,
+    opts: &[
+        missing("Start With"),
+        yes("Vanilla", "vanilla"),
+        yes("Own Dungeon", "dungeon"),
+        yes("Any Dungeon", "any_dungeon"),
+        broken("Overworld", "overworld"),
+        yes("Anywhere", "keysanity"),
+    ],
+};
+
+const BOSS_KEYS: View = View {
+    id: "shuffle_bosskeys",
+    label: "Boss Key Shuffle",
+    tip: "Start with - You will start with Boss Keys from all dungeons.\n\nVanilla - Boss Keys will appear in their vanilla locations.\n\nOwn dungeon - Boss Keys can only appear in their respective dungeon.\n\nAny dungeon - Boss Keys can only appear inside of any dungeon.\n\nOverworld - Boss Keys can only appear outside of dungeons.\n\nAnywhere - Boss Keys can appear anywhere in the world.\n\nSame Region - Boss Keys can only appear in their dungeon or a nearby area.",
+    kind: Kind::Pick,
+    opts: &[
+        yes("Start With", "remove"),
+        yes("Vanilla", "vanilla"),
+        yes("Own Dungeon", "dungeon"),
+        yes("Any Dungeon", "any_dungeon"),
+        yes("Overworld", "overworld"),
+        yes("Anywhere", "keysanity"),
+        yes("Same Region", "regional"),
+    ],
+};
+
+const DUNGEON_REWARDS: View = View {
+    id: "shuffle_dungeon_rewards",
+    label: "Shuffle Dungeon Rewards",
+    tip: "Shuffles the location of Spiritual Stones and medallions.\nVanilla - Spiritual Stones and medallions will be given by their respective boss.\n\nEnd of dungeons - Spiritual Stones and medallions will be given as rewards for beating major dungeons. Link will always start with one stone or medallion.\n\nAny dungeon - Spiritual Stones and medallions can be found inside any dungeon.\n\nOverworld - Spiritual Stones and medallions can only be found outside of dungeons.\n\nAnywhere - Spiritual Stones and medallions can appear anywhere.",
+    kind: Kind::Pick,
+    opts: &[
+        yes("Vanilla", "false"),
+        missing("End of Dungeons"),
+        missing("Own Dungeon"),
+        missing("Any Dungeon"),
+        missing("Overworld"),
+        yes("Anywhere", "true"),
+    ],
+};
+
+const GERUDO_KEYS: View = View {
+    id: "shuffle_hideoutkeys",
+    label: "Gerudo Fortress Keys",
+    tip: "Vanilla - Thieves' Hideout Keys will appear in their vanilla locations.\n\nAny dungeon - Thieves' Hideout Keys can only appear inside of any dungeon.\n\nOverworld - Thieves' Hideout Keys can only appear outside of dungeons.\n\nAnywhere - Thieves' Hideout Keys can appear anywhere in the world.",
+    kind: Kind::Pick,
+    opts: &[yes("Vanilla", "vanilla"), broken("Any Dungeon", "any_dungeon"), broken("Overworld", "overworld"), broken("Anywhere", "keysanity")],
+};
+
+pub struct PortSection {
+    pub label: &'static str,
+    pub entries: &'static [Entry],
+}
+
+pub struct PortPage {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub sections: &'static [PortSection],
+}
+
+const fn port(label: &'static str, entries: &'static [Entry]) -> PortSection {
+    PortSection { label, entries }
+}
+
+pub const SOH_PORT: &str = "SOH Port";
+
+pub const PORT: &[PortPage] = &[];
+
+pub const MOVED: &[(&str, &[PortSection])] = &[
+    ("win", &[LOGIC, WIN_CONDITION]),
+    ("world", &[AREA_ACCESS, port("Entrances", &[Entry::View(&DUNGEON_ENTRANCES)])]),
+    ("locations", LOCATIONS_TAB),
+    ("dungeon", DUNGEONS_TAB),
+];
+
+const LOGIC: PortSection = port(
+                "Logic",
+                &[
+                    Entry::View(&NO_LOGIC),
+                    Entry::View(&STARTING_AGE),
+                    gray_check(
+                        "Blue Fire Arrows",
+                        "Ice Arrows act like Blue Fire, making them able to melt red ice. Item placement logic will respect this option, so it might be required to use this to progress.",
+                    ),
+                    gray_check(
+                        "Sunlight Arrows",
+                        "Light Arrows can be used to light up the sun switches instead of using the Mirror Shield. Item placement logic will respect this option, so it might be required to use this to progress.",
+                    ),
+                    gray_check("Full Wallets", "Start with a full wallet. All wallet upgrades come filled with rupees."),
+                    Entry::View(&PLANT_BEANS),
+                    Entry::View(&EPONA),
+                    Entry::Hidden("bombchus_in_logic"),
+                ],
+            );
+
+const WIN_CONDITION: PortSection = port(
+                "Goal",
+                &[
+                    gray_slider(
+                        "Triforce Hunt Total Pieces",
+                        0,
+                        100,
+                        0,
+                        "The number of Triforce pieces that will be placed in the world. Set to 0 to disable Triforce Hunt.\n\nTriforce Pieces can be used as a requirement for the Rainbow Bridge, Ganon's Boss Key, Ganon's Soul, or the win condition. Keep in mind seed generation can fail if more pieces are placed than there are junk items in the item pool.",
+                    ),
+                    Entry::Hidden("triforce_hunt"),
+                    Entry::Hidden("triforce_count_per_world"),
+                    Entry::Hidden("triforce_goal_per_world"),
+                    gray_pick(
+                        "Triforce Hunt Pieces Location",
+                        &["Any Dungeon", "Overworld", "Anywhere"],
+                        2,
+                        "Any dungeon - Triforce pieces can only appear inside of any dungeon.\n\nOverworld - Triforce pieces can only appear outside of dungeons.\n\nAnywhere - Triforce pieces can appear anywhere in the world.",
+                    ),
+                    Entry::View(&GANON_BK),
+                    Entry::Hidden("ganon_bosskey_stones"),
+                    Entry::Hidden("ganon_bosskey_medallions"),
+                    Entry::Hidden("ganon_bosskey_rewards"),
+                    Entry::Hidden("ganon_bosskey_tokens"),
+                    Entry::Hidden("ganon_bosskey_hearts"),
+                    gray_pick(
+                        "GBK Reward Options",
+                        &["Standard Reward", "Greg as Reward", "Greg as Wildcard"],
+                        0,
+                        "Standard Rewards - Greg does not change logic, Greg does not help obtain GBK, max number of rewards on slider does not change.\n\nGreg as Reward - Greg does change logic (can be part of expected path for obtaining GBK), Greg helps obtain GBK, max number of rewards on slider increases by 1 to account for Greg.\n\nGreg as Wildcard - Greg does not change logic, Greg helps obtain GBK, max number of rewards on slider does not change.",
+                    ),
+                    gray_pick(
+                        "Ganon's Soul",
+                        &["Start With", "Any Dungeon", "Overworld", "Anywhere", "Trigger-Stones", "Trigger-Medallions", "Trigger-Rewards", "Trigger-Dungeons", "Trigger-Tokens", "Trigger-Triforce Pieces"],
+                        0,
+                        "",
+                    ),
+                    gray_pick(
+                        "Win Condition",
+                        &["Defeat Ganon", "Anywhere", "Trigger-Stones", "Trigger-Medallions", "Trigger-Rewards", "Trigger-Dungeons", "Trigger-Tokens", "Trigger-Triforce Pieces"],
+                        0,
+                        WIN_CONDITION_TIP,
+                    ),
+                ],
+            );
+
+const AREA_ACCESS: PortSection = port(
+                "Area Access",
+                &[
+                    Entry::View(&FOREST),
+                    Entry::Plain("open_kakariko"),
+                    Entry::View(&DOOR_OF_TIME),
+                    Entry::View(&ZORAS_FOUNTAIN),
+                    gray_pick(
+                        "Sleeping Waterfall",
+                        &["Closed", "Open"],
+                        0,
+                        "Closed - Sleeping Waterfall obstructs the entrance to Zora's Domain. Zelda's Lullaby must be played in order to open it (but only once; then it stays open in both time periods).\n\nOpen - Sleeping Waterfall is always open. Link may always enter Zora's Domain.",
+                    ),
+                    Entry::View(&JABU),
+                    gray_check("Lock Overworld Doors", "Add locks to all wooden overworld doors, requiring specific small keys to open them"),
+                    Entry::View(&CARPENTERS),
+                    Entry::View(&GV_BRIDGE),
+                    gray_pick(
+                        "Rainbow Bridge",
+                        &["Vanilla", "Always open", "Stones", "Medallions", "Dungeon rewards", "Dungeons", "Tokens", "Triforce Pieces", "Greg"],
+                        0,
+                        RAINBOW_BRIDGE_TIP,
+                    ),
+                    Entry::Hidden("bridge"),
+                    Entry::Hidden("bridge_stones"),
+                    Entry::Hidden("bridge_medallions"),
+                    Entry::Hidden("bridge_rewards"),
+                    Entry::Hidden("bridge_tokens"),
+                    Entry::Hidden("bridge_hearts"),
+                    Entry::View(&TRIALS),
+                    Entry::View(&TRIAL_COUNT),
+                    gray_check("Medallion Locked Trials", "Doors to trials will be barred until their corresponding medallion is acquired."),
+                ],
+            );
+
+const DUNGEONS_TAB: &[PortSection] = &[
+            port(
+                "Dungeon Items",
+                &[
+                    Entry::View(&MAPS),
+                    Entry::View(&SMALL_KEYS),
+                    Entry::View(&BOSS_KEYS),
+                    Entry::View(&DUNGEON_REWARDS),
+                    Entry::View(&GERUDO_KEYS),
+                    gray_pick(
+                        "Shuffle Boss Souls",
+                        &["Off", "On"],
+                        0,
+                        "Shuffles 8 boss souls (one for each blue warp dungeon). A boss will not appear until you collect its respective soul.",
+                    ),
+                ],
+            ),
+            port(
+                "Keyrings",
+                &[gray_pick(
+                    "Keyrings",
+                    &["Off", "Random", "Count", "Selection"],
+                    0,
+                    "Keyrings will replace all small keys from a particular dungeon with a single keyring that awards all keys for its associated dungeon.\n\nOff - No dungeons will have their keys replaced with keyrings.\n\nRandom - A random amount of dungeons will have their keys replaced with keyrings.\n\nCount - A specified amount of randomly selected dungeons will have their keys replaced with keyrings.\n\nSelection - Hand select which dungeons will have their keys replaced with keyrings\n(can also be left as random, in which case each one will have a 50% chance of being a keyring).\n\nSelecting keyring for dungeons will have no effect if Small Keys are set to Start With or Vanilla.\n\nThe maximum amount of Keyrings that can be selected by Random or Count is 8, plus one if Gerudo Fortress Carpenters is set to Normal and Gerudo Fortress Keys is set to anything other than Vanilla, plus one if Shuffle Chest Minigame is on.",
+                )],
+            ),
+        ];
+
+const FREESTANDING: View = View {
+    id: "shuffle_freestanding_items",
+    label: "Freestanding Items",
+    tip: "Which items lying on the ground are shuffled. Pieces of Heart on the ground are always shuffled.\n\nOff - Only Pieces of Heart are shuffled.\n\nDungeons - Every freestanding item inside dungeons is shuffled.\n\nOverworld - Every freestanding item outside dungeons is shuffled.\n\nEverywhere - Every freestanding item is shuffled, including the ones only the remake has.",
+    kind: Kind::Pick,
+    opts: &[yes("Off", "off"), broken("Dungeons", "dungeons"), broken("Overworld", "overworld"), yes("Everywhere", "all")],
+};
+
+const SKULLTULAS: View = View {
+    id: "shuffle_skulltulas",
+    label: "Gold Skulltulas",
+    tip: "Whether Gold Skulltulas drop random items, and their tokens join the item pool.\n\nOff - Every Gold Skulltula drops its token.\n\nDungeons - Gold Skulltulas inside dungeons drop random items.\n\nOverworld - Gold Skulltulas outside dungeons drop random items.\n\nEverywhere - Every Gold Skulltula drops a random item. The ones whose spot is still unsure only drop minor items such as rupees and hearts.",
+    kind: Kind::Pick,
+    opts: &[yes("Off", "off"), missing("Dungeons"), missing("Overworld"), yes("Everywhere", "matched")],
+};
+
+const COWS: View = View {
+    id: "shuffle_cows",
+    label: "Shuffle Cows",
+    tip: "Each cow gives one extra shuffled item the first time its milk scene starts, with or without a bottle. The milk stays vanilla and stays repeatable.\n\nCovers all eight cows: Link's House, Gerudo Valley, Gerudo Fortress, the Death Mountain Trail and Hyrule Field grottos, behind Impa's house, and the two Lon Lon Ranch stable cows.",
+    kind: Kind::Check,
+    opts: &[yes("Off", "false"), yes("On", "true")],
+};
+
+const SCRUBS: View = View {
+    id: "shuffle_scrubs_a",
+    label: "Shuffle Scrubs",
+    tip: "Off - Only the Hyrule Field grotto scrub (Piece of Heart) is shuffled.
+
+One-Time Sales - Also the three scrubs that sell something once: the Death Mountain Crater scrub (Piece of Heart) and the two Lost Woods scrubs that sell the Deku Stick and Deku Nut upgrades. Prices stay the same, and the sale text still names the original item.
+
+All - Also the two scrubs that sell ammo again and again (Lost Woods grotto Deku Seeds, Jabu Jabu's Belly Deku Nuts) become one-time sales of a random item.",
+    kind: Kind::Pick,
+    opts: &[yes("Off", "false"), yes("One-Time Sales", "true"), missing("All")],
+};
+
+const SCRUB_PRICES: View = View {
+    id: "scrub_prices",
+    label: "Scrubs Prices",
+    tip: "Vanilla - The same price as the item it replaced.\nCheap Balanced - Prices will range between 0 to 95 rupees, favoring lower numbers.\nBalanced - Prices will range between 0 to 300 rupees, favoring lower numbers.\nFixed - A fixed number.\nRange - A random point between specific ranges.\nSet By Wallet - Set weights that decide the choice of each wallet, and get a random price in that range if that wallet is chosen.\n\nThe scrub always says the price it really takes. It calls its item a Mystery Item unless Scrub Hint Text (Hints page) is on.\n\nNot working yet:\n- Balanced, Range and Set By Wallet are not built.\n- Prices stop at 99, so the starting wallet can always pay.",
+    kind: Kind::Pick,
+    opts: &[
+        yes("Vanilla", "vanilla"),
+        yes("Cheap Balanced", "cheap"),
+        missing("Balanced"),
+        yes("Fixed", "fixed"),
+        missing("Range"),
+        missing("Set By Wallet"),
+    ],
+};
+
+const SCRUB_FIXED: View = View {
+    id: "scrub_price_fixed",
+    label: "Scrubs Fixed Price",
+    tip: "The price of every shuffled scrub when Scrubs Prices is Fixed.",
+    kind: Kind::Number(0, 99, true),
+    opts: &[],
+};
+
+const MERCHANT_PRICES: View = View {
+    id: "merchant_prices",
+    label: "Merchant Prices",
+    tip: "Vanilla - The merchant's usual price.\nCheap Balanced - Prices will range between 0 to 95 rupees, favoring lower numbers.\nBalanced - Prices will range between 0 to 300 rupees, favoring lower numbers.\nFixed - A fixed number.\nRange - A random point between specific ranges.\nSet By Wallet - Set weights that decide the choice of each wallet, and get a random price in that range if that wallet is chosen.\n\nOnly shuffled merchants change price (see Shuffle Merchants): Medigoron, and the Bean Merchant. Medigoron shows and takes the new price. The Bean Merchant normally costs 60 once Skip Planting Beans is on.\n\nNot working yet:\n- Balanced, Range and Set By Wallet are not built.\n- Prices stop at 99, so the starting wallet can always pay.",
+    kind: Kind::Pick,
+    opts: &[
+        yes("Vanilla", "vanilla"),
+        yes("Cheap Balanced", "cheap"),
+        missing("Balanced"),
+        yes("Fixed", "fixed"),
+        missing("Range"),
+        missing("Set By Wallet"),
+    ],
+};
+
+const MERCHANT_FIXED: View = View {
+    id: "merchant_price_fixed",
+    label: "Merchant Fixed Price",
+    tip: "The price of every shuffled merchant when Merchant Prices is Fixed.",
+    kind: Kind::Number(0, 99, true),
+    opts: &[],
+};
+
+const MERCHANTS: View = View {
+    id: "shuffle_merchants",
+    label: "Shuffle Merchants",
+    tip: "This setting governs if the Bean Salesman, Medigoron, Granny and the Carpet Salesman sell a random item.\n\nBean Merchant Only - Only the Bean Salesman will have a check.\n\nAll But Beans - Medigoron, Granny and the Carpet Salesman will have checks.\n\nAll - Apply both effects.\n\nNot working yet:\n- Granny and the Carpet Salesman are not built, so All But Beans and All only shuffle Medigoron.\n- The Bean Salesman can only be shuffled while Skip Planting Beans is on (Logic / Goal page). Until then, Bean Merchant Only and All are grayed out.",
+    kind: Kind::Pick,
+    opts: &[
+        yes("Off", "off"),
+        needs("Bean Merchant Only", "beans", "plant_beans"),
+        yes("All But Beans", "no_beans"),
+        needs("All", "all", "plant_beans"),
+    ],
+};
+
+const LOCATIONS_TAB: &[PortSection] = &[
+    port(
+        "Chests",
+        &[
+            Entry::Hidden("shuffle_chests"),
+            Entry::Hidden("shuffle_boss_hearts"),
+            Entry::Hidden("shuffle_cows_other"),
+            Entry::Hidden("shuffle_rewards"),
+            Entry::Hidden("shuffle_rewards_extra"),
+            Entry::Hidden("shuffle_scrubs"),
+            Entry::Hidden("shuffle_scrubs_b"),
+        ],
+    ),
+    port("Items", &[Entry::Plain("shuffle_songs"), Entry::View(&SKULLTULAS), Entry::View(&FREESTANDING)]),
+    port(
+        "Shops",
+        &[
+            Entry::View(&SCRUBS),
+            Entry::View(&SCRUB_PRICES),
+            Entry::View(&SCRUB_FIXED),
+            Entry::View(&MERCHANTS),
+            Entry::View(&MERCHANT_PRICES),
+            Entry::View(&MERCHANT_FIXED),
+        ],
+    ),
+    port(
+        "Sanities",
+        &[
+            Entry::Plain("shuffle_pots"),
+            Entry::Plain("shuffle_crates"),
+            Entry::Plain("shuffle_rocks"),
+            Entry::Plain("shuffle_grass"),
+            Entry::Plain("shuffle_beehives"),
+        ],
+    ),
+    port(
+        "Rewards",
+        &[
+            Entry::Plain("shuffle_treasure_reward"),
+            Entry::Plain("shuffle_potion_shop"),
+            Entry::Plain("shuffle_trade_checks"),
+            Entry::View(&COWS),
+            Entry::Plain("shuffle_frog_songs"),
+            Entry::Plain("shuffle_frog_bug_heart"),
+            Entry::View(&BIG_POE),
+        ],
+    ),
+];
+
 pub const RANDOMIZER: &str = "Randomizer";
 pub const GAMEPLAY: &str = "Gameplay";
+pub const IN_DEV: &str = "In Dev";
 
 pub const MENU: &[Page] = &[
+    Page { id: "win", label: "Logic / Goal", heading: RANDOMIZER, sections: &[] },
     Page {
         id: "world",
         label: "World",
         heading: RANDOMIZER,
+        sections: &[],
+    },
+    Page {
+        id: "dungeon",
+        label: "Dungeons",
+        heading: RANDOMIZER,
         sections: &[
-            sec("Logic", &["logic_rules", "bombchus_in_logic"]),
-            sec("Start", &["starting_age"]),
-            sec(
-                "Open areas",
-                &["open_forest", "open_kakariko", "open_door_of_time", "zora_fountain", "gerudo_fortress", "jabu_open", "gerudo_bridge_open"],
-            ),
-            sec("Entrances", &["shuffle_entrances"]),
+            sec("Silver Rupees", &["shuffle_silver_rupees"]),
         ],
     },
     Page {
         id: "locations",
-        label: "Locations",
+        label: "Shuffle",
         heading: RANDOMIZER,
-        sections: &[
-            sec("Chests", &["shuffle_chests", "shuffle_remake_chests"]),
-            sec(
-                "Pots, crates and grass",
-                &["shuffle_pots", "shuffle_remake_pots", "shuffle_crates", "shuffle_rocks", "shuffle_grass", "shuffle_beehives"],
-            ),
-            sec("Ground items and tokens", &["shuffle_freestanding_items", "shuffle_skulltulas"]),
-        ],
+        sections: &[],
     },
     Page {
         id: "npcs",
         label: "NPCs and rewards",
         heading: RANDOMIZER,
         sections: &[
-            sec(
-                "Rewards",
-                &["shuffle_rewards", "shuffle_rewards_extra", "shuffle_dungeon_rewards", "shuffle_boss_hearts", "shuffle_treasure_reward", "shuffle_songs"],
-            ),
-            sec("Business Scrubs", &["shuffle_scrubs", "shuffle_scrubs_a", "shuffle_scrubs_b"]),
-            sec("Zora's River frogs", &["shuffle_frog_songs", "shuffle_frog_bug_heart"]),
-            sec("Other", &["shuffle_trade_checks", "shuffle_potion_shop", "shuffle_cows", "shuffle_cows_other"]),
-        ],
-    },
-    Page {
-        id: "shops",
-        label: "Shops",
-        heading: RANDOMIZER,
-        sections: &[
-            sec("Shelves", &["shuffle_shops", "shop_prices", "shop_price_min", "shop_price_max"]),
-            sec("Special deals", &["shop_deal_gear", "shop_deal_items"]),
-        ],
-    },
-    Page {
-        id: "dungeon",
-        label: "Dungeon items",
-        heading: RANDOMIZER,
-        sections: &[
-            sec("Keys and maps", &["shuffle_smallkeys", "shuffle_bosskeys", "shuffle_mapcompass", "shuffle_hideoutkeys"]),
-            sec("Silver rupees", &["shuffle_silver_rupees"]),
-            sec(
-                "Ganon's Boss Key",
-                &["shuffle_ganon_bosskey", "ganon_bosskey_stones", "ganon_bosskey_medallions", "ganon_bosskey_rewards", "ganon_bosskey_tokens", "ganon_bosskey_hearts"],
-            ),
-        ],
-    },
-    Page {
-        id: "goals",
-        label: "Goals",
-        heading: RANDOMIZER,
-        sections: &[
-            sec("Rainbow Bridge", &["bridge", "bridge_stones", "bridge_medallions", "bridge_rewards", "bridge_tokens", "bridge_hearts"]),
-            sec("Ganon's Trials", &["trials_random", "trials"]),
-            sec("Triforce Hunt", &["triforce_hunt", "triforce_count_per_world", "triforce_goal_per_world"]),
         ],
     },
     Page {
@@ -110,7 +639,7 @@ pub const MENU: &[Page] = &[
         heading: GAMEPLAY,
         sections: &[
             sec("Cutscenes", &["skip_intro", "skip_cutscenes", "skip_story_scenes", "faster_chests"]),
-            sec("Side quests", &["skip_epona_race", "skip_mask_quest", "anju_one_cucco", "big_poe_one", "plant_beans"]),
+            sec("Side quests", &["skip_mask_quest", "anju_one_cucco"]),
             sec("Dungeons", &["deku_bridge_safe"]),
         ],
     },
@@ -120,13 +649,44 @@ pub const MENU: &[Page] = &[
         heading: GAMEPLAY,
         sections: &[sec("Time of day", &["time_always_passes", "early_beds"]), sec("Link and Navi", &["navi_return", "bunny_hood"])],
     },
-    Page { id: "hints", label: "Hints", heading: GAMEPLAY, sections: &[sec("Hints", &["gossip_hints", "chests_match_contents", "misc_hints"])] },
+    Page { id: "hints", label: "Hints", heading: GAMEPLAY, sections: &[sec("Hints", &["gossip_hints", "chests_match_contents", "misc_hints", "scrub_hint_text"])] },
+    Page {
+        id: "shops",
+        label: "Shops",
+        heading: IN_DEV,
+        sections: &[
+            sec("Shelves", &["shuffle_shops", "shop_prices", "shop_price_min", "shop_price_max"]),
+            sec("Special deals", &["shop_deal_gear", "shop_deal_items"]),
+        ],
+    },
 ];
 
 pub fn problems(sch: &Schema) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     let mut placed: Set<&str> = Set::new();
     let mut pages: Set<&str> = Set::new();
+    let moved = MOVED.iter().flat_map(|(_, t)| t.iter());
+    for p in PORT {
+        if !pages.insert(p.id) {
+            out.push(format!("menu page {} is listed twice", p.id));
+        }
+    }
+    for s in PORT.iter().flat_map(|p| p.sections.iter()).chain(moved) {
+        {
+            for e in s.entries {
+                let id: Option<&str> = match e {
+                    Entry::View(v) => Some(v.id),
+                    Entry::Hidden(id) | Entry::Plain(id) => Some(id),
+                    Entry::Stub(..) => None,
+                };
+                if let Some(id) = id {
+                    if !placed.insert(id) {
+                        out.push(format!("setting {id} is placed in the menu more than once"));
+                    }
+                }
+            }
+        }
+    }
     for p in MENU {
         if !pages.insert(p.id) {
             out.push(format!("menu page {} is listed twice", p.id));
@@ -151,8 +711,15 @@ pub fn menu_json(sch: &Schema) -> Json {
     let have: Set<&str> = sch.settings.iter().map(|s| s.id.as_str()).collect();
     let mut placed: Set<&str> = Set::new();
     let mut out: Vec<Json> = Vec::new();
+    for p in PORT {
+        let secs: Vec<Json> = port_secs(p.sections, &have, &mut placed);
+        out.push(page_json(p.id, p.label, SOH_PORT, secs));
+    }
     for p in MENU {
-        let mut secs: Vec<Json> = Vec::new();
+        let mut secs: Vec<Json> = match MOVED.iter().find(|(id, _)| *id == p.id) {
+            Some((_, tab)) => port_secs(tab, &have, &mut placed),
+            None => Vec::new(),
+        };
         for s in p.sections {
             let ids: Vec<&str> = s.ids.iter().copied().filter(|x| have.contains(x) && placed.insert(x)).collect();
             if !ids.is_empty() {
@@ -166,9 +733,64 @@ pub fn menu_json(sch: &Schema) -> Json {
     let left: Vec<&str> = sch.settings.iter().map(|s| s.id.as_str()).filter(|x| !placed.contains(x)).collect();
     if !left.is_empty() {
         let sec: Json = Json::obj().with("label", "Not placed yet".into()).with("ids", Json::strs(left.into_iter()));
-        out.push(page_json("other", "Other", RANDOMIZER, vec![sec]));
+        out.push(page_json("other", "Unsorted", IN_DEV, vec![sec]));
     }
     Json::Arr(out)
+}
+
+fn port_secs<'a>(sections: &'a [PortSection], have: &Set<&str>, placed: &mut Set<&'a str>) -> Vec<Json> {
+    let mut secs: Vec<Json> = Vec::new();
+    for s in sections {
+        let mut ids: Vec<&str> = Vec::new();
+        let mut hidden: Vec<&str> = Vec::new();
+        let mut items: Vec<Json> = Vec::new();
+        for e in s.entries {
+            match e {
+                Entry::View(v) if have.contains(v.id) && placed.insert(v.id) => {
+                    ids.push(v.id);
+                    items.push(Json::obj().with("id", v.id.into()).with("view", view_json(v)));
+                }
+                Entry::Hidden(id) if have.contains(id) && placed.insert(id) => hidden.push(id),
+                Entry::Plain(id) if have.contains(id) && placed.insert(id) => {
+                    ids.push(id);
+                    items.push(Json::obj().with("id", (*id).into()));
+                }
+                Entry::View(_) | Entry::Hidden(_) | Entry::Plain(_) => {}
+                Entry::Stub(label, w, tip) => items.push(stub_json(label, w).with("tip", (*tip).into())),
+            }
+        }
+        if !items.is_empty() || !hidden.is_empty() {
+            secs.push(
+                Json::obj()
+                    .with("label", s.label.into())
+                    .with("ids", Json::strs(ids.into_iter()))
+                    .with("hidden", Json::strs(hidden.into_iter()))
+                    .with("items", Json::Arr(items)),
+            );
+        }
+    }
+    secs
+}
+
+fn view_json(v: &View) -> Json {
+    let opts: Vec<Json> =
+        v.opts.iter().map(|o| Json::obj().with("label", o.label.into()).with("ours", o.ours.into()).with("live", o.live.into()).with("needs", o.needs.into())).collect();
+    let j: Json = Json::obj().with("label", v.label.into()).with("tip", v.tip.into()).with("opts", Json::Arr(opts));
+    match v.kind {
+        Kind::Pick => j.with("kind", "pick".into()),
+        Kind::Check => j.with("kind", "check".into()),
+        Kind::Steps(min, max) => j.with("kind", "steps".into()).with("min", min.into()).with("max", max.into()),
+        Kind::Number(min, max, live) => j.with("kind", "number".into()).with("min", min.into()).with("max", max.into()).with("live", live.into()),
+    }
+}
+
+fn stub_json(label: &str, w: &Widget) -> Json {
+    let j: Json = Json::obj().with("stub", label.into());
+    match w {
+        Widget::Check => j.with("kind", "toggle".into()),
+        Widget::Pick(opts, at) => j.with("kind", "choice".into()).with("choices", Json::strs(opts.iter().copied())).with("value", (*at as i64).into()),
+        Widget::Slider(min, max, at) => j.with("kind", "number".into()).with("min", (*min).into()).with("max", (*max).into()).with("value", (*at).into()),
+    }
 }
 
 fn page_json(id: &str, label: &str, heading: &str, secs: Vec<Json>) -> Json {
@@ -195,11 +817,27 @@ mod tests {
                 for id in s.get("ids").and_then(|x| x.as_arr()).unwrap() {
                     seen.push(id.as_str().unwrap().to_string());
                 }
+                for id in s.get("hidden").and_then(|x| x.as_arr()).map(|a| a.to_vec()).unwrap_or_default() {
+                    seen.push(id.as_str().unwrap().to_string());
+                }
             }
         }
         let mut want: Vec<String> = sch.settings.iter().map(|s| s.id.clone()).collect();
         seen.sort();
         want.sort();
         assert_eq!(seen, want);
+    }
+
+    #[test]
+    fn every_soh_port_tab_is_exported_even_when_empty() {
+        let j: Json = menu_json(schema());
+        let port: Vec<&str> = j
+            .as_arr()
+            .unwrap()
+            .iter()
+            .filter(|p| p.get("heading").and_then(|x| x.as_str()) == Some(SOH_PORT))
+            .map(|p| p.get("id").and_then(|x| x.as_str()).unwrap())
+            .collect();
+        assert_eq!(port, PORT.iter().map(|p| p.id).collect::<Vec<_>>());
     }
 }
