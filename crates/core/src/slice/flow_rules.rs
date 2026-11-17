@@ -86,11 +86,12 @@ pub fn ok(d: &Data, name: &str) -> bool {
     linked(i, actor)
 }
 
-/// Item actors whose actor pack has no animation (no ASRef): the two Ocarinas and every song.
-/// The game only hands them out with a get window or a timeline. An NPC gift that has Link hold
-/// the item up (every Dm_SY_GetInEvent entry reaches :Item_Position, EventIgnitionShowItem with
-/// ASCommand Rotate_GetDemo) crashes the game with one of these.
-pub const NO_HOLD: [&str; 2] = ["Item_Ocarina_Fairy", "Item_Ocarina_Time"];
+/// Item actors whose actor pack has no animation (no ASRef): every song. The game only hands them
+/// out with a get window or a timeline. An NPC gift that has Link hold the item up (every
+/// Dm_SY_GetInEvent entry reaches :Item_Position, EventIgnitionShowItem with ASCommand
+/// Rotate_GetDemo) crashes the game with one of these. The two Ocarinas lacked it too;
+/// crate::ocarina_hold gives them the shared item animation when a seed needs it, so they can go
+/// anywhere.
 const SONG: &str = "Item_Melody_";
 
 /// Gift routes that show the item in a get window and never hold it up: the pouch add of Saria's
@@ -98,9 +99,9 @@ const SONG: &str = "Item_Melody_";
 /// cows' bottle hand over.
 pub const WINDOW: [&str; 3] = ["PouchSystemActor.EventTriggerAddOrRemovePouchContent", "GetPouchContent:GetPouchContentByActorName", "Dm_SY_GetInEvent:GetInEventInBottle"];
 
-/// An item that crashes a hold up: an Ocarina or a song, in any of its forms.
+/// An item that crashes a hold up: a song.
 pub fn no_hold(i: &Item) -> bool {
-    i.actor.iter().chain(i.tiers.iter()).any(|a| NO_HOLD.contains(&a.as_str()) || a.starts_with(SONG))
+    i.actor.iter().chain(i.tiers.iter()).any(|a| a.starts_with(SONG))
 }
 
 /// Whether the location's gift has Link hold the item up. The menu scrubs sell through the one
@@ -166,15 +167,16 @@ mod tests {
     }
 
     #[test]
-    fn ocarinas_and_songs_never_go_to_a_gift_that_holds_the_item_up() {
+    fn songs_never_go_to_a_gift_that_holds_the_item_up_and_the_ocarina_does() {
         let d: Data = Data::load().unwrap();
         let ocarina: &Item = item(&d, "Ocarina");
         let song: &Item = item(&d, "Minuet of Forest");
-        assert!(no_hold(ocarina) && no_hold(song) && !no_hold(item(&d, "Boomerang")));
+        assert!(!no_hold(ocarina) && no_hold(song) && !no_hold(item(&d, "Boomerang")));
         for n in ["LW Skull Kid", "Kak Man on Roof", "HC Malon Egg", "ZD Diving Minigame", "LW Ocarina Memory Game", "Deku Theater Skull Mask", "Kak Anju as Child"] {
             assert!(holds_up(d.flow.by_name(n).unwrap()), "{n}");
-            assert!(!allows(&d, n, ocarina) && !allows(&d, n, song), "{n}");
+            assert!(!allows(&d, n, song), "{n}");
         }
+        assert!(allows(&d, DARUNIA, ocarina));
         // Saria and the Ocarina of Time scene add the item and show a get window.
         assert!(!holds_up(d.flow.by_name(SARIA).unwrap()) && allows(&d, SARIA, ocarina));
         assert!(!holds_up(d.flow.by_name("Song from Impa").unwrap()));
@@ -201,7 +203,7 @@ mod tests {
         for n in ["Progressive Strength Upgrade", "Bomb Bag", "Boomerang", "Progressive Hookshot", "Bow"] {
             assert!(allows(&d, DARUNIA, item(&d, n)), "{n}");
         }
-        for n in ["Ocarina", "Sarias Song", "Small Key (Dodongos Cavern)", "Gold Skulltula Token"] {
+        for n in ["Sarias Song", "Small Key (Dodongos Cavern)", "Gold Skulltula Token"] {
             assert!(d.item(n).is_none() || !allows(&d, DARUNIA, item(&d, n)), "{n}");
         }
     }

@@ -90,6 +90,7 @@ pub mod start_items;
 pub mod start_reward;
 pub mod start_state;
 pub mod no_tutorials;
+pub mod ocarina_hold;
 pub mod story_skip;
 pub mod songs;
 pub mod spoiler;

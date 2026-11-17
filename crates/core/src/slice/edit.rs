@@ -737,6 +737,19 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             }
         }
     }
+    let ocarina_held: bool = crate::ocarina_hold::needed(&d, seed);
+    if ocarina_held {
+        for o in crate::ocarina_hold::stage(&mut rf)? {
+            pk.write_romfs(&o.path, &o.z)?;
+            extra += 1;
+            if rst.is_none() {
+                rst = Some(rsizetable::load(&mut rf)?);
+            }
+            if let Some(t) = rst.as_mut() {
+                grown += crate::staging::grow_out(&mut rf, t, &o)?;
+            }
+        }
+    }
     if p.fast {
         extra += crate::fast::apply(&mut rf, &pk)?;
     }
@@ -838,6 +851,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         flows: flows.len() + placed.len(),
     };
     let mut notes: Vec<String> = p.notes.clone();
+    if ocarina_held {
+        notes.push(crate::ocarina_hold::NOTE.to_string());
+    }
     if p.chest_sizes {
         notes.push(crate::chest_size::report(resized_n + small_hearts.len(), moves.tight.len()));
     }
