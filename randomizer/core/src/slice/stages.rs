@@ -123,7 +123,7 @@ fn no_tutorials(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    if c.p.door {
+    if c.p.gates.door {
         more.extend(crate::door_open::stage_door(rf)?);
     }
     Ok(())
@@ -142,10 +142,10 @@ fn medal_gate(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn start_reward(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    let reward: Option<&str> = crate::start_reward::pick(&c.seed.seed, c.p.start).map(|(_, a)| a);
+    let reward: Option<&str> = crate::start_reward::pick(&c.seed.seed, c.p.start.reward).map(|(_, a)| a);
     let mut flags: Vec<(String, bool)> = c.p.start_flags();
     flags.extend(crate::no_tutorials::start_flags());
-    let mut give: Vec<&str> = c.p.pouch.clone();
+    let mut give: Vec<&str> = c.p.start.pouch.clone();
     if let Some(a) = reward {
         give.push(a);
     }
@@ -160,7 +160,7 @@ fn start_items(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn dpad(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    crate::start_items::dpad::stage(rf, more, &crate::start_items::dpad::actors(&[&c.p.kit], &c.p.pouch))?;
+    crate::start_items::dpad::stage(rf, more, &crate::start_items::dpad::actors(&[&c.p.kit], &c.p.start.pouch))?;
     Ok(())
 }
 

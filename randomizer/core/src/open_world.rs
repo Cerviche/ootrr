@@ -226,6 +226,46 @@ pub fn worked(rf: &mut Romfs, pk: &crate::modpack::Pack, o: &Opts) -> Res<Vec<Ou
     Ok(outs)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Gates {
+    pub forest: crate::slice::support::Forest,
+    pub door: bool,
+    pub kakariko: bool,
+}
+
+impl Gates {
+    pub fn read(s: &Settings, bad: &mut Vec<String>) -> Gates {
+        use crate::slice::support::Forest;
+        let forest: Forest = match s.text("open_forest") {
+            Ok("closed") => Forest::Closed,
+            Ok("closed_deku") => Forest::ClosedDeku,
+            Ok("open") => Forest::Open,
+            Ok(v) => {
+                bad.push(format!("open_forest is {v}, which is not a known choice"));
+                Forest::Closed
+            }
+            Err(e) => {
+                bad.push(e.to_string());
+                Forest::Closed
+            }
+        };
+        let door: bool = crate::slice::support::toggle(s, "open_door_of_time", bad);
+        let kakariko: bool = match s.text("open_kakariko") {
+            Ok("open") => true,
+            Ok("zelda") => false,
+            Ok(v) => {
+                bad.push(format!("open_kakariko is {v}, which this build cannot apply yet (only open and zelda work)"));
+                false
+            }
+            Err(e) => {
+                bad.push(e.to_string());
+                false
+            }
+        };
+        Gates { forest, door, kakariko }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

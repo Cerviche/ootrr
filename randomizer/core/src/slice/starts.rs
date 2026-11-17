@@ -10,7 +10,7 @@ use crate::start_reward::pick as pick_start;
 use crate::world::{Placement, World};
 
 pub fn add(d: &Data, p: &Plan, w: &mut World, seed: &str) -> Res<()> {
-    if let Some((name, _)) = pick_start(seed, p.start) {
+    if let Some((name, _)) = pick_start(seed, p.start.reward) {
         let i: ItemId = w.item(name).ok_or_else(|| E::Msg(format!("{name} is not in the logic item list")))?;
         w.start.push((i, 1));
     }
@@ -22,7 +22,7 @@ pub fn add(d: &Data, p: &Plan, w: &mut World, seed: &str) -> Res<()> {
         let i: ItemId = w.item(name).ok_or_else(|| E::Msg(format!("{name} is not in the logic item list")))?;
         w.start.push((i, n));
     }
-    for name in &p.gear {
+    for name in &p.start.gear {
         let i: ItemId = w.item(name).ok_or_else(|| E::Msg(format!("{name} is not in the logic item list")))?;
         if !w.start.iter().any(|(id, _)| *id == i) {
             w.start.push((i, 1));

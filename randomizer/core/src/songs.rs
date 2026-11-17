@@ -54,6 +54,23 @@ pub fn stage(rf: &mut Romfs) -> Res<Out> {
     rewrite(rf, FLOW, |raw| neutralize(raw).map(|x| x.0))
 }
 
+pub fn mode(s: &crate::settings::Settings, bad: &mut Vec<String>) -> crate::slice::support::Songs {
+    use crate::slice::support::Songs;
+    match s.text("shuffle_songs") {
+        Ok("off") => Songs::Off,
+        Ok("own") => Songs::Own,
+        Ok("anywhere") => Songs::Anywhere,
+        Ok(v) => {
+            bad.push(format!("shuffle_songs is {v}, which is not a known choice"));
+            Songs::Off
+        }
+        Err(e) => {
+            bad.push(e.to_string());
+            Songs::Off
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

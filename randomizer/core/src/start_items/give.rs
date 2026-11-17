@@ -273,7 +273,7 @@ mod tests {
         assert_eq!(s.int(HEARTS).unwrap(), 3);
         assert_eq!(s.encode().unwrap(), old);
         let p: crate::slice::support::Plan = crate::slice::support::plan(&s).unwrap();
-        assert_eq!(p.pouch, vec!["Weapon_Range_SlingShot", "Weapon_Sword_Kokiri", "Weapon_Shield_Deku"]);
+        assert_eq!(p.start.pouch, vec!["Weapon_Range_SlingShot", "Weapon_Sword_Kokiri", "Weapon_Shield_Deku"]);
         assert_eq!(p.kit.logic().len(), 3);
     }
 

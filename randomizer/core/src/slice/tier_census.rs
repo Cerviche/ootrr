@@ -131,7 +131,7 @@ fn start_rows(d: &Data, p: &Plan) -> Vec<Row> {
         };
         let base: &str = o[0];
         let set: bool = p.kit.sets.iter().any(|x| matches!(x, Set::Bool(k, true) if *k == format!("IsGet.{base}")));
-        let given: bool = set || p.kit.pushes.contains(&base) || p.pouch.contains(&base);
+        let given: bool = set || p.kit.pushes.contains(&base) || p.start.pouch.contains(&base);
         out.push(Row {
             loc: "starting items".to_string(),
             family: f,
@@ -388,7 +388,7 @@ mod tests {
             let p: Plan = plan(&s).unwrap();
             let rows: Vec<Row> = start_rows(&d, &p);
             let r: &Row = rows.iter().find(|r| r.family == fam).unwrap_or_else(|| panic!("{ids:?}"));
-            println!("{ids:?}\t{}\t{}\tpouch {:?}", r.tier, r.risk, p.pouch);
+            println!("{ids:?}\t{}\t{}\tpouch {:?}", r.tier, r.risk, p.start.pouch);
             assert_eq!(r.risk, want, "{ids:?}");
         }
     }

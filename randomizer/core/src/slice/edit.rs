@@ -484,13 +484,13 @@ pub fn skipped_items(d: &Data, seed: &SeedFile, locs: &[&str]) -> Res<Vec<String
 /// plus flow guards), so start_state::fountain is not used here.
 pub fn start_state(d: &Data, seed: &SeedFile, p: &crate::slice::support::Plan) -> Res<crate::start_state::Ops> {
     let mut ops: crate::start_state::Ops = crate::start_state::Ops::default();
-    if p.kakariko {
+    if p.gates.kakariko {
         ops.extend(crate::start_state::kakariko(&skipped_items(d, seed, &crate::start_state::KAKARIKO_LOCATIONS)?));
     }
     if p.intro {
         ops.extend(crate::start_state::first_visit());
     }
-    if p.forest == crate::slice::support::Forest::Open {
+    if p.gates.forest == crate::slice::support::Forest::Open {
         ops.extend(crate::story_skip::deku());
     }
     if p.story {
@@ -501,7 +501,7 @@ pub fn start_state(d: &Data, seed: &SeedFile, p: &crate::slice::support::Plan) -
 
 /// The locations whose items a plan gives at new game instead of in the world.
 pub fn skipped_locations(p: &crate::slice::support::Plan) -> Vec<&'static str> {
-    if p.kakariko { crate::start_state::KAKARIKO_LOCATIONS.to_vec() } else { Vec::new() }
+    if p.gates.kakariko { crate::start_state::KAKARIKO_LOCATIONS.to_vec() } else { Vec::new() }
 }
 
 pub fn build_for(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -> Res<Built> {
@@ -539,7 +539,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let mut silver_used: BS<&'static str> = BS::new();
     let mut silver_hit: BS<u64> = BS::new();
     let mut edits: Vec<Edited> = Vec::new();
-    let size_ctx: crate::chest_size::Ctx = crate::chest_size::Ctx { chus: p.chus, owned: p.owned.clone() };
+    let size_ctx: crate::chest_size::Ctx = crate::chest_size::Ctx { chus: p.chus, owned: p.start.owned.clone() };
     let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.keys.map)) } else { BM::new() };
     let small_hearts: BS<u64> = if p.chest_sizes { crate::chest_size::small_hearts(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.keys.map)) } else { BS::new() };
     let moves: crate::chest_size::Moves = if sizes.is_empty() { crate::chest_size::Moves::default() } else { crate::chest_size::moves(&crate::chest_size::scan(&mut rf, &sizes)?, &sizes) };
@@ -719,14 +719,14 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         let l: crate::flags::FlagList = crate::flags_build::load(&mut rf)?;
         crate::start_state::add_is_get(&mut state, |n| l.by_hash(crate::flags::hash_name(n) as u64).is_some());
     }
-    let clock: bool = p.kakariko || p.open.time;
+    let clock: bool = p.gates.kakariko || p.open.time;
     if p.intro || !state.is_empty() || p.opening_step().is_some() || clock {
         let o: crate::intro_skip::Opts = if p.intro { crate::intro_skip::Opts::FULL } else { crate::intro_skip::Opts::default() };
         let (mut outs, _): (Vec<crate::staging::Out>, crate::intro_skip::Report) = crate::intro_skip::stage_with(&mut rf, o, &state)?;
         if let Some(st) = p.opening_step() {
             crate::start_defaults::opening::stage(&mut rf, &mut outs, st)?;
         }
-        if p.kakariko {
+        if p.gates.kakariko {
             outs.push(crate::start_state::stage_free_quest(&mut rf)?);
         }
         if clock {

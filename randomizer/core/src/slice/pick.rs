@@ -113,7 +113,7 @@ pub fn pick(d: &Data, w: &World, p: &Plan) -> Pick {
                 continue;
             }
             flow += 1;
-            if p.kakariko && crate::start_state::KAKARIKO_EXCLUDED.contains(&l.name.as_str()) {
+            if p.gates.kakariko && crate::start_state::KAKARIKO_EXCLUDED.contains(&l.name.as_str()) {
                 *left.entry("the castle visit is skipped, so the check cannot be reached".to_string()).or_insert(0) += 1;
                 continue;
             }
