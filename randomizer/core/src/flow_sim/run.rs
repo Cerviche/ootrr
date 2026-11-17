@@ -1,4 +1,3 @@
-use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap as BMap, BTreeSet as BSet, HashMap as Map, HashSet as Set};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -39,6 +38,58 @@ pub enum Ret {
     Fork { flow: usize, rest: Vec<u16>, join: u16, env: Rc<(u32, Env)> },
 }
 
+const FOLD_P: u64 = 0x2d35_8dcc_aa6c_78a5;
+const FOLD_Q: u64 = 0x8bb8_4b93_962e_acc9;
+
+fn fold(a: u64, b: u64) -> u64 {
+    let r: u128 = u128::from(a).wrapping_mul(u128::from(b));
+    (r as u64) ^ ((r >> 64) as u64)
+}
+
+#[derive(Default)]
+struct Fold {
+    s: u64,
+}
+
+impl Hasher for Fold {
+    fn finish(&self) -> u64 {
+        fold(self.s ^ FOLD_Q, FOLD_P)
+    }
+
+    fn write(&mut self, b: &[u8]) {
+        for c in b.chunks(8) {
+            let mut w: [u8; 8] = [0; 8];
+            w[..c.len()].copy_from_slice(c);
+            self.write_u64(u64::from_le_bytes(w));
+        }
+        self.write_u64(b.len() as u64);
+    }
+
+    fn write_u8(&mut self, i: u8) {
+        self.write_u64(u64::from(i));
+    }
+
+    fn write_u16(&mut self, i: u16) {
+        self.write_u64(u64::from(i));
+    }
+
+    fn write_u32(&mut self, i: u32) {
+        self.write_u64(u64::from(i));
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.s = fold(self.s ^ i ^ FOLD_P, FOLD_Q);
+    }
+
+    fn write_usize(&mut self, i: usize) {
+        self.write_u64(i as u64);
+    }
+
+    fn write_i64(&mut self, i: i64) {
+        self.write_u64(i as u64);
+    }
+}
+
 #[derive(Clone)]
 pub struct Mach {
     pub flow: usize,
@@ -57,6 +108,29 @@ pub struct Mach {
     pub gr: BMap<String, i64>,
     pub reqs: Vec<String>,
     pub trans: Vec<String>,
+}
+
+impl Mach {
+    fn take(&mut self) -> Mach {
+        Mach {
+            flow: self.flow,
+            pc: self.pc,
+            env: self.env.clone(),
+            stack: std::mem::take(&mut self.stack),
+            st: std::mem::take(&mut self.st),
+            eff: std::mem::take(&mut self.eff),
+            log: self.log.take(),
+            steps: self.steps,
+            seen: std::mem::take(&mut self.seen),
+            nd: self.nd,
+            chosen: self.chosen,
+            viol: std::mem::take(&mut self.viol),
+            writes: std::mem::take(&mut self.writes),
+            gr: std::mem::take(&mut self.gr),
+            reqs: std::mem::take(&mut self.reqs),
+            trans: std::mem::take(&mut self.trans),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -198,7 +272,7 @@ impl Sim {
     }
 
     fn key(&self, m: &Mach, with_eff: bool) -> u64 {
-        let mut h: DefaultHasher = DefaultHasher::new();
+        let mut h: Fold = Fold::default();
         m.flow.hash(&mut h);
         m.pc.hash(&mut h);
         m.env.0.hash(&mut h);
@@ -474,10 +548,11 @@ impl Sim {
                     return None;
                 }
                 let multi: bool = picks.len() > 1;
+                let last: usize = picks.len().saturating_sub(1);
                 if multi || !matches!(vocab::query(&qn), Class::QData | Class::QPouch) {
                     m.nd += 1;
                 }
-                for (v, why, quiet) in picks {
+                for (i, (v, why, quiet)) in picks.into_iter().enumerate() {
                     let t: Option<u16> = cases.iter().find(|c| c.val == v).map(|c| c.ev);
                     let to: String = match t {
                         Some(e) => format!("event {e}"),
@@ -486,7 +561,7 @@ impl Sim {
                     let line: String = format!("{} switch {an}.{qn} {why} -> {to}", ev.name);
                     let k: RK = if quiet { RK::Ev } else { RK::Ask };
                     if multi {
-                        let mut x: Mach = m.clone();
+                        let mut x: Mach = if i == last { m.take() } else { m.clone() };
                         push(&mut x, k, line);
                         x.pc = t.unwrap_or(NONE);
                         alts.push(x);
