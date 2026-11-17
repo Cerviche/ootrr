@@ -104,26 +104,38 @@ fn sales(d: &Data, seed: &SeedFile, m: Mode) -> Vec<Sale> {
     out
 }
 
+/// Sets one parameter of a scrub sale event. When Menu scrubs as one time sales (crate::scrubs_b)
+/// already turned the shared one time sale into a call with arguments, the value goes to the rows
+/// that pass that argument instead.
+fn set(f: &mut crate::bfevfl::Flow, index: usize, name: &str, key: &str, v: Val) -> Res<()> {
+    let e: &mut Event = f.events.get_mut(index).ok_or_else(|| E::Msg(format!("scrub sales: event index {index} is out of range")))?;
+    if e.name != name {
+        return Err(E::Msg(format!("scrub sales: event {index} is named {} and not {name}, the game files differ", e.name)));
+    }
+    let c: &mut Cont = e.kind.params_mut().ok_or_else(|| E::Msg(format!("scrub sales: {name} has no parameters")))?;
+    let slot: &mut Val = c.items.iter_mut().find(|(k, _)| k == key).map(|(_, x)| x).ok_or_else(|| E::Msg(format!("scrub sales: {name} has no {key}")))?;
+    match (slot, &v) {
+        (Val::Arg(a), _) if crate::scrubs_b::is_sale(index, name) => {
+            let a: String = a.clone();
+            crate::scrubs_b::set_rows(f, &a, &v).map_err(|e| E::Msg(format!("scrub sales: {name} passes {key} as {a}, {e}")))
+        }
+        (x @ Val::Int(_), Val::Int(_)) | (x @ Val::Str(_), Val::Str(_)) => {
+            *x = v;
+            Ok(())
+        }
+        _ => Err(E::Msg(format!("scrub sales: {name} has no {key} of the expected kind"))),
+    }
+}
+
 fn edit_flow(raw: &[u8], sales: &[Sale]) -> Res<Vec<u8>> {
     let mut b: Bf = Bf::parse(raw)?;
     let f = b.flows.first_mut().ok_or(E::Format("scrub sales: the flow file holds no flow"))?;
     for s in sales {
         for (index, name) in &s.events {
-            let e: &mut Event = f.events.get_mut(*index).ok_or_else(|| E::Msg(format!("scrub sales: event index {index} is out of range")))?;
-            if e.name != *name {
-                return Err(E::Msg(format!("scrub sales: event {index} is named {} and not {name}, the game files differ", e.name)));
-            }
-            let c: &mut Cont = e.kind.params_mut().ok_or_else(|| E::Msg(format!("scrub sales: {name} has no parameters")))?;
             if let Some(p) = s.price {
-                match c.items.iter_mut().find(|(k, _)| k == PRICE) {
-                    Some((_, Val::Int(v))) => *v = p,
-                    _ => return Err(E::Msg(format!("scrub sales: {name} has no number {PRICE}"))),
-                }
+                set(f, *index, name, PRICE, Val::Int(p))?;
             }
-            match c.items.iter_mut().find(|(k, _)| k == SAYS) {
-                Some((_, Val::Str(v))) => *v = format!("{MSG_ID}:{}", s.label),
-                _ => return Err(E::Msg(format!("scrub sales: {name} has no text {SAYS}"))),
-            }
+            set(f, *index, name, SAYS, Val::Str(format!("{MSG_ID}:{}", s.label)))?;
         }
     }
     let out: Vec<u8> = b.write()?;
@@ -217,6 +229,30 @@ mod tests {
         }
         assert_eq!(price(Mode::Vanilla, "x", "DMC Deku Scrub"), None);
         assert_eq!(price(Mode::Fixed(25), "x", "DMC Deku Scrub"), Some(25));
+    }
+
+    #[test]
+    fn a_price_and_line_for_the_crater_scrub_reach_the_rows_once_menu_scrubs_take_its_sale() {
+        let mut b: Bf = crate::scrubs_b::flow::tests::sample();
+        crate::scrubs_b::base(&mut b.flows[0]).unwrap();
+        let sale: Sale = Sale { label: label("DMC Deku Scrub"), actor: None, price: Some(20), events: vec![(155, "Event293".to_string())] };
+        let out: Bf = Bf::parse(&edit_flow(&b.write().unwrap(), &[sale]).unwrap()).unwrap();
+        let f: &crate::bfevfl::Flow = &out.flows[0];
+        let c: &Cont = f.events[155].kind.params().unwrap();
+        assert_eq!(c.get(PRICE), Some(&Val::Arg("SalePrice".to_string())));
+        assert_eq!(c.get(SAYS), Some(&Val::Arg("SaleMsg".to_string())));
+        for i in [327, 172, 171] {
+            let r: &Cont = f.events[i].kind.params().unwrap();
+            assert_eq!(r.get("SalePrice"), Some(&Val::Int(20)), "{i}");
+            assert_eq!(r.get("SaleMsg"), Some(&Val::Str(format!("{MSG_ID}:OOTRR_Scrub_DMCDekuScrub"))), "{i}");
+        }
+        // Without the menu scrubs the sale event itself takes the values.
+        let plain: Bf = crate::scrubs_b::flow::tests::sample();
+        let sale: Sale = Sale { label: label("DMC Deku Scrub"), actor: None, price: None, events: vec![(155, "Event293".to_string())] };
+        let out: Bf = Bf::parse(&edit_flow(&plain.write().unwrap(), &[sale]).unwrap()).unwrap();
+        let c: &Cont = out.flows[0].events[155].kind.params().unwrap();
+        assert_eq!(c.get(PRICE), Some(&Val::Int(100)));
+        assert_eq!(c.get(SAYS), Some(&Val::Str(format!("{MSG_ID}:OOTRR_Scrub_DMCDekuScrub"))));
     }
 
     #[test]
