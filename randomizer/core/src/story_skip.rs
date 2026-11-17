@@ -1101,6 +1101,159 @@ pub fn stage_fairy_give(rf: &mut Romfs, late: &mut Vec<Out>, work: &std::path::P
     Ok(())
 }
 
+// ---------------------------------------------------------------- song lessons
+
+/// A song lesson played from another flow: the check, the flow that plays it, every scene of the
+/// lesson that flow plays, the scene that hands over the song, and other checks that scene gives.
+pub struct SongTrigger {
+    pub loc: &'static str,
+    pub flow: &'static str,
+    pub cut: &'static [&'static str],
+    pub give: &'static str,
+    pub also: &'static [&'static str],
+}
+
+pub const SONG_TRIGGERS: [SongTrigger; 6] = [
+    SongTrigger { loc: "Song from Impa", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Zelda", also: &[] },
+    SongTrigger { loc: "Song from Malon", flow: "SubEvent_GetEponaSong", cut: &[], give: "Dm_MelodyGet_Epona", also: &[] },
+    SongTrigger { loc: "Song from Saria", flow: "SacredForestMeadow", cut: &[], give: "Dm_MelodyGet_Saria", also: &[] },
+    // The lesson, then one of the day or night flips (the time change after each stays), then Sun_03.
+    SongTrigger {
+        loc: "Song from Royal Familys Tomb",
+        flow: "GimmickFlow_RoyalFamilyTomb",
+        cut: &["Dm_MelodyGet_Sun", "Dm_MelodyGet_Sun_01", "Dm_MelodyGet_Sun_04", "Dm_MelodyGet_Sun_05", "Dm_MelodyGet_Sun_06", "Dm_MelodyGet_Sun_07", "Dm_MelodyGet_Sun_08", "Dm_MelodyGet_Sun_09", "Dm_MelodyGet_Sun_10"],
+        give: "Dm_MelodyGet_Sun_03",
+        also: &[],
+    },
+    // The Ocarina of Time scene also hands over the Ocarina.
+    SongTrigger { loc: "Song from Ocarina of Time", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Time", also: &["HF Ocarina of Time Item"] },
+    SongTrigger { loc: "Song from Windmill", flow: "Npc_Hylia_009_Adult", cut: &[], give: "Dm_MelodyGet_Storm", also: &[] },
+];
+const SONG_PREFIX: &str = "OOTRRSong";
+
+/// A write a scene makes of its own (a flag, a counter, a quest step), to run in place of it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Write {
+    pub actor: String,
+    pub act: String,
+    pub params: Option<Cont>,
+}
+
+/// The writes `scene` makes besides its item: its GameDataActor and ChallengeSystemActor actions.
+pub fn scene_writes(rf: &mut Romfs, scene: &str) -> Res<Vec<Write>> {
+    let raw: Vec<u8> = rf.read_zs(&format!("Event/EventFlow/{scene}.bfevfl.zs"))?;
+    let b: Bf = Bf::parse(&raw)?;
+    let f: &Flow = b.flows.first().ok_or_else(|| Error::Msg(format!("story skip: {scene} holds no flow")))?;
+    let mut out: Vec<Write> = Vec::new();
+    for e in &f.events {
+        if let Kind::Action { actor, act, params, .. } = &e.kind {
+            let Some(a) = f.actors.get(*actor as usize) else { continue };
+            if (a.name == "GameDataActor" || a.name == "ChallengeSystemActor") && a.sub.is_empty() {
+                let x: String = a.actions.get(*act as usize).cloned().unwrap_or_default();
+                out.push(Write { actor: a.name.clone(), act: x, params: params.clone() });
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn fade_in(f: &mut Flow) -> Res<Kind> {
+    let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, FADE_IN.0, FADE_IN.1)?;
+    Ok(Kind::Action {
+        next: NONE,
+        actor: a,
+        act: x,
+        params: Some(Cont {
+            items: vec![
+                ("Color".to_string(), Val::Int(0)),
+                ("IsNoPlayAnime".to_string(), Val::Bool(0)),
+                ("Length".to_string(), Val::Int(1)),
+                ("IsWaitEnd".to_string(), Val::Bool(1)),
+            ],
+        }),
+    })
+}
+
+/// The transitions of `f` that play `scene`.
+fn plays(f: &Flow, scene: &str) -> Vec<usize> {
+    (0..f.events.len()).filter(|&i| action(f, i).as_deref() == Some("EventSystemActor.EventTransition") && text(&f.events[i], "EventName") == Some(scene)).collect()
+}
+
+/// Drops a song lesson played from `t.flow`: each scene of the lesson becomes its played flag, and
+/// the scene that hands over the song becomes its played flag, the writes it made, a fade in and
+/// the standard item get of each of `gives` (the extra checks of `also`, then the song).
+pub fn patch_song_trigger(b: &mut Bf, t: &SongTrigger, writes: &[Write], gives: &[SceneGive]) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, t.flow)?;
+    for scene in t.cut {
+        for i in plays(f, scene) {
+            let name: String = f.events[i].name.clone();
+            transition_to_flag(f, SONG_PREFIX, &name, scene, None)?;
+        }
+    }
+    let at: Vec<usize> = plays(f, t.give);
+    if at.is_empty() {
+        return Err(Error::Msg(format!("story skip: {} no longer plays {}, the game files differ", t.flow, t.give)));
+    }
+    for i in at {
+        let next: u16 = next_of(&f.events[i].kind).ok_or(Error::Format("story skip: a song scene has no next"))?;
+        let entries: Vec<String> = entries_reaching(f, i);
+        let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
+        let mut then: u16 = next;
+        for (k, g) in gives.iter().enumerate().rev() {
+            then = item_get(f, &format!("{SONG_PREFIX}{}_{i}_{k}", t.give), g, then, &names)?;
+        }
+        let mut kinds: Vec<Kind> = Vec::new();
+        for w in writes {
+            let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, &w.actor, &w.act)?;
+            kinds.push(Kind::Action { next: NONE, actor: a, act: x, params: w.params.clone() });
+        }
+        kinds.push(fade_in(f)?);
+        let first: u16 = chain(f, &format!("{SONG_PREFIX}{}_{i}_", t.give), kinds, then)?;
+        let name: String = f.events[i].name.clone();
+        transition_to_flag(f, SONG_PREFIX, &name, t.give, Some(first))?;
+    }
+    Ok(())
+}
+
+/// Turns a song scene's grant (the get window and pouch add of GetPouchContentByActorName, or a
+/// tier check over several of them) into the standard item get with the same item, so Link holds
+/// the song up. Runs on Sheik's six scenes after patch_sheik has cut them to the grant.
+pub fn patch_song_grant(b: &mut Bf, scene: &str, grant: &str) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, scene)?;
+    let g: usize = find(f, grant)?;
+    let subs: Vec<usize> = match &f.events[g].kind {
+        Kind::Switch { cases, .. } => cases.iter().map(|c| c.ev as usize).collect(),
+        _ => vec![g],
+    };
+    let mut done: usize = 0;
+    for i in subs {
+        if let Kind::Sub { flow, entry, .. } = &mut f.events[i].kind
+            && flow == "GetPouchContent"
+            && (entry == "GetPouchContentByActorName" || entry == "DisplayGetByActorName")
+        {
+            let window: bool = entry == "DisplayGetByActorName";
+            *flow = ITEM_GET.0.to_string();
+            *entry = if window { crate::item_window::name(ITEM_GET.1) } else { ITEM_GET.1.to_string() };
+            done += 1;
+        }
+    }
+    if done == 0 {
+        return Err(Error::Msg(format!("story skip: {grant} in {scene} is not a song grant, the game files differ")));
+    }
+    Ok(())
+}
+
+/// Stages an edit of `flow` in `late`, in the mod's work folder, or the game's.
+pub fn stage_late(rf: &mut Romfs, late: &mut Vec<Out>, work: &std::path::Path, flow: &str, edit: impl FnOnce(&mut Bf) -> Res<()>) -> Res<()> {
+    let path: String = format!("Event/EventFlow/{flow}.bfevfl.zs");
+    if late.iter().any(|o| o.path == path) {
+        return crate::dungeon_grant::merge(rf, late, &path, |raw| rebuild(raw, edit));
+    }
+    let have = |p: &str| -> Option<Vec<u8>> { fs::read(p.split('/').fold(work.to_path_buf(), |a, s| a.join(s))).ok() };
+    late.push(edit_zs(rf, &have, &path, |raw| rebuild(raw, edit))?);
+    Ok(())
+}
+
 pub const RAURU_LOC: &str = "ToT Reward from Rauru";
 const RAURU_GIVE: &str = "OOTRRRauruGive";
 
