@@ -83,6 +83,8 @@ pub struct Plan {
     pub shops: crate::shops::Opts,
     pub bridge: bool,
     pub silver: bool,
+    /// crate::medal_gate: Some(n) when the Light Arrows scene waits for n dungeon rewards.
+    pub lacs: Option<u8>,
 }
 
 pub use crate::slice::unsupported::not_yet;
@@ -171,6 +173,9 @@ impl Plan {
         if self.rewards.dungeon_rewards {
             out.push((crate::medal_gate::LOGIC_KEY, "true"));
         }
+        if let Some(n) = self.lacs {
+            out.extend(crate::medal_gate::lacs_logic(n));
+        }
         if self.rewards.potion {
             out.push((crate::flow_extra::potion::KEY, crate::flow_extra::potion::ON));
         }
@@ -245,6 +250,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let shops: crate::shops::Opts = crate::shops::plan::read(s, &mut bad);
     let bridge: bool = crate::deku_bridge::mode(s, &mut bad);
     let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
+    let lacs: Option<u8> = crate::medal_gate::read_lacs(s, &mut bad);
     let excluded: Vec<String> = s.items("disabled_locations").map(|v| v.to_vec()).unwrap_or_default();
     if !bad.is_empty() {
         let lines: Vec<String> = bad.iter().map(|b| format!("  {b}")).collect();
@@ -333,7 +339,10 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if silver {
         notes.push(crate::slice::silver::NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, story, endings })
+    if lacs.is_some() {
+        notes.push(crate::medal_gate::LACS_NOTE.to_string());
+    }
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, story, endings })
 }
 
 #[cfg(test)]

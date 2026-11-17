@@ -676,6 +676,12 @@ pub const MENU: &[Page] = &[
         sections: &[sec("Time of day", &["time_always_passes", "early_beds"]), sec("Link and Navi", &["navi_return", "bunny_hood"])],
     },
     Page { id: "hints", label: "Hints", heading: GAMEPLAY, sections: &[sec("Hints", &["gossip_hints", "chests_match_contents", "misc_hints", "scrub_hint_text"])] },
+    Page {
+        id: "lacs",
+        label: "Light Arrows Cutscene",
+        heading: IN_DEV,
+        sections: &[sec("Light Arrows Cutscene", &["lacs_condition", "lacs_rewards"])],
+    },
 ];
 
 pub fn problems(sch: &Schema) -> Vec<String> {
