@@ -39,6 +39,7 @@ pub mod item_window;
 pub mod lacs_key;
 pub mod medal_gate;
 pub mod npc_hints;
+pub mod rainbow_bridge;
 pub mod open_world;
 pub mod pickup_pack;
 pub mod pickup_persist;

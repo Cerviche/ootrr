@@ -125,6 +125,24 @@ const EPONA: View = View {
     opts: &[yes("Don't Skip", "false"), yes("Skip", "true")],
 };
 
+const RAINBOW_BRIDGE: View = View {
+    id: "bridge",
+    label: "Rainbow Bridge",
+    tip: RAINBOW_BRIDGE_TIP,
+    kind: Kind::Pick,
+    opts: &[
+        yes("Vanilla", "vanilla"),
+        broken("Always open", "open"),
+        broken("Stones", "stones"),
+        broken("Medallions", "medallions"),
+        yes("Dungeon rewards", "dungeons"),
+        missing("Dungeons"),
+        broken("Tokens", "tokens"),
+        missing("Triforce Pieces"),
+        missing("Greg"),
+    ],
+};
+
 const GANON_BK: View = View {
     id: "shuffle_ganon_bosskey",
     label: "Ganon's Boss Key",
@@ -405,16 +423,10 @@ const AREA_ACCESS: PortSection = port(
                     gray_check("Lock Overworld Doors", "Add locks to all wooden overworld doors, requiring specific small keys to open them"),
                     Entry::View(&CARPENTERS),
                     Entry::View(&GV_BRIDGE),
-                    gray_pick(
-                        "Rainbow Bridge",
-                        &["Vanilla", "Always open", "Stones", "Medallions", "Dungeon rewards", "Dungeons", "Tokens", "Triforce Pieces", "Greg"],
-                        0,
-                        RAINBOW_BRIDGE_TIP,
-                    ),
-                    Entry::Hidden("bridge"),
+                    Entry::View(&RAINBOW_BRIDGE),
+                    Entry::Plain("bridge_rewards"),
                     Entry::Hidden("bridge_stones"),
                     Entry::Hidden("bridge_medallions"),
-                    Entry::Hidden("bridge_rewards"),
                     Entry::Hidden("bridge_tokens"),
                     Entry::Hidden("bridge_hearts"),
                     Entry::View(&TRIALS),
