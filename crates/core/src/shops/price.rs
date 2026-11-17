@@ -36,12 +36,10 @@ fn uniform(rng: &mut Rng, lo: i32, hi: i32) -> i32 {
     lo + STEP * rng.below(n) as i32
 }
 
-pub fn draw(o: &Opts, vanilla: i32, rng: &mut Rng) -> i32 {
+pub fn draw(o: &Opts, rng: &mut Rng) -> i32 {
     let (lo, hi): (i32, i32) = bounds(o);
     match o.prices {
-        Prices::Vanilla => vanilla,
         Prices::Affordable => AFFORDABLE,
-        Prices::Uniform => uniform(rng, lo, hi),
         Prices::Weighted => {
             let a: i32 = uniform(rng, lo, hi);
             let b: i32 = uniform(rng, lo, hi);
@@ -72,13 +70,13 @@ mod tests {
 
     #[test]
     fn draws_stay_in_range_in_steps_of_five_and_repeat_for_a_seed() {
-        for p in [Prices::Uniform, Prices::Weighted] {
+        for p in [Prices::Weighted] {
             let mut a: Rng = Rng::from_text("x/shops");
             let mut b: Rng = Rng::from_text("x/shops");
             let mut seen: Vec<i32> = Vec::new();
             for _ in 0..400 {
-                let v: i32 = draw(&o(p, 12, 203), 30, &mut a);
-                assert_eq!(v, draw(&o(p, 12, 203), 30, &mut b));
+                let v: i32 = draw(&o(p, 12, 203), &mut a);
+                assert_eq!(v, draw(&o(p, 12, 203), &mut b));
                 assert!((15..=200).contains(&v) && v % 5 == 0, "{v}");
                 seen.push(v);
             }
@@ -87,9 +85,8 @@ mod tests {
             assert!(seen.len() > 10);
         }
         let mut r: Rng = Rng::from_text("y");
-        assert_eq!(draw(&o(Prices::Vanilla, 10, 20), 600, &mut r), 600);
-        assert_eq!(draw(&o(Prices::Affordable, 50, 90), 600, &mut r), 10);
-        assert_eq!(draw(&o(Prices::Uniform, 50, 50), 1, &mut r), 50);
+        assert_eq!(draw(&o(Prices::Affordable, 50, 90), &mut r), 10);
+        assert_eq!(draw(&o(Prices::Weighted, 50, 50), &mut r), 50);
     }
 
     #[test]
@@ -97,7 +94,7 @@ mod tests {
         let mut r: Rng = Rng::from_text("lean");
         let mut mid: usize = 0;
         for _ in 0..1000 {
-            let v: i32 = draw(&o(Prices::Weighted, 10, 400), 0, &mut r);
+            let v: i32 = draw(&o(Prices::Weighted, 10, 400), &mut r);
             if (110..=300).contains(&v) {
                 mid += 1;
             }

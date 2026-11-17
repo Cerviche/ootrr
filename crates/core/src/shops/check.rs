@@ -64,8 +64,7 @@ mod tests {
         for lv in ["shuffle", "deals_1", "deals_4", "random"] {
             let mut s: Settings = with(&[("shuffle_shops", lv), ("shuffle_chests", "all")]);
             if lv != "shuffle" {
-                s.set("shop_price_max", Value::Int(700)).unwrap();
-                s.set("shop_deal_items", Value::set(&["stacks", "upgrades", "hearts", "songs"])).unwrap();
+                s.set("shopsanity_prices", Value::s("giant")).unwrap();
                 s.set("shuffle_songs", Value::s("anywhere")).unwrap();
             }
             for n in 0..2 {
@@ -93,8 +92,7 @@ mod tests {
         use crate::shelf::What;
         let d: Data = Data::load().unwrap();
         let mut s: Settings = with(&[("shuffle_shops", "deals_4"), ("shuffle_chests", "all")]);
-        s.set("shop_price_max", Value::Int(300)).unwrap();
-        s.set("shop_deal_items", Value::set(&["upgrades"])).unwrap();
+        s.set("shopsanity_prices", Value::s("adult")).unwrap();
         let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         let mut low: usize = 0;
         for n in 0..6 {

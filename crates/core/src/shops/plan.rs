@@ -1,19 +1,19 @@
 use crate::settings::{Cond, Setting, Settings, Value};
 
 pub const SETTING: &str = "shuffle_shops";
-pub const PRICES: &str = "shop_prices";
-pub const MAX: &str = "shop_price_max";
-pub const MIN: &str = "shop_price_min";
-pub const ITEMS: &str = "shop_deal_items";
-pub const STACKS: &str = "stacks";
-pub const UPGRADES: &str = "upgrades";
-pub const HEARTS: &str = "hearts";
-pub const SONGS: &str = "songs";
+/// The special deal price range, named by the wallet that can pay the highest price, like the
+/// shopsanity prices of the N64 randomizer. The remake's wallets hold 200, 500 and 1000 rupees.
+pub const PRICES: &str = "shopsanity_prices";
+/// The shop settings this one replaced (prices, price bounds and deal item classes). Their
+/// numbers and ids are retired in crate::settings::list::RETIRED.
+pub const OLD: [(u16, &str); 4] = [(59, "shop_prices"), (60, "shop_price_max"), (61, "shop_price_min"), (62, "shop_deal_items")];
 pub const LOW: i32 = 5;
 pub const HIGH: i32 = 995;
+/// The lowest price of a weighted deal price.
+pub const FLOOR: i32 = 10;
 
 pub const NOTE: &str = "Shop shelves are shuffled. The shop goods trade places between the eight shelf shops, each keeps its own price, and the logic needs a bigger wallet for anything above 200 rupees. Experimental, untested in the game.";
-pub const DEALS: &str = "Special deals sell a random item once, through a new shelf actor per item and price. Only items that cannot be held twice go on a deal, so a second copy of a shop is turned away with the bag full message. The Potion Shops get no deals. Experimental, only one Kokiri Shop deal is tested in the game.";
+pub const DEALS: &str = "Special deals sell a random item once, through a new shelf actor per item and price. Only items the shop can sell once go on a deal: items that cannot be held twice (a second copy is turned away with the bag full message), upgrades at the tier the player must already have reached, songs when songs can go anywhere, and ammo, refills and hearts only in the Bazaars and the Bombchu Shop, where one purchase closes the slot. The Potion Shops get no deals. Experimental, only one Kokiri Shop deal is tested in the game.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {
@@ -25,10 +25,8 @@ pub enum Level {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Prices {
-    Vanilla,
     Affordable,
     Weighted,
-    Uniform,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,9 +47,7 @@ pub struct Kinds {
 }
 
 impl Kinds {
-    pub fn once(&self) -> bool {
-        self.stacks || self.hearts
-    }
+    pub const ALL: Kinds = Kinds { stacks: true, upgrades: true, hearts: true, songs: true };
 }
 
 impl Default for Opts {
@@ -89,30 +85,23 @@ fn with_deals(s: Setting) -> Setting {
 
 pub fn settings() -> Vec<Setting> {
     vec![
-        Setting::choice(58, SETTING, "shuffle", "Shop shelves", "off")
-            .tip("Whether the shelves of the eight shelf shops sell shuffled goods or random items. The Happy Mask Shop stays as it is. Prices above 200 rupees need a bigger wallet in the logic. Experimental, none of these edits are tested in the game yet except one Kokiri Shop deal.")
-            .opt("off", "Vanilla", "Every shop sells its usual goods.")
-            .opt("shuffle", "Shuffled goods", "The usual shop goods move between the shops and keep their prices, nothing new is sold.")
-            .opt("deals_1", "1 special deal", "One slot in each shop sells a random item once, the other slots sell shuffled shop goods.")
-            .opt("deals_2", "2 special deals", "Two slots in each shop sell a random item once, the other slots sell shuffled shop goods.")
-            .opt("deals_3", "3 special deals", "Three slots in each shop sell a random item once, the other slots sell shuffled shop goods.")
-            .opt("deals_4", "4 special deals", "Four slots in each shop sell a random item once, the other slots sell shuffled shop goods.")
-            .opt("random", "Random deals", "Each shop gets 0 to 4 special deals, the Kokiri Shop at least one."),
+        Setting::choice(58, SETTING, "shuffle", "Shopsanity", "off")
+            .tip("Whether the shelves of the eight shelf shops sell shuffled goods or random items, like shopsanity in the N64 randomizer. A slot that sells a random item is a special deal. The Happy Mask Shop and the Potion Shops get no special deals. Prices above 200 rupees need a bigger wallet in the logic. Experimental, none of these edits are tested in the game yet except one Kokiri Shop deal.")
+            .opt("off", "Off", "Every shop sells its usual goods.")
+            .opt("shuffle", "0 items (shuffled goods)", "The usual shop goods move between the shops and keep their prices, nothing new is sold.")
+            .opt("deals_1", "1 item per shop", "One slot in each shop is a special deal that sells a random item once, the other slots sell shuffled shop goods.")
+            .opt("deals_2", "2 items per shop", "Two slots in each shop are special deals, the other slots sell shuffled shop goods.")
+            .opt("deals_3", "3 items per shop", "Three slots in each shop are special deals, the other slots sell shuffled shop goods.")
+            .opt("deals_4", "4 items per shop", "Four slots in each shop are special deals, the other slots sell shuffled shop goods.")
+            .opt("random", "Random", "Each shop gets 0 to 4 special deals, the Kokiri Shop at least one."),
         with_deals(
-            Setting::choice(59, PRICES, "shuffle", "Special deal prices", "weighted")
-                .tip("How the price of a special deal is chosen. Shop goods always keep their own price.")
-                .opt("vanilla", "Vanilla", "A deal costs what its slot cost before.")
-                .opt("affordable", "Affordable", "Every deal costs 10 rupees.")
-                .opt("weighted", "Weighted", "Prices between the lowest and the highest price, leaning to the middle.")
-                .opt("uniform", "Uniform", "Every price between the lowest and the highest price is equally likely."),
+            Setting::choice(95, PRICES, "shuffle", "Shopsanity prices", "starting")
+                .tip("The price range of special deals, named by the wallet that can pay the highest price. The remake's wallets hold 200, 500 and 1000 rupees. Prices lean to the middle of the range, in steps of 5 rupees. Kokiri Shop deals never cost more than 200, so the Kokiri Sword and other early items stay in reach. Shop goods always keep their own price.")
+                .opt("affordable", "Affordable", "Every special deal costs 10 rupees.")
+                .opt("starting", "Starting wallet", "10 to 200 rupees, no wallet upgrade needed.")
+                .opt("adult", "Adult's Wallet", "10 to 500 rupees, the logic asks for the Adult's Wallet above 200.")
+                .opt("giant", "Giant's Wallet", "10 to 995 rupees, the logic asks for the Giant's Wallet above 500."),
         ),
-        with_deals(Setting::number(60, MAX, "shuffle", "Highest deal price", 200, LOW as i64, HIGH as i64).tip("The highest price a special deal can have, in steps of 5 rupees. Above 200 the logic asks for the Adult's Wallet, above 500 for the Giant's Wallet. Kokiri Shop deals never cost more than 200, so the Kokiri Sword and other early items stay in reach.")),
-        with_deals(
-            Setting::multi(62, ITEMS, "shuffle", "More items on deals")
-                .tip("Special deals always take items that cannot be held twice. These classes can be added. Ammo, refills and hearts only go to the shops with one keeper (the two Bazaars and the Bombchu Shop), since only there one purchase closes the slot for good. Experimental, untested in the game.")
-                .opts(&[(STACKS, "Ammo and refills, sold once. The Bazaars and the Bombchu Shop then keep their deals for these and for hearts"), (UPGRADES, "Upgrades at the tier the player needs"), (HEARTS, "Pieces of Heart and Heart Containers, sold once in the Bazaars and the Bombchu Shop"), (SONGS, "Songs on a harp model, when songs can go anywhere")]),
-        ),
-        with_deals(Setting::number(61, MIN, "shuffle", "Lowest deal price", 10, LOW as i64, HIGH as i64).tip("The lowest price a special deal can have, in steps of 5 rupees.").max_by(MAX)),
     ]
 }
 
@@ -129,12 +118,13 @@ fn level(v: &str) -> Option<Level> {
     }
 }
 
-fn prices(v: &str) -> Option<Prices> {
+/// The weighted price range of a shopsanity price choice, or Affordable.
+fn prices(v: &str) -> Option<(Prices, i32)> {
     match v {
-        "vanilla" => Some(Prices::Vanilla),
-        "affordable" => Some(Prices::Affordable),
-        "weighted" => Some(Prices::Weighted),
-        "uniform" => Some(Prices::Uniform),
+        "affordable" => Some((Prices::Affordable, crate::shops::price::AFFORDABLE)),
+        "starting" => Some((Prices::Weighted, crate::shops::price::CHILD)),
+        "adult" => Some((Prices::Weighted, crate::shops::price::ADULT)),
+        "giant" => Some((Prices::Weighted, HIGH)),
         _ => None,
     }
 }
@@ -153,35 +143,18 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     }
     match s.text(PRICES) {
         Ok(v) => match prices(v) {
-            Some(p) => o.prices = p,
+            Some((p, max)) => {
+                o.prices = p;
+                o.min = FLOOR.min(max);
+                o.max = max;
+            }
             None => bad.push(format!("{PRICES} is {v}, which is not a known choice")),
         },
         Err(e) => bad.push(e.to_string()),
     }
-    match (s.int(MIN), s.int(MAX)) {
-        (Ok(a), Ok(b)) => {
-            o.min = (a as i32).clamp(LOW, HIGH);
-            o.max = (b as i32).clamp(LOW, HIGH);
-            if o.min > o.max {
-                bad.push(format!("{MIN} is {a}, above {MAX} {b}"));
-            }
-        }
-        (Err(e), _) | (_, Err(e)) => bad.push(e.to_string()),
-    }
-    match s.items(ITEMS) {
-        Ok(v) => {
-            for k in v {
-                match k.as_str() {
-                    STACKS => o.kinds.stacks = true,
-                    UPGRADES => o.kinds.upgrades = true,
-                    HEARTS => o.kinds.hearts = true,
-                    SONGS => o.kinds.songs = true,
-                    x => bad.push(format!("{ITEMS} includes {x}, which is not a known class")),
-                }
-            }
-        }
-        Err(e) => bad.push(e.to_string()),
-    }
+    // Every class the shops can sell once is on, the way any pool item can stand in an N64
+    // shop. Songs still need songs anywhere (shops::rules::Class::on).
+    o.kinds = Kinds::ALL;
     o
 }
 
@@ -206,17 +179,34 @@ mod tests {
     }
 
     #[test]
-    fn prices_are_read_only_for_deals() {
+    fn the_replaced_shop_settings_are_retired_and_old_strings_still_import() {
+        let real: &crate::settings::Schema = crate::settings::schema();
+        for (num, id) in OLD {
+            assert!(real.by_num(num).is_none() && real.get(id).is_none(), "{id}");
+            assert_eq!(crate::settings::list::retired_num(num), Some(id));
+        }
+        let j: crate::json::Json = crate::json::parse("{\"shuffle_shops\": \"deals_2\", \"shop_prices\": \"uniform\", \"shop_price_max\": 300, \"shop_deal_items\": [\"upgrades\"]}").unwrap();
+        let l: crate::settings::Loaded = Settings::from_json(&j).unwrap();
+        assert_eq!(l.settings.get(SETTING), Some(&Value::s("deals_2")));
+        assert_eq!(l.warnings.len(), 3, "{:?}", l.warnings);
+        assert!(l.warnings.iter().all(|w| w.ends_with("was removed, its value is ignored")), "{:?}", l.warnings);
+    }
+
+    #[test]
+    fn prices_follow_the_wallets_and_every_class_is_on_for_deals() {
         let mut s: Settings = Settings::default();
         s.set(SETTING, Value::s("deals_2")).unwrap();
-        s.set(PRICES, Value::s("uniform")).unwrap();
-        s.set(MAX, Value::Int(300)).unwrap();
-        s.set(MIN, Value::Int(40)).unwrap();
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&s, &mut bad);
-        assert_eq!((o.prices, o.min, o.max), (Prices::Uniform, 40, 300));
+        assert_eq!((o.prices, o.min, o.max, o.kinds), (Prices::Weighted, 10, 200, Kinds::ALL));
+        for (v, p, min, max) in [("affordable", Prices::Affordable, 10, 10), ("starting", Prices::Weighted, 10, 200), ("adult", Prices::Weighted, 10, 500), ("giant", Prices::Weighted, 10, 995)] {
+            s.set(PRICES, Value::s(v)).unwrap();
+            let o: Opts = read(&s, &mut bad);
+            assert_eq!((o.prices, o.min, o.max), (p, min, max), "{v}");
+        }
         s.set(SETTING, Value::s("shuffle")).unwrap();
-        assert_eq!(read(&s, &mut bad).prices, Prices::Weighted);
+        let o: Opts = read(&s, &mut bad);
+        assert_eq!((o.prices, o.kinds), (Prices::Weighted, Kinds::default()));
         assert!(bad.is_empty(), "{bad:?}");
     }
 }

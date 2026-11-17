@@ -2,7 +2,7 @@ use super::model::{Group, Schema, Setting, Tag, Value};
 
 pub const SCHEMA_VERSION: u32 = 1;
 
-pub const RETIRED: [(u16, &str); 1] = [(63, "shop_deal_gear")];
+pub const RETIRED: [(u16, &str); 5] = [(63, "shop_deal_gear"), crate::shops::plan::OLD[0], crate::shops::plan::OLD[1], crate::shops::plan::OLD[2], crate::shops::plan::OLD[3]];
 
 pub fn retired_num(num: u16) -> Option<&'static str> {
     RETIRED.iter().find(|r| r.0 == num).map(|r| r.1)
