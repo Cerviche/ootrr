@@ -22,6 +22,15 @@ use crate::slice::key_spots::{pick, Pick};
 /// The item actors with no animation that a hold up cannot show.
 pub const NO_ANIM: [&str; 2] = ["Item_Ocarina_Fairy", "Item_Ocarina_Time"];
 
+/// The player's equipped Ocarina. Adding the pickup actor gives the Ocarina but leaves this empty,
+/// so the D-pad cannot play it; the starting items write it the same way (start_items::give).
+pub const EQUIP: &str = "PlayerStatus.EquipOcarina";
+
+/// The game data the gift writes after handing out `tier`'s pickup actor, if any.
+pub fn equip_key(tier: &str) -> Option<&'static str> {
+    NO_ANIM.contains(&tier).then_some(EQUIP)
+}
+
 pub const NOTE: &str = "An Ocarina is handed out by an NPC who holds the item up, so it is handed out as its pickup actor (the Ocarina actors have no item animation), and both Ocarina pickup packs are written into the mod. Experimental, untested in the game.";
 
 /// The pickup actor a hold up hands out in place of `actor`, if `actor` cannot be shown.
@@ -147,6 +156,13 @@ mod tests {
             bf.flows.iter().flat_map(|f| f.events.iter()).filter(|e| !matches!(e.kind, crate::bfevfl::Kind::Switch { .. })).any(|e| e.kind.params().and_then(|c| c.get(&l.edits[0].param)) == Some(&crate::bfevfl::Val::Str(n.to_string())))
         };
         assert!(named("Obj_Ocarina_Fairy") && named("Obj_Ocarina_TimeLand"));
+        // Each pickup branch then equips its Ocarina tier, as the starting items do.
+        for t in NO_ANIM {
+            let equips = bf.flows.iter().flat_map(|f| f.events.iter()).any(|e| {
+                e.kind.params().is_some_and(|c| c.get("GameDataName") == Some(&crate::bfevfl::Val::Str(EQUIP.to_string())) && c.get("Value") == Some(&crate::bfevfl::Val::Str(t.to_string())))
+            });
+            assert!(equips, "{t} is not equipped after its pickup actor");
+        }
         assert!(!named("Item_Ocarina_Fairy"));
         let _ = std::fs::remove_dir_all(&load);
     }

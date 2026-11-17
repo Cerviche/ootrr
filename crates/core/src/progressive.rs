@@ -247,6 +247,23 @@ pub(crate) fn chain(f: &mut Flow, a: u16, q: u16, family: &str, o: &[&str], give
     root.ok_or(Error::Format("progressive: a family needs at least two tiers"))
 }
 
+fn next_of(k: &Kind) -> Option<u16> {
+    match k {
+        Kind::Action { next, .. } | Kind::Sub { next, .. } => Some(*next),
+        _ => None,
+    }
+}
+
+fn set_next(k: &mut Kind, to: u16) -> Res<()> {
+    match k {
+        Kind::Action { next, .. } | Kind::Sub { next, .. } => {
+            *next = to;
+            Ok(())
+        }
+        _ => Err(Error::Format("progressive: the grant event has no single next")),
+    }
+}
+
 fn with_param(k: &Kind, param: &str, value: &str) -> Res<Kind> {
     let mut out: Kind = k.clone();
     let c: &mut Cont = out.params_mut().ok_or(Error::Format("progressive: the grant event has no parameters"))?;
@@ -285,8 +302,20 @@ pub fn wrap_grant_as(f: &mut Flow, index: usize, event: &str, param: &str, famil
     };
     let (a, q) = ensure_query(f)?;
     let mut gives: Vec<u16> = Vec::new();
-    for x in t {
-        gives.push(push(f, with_param(&base, param, x)?)?);
+    for (x, tier) in t.iter().zip(tiers_of) {
+        let mut give: Kind = with_param(&base, param, x)?;
+        // A pickup actor handed out in place of an Ocarina tier (crate::ocarina_hold) leaves the
+        // Ocarina unequipped; the equip slot is written with the tier, as the starting items do.
+        if x != tier
+            && let Some(key) = crate::ocarina_hold::equip_key(tier)
+        {
+            let (da, dx): (u16, u16) = crate::start_state::slot(f, "GameDataActor", "EventTriggerSetGameDataString64")?;
+            let then: u16 = next_of(&give).ok_or(Error::Format("progressive: the grant event has no single next"))?;
+            let items: Vec<(String, Val)> = vec![("GameDataName".to_string(), Val::Str(key.to_string())), ("Value".to_string(), Val::Str(tier.to_string())), ("Index".to_string(), Val::Int(-1))];
+            let equip: u16 = push(f, Kind::Action { next: then, actor: da, act: dx, params: Some(Cont { items }) })?;
+            set_next(&mut give, equip)?;
+        }
+        gives.push(push(f, give)?);
     }
     f.events[index].kind = chain(f, a, q, family, o, &gives)?;
     let at: u16 = idx(index)?;
