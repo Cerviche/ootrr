@@ -240,6 +240,7 @@ function section(s) {
 function status() {
   if (it.error) return it.error;
   if (!it.data) return "Loading";
+  if (live() && it.data.game) return "From game memory";
   if (live()) return `From your save${it.data.slot ? `, ${it.data.slot.replace("_", " ")}` : ""}`;
   return "No save read yet. Click a tile to mark it by hand.";
 }

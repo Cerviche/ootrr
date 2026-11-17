@@ -28,6 +28,7 @@ pub fn items(sh: &Shared) -> Json {
         .with("format", Json::Int(1))
         .with("layout", grid::layout_json())
         .with("live", live.into())
+        .with("game", g.src.live.is_some().into())
         .with("slot", g.src.slot.as_deref().filter(|_| live).map(Json::from).unwrap_or(Json::Null))
         .with("state", state)
         .with("art", Json::obj().with("ready", g.game_dir.is_some().into()).with("cache", sh.tracker.icons.mode().into()).with("key", key.as_str().into()))

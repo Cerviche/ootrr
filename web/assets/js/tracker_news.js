@@ -1,5 +1,6 @@
 import { $, h, fill, toast } from "./dom.js";
 import { t_mark } from "./tracker_api.js";
+import { ts } from "./tracker_store.js";
 
 const pending = [];
 let timer = 0;
@@ -35,7 +36,7 @@ function paint() {
     h(
       "div",
       { class: "nb" },
-      h("h3", null, pending.length === 1 ? "New from your save" : `${pending.length} new from your save`),
+      h("h3", null, `${pending.length === 1 ? "New" : `${pending.length} new`} from ${ts.state && ts.state.source && ts.state.source.live ? "the game" : "your save"}`),
       h("ul", null, shown.map((l) => h("li", null, l.label, l.area ? h("span", { class: "muted" }, ` (${l.area})`) : null))),
       more > 0 ? h("p", { class: "muted small" }, `and ${more} more`) : null,
       h(

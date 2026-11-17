@@ -18,6 +18,7 @@ mod gen_live;
 mod guard;
 mod icon_store;
 mod jobs;
+mod live;
 mod native_pick;
 mod pathsafe;
 pub mod opener;

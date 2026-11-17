@@ -114,6 +114,10 @@ fn api(sh: &Shared, r: &Req) -> Hr<Resp> {
             need(r, "POST")?;
             api_tracker::mark(sh, &body::json(r)?)?
         }
+        "/api/tracker/live" => {
+            need(r, "POST")?;
+            api_tracker::live(sh, &body::json(r)?)?
+        }
         "/api/build" => {
             need(r, "POST")?;
             let j: Json = api_build::run(&sh.jobs, &body::json(r)?)?;
@@ -264,6 +268,7 @@ mod tests {
             ("POST", "/api/tracker/mode", "{\"mode\":\"all\"}"),
             ("POST", "/api/tracker/mark", "{\"id\":\"x\",\"on\":true}"),
             ("POST", "/api/tracker/open", "{}"),
+            ("POST", "/api/tracker/live", "{\"on\":false}"),
         ] {
             let mut q: Req = rq(m, path.split('?').next().unwrap(), &[], b);
             q.heads.retain(|h| h.0 != "x-ootrr-token");

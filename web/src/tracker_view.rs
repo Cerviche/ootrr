@@ -147,6 +147,9 @@ pub fn source_json(g: &Inner) -> Json {
         .with("game", if g.index.game.is_empty() { Json::Null } else { g.index.game.as_str().into() })
         .with("job", g.job.map(|j| Json::Int(j as i64)).unwrap_or(Json::Null))
         .with("index_error", opt(&g.index_error))
+        .with("live", s.live.map(|x| Json::Int(x as i64)).unwrap_or(Json::Null))
+        .with("live_on", g.opts.live.into())
+        .with("live_msg", opt(&s.live_msg))
 }
 
 fn player(g: &Inner) -> Json {

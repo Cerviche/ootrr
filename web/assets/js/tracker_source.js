@@ -1,6 +1,6 @@
 import { $, h, fill, notice, toast } from "./dom.js";
 import { pick_folder } from "./picker.js";
-import { t_open, t_job, t_seed } from "./tracker_api.js";
+import { t_open, t_job, t_seed, t_live } from "./tracker_api.js";
 import { ts, main_paths } from "./tracker_store.js";
 
 let reload_all = async () => {};
@@ -25,6 +25,12 @@ export function paint_live() {
   if (!ts.online) {
     cls += " bad";
     text = "The local server does not answer";
+  } else if (s.live) {
+    cls += " on";
+    text = "Live from game memory";
+  } else if (s.live_on && !(s.folder_ok && s.reads > 0)) {
+    cls += " wait";
+    text = s.live_msg ? `Waiting for the game. ${s.live_msg}` : "Waiting for the game";
   } else if (s.error) {
     cls += " bad";
     text = `Save not readable yet. ${s.error}`;
@@ -67,6 +73,32 @@ function field(label, value, title, hint) {
     if (p) input.value = p;
   });
   return { input, el: h("div", null, h("label", { class: "lbl" }, label), h("div", { class: "pathrow" }, input, browse), hint ? h("p", { class: "hint" }, hint) : null) };
+}
+
+function live_box(s) {
+  const out = h("div", { "aria-live": "polite" });
+  const btn = h("button", { type: "button", class: s.live_on ? "btn" : "btn primary" }, s.live_on ? "Stop reading game memory" : "Read game memory");
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    try {
+      await t_live(!s.live_on);
+      await reload_all();
+    } catch (e) {
+      fill(out, notice("error", e.message));
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  const status = s.live ? "Reading the running game." : s.live_on ? `Waiting for the game${s.live_msg ? `. ${s.live_msg}` : ""}` : "Off.";
+  return h(
+    "div",
+    null,
+    h("h2", null, "Live from the game"),
+    h("p", { class: "hint" }, "Reads the running Longshot game ten times a second, so checks show up the moment you get them, with no save needed. Memory is only read, never written. While the game runs it takes over from the save folder."),
+    h("div", { class: "row" }, btn),
+    h("p", { class: "hint" }, status),
+    out,
+  );
 }
 
 function seed_box(s) {
@@ -161,6 +193,7 @@ export function render_source() {
   return h(
     "section",
     { class: "src", "aria-label": "Save source" },
+    live_box(s),
     h("h2", null, "Your save"),
     h("p", { class: "hint" }, "Nothing is set until you choose it here. The save folder is only read, never written."),
     h("div", { class: "hostrow" }, host_btns),

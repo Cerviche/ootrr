@@ -56,6 +56,7 @@ fn start_index(sh: &Shared, game: PB) -> Hr<u64> {
 pub fn ensure(sh: &Shared) {
     let _held: MutexGuard<'_, ()> = sh.tracker.boot();
     let (game, save, slot): (Option<PB>, Option<PB>, Option<String>) = sh.tracker.load_saved();
+    sh.tracker.start_live();
     if let Some(s) = save
         && let Err(e) = sh.tracker.watch(s, slot)
     {
@@ -115,6 +116,16 @@ pub fn mode(sh: &Shared, b: &Json) -> Hr<Json> {
     }
     sh.tracker.set_opts(o);
     Ok(Json::obj().with("ok", true.into()))
+}
+
+pub fn live(sh: &Shared, b: &Json) -> Hr<Json> {
+    ensure(sh);
+    let on: bool = match b.get("on") {
+        Some(Json::Bool(x)) => *x,
+        _ => return Err(Fail::bad("on must be true or false")),
+    };
+    sh.tracker.set_live(on);
+    Ok(Json::obj().with("live", on.into()))
 }
 
 pub fn seed(sh: &Shared, b: &Json) -> Hr<Json> {

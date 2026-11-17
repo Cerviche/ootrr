@@ -28,6 +28,7 @@ use targets::{KINDS, OFF_BY_DEFAULT, Target};
 use crate::datadir;
 use crate::events::{Ev, Events, MAX_WAIT};
 use crate::icon_store::{self, Icons};
+use crate::live;
 use crate::pathsafe;
 use crate::watch::{self, Out, Watcher};
 
@@ -59,6 +60,7 @@ pub struct Opts {
     pub mode: Mode,
     pub kinds: Vec<String>,
     pub dream: bool,
+    pub live: bool,
 }
 
 impl Default for Opts {
@@ -67,6 +69,7 @@ impl Default for Opts {
             mode: Mode::Hidden,
             kinds: KINDS.iter().filter(|k| !OFF_BY_DEFAULT.contains(k)).map(|k| k.to_string()).collect(),
             dream: false,
+            live: false,
         }
     }
 }
@@ -82,6 +85,8 @@ pub struct Source {
     pub keys: usize,
     pub error: Option<String>,
     pub reads: u64,
+    pub live: Option<u32>,
+    pub live_msg: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -111,6 +116,7 @@ pub struct Tracker {
     pub events: Events,
     pub data: Option<PB>,
     watch: Mutex<Option<watch::Handle>>,
+    live: Mutex<Option<watch::Handle>>,
     boot: Mutex<()>,
     pub poll: Duration,
     pub icons: Icons,
@@ -160,6 +166,7 @@ impl Tracker {
             events: Events::new(),
             data: data.map(|d| datadir::cache_root(&d)),
             watch: Mutex::new(None),
+            live: Mutex::new(None),
             boot: Mutex::new(()),
             poll: MAX_WAIT,
             icons: Icons::new(icon_store::disk_on()),
@@ -198,7 +205,8 @@ impl Tracker {
             .with("slot", g.src.pinned.as_deref().map(Json::from).unwrap_or(Json::Null))
             .with("mode", g.opts.mode.name().into())
             .with("kinds", Json::strs(g.opts.kinds.iter().map(|k| k.as_str())))
-            .with("dream", g.opts.dream.into());
+            .with("dream", g.opts.dream.into())
+            .with("live", g.opts.live.into());
         let _ = write_atomic(&p, &j.pretty());
     }
 
@@ -233,6 +241,9 @@ impl Tracker {
         }
         if let Some(d) = j.get("dream").and_then(|x| x.as_bool()) {
             g.opts.dream = d;
+        }
+        if let Some(l) = j.get("live").and_then(|x| x.as_bool()) {
+            g.opts.live = l;
         }
         let slot: Option<String> = j.get("slot").and_then(|x| x.as_str()).map(|s| s.to_string());
         (path_of(&j, "game_dir"), path_of(&j, "save_dir"), slot)
@@ -276,6 +287,9 @@ impl Tracker {
 
     pub fn publish(&self, slot: &str, p: &Peek, at: Option<SystemTime>, names: Vec<String>) {
         let mut g: MutexGuard<'_, Inner> = self.lock();
+        if g.src.live.is_some() {
+            return;
+        }
         let quiet: bool = g.src.reads == 0;
         let base: u64 = self.events.seq() + 1;
         let changed: Vec<usize> = g.track.apply(p, base);
@@ -325,6 +339,9 @@ impl Tracker {
 
     pub fn fail(&self, slot: &str, msg: &str) {
         let mut g: MutexGuard<'_, Inner> = self.lock();
+        if g.src.live.is_some() {
+            return;
+        }
         let m: String = format!("{slot}: {msg}");
         if g.src.error.as_deref() == Some(m.as_str()) {
             return;
@@ -365,7 +382,8 @@ impl Tracker {
         self.stop_watch();
         {
             let mut g: MutexGuard<'_, Inner> = self.lock();
-            g.src = Source { asked: Some(asked), folder: Some(root.clone()), pinned: pinned.clone(), ..Source::default() };
+            let (live, live_msg): (Option<u32>, Option<String>) = (g.src.live, g.src.live_msg.take());
+            g.src = Source { asked: Some(asked), folder: Some(root.clone()), pinned: pinned.clone(), live, live_msg, ..Source::default() };
             self.save_settings(&g);
         }
         let me: Arc<Tracker> = Arc::clone(self);
@@ -380,9 +398,91 @@ impl Tracker {
     }
 }
 
+impl Tracker {
+    pub fn start_live(self: &Arc<Self>) {
+        if !self.lock().opts.live {
+            return;
+        }
+        let mut l: MutexGuard<'_, Option<watch::Handle>> = self.live.lock().unwrap_or_else(|e| e.into_inner());
+        if l.is_some() {
+            return;
+        }
+        match live::spawn(Arc::clone(self)) {
+            Ok(h) => *l = Some(h),
+            Err(e) => self.lock().src.live_msg = Some(e.to_string()),
+        }
+    }
+
+    pub fn stop_live(&self) {
+        let h: Option<watch::Handle> = self.live.lock().unwrap_or_else(|e| e.into_inner()).take();
+        drop(h);
+        let mut g: MutexGuard<'_, Inner> = self.lock();
+        g.src.live = None;
+        g.src.live_msg = None;
+    }
+
+    pub fn set_live(self: &Arc<Self>, on: bool) {
+        {
+            let mut g: MutexGuard<'_, Inner> = self.lock();
+            g.opts.live = on;
+            self.save_settings(&g);
+        }
+        if on {
+            self.start_live();
+        } else {
+            self.stop_live();
+        }
+        self.events.push(&[Ev::Source]);
+    }
+
+    pub fn live_snap(&self, p: &Peek, pid: u32) {
+        let mut g: MutexGuard<'_, Inner> = self.lock();
+        let first: bool = g.src.live != Some(pid);
+        let base: u64 = self.events.seq() + 1;
+        let changed: Vec<usize> = g.track.apply(p, base);
+        let items: Vec<grid::St> = grid::read(p);
+        let moved: bool = g.items.as_ref() != Some(&items);
+        g.src.live = Some(pid);
+        g.src.live_msg = None;
+        g.src.reads += 1;
+        g.src.read_at = Some(now_secs());
+        g.src.keys = p.keys.len();
+        g.src.error = None;
+        g.place = Some(p.place.clone());
+        g.items = Some(items);
+        g.peek = Some(p.clone());
+        if changed.is_empty() && !moved && !first {
+            return;
+        }
+        let mut evs: Vec<Ev> = changed
+            .iter()
+            .map(|i| {
+                let m = g.track.marks[*i];
+                Ev::Loc { i: *i, fresh: !first && m.s == S::Found && m.by == Some(By::Save) && m.at == base }
+            })
+            .collect();
+        evs.push(Ev::Source);
+        if !changed.is_empty() {
+            self.save_marks(&g);
+        }
+        drop(g);
+        self.events.push(&evs);
+    }
+
+    pub fn live_down(&self, msg: &str) {
+        let mut g: MutexGuard<'_, Inner> = self.lock();
+        g.src.live = None;
+        g.src.live_msg = Some(msg.to_string());
+        drop(g);
+        self.events.push(&[Ev::Source]);
+    }
+}
+
 impl Drop for Tracker {
     fn drop(&mut self) {
         self.stop_watch();
+        let h: Option<watch::Handle> = self.live.lock().unwrap_or_else(|e| e.into_inner()).take();
+        drop(h);
     }
 }
 
@@ -397,6 +497,32 @@ mod tests {
 
     fn pick(kind: &str) -> (usize, &'static Target) {
         targets::all().unwrap().iter().enumerate().find(|(_, t)| t.kind == kind && !t.keys.is_empty() || t.kind == kind && !t.flags.is_empty()).unwrap()
+    }
+
+    #[test]
+    fn live_reads_win_over_the_save_and_only_later_live_reads_are_fresh() {
+        let t: Tracker = Tracker::new(None);
+        let (ci, chest): (usize, &Target) = pick("chest");
+        let fl: u32 = murmur3_32(chest.flags[0].as_bytes(), 0);
+        let none: Peek = peek_with(&save_bytes(&[], &[]), &Lim::ANY).unwrap();
+        let got: Peek = peek_with(&save_bytes(&[(fl, 1)], &[]), &Lim::ANY).unwrap();
+        t.live_snap(&none, 7);
+        assert_eq!(t.lock().src.live, Some(7));
+        let s0: u64 = t.events.seq();
+        t.live_snap(&got, 7);
+        let w = t.events.wait(s0, Duration::from_millis(1));
+        assert!(w.items.iter().any(|x| matches!(x.1, Ev::Loc { i, fresh: true } if i == ci)));
+        t.publish("slot_00", &none, None, vec!["slot_00".into()]);
+        assert_eq!(t.lock().track.marks[ci].s, S::Found);
+        t.fail("slot_00", "bad");
+        assert_eq!(t.lock().src.error, None);
+        t.live_down("game closed");
+        {
+            let g = t.lock();
+            assert_eq!((g.src.live, g.src.live_msg.as_deref()), (None, Some("game closed")));
+        }
+        t.stop_live();
+        assert_eq!(t.lock().src.live_msg, None);
     }
 
     #[test]
@@ -458,12 +584,12 @@ mod tests {
         let (ci, chest): (usize, &Target) = pick("chest");
         t.load_saved();
         t.user(&chest.id, true).unwrap();
-        t.set_opts(Opts { mode: Mode::All, kinds: vec!["chest".into()], dream: true });
+        t.set_opts(Opts { mode: Mode::All, kinds: vec!["chest".into()], dream: true, live: true });
         let u: Tracker = Tracker::new(Some(d.clone()));
         u.load_saved();
         let g = u.lock();
         assert_eq!(g.track.marks[ci].by, Some(By::User));
-        assert_eq!(g.opts, Opts { mode: Mode::All, kinds: vec!["chest".into()], dream: true });
+        assert_eq!(g.opts, Opts { mode: Mode::All, kinds: vec!["chest".into()], dream: true, live: true });
         drop(g);
         assert!(d.join("ootrr").join("tracker-cache").join("settings.json").is_file());
         let _ = fs::remove_dir_all(&d);
