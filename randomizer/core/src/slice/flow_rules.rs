@@ -32,6 +32,36 @@ pub const SARIA: &str = "LW Gift from Saria";
 /// (a counter) and the dungeon rewards (held by their own scenes).
 const SARIA_REFUSES: [&str; 6] = ["Item_Dungeon_", "Item_Bottle_", "Item_Token_Gold", "Item_Stone_", "Item_Medal_", "Item_ScrubBusinessSeed"];
 
+/// Gift scenes: cutscenes, Great Fairies and the dungeon reward scenes. Every grant they run ends
+/// in the game's generic pouch get, GetPouchContent:GetPouchContent, which shows the get window
+/// (SetForGetWindow and OpenGetWindow, the same steps as GetPouchContent:DisplayGetByActorName)
+/// and then adds the item (PouchSystemActor.EventTriggerAddOrRemovePouchContent, with the same
+/// parameters as Saria's grant). GetPouchContentByActorName is that call, and every
+/// Dm_SY_GetInEvent variant reaches it through GetPouchContentByActorName_ForGetInEvent after
+/// its presentation. So like Saria they hand out any pouch item, not only the accept list.
+pub const GIFT_CATS: [&str; 3] = ["cutscene_gift", "great_fairy", "dungeon_reward"];
+const GENERIC_GRANTS: [&str; 3] = ["GetPouchContent:", "PouchSystemActor.EventTriggerAddOrRemovePouchContent", "Dm_SY_GetInEvent:"];
+
+pub fn gift_scene(l: &Loc) -> bool {
+    GIFT_CATS.contains(&l.cat.as_str())
+        && l.edits.iter().any(|e| e.role == "grant")
+        && l.edits.iter().filter(|e| e.role == "grant").all(|e| GENERIC_GRANTS.iter().any(|v| e.via.starts_with(v)))
+}
+
+/// Items a generic pouch get hands out: Saria's, plus the Stones and Medallions, which the dungeon
+/// reward scenes already hand out through GetPouchContentByActorName.
+fn gift_form(a: &str) -> bool {
+    (a.starts_with("Item_") || a.starts_with("Weapon_"))
+        && !a.contains("Bundle")
+        && !SARIA_REFUSES.iter().filter(|p| !matches!(**p, "Item_Stone_" | "Item_Medal_")).any(|p| a.starts_with(p))
+}
+
+/// An item a gift scene can hand out: one the game's events already hand out, or one whose every
+/// form a generic pouch get can add.
+pub fn gift_takes(d: &Data, i: &Item) -> bool {
+    d.flow_accepts(i) || (crate::flow_extra::pouch(i) && i.actor.as_deref().is_some_and(gift_form) && i.tiers.iter().all(|t| gift_form(t)))
+}
+
 fn saria_form(a: &str) -> bool {
     (a.starts_with("Item_") || a.starts_with("Weapon_")) && !a.contains("Bundle") && !SARIA_REFUSES.iter().any(|p| a.starts_with(p))
 }
@@ -82,6 +112,12 @@ pub fn allows(d: &Data, name: &str, i: &Item) -> bool {
     };
     if name == SARIA {
         return saria_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
+    }
+    if gift_scene(l) {
+        let fits: bool = gift_takes(d, i) || d.vanilla_of(name) == Some(i.name.as_str());
+        // An upgrade is wrapped into tier checks around its grant, which needs a scene whose
+        // edits are all grants (a display event would name one tier).
+        return fits && (family_of(&i.tiers).is_none() || grants_only(l));
     }
     if family_of(&i.tiers).is_some() {
         return (grants_only(l) && l.cat != "scrub_sale" && d.flow_accepts(i)) || crate::scrubs_a::home(d, name, &i.name);
