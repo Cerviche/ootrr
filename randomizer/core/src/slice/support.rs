@@ -85,37 +85,9 @@ pub struct Plan {
     pub silver: bool,
 }
 
-const UNCHANGED: [&str; 21] = [
-    "logic_rules",
-    "starting_age",
-    "gerudo_fortress",
-    "bridge",
-    "bridge_stones",
-    "bridge_medallions",
-    "bridge_rewards",
-    "bridge_tokens",
-    "bridge_hearts",
-    "trials_random",
-    "trials",
-    "triforce_hunt",
-    "triforce_count_per_world",
-    "triforce_goal_per_world",
-    "starting_hearts",
-    "starting_songs",
-    "ganon_bosskey_stones",
-    "ganon_bosskey_medallions",
-    "ganon_bosskey_rewards",
-    "ganon_bosskey_tokens",
-    "ganon_bosskey_hearts",
-];
-
-const APPLIED: [&str; 2] = ["starting_hearts", "starting_songs"];
-
-pub fn not_yet(id: &str) -> bool {
-    UNCHANGED.contains(&id) && !APPLIED.contains(&id)
-}
-
-const OFF_ONLY: [&str; 1] = ["shuffle_scrubs"];
+pub use crate::slice::unsupported::not_yet;
+#[cfg(test)]
+use crate::slice::unsupported::{APPLIED, UNCHANGED};
 
 pub fn show(v: &Value) -> String {
     match v {
@@ -230,32 +202,9 @@ pub(crate) fn toggle(s: &Settings, key: &str, bad: &mut Vec<String>) -> bool {
 }
 
 pub fn plan(s: &Settings) -> Res<Plan> {
-    let def: Settings = Settings::default();
     let mut bad: Vec<String> = Vec::new();
     let mut noted: Vec<String> = Vec::new();
-    for id in UNCHANGED {
-        match (s.get(id), def.get(id)) {
-            (Some(a), Some(b)) if a == b => noted.push(format!("{id}={}", show(a))),
-            (Some(_), _) if APPLIED.contains(&id) => {}
-            (Some(a), _) => bad.push(format!(
-                "{id} is {}, which this build cannot apply yet (only the default works)",
-                show(a)
-            )),
-            _ => bad.push(format!("no setting named {id}")),
-        }
-    }
-    for id in OFF_ONLY {
-        match s.text(id) {
-            Ok("off") => {}
-            Ok(v) => bad.push(format!("{id} is {v}, which this build cannot shuffle yet (only off works)")),
-            Err(e) => bad.push(e.to_string()),
-        }
-    }
-    match s.text("shuffle_hideoutkeys") {
-        Ok("vanilla") => {}
-        Ok(v) => bad.push(format!("shuffle_hideoutkeys is {v}, which this build cannot place yet (only vanilla works)")),
-        Err(e) => bad.push(e.to_string()),
-    }
+    crate::slice::unsupported::check(s, &mut bad, &mut noted);
     let chests: Mode = chest_mode(s, &mut bad);
     let world: pu::Free = pu::mode(s, &mut bad);
     let drops: crate::pot_slice::Drops = crate::pot_slice::plan::read(s, &mut bad);

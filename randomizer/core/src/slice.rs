@@ -1,6 +1,9 @@
 pub mod advice;
 pub mod banc;
+pub mod banc_edit;
 pub mod bombchus;
+pub mod build_report;
+pub mod chest_targets;
 pub mod copies;
 pub mod data;
 pub mod door_logic;
@@ -46,6 +49,7 @@ pub mod tier_fix;
 pub mod tier_order;
 pub mod tier_sim;
 pub mod treasure;
+pub mod unsupported;
 pub mod watch;
 
 pub use edit::{build, build_for, BuildCounts, Built, ChestLine};
