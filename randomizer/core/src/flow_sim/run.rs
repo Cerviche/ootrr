@@ -90,6 +90,75 @@ impl Hasher for Fold {
     }
 }
 
+const SEEN_DEPTH: usize = 16;
+
+struct Layer {
+    map: Map<u64, usize>,
+    base: Option<Rc<Layer>>,
+    depth: usize,
+}
+
+#[derive(Clone, Default)]
+pub struct Seen {
+    own: Map<u64, usize>,
+    base: Option<Rc<Layer>>,
+}
+
+impl Seen {
+    pub fn get(&self, k: &u64) -> Option<&usize> {
+        if let Some(v) = self.own.get(k) {
+            return Some(v);
+        }
+        let mut at: Option<&Rc<Layer>> = self.base.as_ref();
+        while let Some(l) = at {
+            if let Some(v) = l.map.get(k) {
+                return Some(v);
+            }
+            at = l.base.as_ref();
+        }
+        None
+    }
+
+    pub fn insert(&mut self, k: u64, v: usize) {
+        self.own.insert(k, v);
+    }
+
+    pub fn len(&self) -> usize {
+        let mut n: usize = self.own.len();
+        let mut at: Option<&Rc<Layer>> = self.base.as_ref();
+        while let Some(l) = at {
+            n += l.map.len();
+            at = l.base.as_ref();
+        }
+        n
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    fn freeze(&mut self) {
+        if self.own.is_empty() {
+            return;
+        }
+        let depth: usize = self.base.as_ref().map_or(0, |l| l.depth) + 1;
+        let own: Map<u64, usize> = std::mem::take(&mut self.own);
+        if depth > SEEN_DEPTH {
+            let mut all: Map<u64, usize> = own;
+            let mut at: Option<&Rc<Layer>> = self.base.as_ref();
+            while let Some(l) = at {
+                for (k, v) in &l.map {
+                    all.entry(*k).or_insert(*v);
+                }
+                at = l.base.as_ref();
+            }
+            self.base = Some(Rc::new(Layer { map: all, base: None, depth: 1 }));
+        } else {
+            self.base = Some(Rc::new(Layer { map: own, base: self.base.take(), depth }));
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Mach {
     pub flow: usize,
@@ -100,7 +169,7 @@ pub struct Mach {
     pub eff: BSet<(usize, u16)>,
     pub log: Option<Rc<Rec>>,
     pub steps: usize,
-    pub seen: Map<u64, usize>,
+    pub seen: Seen,
     pub nd: usize,
     pub chosen: usize,
     pub viol: Vec<String>,
@@ -258,7 +327,7 @@ impl Sim {
             eff: BSet::new(),
             log: None,
             steps: 0,
-            seen: Map::new(),
+            seen: Seen::default(),
             nd: 0,
             chosen: 0,
             viol: Vec::new(),
@@ -549,6 +618,9 @@ impl Sim {
                 }
                 let multi: bool = picks.len() > 1;
                 let last: usize = picks.len().saturating_sub(1);
+                if multi {
+                    m.seen.freeze();
+                }
                 if multi || !matches!(vocab::query(&qn), Class::QData | Class::QPouch) {
                     m.nd += 1;
                 }
