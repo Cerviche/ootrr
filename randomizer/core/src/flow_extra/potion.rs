@@ -214,15 +214,15 @@ mod tests {
 
     #[test]
     fn the_toggle_is_off_by_default_needs_supported_rewards_and_keeps_the_string() {
-        assert!(!plan_of(&Settings::default()).unwrap().potion);
-        assert!(!plan_of(&with(false)).unwrap().potion);
+        assert!(!plan_of(&Settings::default()).unwrap().rewards.potion);
+        assert!(!plan_of(&with(false)).unwrap().rewards.potion);
         let on = plan_of(&with(true)).unwrap();
-        assert!(on.potion && on.logic().contains(&(KEY, ON)));
+        assert!(on.rewards.potion && on.logic().contains(&(KEY, ON)));
         assert!(!plan_of(&Settings::default()).unwrap().logic().contains(&(KEY, ON)));
         let mut s: Settings = Settings::default();
         s.set("shuffle_rewards", Value::s("off")).unwrap();
         s.set(SETTING, Value::Bool(true)).unwrap();
-        assert!(!plan_of(&s).unwrap().potion);
+        assert!(!plan_of(&s).unwrap().rewards.potion);
         let mut d: Settings = Settings::default();
         d.set(SETTING, Value::Bool(false)).unwrap();
         assert_eq!(Settings::default().encode().unwrap(), d.encode().unwrap());

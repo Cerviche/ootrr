@@ -292,17 +292,17 @@ mod tests {
     #[test]
     fn both_toggles_are_off_by_default_need_supported_rewards_and_keep_the_string() {
         let p = plan_of(&Settings::default()).unwrap();
-        assert!(!p.frog_songs && !p.frog_bug);
+        assert!(!p.rewards.frog_songs && !p.rewards.frog_bug);
         let p = plan_of(&with(true, false)).unwrap();
-        assert!(p.frog_songs && !p.frog_bug);
+        assert!(p.rewards.frog_songs && !p.rewards.frog_bug);
         let p = plan_of(&with(false, true)).unwrap();
-        assert!(!p.frog_songs && p.frog_bug);
+        assert!(!p.rewards.frog_songs && p.rewards.frog_bug);
         let mut s: Settings = Settings::default();
         s.set("shuffle_rewards", Value::s("off")).unwrap();
         s.set(SONGS_SETTING, Value::Bool(true)).unwrap();
         s.set(BUG_SETTING, Value::Bool(true)).unwrap();
         let p = plan_of(&s).unwrap();
-        assert!(!p.frog_songs && !p.frog_bug);
+        assert!(!p.rewards.frog_songs && !p.rewards.frog_bug);
         let mut d: Settings = Settings::default();
         d.set(SONGS_SETTING, Value::Bool(false)).unwrap();
         d.set(BUG_SETTING, Value::Bool(false)).unwrap();

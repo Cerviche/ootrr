@@ -11,7 +11,7 @@ pub fn changes(p: &Plan) -> Vec<&'static str> {
         Skulls::Pinned => out.push("set Gold Skulltulas to Vanilla"),
         Skulls::Off => {}
     }
-    if p.rewards {
+    if p.rewards.on {
         out.push("set Story and NPC rewards to Vanilla");
     }
     if !p.excluded.is_empty() {

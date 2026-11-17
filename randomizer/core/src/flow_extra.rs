@@ -36,3 +36,77 @@ pub fn merchants(s: &crate::settings::Settings, bad: &mut Vec<String>) -> (bool,
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Rewards {
+    pub on: bool,
+    pub dungeon_rewards: bool,
+    pub extra: bool,
+    pub trade: bool,
+    pub cows: bool,
+    pub cows_other: bool,
+    pub frog_songs: bool,
+    pub frog_bug: bool,
+    pub potion: bool,
+    pub scrubs: bool,
+    pub scrubs_b: bool,
+    pub medigoron: bool,
+    pub bean_sale: bool,
+    pub scrub_prices: crate::scrub_prices::Mode,
+    pub scrub_hint: bool,
+    pub merchant_prices: crate::scrub_prices::Mode,
+}
+
+impl Rewards {
+    pub fn read(s: &crate::settings::Settings, bad: &mut Vec<String>) -> Rewards {
+        use crate::slice::support::toggle;
+        let on: bool = match s.text("shuffle_rewards") {
+            Ok("off") => false,
+            Ok("supported") => true,
+            Ok(v) => {
+                bad.push(format!("shuffle_rewards is {v}, which this build cannot apply (only off or supported work)"));
+                false
+            }
+            Err(e) => {
+                bad.push(e.to_string());
+                false
+            }
+        };
+        let dungeon_rewards: bool = on && toggle(s, crate::slice::support::DUNGEON_REWARDS, bad);
+        let extra: bool = on && toggle(s, SETTING, bad);
+        let trade: bool = on && toggle(s, trade::SETTING, bad);
+        let cows: bool = on && toggle(s, cows::SETTING, bad);
+        let frog_songs: bool = on && toggle(s, frogs::SONGS_SETTING, bad);
+        let frog_bug: bool = on && toggle(s, frogs::BUG_SETTING, bad);
+        let potion: bool = on && toggle(s, potion::SETTING, bad);
+        let scrubs: bool = crate::scrubs_a::read(s, on, bad);
+        let scrubs_b: bool = crate::scrubs_b::read(s, on, bad);
+        Rewards {
+            on,
+            dungeon_rewards,
+            extra,
+            trade,
+            cows,
+            cows_other: cows,
+            frog_songs,
+            frog_bug,
+            potion,
+            scrubs,
+            scrubs_b,
+            medigoron: false,
+            bean_sale: false,
+            scrub_prices: crate::scrub_prices::Mode::Vanilla,
+            scrub_hint: false,
+            merchant_prices: crate::scrub_prices::Mode::Vanilla,
+        }
+    }
+
+    pub fn read_merchants(&mut self, s: &crate::settings::Settings, beans: bool, bad: &mut Vec<String>) {
+        let (bean_merchant, medigoron_merchant): (bool, bool) = merchants(s, bad);
+        self.medigoron = self.on && medigoron_merchant;
+        self.bean_sale = beans && bean_merchant;
+        self.scrub_prices = crate::scrub_prices::read(s, bad);
+        self.scrub_hint = crate::scrub_prices::read_hint(s, bad);
+        self.merchant_prices = crate::merchant_prices::read(s, bad);
+    }
+}

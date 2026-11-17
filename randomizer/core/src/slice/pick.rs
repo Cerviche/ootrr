@@ -26,20 +26,20 @@ fn class(kind: &str) -> u8 {
 
 pub fn scoped(p: &Plan, kind: &str) -> bool {
     match class(kind) {
-        1 => p.small == Keep::Dungeon,
-        2 => p.boss == Keep::Dungeon,
-        3 => p.ganon == Keep::Dungeon,
-        4 => p.map == Keep::Dungeon,
+        1 => p.keys.small == Keep::Dungeon,
+        2 => p.keys.boss == Keep::Dungeon,
+        3 => p.keys.ganon == Keep::Dungeon,
+        4 => p.keys.map == Keep::Dungeon,
         _ => false,
     }
 }
 
 fn pinned_vanilla(p: &Plan, kind: &str) -> bool {
     match class(kind) {
-        1 => p.small == Keep::Vanilla,
-        2 => p.boss == Keep::Vanilla,
-        3 => p.ganon == Keep::Vanilla,
-        4 => p.map == Keep::Vanilla,
+        1 => p.keys.small == Keep::Vanilla,
+        2 => p.keys.boss == Keep::Vanilla,
+        3 => p.keys.ganon == Keep::Vanilla,
+        4 => p.keys.map == Keep::Vanilla,
         _ => false,
     }
 }
@@ -94,18 +94,18 @@ pub fn pick(d: &Data, w: &World, p: &Plan) -> Pick {
         }
     }
     let mut flow: usize = 0;
-    if p.rewards {
+    if p.rewards.on {
         for l in &d.flow.locs {
             if l.cat == "song" && p.songs != Songs::Off {
                 continue;
             }
-            if l.cat == crate::slice::support::DUNGEON_REWARD_CAT && !p.dungeon_rewards {
+            if l.cat == crate::slice::support::DUNGEON_REWARD_CAT && !p.rewards.dungeon_rewards {
                 continue;
             }
-            if crate::scrubs_a::is_a(l) && !p.scrubs {
+            if crate::scrubs_a::is_a(l) && !p.rewards.scrubs {
                 continue;
             }
-            if crate::scrubs_b::is_b(l) && !p.scrubs_b {
+            if crate::scrubs_b::is_b(l) && !p.rewards.scrubs_b {
                 continue;
             }
             if !d.flow_ok(&l.name) || !crate::flow_extra::open(l, p) {

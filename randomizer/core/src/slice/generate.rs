@@ -77,7 +77,7 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
         Some(i) if p.keys_roam() && i.kind == "SmallKey" => {
             let name: &str = &w.locs[l].name;
             let dungeon: bool = w.regions[w.locs[l].region].dungeon.is_some();
-            let place: bool = match p.small {
+            let place: bool = match p.keys.small {
                 Keep::AnyDungeon => dungeon,
                 _ => true,
             };
@@ -99,9 +99,9 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
             }
             i.actor.is_some()
                 && crate::slice::flow_rules::allows(d, name, i)
-                && (!p.extra || crate::flow_extra::fits(d, name, i))
-                && (!p.scrubs || crate::scrubs_a::fits(d, name, i))
-                && (!p.scrubs_b || crate::scrubs_b::fits(d, name, i))
+                && (!p.rewards.extra || crate::flow_extra::fits(d, name, i))
+                && (!p.rewards.scrubs || crate::scrubs_a::fits(d, name, i))
+                && (!p.rewards.scrubs_b || crate::scrubs_b::fits(d, name, i))
                 && (!crate::open_world::skips::is_bean_sale(name) || crate::flow_extra::pouch(i))
                 && !(up && ((d.keeps_event(name) && !d.special(name)) || heart_loc))
                 && !(d.keeps_event(name) && i.actor.as_deref().is_some_and(crate::progressive::guarded))
@@ -1104,8 +1104,8 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let mut need: usize = 0;
         for (s, tag) in [(Settings::default(), "default"), (with(&[("shuffle_chests", "overworld")]), "overworld")] {
-            assert!(plan(&s).unwrap().rewards);
-            assert!(!plan(&s).unwrap().dungeon_rewards);
+            assert!(plan(&s).unwrap().rewards.on);
+            assert!(!plan(&s).unwrap().rewards.dungeon_rewards);
             for n in 0..3 {
                 let g: Generated = generate_data(&d, &s, &format!("held {tag} {n}"), &GenOpts { spoiler: true, ..GenOpts::default() }).unwrap();
                 assert!(g.seed_file.placements.contains_key("Kak Man on Roof"), "{tag} {n}");
@@ -1129,7 +1129,7 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let mut s: Settings = Settings::default();
         s.set("shuffle_dungeon_rewards", Value::Bool(true)).unwrap();
-        assert!(plan(&s).unwrap().dungeon_rewards);
+        assert!(plan(&s).unwrap().rewards.dungeon_rewards);
         let mut moved: usize = 0;
         for n in 0..3 {
             let g: Generated = generate_data(&d, &s, &format!("moved {n}"), &GenOpts::default()).unwrap();

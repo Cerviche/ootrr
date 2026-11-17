@@ -540,8 +540,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let mut silver_hit: BS<u64> = BS::new();
     let mut edits: Vec<Edited> = Vec::new();
     let size_ctx: crate::chest_size::Ctx = crate::chest_size::Ctx { chus: p.chus, owned: p.owned.clone() };
-    let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.map)) } else { BM::new() };
-    let small_hearts: BS<u64> = if p.chest_sizes { crate::chest_size::small_hearts(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.map)) } else { BS::new() };
+    let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.keys.map)) } else { BM::new() };
+    let small_hearts: BS<u64> = if p.chest_sizes { crate::chest_size::small_hearts(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.keys.map)) } else { BS::new() };
     let moves: crate::chest_size::Moves = if sizes.is_empty() { crate::chest_size::Moves::default() } else { crate::chest_size::moves(&crate::chest_size::scan(&mut rf, &sizes)?, &sizes) };
     let mut resized_n: usize = 0;
     for f in banc_files(&rf)? {
@@ -658,8 +658,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut staged: Stage = flow_locations::stage_merged(&mut rf, &d.flow, &flows, &gs, &FlowOpts { songs: p.songs != Songs::Off, ..FlowOpts::default() })?;
     crate::scrubs_b::stage_flow(&mut rf, &scrub_jobs, &mut staged.files)?;
-    crate::scrub_prices::stage(&mut rf, &d, seed, p.scrub_prices, &mut staged.files)?;
-    crate::merchant_prices::stage_medigoron(&mut rf, seed, p.merchant_prices, p.medigoron, &mut staged.files)?;
+    crate::scrub_prices::stage(&mut rf, &d, seed, p.rewards.scrub_prices, &mut staged.files)?;
+    crate::merchant_prices::stage_medigoron(&mut rf, seed, p.rewards.merchant_prices, p.rewards.medigoron, &mut staged.files)?;
     if p.songs != Songs::Off {
         crate::song_lessons::stage_flow(&mut rf, &mut staged.files)?;
     }
@@ -749,7 +749,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut late: Vec<crate::staging::Out> = if p.qol.any() { crate::qol::worked(&mut rf, &pk, &p.qol)? } else { Vec::new() };
     late.extend(crate::open_world::worked(&mut rf, &pk, &p.open)?);
-    crate::merchant_prices::stage_bean(&mut rf, seed, p.merchant_prices, p.bean_sale, &mut late)?;
+    crate::merchant_prices::stage_bean(&mut rf, seed, p.rewards.merchant_prices, p.rewards.bean_sale, &mut late)?;
     if p.story {
         late.extend(crate::story_skip::worked(&mut rf, &pk)?);
     }

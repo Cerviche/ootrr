@@ -8,36 +8,36 @@ pub const MEDIGORON: &str = "GC Medigoron";
 
 pub fn open(l: &Loc, p: &Plan) -> bool {
     if crate::scrubs_a::is_a(l) {
-        return p.scrubs;
+        return p.rewards.scrubs;
     }
     if crate::scrubs_b::is_b(l) {
-        return p.scrubs_b;
+        return p.rewards.scrubs_b;
     }
     if crate::flow_extra::trade::is(&l.name) {
-        return p.trade;
+        return p.rewards.trade;
     }
     if crate::flow_extra::cows::is_other(&l.name) {
-        return p.cows_other;
+        return p.rewards.cows_other;
     }
     if crate::flow_extra::cows::is(&l.name) {
-        return p.cows;
+        return p.rewards.cows;
     }
     if crate::flow_extra::frogs::is_song(&l.name) {
-        return p.frog_songs;
+        return p.rewards.frog_songs;
     }
     if crate::flow_extra::frogs::is_bug(&l.name) {
-        return p.frog_bug;
+        return p.rewards.frog_bug;
     }
     if crate::flow_extra::potion::is(&l.name) {
-        return p.potion;
+        return p.rewards.potion;
     }
     if crate::open_world::skips::is_bean_sale(&l.name) {
-        return p.bean_sale;
+        return p.rewards.bean_sale;
     }
     if l.name == MEDIGORON {
-        return p.medigoron;
+        return p.rewards.medigoron;
     }
-    !l.gated || p.extra
+    !l.gated || p.rewards.extra
 }
 
 pub fn pouch(i: &Item) -> bool {
@@ -79,13 +79,13 @@ mod tests {
 
     #[test]
     fn the_setting_is_on_by_default_and_needs_supported_rewards() {
-        assert!(plan(&Settings::default()).unwrap().extra);
-        assert!(!plan(&with(Some(false))).unwrap().extra);
-        assert!(plan(&with(Some(true))).unwrap().extra);
+        assert!(plan(&Settings::default()).unwrap().rewards.extra);
+        assert!(!plan(&with(Some(false))).unwrap().rewards.extra);
+        assert!(plan(&with(Some(true))).unwrap().rewards.extra);
         let mut s: Settings = Settings::default();
         s.set("shuffle_rewards", Value::s("off")).unwrap();
         s.set(crate::flow_extra::SETTING, Value::Bool(true)).unwrap();
-        assert!(!plan(&s).unwrap().extra);
+        assert!(!plan(&s).unwrap().rewards.extra);
         assert_eq!(Settings::default().encode().unwrap(), with(None).encode().unwrap());
     }
 

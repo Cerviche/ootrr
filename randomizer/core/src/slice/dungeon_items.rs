@@ -9,6 +9,41 @@ use crate::settings::Settings;
 use crate::slice::data::{Data, Item, State};
 use crate::slice::edit::Edited;
 use crate::slice::support::{Keep, Mode, Plan};
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Keys {
+    pub small: Keep,
+    pub boss: Keep,
+    pub map: Keep,
+    pub ganon: Keep,
+}
+
+const SMALL_OK: [&str; 4] = ["vanilla", "dungeon", "any_dungeon", "keysanity"];
+
+impl Keys {
+    pub fn read(s: &Settings, bad: &mut Vec<String>) -> Keys {
+        Keys {
+            small: keep(s, "shuffle_smallkeys", &SMALL_OK, bad),
+            boss: keep(s, "shuffle_bosskeys", &BOSS_OK, bad),
+            map: keep(s, "shuffle_mapcompass", &MAP_OK, bad),
+            ganon: keep(s, "shuffle_ganon_bosskey", &GANON_OK, bad),
+        }
+    }
+}
+
+fn keep(s: &Settings, id: &str, ok: &[&str], bad: &mut Vec<String>) -> Keep {
+    match s.text(id) {
+        Ok(v) if ok.contains(&v) => keep_value(v),
+        Ok(v) => {
+            bad.push(format!("{id} is {v}, which this build cannot place yet (only {} work)", listed(ok)));
+            Keep::Vanilla
+        }
+        Err(e) => {
+            bad.push(e.to_string());
+            Keep::Vanilla
+        }
+    }
+}
 use crate::world::{LocId, World};
 
 pub const BOSS_OK: [&str; 7] = ["remove", "vanilla", "dungeon", "regional", "overworld", "any_dungeon", "keysanity"];
@@ -104,9 +139,9 @@ pub fn listed(ok: &[&str]) -> String {
 
 pub fn keep_of(p: &Plan, kind: &str) -> Option<Keep> {
     match kind {
-        "BossKey" => Some(p.boss),
-        "GanonBossKey" => Some(p.ganon),
-        "Map" | "Compass" => Some(p.map),
+        "BossKey" => Some(p.keys.boss),
+        "GanonBossKey" => Some(p.keys.ganon),
+        "Map" | "Compass" => Some(p.keys.map),
         _ => None,
     }
 }
@@ -180,13 +215,13 @@ pub fn start_items(d: &Data, p: &Plan) -> Vec<String> {
 
 pub fn start_flags(p: &Plan) -> Vec<(String, bool)> {
     let mut out: Vec<(String, bool)> = Vec::new();
-    if p.boss == Keep::Start {
+    if p.keys.boss == Keep::Start {
         out.extend(BOSS_DUNGEONS.iter().map(|d| (flag(d, Kind::Boss.member()), true)));
     }
-    if p.ganon == Keep::Start {
+    if p.keys.ganon == Keep::Start {
         out.push((flag(GANON, Kind::Boss.member()), true));
     }
-    if p.map == Keep::Start {
+    if p.keys.map == Keep::Start {
         for d in MAP_DUNGEONS {
             out.push((flag(d, Kind::Map.member()), true));
             out.push((flag(d, Kind::Compass.member()), true));
@@ -213,8 +248,8 @@ pub fn notes(boss: Keep, ganon: Keep, map: Keep) -> Vec<String> {
 
 fn keeps(p: &Plan, k: Kind) -> Vec<Keep> {
     match k {
-        Kind::Boss => vec![p.boss, p.ganon],
-        Kind::Map | Kind::Compass => vec![p.map],
+        Kind::Boss => vec![p.keys.boss, p.keys.ganon],
+        Kind::Map | Kind::Compass => vec![p.keys.map],
     }
 }
 
@@ -352,7 +387,7 @@ mod tests {
     fn defaults_add_no_flags_or_notes_but_credit_every_boss_key_map_and_compass_chest() {
         let p: Plan = plan(&Settings::default()).unwrap();
         assert!(start_flags(&p).is_empty());
-        assert!(notes(p.boss, p.ganon, p.map).is_empty());
+        assert!(notes(p.keys.boss, p.keys.ganon, p.keys.map).is_empty());
         assert!(!handles(&p, "BossKey") && !handles(&p, "Map") && !handles(&p, "GanonBossKey"));
         let d: Data = Data::load().unwrap();
         let g: Generated = generate_data(&d, &Settings::default(), "grant default", &GenOpts::default()).unwrap();

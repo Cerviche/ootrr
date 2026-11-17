@@ -62,10 +62,10 @@ mod tests {
 
     #[test]
     fn the_setting_is_off_by_default_needs_supported_rewards_and_keeps_the_settings_string() {
-        assert!(!plan(&Settings::default()).unwrap().scrubs_b);
-        assert!(!plan(&with(false, Some(true))).unwrap().scrubs_b);
-        assert!(!plan(&with(true, Some(false))).unwrap().scrubs_b);
-        assert!(plan(&with(true, Some(true))).unwrap().scrubs_b);
+        assert!(!plan(&Settings::default()).unwrap().rewards.scrubs_b);
+        assert!(!plan(&with(false, Some(true))).unwrap().rewards.scrubs_b);
+        assert!(!plan(&with(true, Some(false))).unwrap().rewards.scrubs_b);
+        assert!(plan(&with(true, Some(true))).unwrap().rewards.scrubs_b);
         assert!(plan(&with(true, Some(true))).unwrap().notes.iter().any(|n| n == NOTE));
         assert_eq!(Settings::default().encode().unwrap(), with(true, Some(false)).encode().unwrap());
         assert_eq!(with(false, None).encode().unwrap(), with(false, Some(false)).encode().unwrap());

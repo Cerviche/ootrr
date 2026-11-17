@@ -90,7 +90,7 @@ fn dungeon_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn scrub_hints(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    crate::scrub_prices::stage_text(rf, c.d, c.seed, c.p.scrub_hint, more)
+    crate::scrub_prices::stage_text(rf, c.d, c.seed, c.p.rewards.scrub_hint, more)
 }
 
 fn silver_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
@@ -135,7 +135,7 @@ fn pedestal(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn medal_gate(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    if c.p.dungeon_rewards {
+    if c.p.rewards.dungeon_rewards {
         crate::medal_gate::stage(rf, more, Some(c.work))?;
     }
     Ok(())

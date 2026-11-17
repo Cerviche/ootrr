@@ -13,13 +13,13 @@ pub const JUNK: &str = "Rupee (1)";
 
 fn gone_kinds(p: &Plan) -> Vec<&'static str> {
     let mut out: Vec<&'static str> = Vec::new();
-    if p.map == Keep::Start {
+    if p.keys.map == Keep::Start {
         out.extend(["Map", "Compass"]);
     }
-    if p.boss == Keep::Start {
+    if p.keys.boss == Keep::Start {
         out.push("BossKey");
     }
-    if p.ganon == Keep::Start {
+    if p.keys.ganon == Keep::Start {
         out.push("GanonBossKey");
     }
     out

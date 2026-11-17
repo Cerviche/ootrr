@@ -58,7 +58,7 @@ fn skipped(s: &Spot) -> Option<bool> {
 }
 
 fn gated(s: &Spot) -> Option<bool> {
-    (s.p.extra && s.d.item(s.item).is_some_and(|i| !crate::flow_extra::fits(s.d, s.name, i))).then_some(false)
+    (s.p.rewards.extra && s.d.item(s.item).is_some_and(|i| !crate::flow_extra::fits(s.d, s.name, i))).then_some(false)
 }
 
 fn shops(s: &Spot) -> Option<bool> {

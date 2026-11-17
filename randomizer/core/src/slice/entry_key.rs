@@ -8,7 +8,7 @@ pub const KEY: &str = "Small Key (Forest Temple)";
 pub const NOTE: &str = "The Forest Temple First Room Chest holds a Forest Temple small key, because it is the only chest before the locked front door.";
 
 pub fn forced(w: &World, p: &Plan, free: &[LocId], base: &Placement, plan: &[(LocId, ItemId)], ok: &dyn Fn(ItemId, LocId) -> bool) -> Res<Vec<(LocId, ItemId)>> {
-    if p.small != Keep::Dungeon {
+    if p.keys.small != Keep::Dungeon {
         return Ok(Vec::new());
     }
     let (Some(l), Some(k)) = (w.loc(CHEST), w.item(KEY)) else {
@@ -56,7 +56,7 @@ mod tests {
     fn own_dungeon_keys_always_put_a_forest_key_in_the_first_room_chest() {
         let d: Data = Data::load().unwrap();
         let s: Settings = Settings::default();
-        assert_eq!(plan(&s).unwrap().small, Keep::Dungeon);
+        assert_eq!(plan(&s).unwrap().keys.small, Keep::Dungeon);
         for n in 0..6 {
             let g: Generated = generate_data(&d, &s, &format!("entry {n}"), &GenOpts::default()).unwrap();
             assert_eq!(g.seed_file.placements.get(CHEST).map(|x| x.as_str()), Some(KEY), "entry {n}");

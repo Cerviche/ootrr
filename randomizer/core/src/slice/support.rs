@@ -53,21 +53,8 @@ pub enum Songs {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Plan {
     pub chests: Mode,
-    pub small: Keep,
-    pub boss: Keep,
-    pub map: Keep,
-    pub ganon: Keep,
-    pub rewards: bool,
-    pub dungeon_rewards: bool,
-    pub extra: bool,
-    pub trade: bool,
-    pub cows: bool,
-    pub cows_other: bool,
-    pub frog_songs: bool,
-    pub frog_bug: bool,
-    pub potion: bool,
-    pub scrubs: bool,
-    pub scrubs_b: bool,
+    pub keys: di::Keys,
+    pub rewards: crate::flow_extra::Rewards,
     pub hearts: bool,
     pub world: pu::Free,
     pub songs: Songs,
@@ -102,11 +89,6 @@ pub struct Plan {
     pub shops: crate::shops::Opts,
     pub bridge: bool,
     pub silver: bool,
-    pub medigoron: bool,
-    pub bean_sale: bool,
-    pub scrub_prices: crate::scrub_prices::Mode,
-    pub scrub_hint: bool,
-    pub merchant_prices: crate::scrub_prices::Mode,
 }
 
 const GEAR: &[(&str, &str, &str)] = &[
@@ -164,22 +146,6 @@ pub fn show(v: &Value) -> String {
     }
 }
 
-const SMALL_OK: [&str; 4] = ["vanilla", "dungeon", "any_dungeon", "keysanity"];
-
-fn keep(s: &Settings, id: &str, ok: &[&str], bad: &mut Vec<String>) -> Keep {
-    match s.text(id) {
-        Ok(v) if ok.contains(&v) => di::keep_value(v),
-        Ok(v) => {
-            bad.push(format!("{id} is {v}, which this build cannot place yet (only {} work)", di::listed(ok)));
-            Keep::Vanilla
-        }
-        Err(e) => {
-            bad.push(e.to_string());
-            Keep::Vanilla
-        }
-    }
-}
-
 fn chest_mode(s: &Settings, bad: &mut Vec<String>) -> Mode {
     match s.text("shuffle_chests") {
         Ok("off") => Mode::Off,
@@ -201,7 +167,7 @@ pub const KEY_LAYOUTS: [&str; 3] = ["fire_key_layout", "water_key_layout", "spir
 
 impl Plan {
     pub fn keys_roam(&self) -> bool {
-        self.small.roams()
+        self.keys.small.roams()
     }
 
     pub fn start_flags(&self) -> Vec<(String, bool)> {
@@ -250,10 +216,10 @@ impl Plan {
         if self.world.remake() {
             out.push((crate::spots::free::KEY, crate::spots::free::ON));
         }
-        if self.dungeon_rewards {
+        if self.rewards.dungeon_rewards {
             out.push((crate::medal_gate::LOGIC_KEY, "true"));
         }
-        if self.potion {
+        if self.rewards.potion {
             out.push((crate::flow_extra::potion::KEY, crate::flow_extra::potion::ON));
         }
         out
@@ -262,7 +228,7 @@ impl Plan {
     pub fn defaults(&self) -> Vec<(&'static str, &'static str)> {
         let mut out: Vec<(&'static str, &'static str)> = if self.kakariko { vec![KAKARIKO] } else { Vec::new() };
         out.extend(self.open.defaults());
-        if self.dungeon_rewards {
+        if self.rewards.dungeon_rewards {
             out.push((crate::medal_gate::SETTING, "true"));
         }
         out
@@ -276,7 +242,7 @@ impl Plan {
     }
 }
 
-fn toggle(s: &Settings, key: &str, bad: &mut Vec<String>) -> bool {
+pub(crate) fn toggle(s: &Settings, key: &str, bad: &mut Vec<String>) -> bool {
     s.flag(key).unwrap_or_else(|e| {
         bad.push(e.to_string());
         false
@@ -313,40 +279,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let chests: Mode = chest_mode(s, &mut bad);
     let world: pu::Free = pu::mode(s, &mut bad);
     let drops: crate::pot_slice::Drops = crate::pot_slice::plan::read(s, &mut bad);
-    let small: Keep = keep(s, "shuffle_smallkeys", &SMALL_OK, &mut bad);
-    let boss: Keep = keep(s, "shuffle_bosskeys", &di::BOSS_OK, &mut bad);
-    let map: Keep = keep(s, "shuffle_mapcompass", &di::MAP_OK, &mut bad);
-    let ganon: Keep = keep(s, "shuffle_ganon_bosskey", &di::GANON_OK, &mut bad);
-    di::chest_guard(s, chests, [small, boss, ganon, map], &mut bad);
-    let rewards: bool = match s.text("shuffle_rewards") {
-        Ok("off") => false,
-        Ok("supported") => true,
-        Ok(v) => {
-            bad.push(format!("shuffle_rewards is {v}, which this build cannot apply (only off or supported work)"));
-            false
-        }
-        Err(e) => {
-            bad.push(e.to_string());
-            false
-        }
-    };
-    let dungeon_rewards: bool = rewards
-        && toggle(s, DUNGEON_REWARDS, &mut bad);
-    let extra: bool = rewards
-        && toggle(s, crate::flow_extra::SETTING, &mut bad);
-    let trade: bool = rewards
-        && toggle(s, crate::flow_extra::trade::SETTING, &mut bad);
-    let cows: bool = rewards
-        && toggle(s, crate::flow_extra::cows::SETTING, &mut bad);
-    let cows_other: bool = cows;
-    let frog_songs: bool = rewards
-        && toggle(s, crate::flow_extra::frogs::SONGS_SETTING, &mut bad);
-    let frog_bug: bool = rewards
-        && toggle(s, crate::flow_extra::frogs::BUG_SETTING, &mut bad);
-    let potion: bool = rewards
-        && toggle(s, crate::flow_extra::potion::SETTING, &mut bad);
-    let scrubs: bool = crate::scrubs_a::read(s, rewards, &mut bad);
-    let scrubs_b: bool = crate::scrubs_b::read(s, rewards, &mut bad);
+    let keys: di::Keys = di::Keys::read(s, &mut bad);
+    di::chest_guard(s, chests, [keys.small, keys.boss, keys.ganon, keys.map], &mut bad);
+    let mut rewards: crate::flow_extra::Rewards = crate::flow_extra::Rewards::read(s, &mut bad);
     let hearts: bool = toggle(s, "shuffle_boss_hearts", &mut bad);
     let hints: bool = toggle(s, "gossip_hints", &mut bad);
     let fast: bool = toggle(s, "faster_chests", &mut bad);
@@ -435,12 +370,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
-    let (bean_merchant, medigoron_merchant): (bool, bool) = crate::flow_extra::merchants(s, &mut bad);
-    let medigoron: bool = rewards && medigoron_merchant;
-    let bean_sale: bool = open.beans && bean_merchant;
-    let scrub_prices: crate::scrub_prices::Mode = crate::scrub_prices::read(s, &mut bad);
-    let scrub_hint: bool = crate::scrub_prices::read_hint(s, &mut bad);
-    let merchant_prices: crate::scrub_prices::Mode = crate::merchant_prices::read(s, &mut bad);
+    rewards.read_merchants(s, open.beans, &mut bad);
     // Always on in this randomizer, like the other cutscene skips (no setting).
     let story: bool = true;
     let endings: bool = true;
@@ -470,7 +400,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (intro, "The new game intro is skipped. The opening movie and the wake up scene are bypassed, and the harmless first-visit scenes of the areas are marked as played."),
         (start != Reward::Off, "You start the game with one random Stone or Medallion."),
         (!pouch.is_empty(), "The ticked Kokiri Sword, Deku Shield or Slingshot is added to the pouch when a new game starts. A ticked Big or Biggest Bullet Bag brings the Slingshot with it."),
-        (small.roams(), "Small keys can be found in other dungeons or outside them. A chest key is counted for the dungeon it belongs to and the chest says which."),
+        (keys.small.roams(), "Small keys can be found in other dungeons or outside them. A chest key is counted for the dungeon it belongs to and the chest says which."),
         (forest != Forest::Closed, "Kokiri Forest starts open. The blocker walls are switched off when a new game starts."),
         (kakariko, "The Kakariko gate starts open and the castle visit is skipped. A new game sets the castle quest complete, the Door of Time quest past Impa's send off, the Fire Stone quest past the gate and the gate guard's flag, and gives the items of Zelda's Letter and the Song from Impa."),
         (door, "The Door of Time starts open. The Temple of Time logic is edited so the door is always open and the Master Sword can be drawn without the Door of Time quest, and the door's opened flag is set when a new game starts, so the Ocarina and the Song of Time are not needed to reach the Master Sword. The quest itself is left alone, so Zelda's escape and the Song of Time stay checks, and the adult pedestal works before the Forest Sage so you can return to childhood at any time."),
@@ -479,13 +409,13 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (story, crate::story_skip::NOTE),
         (endings, crate::story_skip::NOTE_ENDINGS),
         (hints, "Gossip stones give hints. Their text is replaced in every language."),
-        (extra, "Kak 20 Gold Skulltula Reward, DMT Biggoron and GC Medigoron are shuffled with structural event edits."),
-        (trade, "The ten adult trade quest hand ins each give one extra shuffled item the first time. The trade chain itself stays vanilla."),
-        (cows, crate::flow_extra::cows::NOTE),
-        (cows_other, crate::flow_extra::cows::NOTE_OTHER),
-        (frog_songs, crate::flow_extra::frogs::SONGS_NOTE),
-        (frog_bug, crate::flow_extra::frogs::BUG_NOTE),
-        (potion, crate::flow_extra::potion::NOTE),
+        (rewards.extra, "Kak 20 Gold Skulltula Reward, DMT Biggoron and GC Medigoron are shuffled with structural event edits."),
+        (rewards.trade, "The ten adult trade quest hand ins each give one extra shuffled item the first time. The trade chain itself stays vanilla."),
+        (rewards.cows, crate::flow_extra::cows::NOTE),
+        (rewards.cows_other, crate::flow_extra::cows::NOTE_OTHER),
+        (rewards.frog_songs, crate::flow_extra::frogs::SONGS_NOTE),
+        (rewards.frog_bug, crate::flow_extra::frogs::BUG_NOTE),
+        (rewards.potion, crate::flow_extra::potion::NOTE),
     ] {
         if on {
             notes.push(text.to_string());
@@ -494,7 +424,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if kakariko {
         notes.push(crate::start_defaults::presets::note(KAKARIKO.0, KAKARIKO.1)?);
     }
-    notes.extend(di::notes(boss, ganon, map));
+    notes.extend(di::notes(keys.boss, keys.ganon, keys.map));
     notes.extend(drops.notes());
     if skulls != crate::slice::skulls::Mode::Off {
         notes.push(crate::slice::skulls::NOTE.to_string());
@@ -505,10 +435,10 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if drops.pots != Mode::Off {
         notes.push(crate::slice::key_spots::LOST.to_string());
     }
-    if scrubs {
+    if rewards.scrubs {
         notes.push(crate::scrubs_a::NOTE.to_string());
     }
-    if scrubs_b {
+    if rewards.scrubs_b {
         notes.push(crate::scrubs_b::NOTE.to_string());
     }
     if remake {
@@ -535,7 +465,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if silver {
         notes.push(crate::slice::silver::NOTE.to_string());
     }
-    Ok(Plan { chests, small, boss, map, ganon, rewards, dungeon_rewards, extra, trade, cows, cows_other, frog_songs, frog_bug, potion, scrubs, scrubs_b, hearts, world, songs, hints, fast, chest_sizes, owned, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, medigoron, bean_sale, scrub_prices, scrub_hint, merchant_prices, story, endings })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, hints, fast, chest_sizes, owned, intro, start, forest, door, kakariko, gear, pouch, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, story, endings })
 }
 
 #[cfg(test)]
@@ -546,13 +476,13 @@ mod tests {
     fn defaults_are_accepted_and_noted() {
         let p: Plan = plan(&Settings::default()).unwrap();
         assert_eq!(p.chests, Mode::All);
-        assert_eq!(p.small, Keep::Dungeon);
-        assert_eq!(p.map, Keep::Dungeon);
+        assert_eq!(p.keys.small, Keep::Dungeon);
+        assert_eq!(p.keys.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
         assert_eq!(p.notes.len(), 11);
         assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
-        assert!(p.remake && p.hearts && p.extra);
+        assert!(p.remake && p.hearts && p.rewards.extra);
         assert_eq!(p.world, crate::slice::pickups::Free::Pieces);
         assert!(p.notes.iter().any(|n| n.contains("world clock runs from the start")));
         assert_eq!(p.open, crate::open_world::Opts { time: true, ..crate::open_world::Opts::default() });
@@ -588,7 +518,7 @@ mod tests {
         s.set("shuffle_smallkeys", Value::s("vanilla")).unwrap();
         s.set("shuffle_chests", Value::s("dungeons")).unwrap();
         let p: Plan = plan(&s).unwrap();
-        assert_eq!(p.small, Keep::Vanilla);
+        assert_eq!(p.keys.small, Keep::Vanilla);
         assert_eq!(p.chests, Mode::Dungeons);
     }
 

@@ -254,13 +254,13 @@ mod tests {
 
     #[test]
     fn the_toggle_is_off_by_default_needs_supported_rewards_and_keeps_the_string() {
-        assert!(!plan_of(&Settings::default()).unwrap().trade);
-        assert!(!plan_of(&with(false)).unwrap().trade);
-        assert!(plan_of(&with(true)).unwrap().trade);
+        assert!(!plan_of(&Settings::default()).unwrap().rewards.trade);
+        assert!(!plan_of(&with(false)).unwrap().rewards.trade);
+        assert!(plan_of(&with(true)).unwrap().rewards.trade);
         let mut s: Settings = Settings::default();
         s.set("shuffle_rewards", Value::s("off")).unwrap();
         s.set(SETTING, Value::Bool(true)).unwrap();
-        assert!(!plan_of(&s).unwrap().trade);
+        assert!(!plan_of(&s).unwrap().rewards.trade);
         let mut d: Settings = Settings::default();
         d.set(SETTING, Value::Bool(false)).unwrap();
         assert_eq!(Settings::default().encode().unwrap(), d.encode().unwrap());

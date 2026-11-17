@@ -181,13 +181,13 @@ mod tests {
 
     #[test]
     fn the_toggle_is_off_by_default_needs_supported_rewards_and_keeps_the_string() {
-        assert!(!plan_of(&Settings::default()).unwrap().cows);
-        assert!(!plan_of(&with(false)).unwrap().cows);
-        assert!(plan_of(&with(true)).unwrap().cows);
+        assert!(!plan_of(&Settings::default()).unwrap().rewards.cows);
+        assert!(!plan_of(&with(false)).unwrap().rewards.cows);
+        assert!(plan_of(&with(true)).unwrap().rewards.cows);
         let mut s: Settings = Settings::default();
         s.set("shuffle_rewards", Value::s("off")).unwrap();
         s.set(SETTING, Value::Bool(true)).unwrap();
-        assert!(!plan_of(&s).unwrap().cows);
+        assert!(!plan_of(&s).unwrap().rewards.cows);
         let mut d: Settings = Settings::default();
         d.set(SETTING, Value::Bool(false)).unwrap();
         assert_eq!(Settings::default().encode().unwrap(), d.encode().unwrap());
@@ -396,14 +396,14 @@ mod tests {
 
     #[test]
     fn one_cow_toggle_covers_all_eight_and_the_old_other_toggle_only_keeps_the_string() {
-        assert!(!plan_of(&Settings::default()).unwrap().cows_other);
-        assert!(!plan_of(&with_other(false)).unwrap().cows_other);
-        assert!(!plan_of(&with_other(true)).unwrap().cows_other && !plan_of(&with_other(true)).unwrap().cows);
-        assert!(plan_of(&with(true)).unwrap().cows_other && plan_of(&with(true)).unwrap().cows);
+        assert!(!plan_of(&Settings::default()).unwrap().rewards.cows_other);
+        assert!(!plan_of(&with_other(false)).unwrap().rewards.cows_other);
+        assert!(!plan_of(&with_other(true)).unwrap().rewards.cows_other && !plan_of(&with_other(true)).unwrap().rewards.cows);
+        assert!(plan_of(&with(true)).unwrap().rewards.cows_other && plan_of(&with(true)).unwrap().rewards.cows);
         let mut s: Settings = Settings::default();
         s.set("shuffle_rewards", Value::s("off")).unwrap();
         s.set(SETTING, Value::Bool(true)).unwrap();
-        assert!(!plan_of(&s).unwrap().cows_other);
+        assert!(!plan_of(&s).unwrap().rewards.cows_other);
         let mut d: Settings = Settings::default();
         d.set(SETTING_OTHER, Value::Bool(false)).unwrap();
         assert_eq!(Settings::default().encode().unwrap(), d.encode().unwrap());
