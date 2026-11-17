@@ -152,7 +152,7 @@ pub fn build(a: &[String]) -> Res<()> {
         Found::Unknown(_) => None,
     };
     if with_update && !source.as_ref().is_some_and(|s| s.has_update()) {
-        return Err(Error::Msg("--include-update needs a separate v1.1.1 update (--update, a dump folder or a package holding it)".into()));
+        return Err(Error::Msg("--include-update needs a separate v1.1.1 update (--update, or a package holding it)".into()));
     }
     if update.is_some() && source.as_ref().is_some_and(|s| s.update.is_none()) {
         println!("--update is not needed: the game is already v1.1.1, so it is ignored");

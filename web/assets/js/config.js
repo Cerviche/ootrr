@@ -62,7 +62,7 @@ export const FIELDS = [
   { id: "host", page: CONFIG, section: "Where you play", label: "Game", choices: HOSTS,
     tip: "Lichii and Eden use their load folder. Hookshot, Longshot and NX2navi use the mods folder inside the game folder." },
   { id: "game", page: CONFIG, section: "Folders", label: "Extracted game folder (v1.1.1)",
-    tip: "The folder with your extracted game files, version 1.1.1 (the game with its 1.1.1 update installed), or the game packed as a .nup or .nx (Package…). Version 1.0.0 is not enough on its own: if a 1.0.0 game is picked, a second field for the 1.1.1 update appears below it. A dump folder holding base/romfs and updates/<version>/romfs, or a package holding the base and its update, is read as both. Games are only read, never changed. From a package, only the files the build reads (about 370 MB, or about 2.3 GB with music or sound shuffle) are unpacked for each build into the app's data folder and deleted afterwards." },
+    tip: "The folder with your extracted game files, version 1.1.1 (the game with its 1.1.1 update installed), or the game packed as a .nup or .nx (Package…). Version 1.0.0 is not enough on its own: if a 1.0.0 game is picked, a second field for the 1.1.1 update appears below it. A package holding the base and its update is read as both. Games are only read, never changed. From a package, only the files the build reads (about 370 MB, or about 2.3 GB with music or sound shuffle) are unpacked for each build into the app's data folder and deleted afterwards." },
   { id: "mod", page: CONFIG, section: "Folders", label: "Mod folder", tip: "The folder your emulator or loader reads mods from. Generate writes the mod here." },
   { id: "name", page: CONFIG, section: "Folders", label: "Mod name", tip: "The name of the mod's own folder. Use 1 to 64 letters, digits, spaces and _ - ! . characters, with no spaces at the ends." },
   { id: "seed", page: CONFIG, section: "Seed", label: "Seed",
@@ -147,10 +147,13 @@ function update_box(recheck) {
   const from = () => inp.value.trim() || p.game.trim();
   const browse = pick_button("Browse", "Browse for the v1.1.1 update folder", pick_folder, from, "Pick the v1.1.1 update folder", set);
   const pack = pick_button("Package…", "Pick the v1.1.1 update as a .nup or .nx file", pick_package, from, "Pick the v1.1.1 update .nup or .nx", set);
+  // One click to use an update found next to the game folder; shown only while the field is empty.
+  const use = h("button", { type: "button", class: "btn small", onclick: () => use.dataset.path && set(use.dataset.path) });
+  const hint = h("div", { class: "pathrow", hidden: true }, use);
   const tip = tip_button("v1.1.1 update folder", () => "Needed only because the game above is version 1.0.0. Pick the folder with the 1.1.1 update's files, the one holding its romfs folder (only the files the update changes are needed), or the update packed as a .nup or .nx (Package…). A folder is laid over the 1.0.0 files using links in the app's data folder, so no game files are copied; from a package, only the files the build reads are unpacked for each build and deleted afterwards. It is only read, never changed.");
   const folder = h("div", { class: "w sub", hidden: true },
     h("div", { class: "wl" }, h("label", { for: "f_update" }, "v1.1.1 update folder or package (required)"), tip, stat),
-    h("div", { class: "pathrow" }, inp, browse, pack), out);
+    h("div", { class: "pathrow" }, inp, browse, pack), hint, out);
   const box = h("input", { type: "checkbox", id: "f_include_update", checked: state.include_update });
   box.addEventListener("change", () => {
     state.include_update = box.checked;
@@ -164,6 +167,15 @@ function update_box(recheck) {
     folder.hidden = !need || !!(r && r.update_auto);
     include.hidden = !(r && r.ok && r.update);
     out.textContent = "";
+    const sug = !folder.hidden && !p.update.trim() && r && r.update_hint;
+    hint.hidden = !sug;
+    if (sug) {
+      const parts = r.update_hint.split(/[\\/]/).filter(Boolean);
+      use.textContent = `Use ${parts.slice(-2).join("/")}`;
+      use.title = r.update_hint;
+      use.setAttribute("aria-label", `Use the v1.1.1 update found at ${r.update_hint}`);
+      use.dataset.path = r.update_hint;
+    }
     if (!need || folder.hidden || !p.update.trim()) return set_status(stat, "none", "");
     if (r.update_problems && r.update_problems.length) {
       set_status(stat, "bad", "This is not a usable v1.1.1 update folder");

@@ -53,7 +53,7 @@ pub mod game_input {
         Unknown(String),
     }
 
-    /// Checks `game` (a romfs folder, a dump folder, a `.nup` or a `.nx`) and the separate
+    /// Checks `game` (a romfs folder, a dump folder's base, a `.nup` or a `.nx`) and the separate
     /// v1.1.1 `update` (a folder, `.nup` or `.nx`) when given.
     pub fn check(game: &P, update: Option<&P>) -> Found {
         let r = crate::api_validate::inspect_with(game, update);

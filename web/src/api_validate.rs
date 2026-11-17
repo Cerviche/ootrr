@@ -46,8 +46,11 @@ pub struct Report {
     pub needs_update: bool,
     /// The 1.1.1 update's romfs folder laid over `romfs`, when one is used.
     pub update: Option<PB>,
-    /// The update was found inside the game folder's own dump layout (base/ and updates/<n>/).
+    /// The update is inside the game's own package.
     pub update_auto: bool,
+    /// A v1.1.1 update folder found next to a v1.0.0 folder (`updates/<n>/` beside `base/`).
+    /// Only offered to the user; it is never used unless picked.
+    pub update_hint: Option<PB>,
     pub update_problems: Vec<String>,
     /// "NUP" or "NX" when the game is a package.
     pub pack: Option<&'static str>,
@@ -57,7 +60,7 @@ pub struct Report {
 
 impl Report {
     fn new() -> Report {
-        Report { ok: false, romfs: None, checks: Vec::new(), problems: Vec::new(), version: None, needs_update: false, update: None, update_auto: false, update_problems: Vec::new(), pack: None, source: None }
+        Report { ok: false, romfs: None, checks: Vec::new(), problems: Vec::new(), version: None, needs_update: false, update: None, update_auto: false, update_hint: None, update_problems: Vec::new(), pack: None, source: None }
     }
 }
 
@@ -71,8 +74,8 @@ fn version_of(r: &P) -> Option<&'static str> {
     }
 }
 
-/// `[base romfs, newest update romfs]` of a dump folder in the layout NUP packs from
-/// (`base/romfs` and `updates/<version>/romfs`, an update holding only its changed files).
+/// `[base romfs, newest update romfs]` of a dump folder in the layout the NUP packer reads
+/// (`base/romfs` and `updates/<version>/romfs`). The update is only suggested, never used on its own.
 /// `p` may be the dump folder itself, its `base` folder or `base/romfs`.
 fn dump_layers(p: &P) -> Option<(PB, Option<PB>)> {
     let mut tops: Vec<PB> = vec![p.to_path_buf()];
@@ -199,24 +202,24 @@ fn missing_text(gone: &[String]) -> String {
     )
 }
 
-/// The v1.0.0 game `base` with the update the user picked, or the one its dump folder holds.
-fn with_update(rep: &mut Report, base: Side, look: Look, picked: Option<&P>, auto: Option<PB>) {
+/// The v1.0.0 game `base` with the update the user picked. `hint` is an update found next to it,
+/// reported only when nothing was picked: folder names alone don't say which update belongs to a game.
+fn with_update(rep: &mut Report, base: Side, look: Look, picked: Option<&P>, hint: Option<PB>) {
     rep.needs_update = true;
     let base_path: PB = match &base {
         Side::Folder(p) | Side::Pack(p) => p.clone(),
     };
-    let got: Option<Result<(Side, Look), String>> = match picked {
-        Some(u) => Some(find_update(u, &base_path)),
-        None => auto.map(|u| Ok((Side::Folder(u.clone()), Look::Dir(u)))),
-    };
+    let got: Option<Result<(Side, Look), String>> = picked.map(|u| find_update(u, &base_path));
     match got {
-        None => rep.problems.push(OLD.to_string()),
+        None => {
+            rep.problems.push(OLD.to_string());
+            rep.update_hint = hint;
+        }
         Some(Err(e)) => {
             rep.problems.push(OLD.to_string());
             rep.update_problems.push(e);
         }
         Some(Ok((side, ul))) => {
-            rep.update_auto = picked.is_none();
             rep.checks.push((format!("v1.1.1 update: {VERSION}"), true));
             let gone: Vec<String> = pair_missing(&look, &ul);
             if gone.is_empty() {
@@ -340,9 +343,10 @@ pub fn inspect_with(p: &P, update: Option<&P>) -> Report {
     }
     match found {
         Some(f) if rep.version == Some(V100) => {
-            let auto: Option<PB> = dump.and_then(|d| d.1).filter(|u| has(u, VERSION, false));
+            // `updates/<n>/romfs` -> `updates/<n>`, the folder a user would pick.
+            let hint: Option<PB> = dump.and_then(|d| d.1).filter(|u| has(u, VERSION, false)).map(|u| u.parent().map(|x| x.to_path_buf()).unwrap_or(u));
             rep.romfs = Some(f.clone());
-            with_update(&mut rep, Side::Folder(f.clone()), Look::Dir(f), update, auto);
+            with_update(&mut rep, Side::Folder(f.clone()), Look::Dir(f), update, hint);
         }
         Some(f) if !has(&f, VERSION, false) => rep.problems.push(NOT_111.to_string()),
         Some(f) => {
@@ -423,6 +427,7 @@ pub fn run(path: Option<&str>, update: Option<&str>) -> Hr<Json> {
         .with("needs_update", rep.needs_update.into())
         .with("update", rep.update.as_deref().map(|x| Json::Str(pathsafe::text(x))).unwrap_or(Json::Null))
         .with("update_auto", rep.update_auto.into())
+        .with("update_hint", rep.update_hint.as_deref().map(|x| Json::Str(pathsafe::text(x))).unwrap_or(Json::Null))
         .with("pack", rep.pack.map(Json::from).unwrap_or(Json::Null))
         .with("update_problems", Json::strs(rep.update_problems.iter().map(|s| s.as_str()))))
 }
@@ -609,15 +614,20 @@ mod tests {
     }
 
     #[test]
-    fn a_dump_folder_lays_its_newest_update_over_the_base() {
+    fn a_dump_folder_suggests_its_newest_update_but_does_not_use_it() {
         let d: PB = tmp("dump");
         fake_old(&d.join("base").join("romfs"));
         touch(&d.join("updates").join("65536").join("romfs"), BASE_VERSIONS[0]);
         touch(&d.join("updates").join("131072").join("romfs"), VERSION);
+        let newest: PB = d.join("updates").join("131072");
         for pick in [d.clone(), d.join("base"), d.join("base").join("romfs")] {
             let r: Report = inspect(&pick);
-            assert!(r.ok && r.update_auto, "{pick:?} {:?} {:?}", r.problems, r.update_problems);
-            assert_eq!(r.update.as_deref(), Some(d.join("updates").join("131072").join("romfs").as_path()));
+            assert!(!r.ok && r.needs_update && !r.update_auto && r.update.is_none(), "{pick:?} {:?}", r.problems);
+            assert!(r.problems.iter().any(|p| p.starts_with("v1.0.0 detected")), "{:?}", r.problems);
+            assert_eq!(r.update_hint.as_deref(), Some(newest.as_path()));
+            let r: Report = inspect_with(&pick, Some(&newest));
+            assert!(r.ok && r.update_hint.is_none(), "{pick:?} {:?} {:?}", r.problems, r.update_problems);
+            assert_eq!(r.update.as_deref(), Some(newest.join("romfs").as_path()));
         }
         let _ = fs::remove_dir_all(&d);
     }
