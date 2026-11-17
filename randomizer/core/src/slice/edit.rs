@@ -111,6 +111,8 @@ pub fn start_state(d: &Data, seed: &SeedFile, p: &crate::slice::support::Plan) -
     if p.story {
         ops.extend(crate::story_skip::start());
     }
+    let seen: crate::start_state::Ops = crate::start_state::visits(&ops);
+    ops.extend(seen);
     Ok(ops)
 }
 
