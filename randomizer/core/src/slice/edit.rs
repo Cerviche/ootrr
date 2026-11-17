@@ -280,7 +280,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     // Dungeon items in reward events: window-only copies of their give routines and the credit
     // (crate::gift_keys). The Light Arrows item get wants the copy of its routine too.
     let arrows_key: bool = gift_keys.iter().any(|g| {
-        (p.story && crate::story_skip::DROPPED.contains(&g.location.as_str())) || (p.endings && crate::story_skip::REWARD_SCENES.iter().any(|r| r.0 == g.location))
+        (p.story && (crate::story_skip::DROPPED.contains(&g.location.as_str()) || crate::story_skip::FAIRIES.iter().any(|f| f.0 == g.location))) || (p.endings && crate::story_skip::REWARD_SCENES.iter().any(|r| r.0 == g.location))
     });
     let windows: Vec<(&str, &str)> = if arrows_key { vec![crate::story_skip::ITEM_GET] } else { Vec::new() };
     crate::gift_keys::apply(&mut rf, &mut staged.files, &gift_keys, &windows)?;
@@ -378,7 +378,14 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         let vanilla: String = d.flow.by_name(loc).and_then(|l| l.item.clone()).unwrap_or_default();
         crate::story_skip::SceneGive {
             actor: flows.iter().find(|c| c.location == loc).map(|c| c.item.clone()).unwrap_or(vanilla),
-            family: placed.get(loc).copied(),
+            // An unshuffled prize keeps the tier check its guard gave it (flow_wrap::PRIZES).
+            family: placed.get(loc).copied().or_else(|| {
+                if seed.placements.contains_key(loc) {
+                    None
+                } else {
+                    crate::slice::flow_wrap::PRIZES.iter().find(|x| x.0 == loc).map(|x| x.1)
+                }
+            }),
             key: gift_keys.iter().find(|g| g.location == loc).map(|g| (g.item, g.dungeon)),
         }
     };
@@ -387,6 +394,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         crate::story_skip::stage_arrows_give(&mut rf, &mut late, &give_for(crate::lacs_key::LOC))?;
         crate::story_skip::stage_saria_give(&mut rf, &mut late, &give_for(crate::slice::flow_rules::SARIA))?;
         crate::story_skip::stage_rauru_give(&mut rf, &mut late, &give_for(crate::story_skip::RAURU_LOC))?;
+        for (loc, flow) in crate::story_skip::FAIRIES {
+            crate::story_skip::stage_fairy_give(&mut rf, &mut late, &work, flow, &give_for(loc))?;
+        }
     }
     if p.endings {
         late.extend(crate::story_skip::worked_endings(&mut rf, &pk)?);

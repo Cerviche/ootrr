@@ -955,6 +955,152 @@ pub fn stage_reward_gives(rf: &mut Romfs, late: &mut Vec<Out>, gives: &[(&str, &
     crate::dungeon_grant::merge(rf, late, ENDING_FILE, |raw| rebuild(raw, |b| patch_reward_gives(b, gives)))
 }
 
+/// The Great Fairy checks and their fountain flows.
+pub const FAIRIES: [(&str, &str); 6] = [
+    ("DMT Great Fairy Reward", "Dm_FairyFountain_Din"),
+    ("HC Great Fairy Reward", "Dm_FairyFountain_Power"),
+    ("DMC Great Fairy Reward", "Dm_FairyFountain_Wisdom"),
+    ("ZF Great Fairy Reward", "Dm_FairyFountain_Frore"),
+    ("Colossus Great Fairy Reward", "Dm_FairyFountain_Nayru"),
+    ("OGC Great Fairy Reward", "Dm_FairyFountain_Courage"),
+];
+const FAIRY_PREFIX: &str = "OOTRRFairy";
+
+fn wait0(f: &mut Flow, next: u16) -> Res<Kind> {
+    let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, "EventSystemActor", "EventWait")?;
+    Ok(Kind::Action { next, actor: a, act: x, params: Some(Cont { items: vec![("IsWaitEnd".to_string(), Val::Bool(1)), ("Frames".to_string(), Val::Int(0))] }) })
+}
+
+fn targets_of(k: &Kind) -> Vec<u16> {
+    match k {
+        Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } => vec![*next],
+        Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => cases.iter().map(|c| c.ev).collect(),
+        Kind::Fork { join, forks } => std::iter::once(*join).chain(forks.iter().copied()).collect(),
+        Kind::Label { .. } => Vec::new(),
+    }
+}
+
+fn is_sub_to(k: &Kind, entry: &str) -> bool {
+    matches!(k, Kind::Sub { entry: e, .. } if e == entry)
+}
+
+/// A Great Fairy, once paid. The talk and the payment stay. The music stop, the skip marker and the
+/// fairy rising (GreatFairy_Appear) before her gift scene become zero-frame waits, the gift scene
+/// becomes the release of the music mute and the standard item get with what the check holds, and
+/// her leaving (GreatFairy_Disappear: her parting talk, the "all fairies met" message and the
+/// heal) becomes only the heal (TriForcePoint:Recover). Din's MP check before the gift stays.
+pub fn patch_fairy_give(b: &mut Bf, flow: &str, g: &SceneGive) -> Res<()> {
+    let f: &mut Flow = flow_mut(b, flow)?;
+    let gifts: Vec<usize> = (0..f.events.len()).filter(|&i| matches!(&f.events[i].kind, Kind::Sub { flow: fl, entry, .. } if fl.is_empty() && entry == flow)).collect();
+    let [gift] = gifts.as_slice() else {
+        return Err(Error::Msg(format!("story skip: {flow} runs its gift scene {} times, expected once", gifts.len())));
+    };
+    let gift: usize = *gift;
+    let n: usize = f.events.len();
+    let mut pred: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for i in 0..n {
+        for t in targets_of(&f.events[i].kind) {
+            if (t as usize) < n {
+                pred[t as usize].push(i);
+            }
+        }
+    }
+    // The rising: an Appear call that reaches the gift within three steps.
+    let near = |from: usize| -> bool {
+        let mut todo: Vec<(usize, u8)> = vec![(from, 0)];
+        while let Some((i, d)) = todo.pop() {
+            if i == gift {
+                return true;
+            }
+            if d < 3 && i < n {
+                todo.extend(targets_of(&f.events[i].kind).into_iter().map(|t| (t as usize, d + 1)));
+            }
+        }
+        false
+    };
+    let appears: Vec<usize> = (0..n).filter(|&i| is_sub_to(&f.events[i].kind, "GreatFairy_Appear") && near(i)).collect();
+    if appears.is_empty() {
+        return Err(Error::Msg(format!("story skip: {flow} has no fairy rising before its gift, the game files differ")));
+    }
+    let mut quiet: Vec<usize> = appears.clone();
+    for &a in &appears {
+        let mut at: usize = a;
+        for want in ["EventSystemActor.EventTriggerSkipAcceptStart", "SoundSystemActor.EventTriggerStopInGameBgm"] {
+            if let [p] = pred[at].as_slice()
+                && action(f, *p).as_deref() == Some(want)
+            {
+                quiet.push(*p);
+                at = *p;
+            }
+        }
+    }
+    for i in quiet {
+        let next: u16 = next_of(&f.events[i].kind).ok_or(Error::Format("story skip: a fairy event has no next"))?;
+        f.events[i].kind = wait0(f, next)?;
+    }
+    // The leaving: the Disappear call a few steps after the gift.
+    let mut i: u16 = next_of(&f.events[gift].kind).ok_or(Error::Format("story skip: the fairy gift has no next"))?;
+    let mut leave: Option<usize> = None;
+    for _ in 0..4 {
+        if i == NONE {
+            break;
+        }
+        if is_sub_to(&f.events[i as usize].kind, "GreatFairy_Disappear") {
+            leave = Some(i as usize);
+            break;
+        }
+        i = next_of(&f.events[i as usize].kind).unwrap_or(NONE);
+    }
+    let leave: usize = leave.ok_or_else(|| Error::Msg(format!("story skip: {flow} has no fairy leaving after its gift, the game files differ")))?;
+    let after: u16 = next_of(&f.events[leave].kind).ok_or(Error::Format("story skip: the fairy leaving has no next"))?;
+    f.events[leave].kind = Kind::Sub { next: after, params: None, flow: "TriForcePoint".to_string(), entry: "Recover".to_string() };
+    // The gift: the release of the music mute from the gift scene, then the item get.
+    let release: Option<Kind> = f
+        .entries
+        .iter()
+        .find(|e| e.name == flow)
+        .map(|e| e.main)
+        .and_then(|m| {
+            let mut seen: Vec<bool> = vec![false; n];
+            let mut todo: Vec<u16> = vec![m];
+            while let Some(x) = todo.pop() {
+                let x: usize = x as usize;
+                if x >= n || seen[x] {
+                    continue;
+                }
+                seen[x] = true;
+                if action(f, x).as_deref() == Some("SoundSystemActor.EventSoundReleaseDucking") {
+                    return Some(f.events[x].kind.clone());
+                }
+                todo.extend(targets_of(&f.events[x].kind));
+            }
+            None
+        });
+    let then: u16 = next_of(&f.events[gift].kind).ok_or(Error::Format("story skip: the fairy gift has no next"))?;
+    let entries: Vec<String> = entries_reaching(f, gift);
+    let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
+    let at: u16 = item_get(f, &format!("{FAIRY_PREFIX}{flow}"), g, then, &names)?;
+    f.events[gift].kind = match release {
+        Some(mut k) => {
+            set_next(&mut k, at)?;
+            k
+        }
+        None => wait0(f, at)?,
+    };
+    Ok(())
+}
+
+/// Adds a Great Fairy's item get to her flow in `late`, in the mod's work folder, or the game's.
+pub fn stage_fairy_give(rf: &mut Romfs, late: &mut Vec<Out>, work: &std::path::Path, flow: &str, g: &SceneGive) -> Res<()> {
+    let path: String = format!("Event/EventFlow/{flow}.bfevfl.zs");
+    if late.iter().any(|o| o.path == path) {
+        return crate::dungeon_grant::merge(rf, late, &path, |raw| rebuild(raw, |b| patch_fairy_give(b, flow, g)));
+    }
+    let have = |p: &str| -> Option<Vec<u8>> { fs::read(p.split('/').fold(work.to_path_buf(), |a, s| a.join(s))).ok() };
+    late.push(edit_zs(rf, &have, &path, |raw| rebuild(raw, |b| patch_fairy_give(b, flow, g)))?);
+    Ok(())
+}
+
 pub const RAURU_LOC: &str = "ToT Reward from Rauru";
 const RAURU_GIVE: &str = "OOTRRRauruGive";
 
