@@ -440,7 +440,7 @@ mod tests {
         assert!(reach(&[], &|_| false, At::Loc("Market Bombchu Bowling Bombchus")));
         let p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
         assert!(crate::search::explore(&w, &p, &[]).won());
-        let src: &str = include_str!("../../../data/logic/World/Overworld.json");
+        let src: &str = crate::slice::world_files::overworld_text();
         for l in ["First Prize", "Second Prize", "Bombchus", "Bomb"] {
             let line: &str = src.lines().find(|x| x.contains(&format!("\"Market Bombchu Bowling {l}\":"))).unwrap();
             assert!(line.contains("'Defeat King Dodongo'"), "{l}");

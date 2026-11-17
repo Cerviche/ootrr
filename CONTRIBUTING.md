@@ -30,7 +30,7 @@ Never run `ootrr` with no arguments. It starts the local web server and may open
 - `crates/core`: the generator, logic engine, writers for the game's file formats, the slice code that turns a seed into edits
 - `crates/cli`: the `ootrr` command line tool
 - `crates/web`: the local web page, including the tracker
-- `data/`: location catalogs, logic data (`data/logic`), flag names (`data/flags.json`), start presets
+- `data/`: location catalogs, logic data (`data/logic`: one file per dungeon in `World`, and one file per overworld area in `World/Overworld`, loaded in the order listed in `crates/core/src/slice/world_files.rs`), flag names (`data/flags.json`), start presets
 - `tools/audit.py`: the check that no game data slipped into the repo. Run it before a release.
 - `packaging/`: installers
 

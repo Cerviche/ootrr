@@ -34,6 +34,7 @@ pub mod skulls;
 pub mod song_spots;
 pub mod starts;
 pub mod support;
+pub mod world_files;
 pub mod swap_guard;
 pub mod tier_census;
 pub mod tier_fix;

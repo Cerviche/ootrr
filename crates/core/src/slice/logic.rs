@@ -12,23 +12,6 @@ const HELPERS: &str = include_str!("../../../../data/logic/LogicHelpers.json");
 
 const TOWER: [&str; 3] = ["Ganons Castle Tower", "Ganons Castle Tower Below Boss", "Ganondorf Boss Room"];
 
-const WORLD: [&str; 14] = [
-    include_str!("../../../../data/logic/World/Overworld.json"),
-    include_str!("../../../../data/logic/World/Bosses.json"),
-    include_str!("../../../../data/logic/World/Deku Tree.json"),
-    include_str!("../../../../data/logic/World/Dodongos Cavern.json"),
-    include_str!("../../../../data/logic/World/Jabu Jabus Belly.json"),
-    include_str!("../../../../data/logic/World/Forest Temple.json"),
-    include_str!("../../../../data/logic/World/Fire Temple.json"),
-    include_str!("../../../../data/logic/World/Water Temple.json"),
-    include_str!("../../../../data/logic/World/Shadow Temple.json"),
-    include_str!("../../../../data/logic/World/Spirit Temple.json"),
-    include_str!("../../../../data/logic/World/Bottom of the Well.json"),
-    include_str!("../../../../data/logic/World/Ice Cavern.json"),
-    include_str!("../../../../data/logic/World/Gerudo Training Ground.json"),
-    include_str!("../../../../data/logic/World/Ganons Castle.json"),
-];
-
 fn unique(files: Vec<Json>) -> Vec<Json> {
     let mut seen: HS<String> = HS::new();
     let mut out: Vec<Json> = Vec::new();
@@ -85,8 +68,8 @@ pub fn spec(d: &Data, over: &[(&str, &str)]) -> Res<Spec> {
         s.add_item(&it.name, it.adv, 0);
     }
     s.add_helpers(HELPERS)?;
-    let mut files: Vec<Json> = Vec::with_capacity(WORLD.len());
-    for t in WORLD {
+    let mut files: Vec<Json> = Vec::new();
+    for t in crate::slice::world_files::all() {
         files.push(parse(t)?);
     }
     if crate::slice::skull_rules::wanted(over) {
@@ -506,7 +489,18 @@ mod tests {
         assert_eq!(h.matches("magic_spell").count(), 3);
         let mut raw: Vec<String> = Vec::new();
         let mut rest: String = String::new();
-        let mut files: Vec<PathBuf> = std::fs::read_dir(dir.join("World")).unwrap().map(|e| e.unwrap().path()).collect();
+        fn walk(d: &Path, out: &mut Vec<PathBuf>) {
+            for e in std::fs::read_dir(d).unwrap() {
+                let p: PathBuf = e.unwrap().path();
+                if p.is_dir() {
+                    walk(&p, out);
+                } else {
+                    out.push(p);
+                }
+            }
+        }
+        let mut files: Vec<PathBuf> = Vec::new();
+        walk(&dir.join("World"), &mut files);
         files.sort();
         for f in files {
             for line in std::fs::read_to_string(&f).unwrap().lines() {

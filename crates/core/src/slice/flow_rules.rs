@@ -192,7 +192,7 @@ mod tests {
         assert!(goron(&[open], &["Zeldas Letter"]));
         assert!(!goron(&[open], &both));
         assert!(goron(&[], &["Bombchus (10)","Bombchus (5)", "Bombchus (20)"]));
-        let line: &str = include_str!("../../../../data/logic/World/Overworld.json").lines().find(|l| l.contains("\"GC Rolling Goron as Child\":")).unwrap();
+        let line: &str = crate::slice::world_files::overworld_text().lines().find(|l| l.contains("\"GC Rolling Goron as Child\":")).unwrap();
         assert_eq!(line.trim(), "\"GC Rolling Goron as Child\": \"is_child and Bomb_Bag\",");
     }
 
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn the_adult_rolling_goron_stops_with_bomb_flowers_bombs_or_bombchus() {
-        let rule: &str = include_str!("../../../../data/logic/World/Overworld.json")
+        let rule: &str = crate::slice::world_files::overworld_text()
             .split("\"Stop GC Rolling Goron as Adult\": \"")
             .nth(1)
             .and_then(|r| r.split('"').next())

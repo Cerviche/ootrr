@@ -6,7 +6,9 @@ pub(super) mod tests {
     use crate::slice::logic::{world, world_with};
     use crate::world::{Loc, World};
 
-    const SRC: &str = include_str!("../../../../data/logic/World/Overworld.json");
+    fn src() -> &'static str {
+        crate::slice::world_files::overworld_text()
+    }
 
     const EPONA: &str = "Epona from Lon Lon Ranch";
 
@@ -26,10 +28,10 @@ pub(super) mod tests {
 
     pub(in crate::slice) fn rule_text<'a>(name: &str) -> &'a str {
         let key: String = format!("\"{name}\":");
-        let at: usize = SRC.find(&key).unwrap() + key.len();
-        let from: usize = at + SRC[at..].find('"').unwrap() + 1;
-        let to: usize = from + SRC[from..].find('"').unwrap();
-        &SRC[from..to]
+        let at: usize = src().find(&key).unwrap() + key.len();
+        let from: usize = at + src()[at..].find('"').unwrap() + 1;
+        let to: usize = from + src()[from..].find('"').unwrap();
+        &src()[from..to]
     }
 
     pub(in crate::slice) fn worlds(d: &Data) -> Vec<World> {
