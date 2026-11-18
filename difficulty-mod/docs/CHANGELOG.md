@@ -2,6 +2,15 @@
 
 One entry per release candidate (rc), newest first. Each rc is one commit on the `difficulty` branch. "Played" means seen in the running game, by hand or by a script through Longshot's control bridge (see [TESTING.md](TESTING.md)). Feature details are in [features/](features/).
 
+## rc 5
+
+- **Bosses spawn minibosses** no longer touches King Dodongo: his dungeon loaded to a black screen with it on.
+- Played by script (rc.4 Longshot):
+  - Enemy damage 3x works: a Deku Baba bite took 2 quarter hearts at 1x and 6 at 3x.
+  - Dodongo's Cavern loads with boss minibosses and minions on.
+  - Combat music is named `BGM_EnemyBattle`; it starts when an enemy notices Link and stays on until the map changes or Link dies.
+  - Lose heart on death failed: 6 hearts before and after two game overs.
+
 ## rc 4
 
 - Four more settings, 19 in total: **Enemies call for backup**, **Zora's Domain ambush**, **Fairies help enemies too**, **Bean Seller's sales pitch**.

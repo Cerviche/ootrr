@@ -35,7 +35,7 @@ pub struct Spot {
     pub at: [f32; 3],
 }
 
-pub const SPOTS: [Spot; 5] = [
+pub const SPOTS: [Spot; 4] = [
     Spot {
         boss: "Queen Gohma",
         file: "Banc/InsideTheDekuTree/InsideTheDekuTree_Static.bcett.byml.zs",
@@ -43,14 +43,6 @@ pub const SPOTS: [Spot; 5] = [
         mini: "Enemy_Stalfos_ForChild",
         label: "Stalfos",
         at: [16.5, 47.25, 74.0],
-    },
-    Spot {
-        boss: "King Dodongo",
-        file: "Banc/DodongoCavern/DodongoCavern_Static.bcett.byml.zs",
-        actor: "Enemy_DungeonBoss_Dodongo",
-        mini: "Enemy_Lizalfos",
-        label: "Lizalfos",
-        at: [14.8, 74.0, -48.5],
     },
     Spot {
         boss: "Barinade",
@@ -398,7 +390,8 @@ mod tests {
     #[test]
     fn the_covered_bosses_are_named_with_their_miniboss() {
         let c: String = covered();
-        assert!(c.starts_with("Queen Gohma (Stalfos), King Dodongo (Lizalfos)"));
+        assert!(c.starts_with("Queen Gohma (Stalfos), Barinade (Stalfos)"));
+        assert!(!c.contains("Dodongo"), "King Dodongo's room went black in the game with a miniboss");
         assert!(c.ends_with("Twinrova (Dinolfos)"));
         for s in &SPOTS {
             assert!(s.file.starts_with("Banc/") && s.file.ends_with("_Static.bcett.byml.zs"));
