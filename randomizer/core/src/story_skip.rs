@@ -1294,6 +1294,11 @@ pub struct Write {
 }
 
 /// The writes `scene` makes besides its item: its GameDataActor and ChallengeSystemActor actions.
+/// Whether `w` marks a song as owned (IsGet.Item_Melody_*).
+fn grants_song(w: &Write) -> bool {
+    matches!(w.params.as_ref().and_then(|c| c.get("GameDataName")), Some(Val::Str(s)) if s.starts_with("IsGet.Item_Melody_"))
+}
+
 pub fn scene_writes(rf: &mut Romfs, scene: &str) -> Res<Vec<Write>> {
     let raw: Vec<u8> = rf.read_zs(&format!("Event/EventFlow/{scene}.bfevfl.zs"))?;
     let b: Bf = Bf::parse(&raw)?;
@@ -1357,7 +1362,10 @@ pub fn patch_song_trigger(b: &mut Bf, t: &SongTrigger, writes: &[Write], gives: 
             then = item_get(f, &format!("{SONG_PREFIX}{}_{i}_{k}", t.give), g, then, &names)?;
         }
         let mut kinds: Vec<Kind> = Vec::new();
-        for w in writes {
+        // The item gets grant whatever the checks hold, so the scene's own song grant (Bolero's
+        // scene sets IsGet.Item_Melody_FireBolero outright) would give the vanilla song twice
+        // over a shuffled check.
+        for w in writes.iter().filter(|w| !grants_song(w)) {
             let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, &w.actor, &w.act)?;
             kinds.push(Kind::Action { next: NONE, actor: a, act: x, params: w.params.clone() });
         }
@@ -1797,6 +1805,9 @@ mod tests {
             let mut b: Bf = Bf::parse(&rf.read_zs(&format!("Event/EventFlow/{}.bfevfl.zs", t.flow)).unwrap()).unwrap();
             patch_song_trigger(&mut b, t, &writes, &gives).unwrap();
             let f: &Flow = b.flows.iter().find(|x| x.name == t.flow).unwrap();
+            for e in f.events.iter().filter(|e| e.name.starts_with(SONG_PREFIX)) {
+                assert!(!text(e, "GameDataName").is_some_and(|n| n.starts_with("IsGet.Item_Melody_")), "{}: {} grants a song outright", t.flow, e.name);
+            }
             for i in (0..f.events.len()).filter(|&i| f.events[i].name.starts_with(SONG_PREFIX) && matches!(f.events[i].kind, Kind::Sub { .. })) {
                 let ins: Vec<String> = entries_reaching(f, i);
                 assert!(!ins.is_empty(), "{}: {} is reached by no entry", t.flow, f.events[i].name);
