@@ -300,9 +300,9 @@ fn swap_name(b: &mut [u8], old: &str, new: &str) -> usize {
 /// Draws the line only into the small Title archive and leaves the 244 MB Common archive alone:
 /// the logo in the Title archive is renamed (a name no other archive has, as long, checked to stay
 /// findable in its name tree) and both layouts that show the logo, the title screen's in the
-/// Common layout archive and the Title one, point at it. Needs the Title archive's textures to be
-/// usable by the Common layout on the title screen; untested in the game. None when anything does
-/// not fit, and then both archives get the line.
+/// Common layout archive and the Title one, point at it. The Common layout uses the Title archive's
+/// texture on the title screen (confirmed in the game, 2026-11-18). None when anything does not
+/// fit, and then both archives get the line.
 fn title_only(mod_root: &P, rf: &mut Romfs, p: &Patch) -> Res<Option<Vec<String>>> {
     let (Some(title), Some(common)) = (p.files.iter().find(|f| f.contains("/Title.")), p.files.iter().find(|f| f.contains("/Common."))) else {
         return Ok(None);
@@ -364,7 +364,7 @@ fn title_only(mod_root: &P, rf: &mut Romfs, p: &Patch) -> Res<Option<Vec<String>
         notes.push(format!("Title logo: {f} written ({:.1} MB)", mb(z.len())));
         fs::write(&o, z)?;
     }
-    notes.push(format!("Title logo: the Randomizer line is drawn only in the Title archive, as {new}, and the title screen layouts point at it; the Common archive stays the game's. Experimental, untested in the game."));
+    notes.push(format!("Title logo: the Randomizer line is drawn only in the Title archive, as {new}, and the title screen layouts point at it; the Common archive stays the game's."));
     Ok(Some(notes))
 }
 
