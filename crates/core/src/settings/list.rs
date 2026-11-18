@@ -187,6 +187,31 @@ fn starting_songs() -> Setting {
         ])
 }
 
+fn difficulty() -> Vec<Setting> {
+    use crate::difficulty as d;
+    vec![
+        Setting::number(d::HEALTH_NUM, d::HEALTH, "difficulty", "Enemy health", d::NORMAL, d::STAT_RANGE.0, d::STAT_RANGE.1)
+            .multiplier(d::STAT_STEP, d::NORMAL)
+            .tip("How much health enemies and bosses have, from half (0.5x) to five times (5x) the usual amount. Health is rounded and never drops below one hit. Enemies that are beaten by a scripted hit, such as Deku Scrubs, are unchanged. The settings string stores this as a percentage. Experimental, untested in the game."),
+        Setting::number(d::DAMAGE_NUM, d::DAMAGE, "difficulty", "Enemy damage", d::NORMAL, d::STAT_RANGE.0, d::STAT_RANGE.1)
+            .multiplier(d::STAT_STEP, d::NORMAL)
+            .tip("How hard enemy attacks and enemy projectiles hit, from half (0.5x) to five times (5x) the usual damage. Traps, lava and falls are unchanged. The settings string stores this as a percentage. Experimental, untested in the game."),
+        Setting::number(d::SPEED_NUM, d::SPEED, "difficulty", "Enemy speed", d::NORMAL, d::SPEED_RANGE.0, d::SPEED_RANGE.1)
+            .multiplier(d::SPEED_STEP, d::NORMAL)
+            .tip("How fast enemies move and how often they attack, from three quarters (0.75x) to twice (2x) the usual speed. Enemies that only move through their animations, such as Octoroks and Skulltulas, keep their pace. The settings string stores this as a percentage. Experimental, untested in the game."),
+        Setting::toggle(d::NO_HEARTS_NUM, d::NO_HEARTS, "difficulty", "No heart drops", false)
+            .tip("Enemies, pots, grass and other random drops never give recovery hearts. Hearts that are placed as shuffled items are still there. Experimental, untested in the game."),
+        Setting::toggle(d::NO_FAIRIES_NUM, d::NO_FAIRIES, "difficulty", "No gossip fairies", false)
+            .tip("Playing a song to a gossip stone no longer calls a fairy that heals you. Experimental, untested in the game."),
+        Setting::toggle(d::NO_AMMO_NUM, d::NO_AMMO, "difficulty", "No ammo drops", false)
+            .tip("Enemies, pots, grass and other random drops never give arrows, Deku Seeds, bombs, Deku Nuts or Deku Sticks. Ammo from shops, chests and shuffled items is still there. The seed logic does not change, so make sure you can buy what you need. Experimental, untested in the game."),
+        Setting::toggle(d::LOSE_HEART_NUM, d::LOSE_HEART, "difficulty", "Lose heart on death", false)
+            .tip("Each time you get a game over and continue, you lose one heart container, down to a minimum of three hearts. Being revived by a fairy in a bottle is not a game over. Experimental, untested in the game."),
+        Setting::toggle(d::NO_BOTTLES_NUM, d::NO_BOTTLES, "difficulty", "No bottles during combat", false)
+            .tip("You cannot drink from a bottle or let out its contents while an enemy is after you. The game is read as being in combat while the enemy battle music plays or during a boss battle, so enemies that start no battle music do not block bottles. Experimental, untested in the game."),
+    ]
+}
+
 pub fn build() -> Schema {
     let mut s: Vec<Setting> = vec![
         Setting::choice(1, "logic_rules", "world", "Logic", "glitchless")
@@ -599,6 +624,7 @@ pub fn build() -> Schema {
     );
     s.push(starting_items());
     s.push(starting_songs());
+    s.extend(difficulty());
     s.sort_by_key(|x| x.num);
     Schema {
         version: SCHEMA_VERSION,
@@ -608,6 +634,7 @@ pub fn build() -> Schema {
             group("keys", "Keys", "Where dungeon keys and maps can appear."),
             group("goal", "Goals", "What you need to do to finish the game."),
             group("starting", "Starting items", "What you begin the game with."),
+            group("difficulty", "Difficulty", "How hard enemies hit and how much help the game hands out."),
         ],
         settings: s,
     }
