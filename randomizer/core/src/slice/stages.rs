@@ -73,7 +73,7 @@ fn songs(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 
 fn song_models(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if c.p.songs == Songs::Anywhere {
-        more.extend(crate::song_models::stage(rf)?);
+        more.extend(crate::song_models::stage(rf, c.p.harp_colors)?);
     }
     Ok(())
 }

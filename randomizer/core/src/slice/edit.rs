@@ -308,6 +308,18 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     for o in more {
         pk.write_romfs(&o.path, &o.z)?;
         extra += 1;
+        if let Some(peer) = crate::song_models::size_peer(&o.path) {
+            if rst.is_none() {
+                rst = Some(rsizetable::load(&mut rf)?);
+            }
+            if let Some(t) = rst.as_mut()
+                && let Some(n) = t.get(peer)
+            {
+                t.set_size(&o.path, n)?;
+                grown += 1;
+            }
+            continue;
+        }
         if o.new > o.old {
             if rst.is_none() {
                 rst = Some(rsizetable::load(&mut rf)?);

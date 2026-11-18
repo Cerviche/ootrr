@@ -581,7 +581,7 @@ const LOCATIONS_TAB: &[PortSection] = &[
             Entry::Hidden("shuffle_scrubs_b"),
         ],
     ),
-    port("Items", &[Entry::Plain("shuffle_songs"), Entry::View(&SKULLTULAS), Entry::View(&FREESTANDING)]),
+    port("Items", &[Entry::Plain("shuffle_songs"), Entry::Plain("song_harp_colors"), Entry::View(&SKULLTULAS), Entry::View(&FREESTANDING)]),
     port(
         "Shops",
         &[

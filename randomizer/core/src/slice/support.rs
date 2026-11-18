@@ -58,6 +58,7 @@ pub struct Plan {
     pub hearts: bool,
     pub world: pu::Free,
     pub songs: Songs,
+    pub harp_colors: bool,
     pub hints: bool,
     pub fast: bool,
     pub chest_sizes: bool,
@@ -218,6 +219,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let start: crate::start_items::Start = crate::start_items::Start::read(s, &mut bad);
     let mut gates: crate::open_world::Gates = crate::open_world::Gates::read(s, &mut bad);
     let songs: Songs = crate::songs::mode(s, &mut bad);
+    let harp_colors: bool = toggle(s, crate::song_models::SETTING, &mut bad);
     let chosen: Vec<String> = s.items("starting_items").map(|v| v.to_vec()).unwrap_or_default();
     let kit: crate::start_items::Kit = crate::start_items::read(s, &mut bad);
     // Settings that would hand out the same check twice.
@@ -333,7 +335,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if silver {
         notes.push(crate::slice::silver::NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, story, endings })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, story, endings })
 }
 
 #[cfg(test)]
