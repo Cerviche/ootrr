@@ -131,7 +131,7 @@ pub enum Keep {
 }
 
 pub fn lose_heart(raw: &[u8]) -> Res<Vec<u8>> {
-    lose_heart_with(raw, KEEP)
+    lose_heart_with(raw)
 }
 
 pub fn lose_heart_boot(raw: &[u8]) -> Res<Vec<u8>> {
@@ -180,7 +180,7 @@ fn redirect(f: &mut Flow, upto: usize, from: u16, to: u16) {
     }
 }
 
-pub fn lose_heart_with(raw: &[u8], keep: Keep) -> Res<Vec<u8>> {
+pub fn lose_heart_with(raw: &[u8]) -> Res<Vec<u8>> {
     let mut b: Bf = Bf::parse(raw)?;
     let f: &mut Flow = flow(&mut b, OVER_FLOW)?;
     if marked(f, HEART_MARK) {
@@ -451,7 +451,7 @@ mod tests {
     #[test]
     fn a_retry_reserves_the_boot_event_and_a_title_choice_is_left_alone() {
         let plain: Vec<u8> = over_file();
-        let done: Vec<u8> = lose_heart_with(&plain, Keep::Count).unwrap();
+        let done: Vec<u8> = lose_heart_with(&plain).unwrap();
         let b: Bf = Bf::parse(&done).unwrap();
         let f: &Flow = &b.flows[0];
         let rungs: usize = (TOP_HEARTS - FLOOR_HEARTS) as usize;
@@ -463,14 +463,14 @@ mod tests {
         assert_eq!(next_of(f, reserve), 1, "the reservation runs before the retry result");
         assert_eq!(arg(f, reserve, "GameDataName"), Val::Str(BOOT_KEY.into()));
         assert_eq!(arg(f, reserve, "Value"), Val::Str(BOOT_FLOW.into()));
-        assert!(lose_heart_with(&done, Keep::Count).is_err());
+        assert!(lose_heart_with(&done).is_err());
         let none: Vec<u8> = file(OVER_FLOW, vec![sys(SYSTEM, &[RESULT], &[])], vec![act("Other", 0, 0, NONE, vec![])], &[0]);
-        assert!(lose_heart_with(&none, Keep::Count).is_err());
+        assert!(lose_heart_with(&none).is_err());
     }
 
     #[test]
     fn the_count_variant_remembers_the_level_at_the_retry() {
-        let out: Vec<u8> = lose_heart_with(&over_file(), Keep::Count).unwrap();
+        let out: Vec<u8> = lose_heart_with(&over_file()).unwrap();
         let b: Bf = Bf::parse(&out).unwrap();
         let f: &Flow = &b.flows[0];
         let rungs: usize = (TOP_HEARTS - FLOOR_HEARTS) as usize;

@@ -1,4 +1,4 @@
-# Special encounters: Dead Hand in two holes, Iron Knuckle in Hyrule Field
+# Special encounters: Dead Hand in two holes, Iron Knuckle in Hyrule Field, Like Likes at Lake Hylia
 
 Setting `special_encounters` (number 130), checkbox, label "More enemies: special encounters". Code: `crates/core/src/difficulty/encounters.rs`. Built on `feature/dead-hand-holes` (worktree `wt\dead-hand-holes`). Separate from the `more_enemies` choice (119), which is unchanged.
 
@@ -140,3 +140,49 @@ User, after entering hole 9 properly: the Dead Hand "could be moved back a bit t
 - Hole 23 (Death Mountain Trail): landing at (-1.65, 59.05, -26.12). Dead Hand now at (-5.0, 58.17, -38.5), the far end of the room among the Baby Dodongos: 12.8 from the landing spot (was 8.8), 4.2 or more from every Dodongo. Nearest hand about 9.8 from the landing spot.
 - The ring and floor heights are unchanged. Both child and adult maps use the same numbers. The game test now also requires every hand to be at least 6 units from the landing anchor.
 - In the game: see `playtest\session-fixes\TESTS.md`.
+
+
+## Like Likes at Lake Hylia (feature/likelikes, 18 Nov, not played)
+You sent a picture of the Lake Hylia map with green dots and asked: "add a likelike at all the locations marked green".
+
+### Interpretation
+- Ten dots (north-west grass corner, two north-shore spots, the bridge island, a west island, the central island, the stone-ring island, a south-west islet, the west shore strip, a south island). One `Enemy_LikeLike` on each, in both the child and the adult map (you did not say which age). Each is its own row in `PLACES` (`like_like_lake_hylia_*`), so any one can be dropped.
+- Lake Hylia is not a separate map in this game. Its objects (`Land_LakeHrl_*`, the lab, the fishing pond) live in `HyruleField_Child` and `HyruleField_Adult`, so the Like Likes go in those two `_Static` files, next to the Hyrule Field Dead Hand and Iron Knuckle.
+- Actor: `Enemy_LikeLike`, copied from the Shadow Temple instance (others are in Gerudo Training Ground and the enemy museum): a plain actor with `Drop__DropTable` "None", no links, no group. The dungeon room key is left out. The game's own behaviour (it eats the shield and tunic) is left alone.
+
+### Picture to world
+Landmarks matched between the picture and the map files (picture pixel, world x/z): the lab house (1055,265 and -174.7,418.9), the fishing pond building (1555,695 and -99.2,487.3), the central island's dead tree (925,860 and -195.1,520.4), the bridge island (880,480 and -204.0,456.2), the stone-ring island (1177,908 and -157.5,523.5), the south-west islet (822,946 and -213.0,530.9), the south island (718,1255 and -233.1,579.0), the west island (310,635 and -295.2,480.5), two west shore trees, and the end of the second rope bridge (905,765 and -200.4,500.8). Eleven points, affine fit: picture x runs along world x, picture y along world z (so north is up and world z grows downward), scale 6.27 pixels per unit, about 1.3 degrees of turn. Fit error 2.6 world units rms (largest about 4.5), mostly from reading pixel centres off the picture. The islands' own objects sit within 0.5 to 2.4 of the dot positions, which is a second check.
+
+### Positions
+Ground heights come from objects standing on the same landmass (there is no collision reader). Dots 1, 2 and 3 are on the shore, where the ground slopes and no ground object is within 7 units, so those heights are estimates (up to about 1.5 off): 1 from lake-bottom rocks on that bank, 2 from the lab yard, 3 from the horse target area and rocks.
+
+| # | x | y | z | notes |
+|---|---|---|---|---|
+| 1 | -202.4 | 133.5 | 403.7 | grass corner, 7 from the river bank pieces |
+| 2 | -148.5 | 137.5 | 411.7 | 4.9 from a Tektite |
+| 3 | -87.3 | 133.5 | 416.6 | |
+| 4 | -206.3 | 130.9 | 452.85 | moved 0.9 from the dot, which sat on the hidden hole's anchors; now 2.5 from the entrance marker |
+| 5 | -294.2 | 131.3 | 482.7 | |
+| 6 | -188.5 | 131.3 | 510.3 | 13.8 from the warp pad |
+| 7 | -155.5 | 131.46 | 523.0 | moved 2 from the dot, which sat on the adult Fire Arrow; now 2.6 from it |
+| 8 | -214.3 | 131.3 | 530.7 | 2.8 from the adult scarecrow marker |
+| 9 | -292.7 | 131.5 | 547.7 | nearest ground object 6.6 away |
+| 10 | -231.7 | 131.0 | 580.8 | gossip stone on the island |
+
+`playtest\likelikes\placed.png` draws a numbered marker at each of these, transformed back onto your picture (all within a pixel or two of your dots, except 7, 16 pixels off). Water: child level is about 131, so the islands (130.9 to 131.5) are land at the normal level; as adult the lake level changes during the game and the spots stay land either way (not confirmed in the game).
+
+### Tests
+- Unit: a Like Like is one plain actor with no links and no groups; the Hyrule Field test map with every place has 17 actors with unique hashes.
+- Game files (`OOTRR_ROMFS`): each map gains exactly the expected Like Likes, old actors untouched, unique hashes, groups unchanged; every Like Like is at least 2 from any existing enemy, chest, scarecrow, gossip stone, sign, warp pad or Fire Arrow, and inside the lake area.
+- `difficulty` (124) and `settings` (107) pass. A release build is in `playtest\likelikes\ootrr.exe`. The game was not launched.
+
+### Known risk
+Like Like is an enemy kind that Hyrule Field does not have. One earlier black screen (the Dodongo's Cavern edit) is suspected to come from a new kind in a map, but other new kinds (Dead Hand, Iron Knuckle) loaded fine in these same maps. Not isolated. If Hyrule Field goes black, drop rows from `PLACES`.
+
+### In the game
+`playtest\likelikes\TESTS.md`: `teleport HyruleField_Child`, then `warp` to each spot (Lake Hylia has no teleport entry of its own). Look for a Like Like on the ground at each spot, not in the water.
+
+## Dead Hand, round 2 (branch `feature/enc-r2`)
+User, after the move to (148.6, 136.41, 13.7): "deadhand still spawns right near the entrance."
+- From the position logs: Link landed at (163.3, 136, 27.4). Battle music (`BGM_MiddleBoss`) began about one second after landing, 18 units from the body, so the Dead Hand notices Link from the landing spot whatever the placement. In the run with the old build Link was held at exactly the new spot (148.6, 13.7), so the body does rise at his placement. With the new build Link was held at (150.1, 17.4) after 6 s of walking, 3.8 from the body: that is the south hand of the ring (radius 3), which is the first thing Link walks past, and the grab happens there. The body's AI hides underground, walks towards Link and rises at the next appear position (`QueryDeadHandGetNextAppearPos`) inside an appear area whose range defaults to 6 (blackboard `DeadHand_RangeOfAppearArea`).
+- Change: the body now carries `DeadHand_RangeOfAppearArea` 3.5 (the Shadow Temple uses 4.0), so he does not rise until Link is within 3.5 of the back spot, instead of 6. The ring stays at the back (centre unchanged). Hole 23 gets the same. The room is only 18 units long, so the music cannot be delayed by position alone. Not verified in the game.

@@ -46,3 +46,6 @@ The user saw enemies tinted red with regen, fairy and backup on (screenshot of a
   2. The wrapper: the colour node runs as a child of a Parallel and not as the module root, and may behave differently there.
 - Not caused by the speed setting (it scales keys ending in Speed and Interval only) or by the gate edit (the gate does not touch the guards' components).
 - To tell them apart, build three mods with one setting each and look at a Deku Baba: `enemy_backup` only (wrapper but no heal), `enemy_regen` only (wrapper and heal), `enemy_speed` 200 only. Red with backup only means cause 2; red only with regen means cause 1; red with neither means another feature.
+
+## Review fix: nodes live in the caller graphs (branch `feature/review-fixes`)
+Same change as in 09: the poll switch is now an extra child of the Parallel that holds the damage colour module call in each caller graph, and the module graphs stay as the game has them. A caller counts as already patched when it reads or clears `MiniGame_Diving_Test` (vanilla callers use the same game data nodes for other flags). Test: the all-8-combinations test described in 09. In the game: see `playtest\review-fixes\TESTS.md`.

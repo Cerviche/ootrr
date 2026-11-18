@@ -14,15 +14,17 @@ use crate::zs;
 pub const HAND: &str = "Enemy_DeadHand";
 pub const FINGERS: &str = "Enemy_DeadHand_Hand";
 pub const KNIGHT: &str = "Enemy_IronKnuckle_Silver";
+pub const LIKE: &str = "Enemy_LikeLike";
 pub const SEED: &str = "ootrr special encounters";
 pub const GROUPS: [&str; 2] = ["FarDeleteGroups", "SimultaneousGroups"];
 pub const RING: f32 = 3.0;
-pub const NOTE: &str = "Special encounters: a Dead Hand waits in the dark hole in east Hyrule Field (next to the ReDead and the chest) and in the foggy hole at the foot of the Death Mountain trail (with the Baby Dodongos), and an Iron Knuckle (it gets up when you come within about 9 units) stands in the open fields of Hyrule Field between Kakariko, Lon Lon Ranch and the Kokiri Forest. They are in the child and the adult map and come back when the area is loaded again. Experimental, untested in the game.";
+pub const NOTE: &str = "Special encounters: a Dead Hand waits in the dark hole in east Hyrule Field (next to the ReDead and the chest) and in the foggy hole at the foot of the Death Mountain trail (with the Baby Dodongos), and an Iron Knuckle (it gets up when you come within about 9 units) stands in the open fields of Hyrule Field between Kakariko, Lon Lon Ranch and the Kokiri Forest. Ten Like Likes wait around Lake Hylia: the grassy corner and the shore north of the lake, the island where the two rope bridges meet, the small islands, the big central island and the west shore strip. They are in the child and the adult map and come back when the area is loaded again. Experimental, untested in the game.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum What {
     DeadHand,
     IronKnuckle,
+    LikeLike,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -35,10 +37,20 @@ pub struct Place {
     pub turn: f32,
 }
 
-pub const PLACES: [Place; 3] = [
-    Place { name: "dead_hand_hyrule_field_hole", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::DeadHand, at: [155.72, 135.84, 20.09], turn: 0.7887344 },
+pub const PLACES: [Place; 13] = [
+    Place { name: "dead_hand_hyrule_field_hole", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::DeadHand, at: [148.6, 136.41, 13.7], turn: 0.7887344 },
     Place { name: "dead_hand_death_mountain_hole", dir: "DeathMountainTrail", maps: &["DeathMountainTrail_Child", "DeathMountainTrail_Adult"], what: What::DeadHand, at: [-5.0, 58.17, -38.5], turn: 0.2617994 },
     Place { name: "iron_knuckle_hyrule_field", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::IronKnuckle, at: [134.0, 157.7, 168.5], turn: 0.0 },
+    Place { name: "like_like_lake_hylia_north_west_corner", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-202.4, 133.5, 403.7], turn: 0.0 },
+    Place { name: "like_like_lake_hylia_north_shore_east", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-148.5, 137.5, 411.7], turn: 0.0 },
+    Place { name: "like_like_lake_hylia_north_east_shore", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-87.3, 133.5, 416.6], turn: 0.0 },
+    Place { name: "like_like_lake_hylia_bridge_island", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-206.3, 130.9, 452.85], turn: 0.0 },
+    Place { name: "like_like_lake_hylia_west_island", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-294.2, 131.3, 482.7], turn: 0.0 },
+    Place { name: "like_like_lake_hylia_central_island", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-188.5, 131.3, 510.3], turn: 0.0 },
+    Place { name: "like_like_lake_hylia_ring_island", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-155.5, 131.46, 523.0], turn: 0.0 },
+    Place { name: "like_like_lake_hylia_islet_south_west", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-214.3, 131.3, 530.7], turn: 0.0 },
+    Place { name: "like_like_lake_hylia_west_shore_strip", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-292.7, 131.5, 547.7], turn: 0.0 },
+    Place { name: "like_like_lake_hylia_south_island", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-231.7, 131.0, 580.8], turn: 0.0 },
 ];
 
 pub fn file(dir: &str, map: &str, kind: &str) -> String {
@@ -79,11 +91,10 @@ fn reference(src: u64, dst: u64) -> Node {
     l
 }
 
-pub fn dead_hand(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usize> {
-    let seed: String = format!("{SEED} {map} {}", p.name);
+pub fn dead_hand_nodes(at: [f32; 3], turn: f32, raws: &[&[u8]], seed: &str) -> (Node, Vec<Node>) {
     let mut taken: Vec<u64> = Vec::new();
     let body: u64 = next(raws, &mut taken, &format!("{seed} body"));
-    let ring: Frame = Frame { at: p.at, yaw: p.turn };
+    let ring: Frame = Frame { at, yaw: turn };
     let spots: [([f32; 3], f32, Option<(&str, Node)>); 4] = [
         ([0.0, 0.0, -RING], 0.0, Some(("DeadHandHand_IsEnableAppearDelay", Node::Bool(false)))),
         ([0.0, 0.0, RING], PI, Some(("DeadHandHand_AppearOrderNum", Node::I32(2)))),
@@ -101,7 +112,7 @@ pub fn dead_hand(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usiz
         hands.push(h);
         ids.push(id);
     }
-    let mut b: Node = actor(HAND, body, p.at, [0.0; 3]);
+    let mut b: Node = actor(HAND, body, at, [0.0; 3]);
     b.set(
         "Dynamic",
         Node::Map(vec![
@@ -112,12 +123,26 @@ pub fn dead_hand(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usiz
     );
     b.set("Links", Node::Arr(ids.iter().map(|i| reference(body, *i)).collect()));
     b.set("Name", Node::Str("DeadHand".to_string()));
+    (b, hands)
+}
+
+pub fn knight_node(at: [f32; 3], turn: f32, raws: &[&[u8]], seed: &str) -> Node {
+    let mut taken: Vec<u64> = Vec::new();
+    let id: u64 = next(raws, &mut taken, seed);
+    let mut k: Node = actor(KNIGHT, id, at, euler(0.0, turn));
+    k.set("Dynamic", Node::Map(vec![("Drop__DropTable".to_string(), Node::Str("None".to_string())), (wake::KEY.to_string(), Node::Bool(true))]));
+    k
+}
+
+pub fn dead_hand(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usize> {
+    let seed: String = format!("{SEED} {map} {}", p.name);
+    let (b, hands): (Node, Vec<Node>) = dead_hand_nodes(p.at, p.turn, raws, &seed);
+    let mut all: Vec<u64> = hands.iter().filter_map(hash_of).collect();
+    all.extend(hash_of(&b));
+    all.sort();
     let acts: &mut Vec<Node> = list(y, "Actors")?;
     acts.push(b);
     acts.extend(hands);
-    let mut all: Vec<u64> = ids;
-    all.push(body);
-    all.sort();
     for g in GROUPS {
         list(y, g)?.push(Node::Arr(all.iter().map(|h| Node::U64(*h)).collect()));
     }
@@ -125,11 +150,16 @@ pub fn dead_hand(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usiz
 }
 
 pub fn iron_knuckle(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usize> {
+    list(y, "Actors")?.push(knight_node(p.at, p.turn, raws, &format!("{SEED} {map} {}", p.name)));
+    Ok(1)
+}
+
+pub fn like_like(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usize> {
     let mut taken: Vec<u64> = Vec::new();
     let id: u64 = next(raws, &mut taken, &format!("{SEED} {map} {}", p.name));
-    let mut k: Node = actor(KNIGHT, id, p.at, euler(0.0, p.turn));
-    k.set("Dynamic", Node::Map(vec![("Drop__DropTable".to_string(), Node::Str("None".to_string())), (wake::KEY.to_string(), Node::Bool(true))]));
-    list(y, "Actors")?.push(k);
+    let mut l: Node = actor(LIKE, id, p.at, euler(0.0, p.turn));
+    l.set("Dynamic", Node::Map(vec![("Drop__DropTable".to_string(), Node::Str("None".to_string()))]));
+    list(y, "Actors")?.push(l);
     Ok(1)
 }
 
@@ -137,6 +167,7 @@ pub fn place(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usize> {
     match p.what {
         What::DeadHand => dead_hand(y, p, raws, map),
         What::IronKnuckle => iron_knuckle(y, p, raws, map),
+        What::LikeLike => like_like(y, p, raws, map),
     }
 }
 
@@ -191,19 +222,19 @@ pub fn stage(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
     Ok(outs)
 }
 
-pub fn around(y: &Byml, at: [f32; 3]) -> Vec<(String, f32)> {
-    let acts: &[Node] = y.root.get("Actors").and_then(|a| a.as_arr()).unwrap_or(&[]);
-    acts.iter()
-        .filter_map(|a| {
-            let t: [f32; 3] = vec3(a, "Translate")?;
-            Some((text(a, "Gyaml").to_string(), ((t[0] - at[0]).powi(2) + (t[1] - at[1]).powi(2) + (t[2] - at[2]).powi(2)).sqrt()))
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn around(y: &Byml, at: [f32; 3]) -> Vec<(String, f32)> {
+        let acts: &[Node] = y.root.get("Actors").and_then(|a| a.as_arr()).unwrap_or(&[]);
+        acts.iter()
+            .filter_map(|a| {
+                let t: [f32; 3] = vec3(a, "Translate")?;
+                Some((text(a, "Gyaml").to_string(), ((t[0] - at[0]).powi(2) + (t[1] - at[1]).powi(2) + (t[2] - at[2]).powi(2)).sqrt()))
+            })
+            .collect()
+    }
 
     fn map() -> Byml {
         let mut g: Node = Node::Map(Vec::new());
@@ -300,6 +331,28 @@ mod tests {
     }
 
     #[test]
+    fn a_like_like_is_one_plain_actor_with_no_drops_and_no_links() {
+        let mut y: Byml = map();
+        let likes: Vec<Place> = PLACES.iter().filter(|p| p.what == What::LikeLike).copied().collect();
+        assert_eq!(likes.len(), 10);
+        for p in &likes {
+            assert_eq!(place(&mut y, p, &[], "Test").unwrap(), 1);
+        }
+        assert_eq!(count(&y, LIKE), 10);
+        let mut seen: Vec<[f32; 3]> = Vec::new();
+        for a in actors(&y).iter().filter(|a| text(a, "Gyaml") == LIKE) {
+            assert!(a.get("Links").is_none() && a.get("Name").is_none());
+            assert_eq!(a.get("Dynamic").and_then(|d| d.get("Drop__DropTable")), Some(&Node::Str("None".to_string())));
+            let t: [f32; 3] = vec3(a, "Translate").unwrap();
+            assert!(!seen.contains(&t));
+            seen.push(t);
+        }
+        for g in GROUPS {
+            assert_eq!(y.root.get(g).unwrap().as_arr().unwrap().len(), 1);
+        }
+    }
+
+    #[test]
     fn two_places_in_one_map_do_not_share_a_hash_and_a_broken_map_is_refused() {
         let mut y: Byml = map();
         for p in PLACES.iter().filter(|p| p.dir == "HyruleField") {
@@ -309,7 +362,7 @@ mod tests {
         let n: usize = hs.len();
         hs.sort();
         hs.dedup();
-        assert_eq!((n, hs.len()), (7, 7));
+        assert_eq!((n, hs.len()), (17, 17));
         let mut bad: Byml = map();
         bad.root.remove("FarDeleteGroups");
         assert!(dead_hand(&mut bad, &PLACES[0], &[], "Test").is_err());
@@ -359,11 +412,13 @@ mod tests {
                 let here: Vec<&Place> = chosen.iter().filter(|p| p.maps.iter().any(|m| o.path == file(p.dir, m, "Static"))).collect();
                 let hands: usize = here.iter().filter(|p| p.what == What::DeadHand).count();
                 let knights: usize = here.iter().filter(|p| p.what == What::IronKnuckle).count();
+                let likes: usize = here.iter().filter(|p| p.what == What::LikeLike).count();
                 assert!(o.new > o.old);
                 assert_eq!(count(&now, HAND), count(&was, HAND) + hands, "{}", o.path);
                 assert_eq!(count(&now, FINGERS), count(&was, FINGERS) + 4 * hands, "{}", o.path);
                 assert_eq!(count(&now, KNIGHT), count(&was, KNIGHT) + knights, "{}", o.path);
-                assert_eq!(actors(&now).len(), actors(&was).len() + 5 * hands + knights);
+                assert_eq!(count(&now, LIKE), count(&was, LIKE) + likes, "{}", o.path);
+                assert_eq!(actors(&now).len(), actors(&was).len() + 5 * hands + knights + likes);
                 assert_eq!(&actors(&now)[..actors(&was).len()], actors(&was), "the actors that were there are untouched");
                 let mut hs: Vec<u64> = actors(&now).iter().filter_map(hash_of).collect();
                 let n: usize = hs.len();
@@ -385,6 +440,14 @@ mod tests {
                                 assert!(*d > 4.0, "{} sits {d} from {g}", text(a, "Gyaml"));
                             }
                         }
+                    }
+                    if text(a, "Gyaml") == LIKE {
+                        for (g, d) in &near {
+                            if g.starts_with("Enemy_") || g.starts_with("Obj_TBox") || g.starts_with("Obj_Scarecrow") || g.starts_with("Obj_GossipStone") || g.starts_with("Obj_SignBoard") || g.starts_with("Obj_LakeHrl_WarpPoint") || g.starts_with("Obj_Arrow") {
+                                assert!(*d >= 2.0, "a Like Like sits {d} from {g}");
+                            }
+                        }
+                        assert!(t[0] < -80.0 && t[0] > -300.0 && t[2] > 400.0 && t[2] < 590.0 && t[1] > 130.0 && t[1] < 138.0, "a Like Like is inside the lake area");
                     }
                     if text(a, "Gyaml") == HAND {
                         let landing: &Node = actors(&was)

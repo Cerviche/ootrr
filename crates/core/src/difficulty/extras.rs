@@ -72,25 +72,25 @@ pub fn tally(n: &Node, out: &mut Map<u64, u32>) {
     }
 }
 
-fn gyaml(a: &Node) -> &str {
+pub fn gyaml(a: &Node) -> &str {
     a.get("Gyaml").and_then(|v| v.as_str()).unwrap_or("")
 }
 
-fn pos(a: &Node) -> Option<[f32; 3]> {
+pub fn pos(a: &Node) -> Option<[f32; 3]> {
     match a.get("Translate")?.as_arr()? {
         [Node::F32(x), Node::F32(y), Node::F32(z)] => Some([*x, *y, *z]),
         _ => None,
     }
 }
 
-fn room(a: &Node) -> Option<i32> {
+pub fn room(a: &Node) -> Option<i32> {
     match a.get("Dynamic")?.get(ROOM)? {
         Node::I32(r) => Some(*r),
         _ => None,
     }
 }
 
-fn own_body(a: &Node, h: u64) -> bool {
+pub fn own_body(a: &Node, h: u64) -> bool {
     let want: Node = Node::Map(vec![("Placement".to_string(), Node::Map(vec![("ID".to_string(), Node::U64(h))]))]);
     a.get("Phive") == Some(&want)
 }
@@ -185,7 +185,7 @@ pub fn add(y: &mut Byml, seen: &mut Map<u64, u32>, rng: &mut Rng, pct: i64) -> V
     out
 }
 
-fn raw(rf: &mut Romfs, have: Have, path: &str) -> Res<(Vec<u8>, Option<u32>)> {
+pub fn raw(rf: &mut Romfs, have: Have, path: &str) -> Res<(Vec<u8>, Option<u32>)> {
     let z: Vec<u8> = match have(path) {
         Some(b) => b,
         None => rf.read(path)?,

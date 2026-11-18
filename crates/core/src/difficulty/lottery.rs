@@ -202,33 +202,33 @@ pub fn edit(raw: &[u8], c: Cut) -> Res<Option<Vec<u8>>> {
     Ok(Some(out))
 }
 
-pub fn boosts(raw: &[u8]) -> Res<Vec<(u32, i32)>> {
-    let d: Doc = Doc::open(raw)?;
-    let master: Vec<(String, Slot)> = d.map(find(&d.map(d.root()?)?, MASTER).ok_or_else(cut)?)?;
-    let mut out: Vec<(u32, i32)> = Vec::new();
-    for name in NEEDS {
-        let Some(s) = find(&master, name) else {
-            continue;
-        };
-        for (t, row) in d.hash(s)? {
-            if let Some(x) = find(&d.map(row)?, BOOST) {
-                out.push((t, x.val as i32));
-            }
-        }
-    }
-    Ok(out)
-}
-
-pub fn actor_of(raw: &[u8], key: &str) -> Res<Option<String>> {
-    let d: Doc = Doc::open(raw)?;
-    let master: Vec<(String, Slot)> = d.map(find(&d.map(d.root()?)?, MASTER).ok_or_else(cut)?)?;
-    Ok(find(&master, key).and_then(|s| d.text(s)).map(|s| s.to_string()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::romfs::Romfs;
+
+    fn boosts(raw: &[u8]) -> Res<Vec<(u32, i32)>> {
+        let d: Doc = Doc::open(raw)?;
+        let master: Vec<(String, Slot)> = d.map(find(&d.map(d.root()?)?, MASTER).ok_or_else(cut)?)?;
+        let mut out: Vec<(u32, i32)> = Vec::new();
+        for name in NEEDS {
+            let Some(s) = find(&master, name) else {
+                continue;
+            };
+            for (t, row) in d.hash(s)? {
+                if let Some(x) = find(&d.map(row)?, BOOST) {
+                    out.push((t, x.val as i32));
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    fn actor_of(raw: &[u8], key: &str) -> Res<Option<String>> {
+        let d: Doc = Doc::open(raw)?;
+        let master: Vec<(String, Slot)> = d.map(find(&d.map(d.root()?)?, MASTER).ok_or_else(cut)?)?;
+        Ok(find(&master, key).and_then(|s| d.text(s)).map(|s| s.to_string()))
+    }
 
     fn game() -> Option<Vec<u8>> {
         let p: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from)?;

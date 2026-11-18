@@ -107,3 +107,10 @@ Link returns at the Deku Tree entrance with full new health each time.
 
 ## Final build, played
 `playtest\heart\final\ootrr.exe`, starting_hearts 6, two deaths: max life 24 -> 20 -> 16, rupees unchanged at 0. PASS. `give` lists 85 items (swords, shields, tunics, boots, quantities, upgrades, medallions, songs); there are no filled bottles: `give Bottle` gives an Empty Bottle, `Fairy` is ambiguous (Fairy Slingshot, Fairy Bow, Fairy Ocarina), `"Bottled Fairy"` does not exist, and the client has no `items` command.
+
+## Code review reading of the lost persistence (18 Nov, no game run)
+From `docs\code-review-2026-11-18.md`, open problem (c). The in-session design is sound (the stale counter is always either overwritten or already correct). The loss can only persist if the cut value reaches a real save, and the only test (`final-save`) quit straight after the respawn.
+- Test it proposes: after a death and Try Again (24 down to 20), do an ordinary later save (walk through a loading zone, or save by hand), then quit and continue. If the loss is kept, an ordinary save already persists the cut: the second death reads the cut value from game data, so the player actor does sync it. The remaining hole is only "die, quit at once".
+- Why the autosave variant most likely failed: `AfterChangeBanc` had just autosaved, or the request came while the boot event was still running.
+- Suggested fix, data only, if the hole matters: write `PlayerStatus.MaxLife` with `EventTriggerSetGameDataInt` next to the player action (both then agree), wait some frames, then request the autosave. If no save keeps the cut, the fallback is the revive-in-place design already ranked third above. `Sequence_RequestLastGameOverSave` was tried and did not help.
+- Not built in the review-fixes branch: it needs a wait step in the boot flow that I could not test without the game. The leftovers `Keep::CountSave` and `AUTOSAVE` in `flows.rs` stay as the hook for this experiment.

@@ -166,4 +166,25 @@ mod tests {
         assert_eq!(parent_name("Work/A/B.x.gyml").as_deref(), Some("A/B.x.bgyml"));
         assert_eq!(parent_name("A/B.x.gyml"), None);
     }
+
+    #[test]
+    fn the_game_edits_exactly_the_leever_and_moblin_packs() {
+        let Some(p) = std::env::var_os("OOTRR_ROMFS") else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: crate::romfs::Romfs = crate::romfs::Romfs::open(std::path::Path::new(&p)).unwrap();
+        let mut hit: Vec<(String, Vec<String>)> = Vec::new();
+        for f in rf.list("Pack/Actor").unwrap() {
+            let es: Vec<Entry> = sarc::parse(&rf.read_zs(&f).unwrap()).unwrap();
+            let r: Vec<(String, Vec<u8>)> = edit(&es).unwrap();
+            if !r.is_empty() {
+                hit.push((f.rsplit('/').next().unwrap().to_string(), r.into_iter().map(|x| x.0).collect()));
+            }
+        }
+        let want: Vec<String> = ["Enemy_Leever", "Enemy_Leever_Big", "Enemy_Leever_Fixed", "Enemy_Moblin", "Enemy_Moblin_Club"].iter().map(|n| format!("{n}.pack.zs")).collect();
+        assert_eq!(hit.iter().map(|h| h.0.clone()).collect::<Vec<String>>(), want);
+        let file: String = format!("{DIR}EnemyNoBattleBgm.game__component__BattlePresentationParam.bgyml");
+        assert!(hit.iter().all(|h| h.1 == vec![file.clone()]), "{hit:?}");
+    }
 }

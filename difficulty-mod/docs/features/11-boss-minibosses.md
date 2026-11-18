@@ -67,3 +67,11 @@ Experiment (build four `DodongoCavern_Static` variants, each alone, no graph edi
 - C: as A but `Enemy_MiddleBoss_Lizalfos` copied with the keys of a vanilla one. Loads means hypothesis 1.
 - D: as A but `Enemy_Keese` (used in the cavern already) at the same spot. Black means position or "append to this file" (2 or other).
 Other features: `minions.rs`, `extras.rs`, `ambush.rs` and `gates.rs` clone or add actors whose kind is already in the same map, mostly in `_Dynamic`; only `minibosses.rs` appends a kind new to the map to a `_Static` file. Load-test Deku Tree, Jabu-Jabu, Forest and Spirit Temples again with the final build and walk into the boss rooms.
+
+## Code review reading of the Dodongo black screen (18 Nov, no game run)
+From `docs\code-review-2026-11-18.md`, open problem (b). Not tested; nothing was changed.
+- A hang with no crash line fits an actor that never becomes ready, not a corrupt file. Two things differ from the four spots that load.
+- The kind. The cavern only ever uses `Enemy_MiddleBoss_Lizalfos`, placed with `Links`, a `Name` and a battle-start key. Plain `Enemy_Lizalfos` is in one vanilla map (Spirit Temple). It probably waits for a partner or arena link that our bare entry (room index only) does not give. A Stalfos needs nothing, which is why the other spots load.
+- The spot. It was about 34 units from the boss's own position, against 5 to 9 units for the four spots that work, so it may lie outside the boss room whose index it carries.
+- Experiment: variant D above (a Keese at the same spot) separates the two. If D loads, the kind is the cause; if D is black, the spot or appending to this file is. Also copy the full vanilla entry of the Spirit Temple's plain Lizalfos and compare its keys with ours (variant C).
+- Simplest way out: use a kind that already loads with a bare entry (Stalfos or Dinolfos) at a spot checked against the room.

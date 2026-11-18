@@ -1,8 +1,10 @@
 pub mod ambush;
 pub mod gates;
+pub mod hook;
 pub mod backup;
 pub mod battle_bgm;
 pub mod bean;
+pub mod cucco;
 pub mod drops;
 pub mod dupes;
 pub mod encounters;
@@ -14,7 +16,9 @@ pub mod minibosses;
 pub mod minions;
 pub mod regen;
 pub mod respawn;
+pub mod spawn;
 pub mod stats;
+pub mod surprises;
 pub mod target;
 pub mod wake;
 
@@ -49,8 +53,11 @@ pub const FAIRY_HELPS: &str = "fairy_helps_enemies";
 pub const BACKUP: &str = "enemy_backup";
 pub const GATES: &str = "enemy_gates";
 pub const ENCOUNTERS: &str = "special_encounters";
+pub const CUCCO: &str = "cucco_revenge";
 pub const FOREST: &str = "open_forest";
 pub const ENTRANCES: &str = "shuffle_entrances";
+pub const SPAWN_COMBO: &str = "enemy_spawn_combo";
+pub const KAKARIKO: &str = "open_kakariko";
 
 pub const HEALTH_NUM: u16 = 110;
 pub const DAMAGE_NUM: u16 = 111;
@@ -73,6 +80,8 @@ pub const FAIRY_HELPS_NUM: u16 = 125;
 pub const BACKUP_NUM: u16 = 126;
 pub const GATES_NUM: u16 = 129;
 pub const ENCOUNTERS_NUM: u16 = 130;
+pub const CUCCO_NUM: u16 = 131;
+pub const SPAWN_COMBO_NUM: u16 = 132;
 
 pub const NORMAL: i64 = 100;
 pub const STAT_RANGE: (i64, i64) = (50, 500);
@@ -106,13 +115,17 @@ pub struct Opts {
     pub backup: bool,
     pub gates: bool,
     pub encounters: bool,
+    pub cucco: bool,
+    pub spawn_combo: bool,
     pub forest_open: bool,
+    pub shops: bool,
+    pub mido_gone: bool,
     pub entrances: bool,
 }
 
 impl Default for Opts {
     fn default() -> Opts {
-        Opts { health: NORMAL, damage: NORMAL, speed: NORMAL, no_hearts: false, no_fairies: false, no_ammo: false, lose_heart: false, no_bottles: false, no_target: false, no_dupes: false, extra: 0, respawn: false, minibosses: false, regen: false, minions: false, bean_pitch: false, zora_ambush: false, fairy_helps: false, backup: false, gates: false, encounters: false, forest_open: false, entrances: false }
+        Opts { health: NORMAL, damage: NORMAL, speed: NORMAL, no_hearts: false, no_fairies: false, no_ammo: false, lose_heart: false, no_bottles: false, no_target: false, no_dupes: false, extra: 0, respawn: false, minibosses: false, regen: false, minions: false, bean_pitch: false, zora_ambush: false, fairy_helps: false, backup: false, gates: false, encounters: false, cucco: false, spawn_combo: false, forest_open: false, shops: false, mido_gone: false, entrances: false }
     }
 }
 
@@ -134,7 +147,7 @@ impl Opts {
         if !self.gates {
             return Vec::new();
         }
-        gates::GATES.iter().filter(|g| gates::active(g, self.forest_open, self.entrances)).copied().collect()
+        gates::GATES.iter().filter(|g| !gates::HELD.contains(&g.id) && gates::active(g, self.forest_open, self.mido_gone, self.entrances)).copied().collect()
     }
 
     pub fn gates(&self) -> bool {
@@ -142,7 +155,7 @@ impl Opts {
     }
 
     pub fn any(&self) -> bool {
-        self.packs() || self.no_fairies || self.lose_heart || self.no_bottles || self.no_dupes || self.extra > 0 || self.respawn || self.minibosses || self.regen || self.minions || self.bean_pitch || self.zora_ambush || self.fairy_helps || self.backup || self.encounters || self.gates()
+        self.packs() || self.no_fairies || self.lose_heart || self.no_bottles || self.no_dupes || self.extra > 0 || self.respawn || self.minibosses || self.regen || self.minions || self.bean_pitch || self.zora_ambush || self.fairy_helps || self.backup || self.encounters || self.cucco || self.spawn_combo || self.gates()
     }
 
     pub fn notes(&self) -> Vec<String> {
@@ -166,7 +179,8 @@ impl Opts {
             out.push("Enemies, pots, grass and other random drops never give recovery hearts, also when your health is low. Where the game would hand out a heart because you need one, a green rupee drops. Experimental, untested in the game.".to_string());
         }
         if self.no_ammo {
-            out.push("Enemies, pots, grass and other random drops never give arrows, seeds, bombs, Deku Nuts or Deku Sticks. Experimental, untested in the game.".to_string());
+            let shops: &str = if self.shops { " Shopsanity is on: a special deal can take the place of a shelf that sold arrows, bombs or seeds, and the logic does not check that any ammo can still be bought, so you may find a seed where the only arrows are in the shops you cannot afford or cannot reach." } else { "" };
+            out.push(format!("Enemies, pots, grass and other random drops never give arrows, seeds, bombs, Deku Nuts or Deku Sticks.{shops} Experimental, untested in the game."));
         }
         if self.no_fairies {
             out.push("Playing a song to a gossip stone no longer calls a fairy that heals you. Experimental, untested in the game.".to_string());
@@ -209,6 +223,13 @@ impl Opts {
         }
         if self.encounters {
             out.push(encounters::NOTE.to_string());
+            out.push(surprises::NOTE.to_string());
+        }
+        if self.cucco {
+            out.push(cucco::NOTE.to_string());
+        }
+        if self.spawn_combo {
+            out.push(spawn::NOTE.to_string());
         }
         if self.fairy_helps {
             out.push("When you let a fairy out of a bottle, or a bottled fairy revives you, every enemy and boss that is awake at that moment is healed to full health too. Bringing back the enemy you beat last is not possible with file edits and is not done. Experimental, untested in the game.".to_string());
@@ -216,12 +237,22 @@ impl Opts {
         if self.gates {
             let names: Vec<&str> = self.gate_list().iter().map(|g| g.name).collect();
             if names.is_empty() {
-                out.push("Enemies block the way is on, but no gate applies to these settings (an open forest or shuffled entrances would make it add a requirement), so nothing is gated.".to_string());
+                out.push("Enemies block the way is on, but no gate applies to these settings (shuffled entrances would make it add a requirement), so nothing is gated.".to_string());
             } else {
-                out.push(format!("An invisible wall stands in the way at {} while those enemies are alive and goes away when they are beaten. The enemies stand in the wall, so they can be reached from both sides. Nothing is saved: when the area loads again and the enemies are back, so is the wall. Experimental, untested in the game.", names.join(" and ")));
+                out.push(format!("A purple barrier, the one that locks the Wolfos fight in the Sacred Forest Meadow, stands in the way at {} while the enemies guarding it are alive and goes away when they are beaten. At Zora's River the guards are Lizalfos that this setting adds. Nothing is saved: when the area loads again and the guards are back, so is the barrier. Experimental, untested by hand.", names.join(", ")));
             }
         }
         out
+    }
+}
+
+fn chosen<'a>(r: Res<&'a str>, bad: &mut Vec<String>) -> Option<&'a str> {
+    match r {
+        Ok(t) => Some(t),
+        Err(e) => {
+            bad.push(e.to_string());
+            None
+        }
     }
 }
 
@@ -248,7 +279,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             false
         })
     };
-    let o: Opts = Opts { health, damage, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS), bean_pitch: flag(BEAN_PITCH), zora_ambush: flag(ZORA_AMBUSH), fairy_helps: flag(FAIRY_HELPS), backup: flag(BACKUP), gates: flag(GATES), encounters: flag(ENCOUNTERS), forest_open: false, entrances: false };
+    let o: Opts = Opts { health, damage, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS), bean_pitch: flag(BEAN_PITCH), zora_ambush: flag(ZORA_AMBUSH), fairy_helps: flag(FAIRY_HELPS), backup: flag(BACKUP), gates: flag(GATES), encounters: flag(ENCOUNTERS), cucco: flag(CUCCO), spawn_combo: flag(SPAWN_COMBO), forest_open: false, shops: false, mido_gone: false, entrances: false };
     let extra: i64 = match s.text(MORE) {
         Ok(t) => MORE_LEVELS.iter().find(|l| l.0 == t).map(|l| l.2).unwrap_or_else(|| {
             bad.push(format!("{MORE} is {t}, which is not a known level"));
@@ -259,9 +290,13 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             0
         }
     };
-    let forest_open: bool = s.text(FOREST).map(|t| t == "open").unwrap_or(false);
-    let entrances: bool = s.text(ENTRANCES).map(|t| t != "off").unwrap_or(false);
-    Opts { extra, forest_open, entrances, ..o }
+    let forest_open: bool = chosen(s.text(FOREST), bad).map(|t| t == "open").unwrap_or(true);
+    let entrances: bool = chosen(s.text(ENTRANCES), bad).map(|t| t != "off").unwrap_or(true);
+    let shops: bool = chosen(s.text(crate::shops::plan::SETTING), bad).map(|t| t != "off").unwrap_or(false);
+    let closed: bool = s.text(FOREST).map(|t| t == "closed").unwrap_or(true);
+    let mido_gone: bool = !closed && s.text(KAKARIKO).map(|t| t == "open").unwrap_or(false);
+    Opts { extra, forest_open, mido_gone, entrances, shops, ..o }
+
 }
 
 fn edit_entry(e: &Entry, o: &Opts) -> Res<Option<Vec<u8>>> {
@@ -445,6 +480,13 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have, seed: &str) -> Res<Vec<Out>> 
     }
     if o.encounters {
         step(rf, &mut outs, have, encounters::stage)?;
+        step(rf, &mut outs, have, |rf, have| surprises::stage(rf, have, seed))?;
+    }
+    if o.cucco {
+        step(rf, &mut outs, have, cucco::stage)?;
+    }
+    if o.spawn_combo {
+        step(rf, &mut outs, have, spawn::stage)?;
     }
     let gl: Vec<gates::Gate> = o.gate_list();
     if !gl.is_empty() {
@@ -470,6 +512,7 @@ pub fn worked(rf: &mut Romfs, pk: &crate::modpack::Pack, o: &Opts, seed: &str, l
 mod tests {
     use super::*;
     use crate::byml::{Byml, Node};
+    use crate::error::Error;
     use crate::settings::Value;
 
     #[test]
@@ -503,13 +546,16 @@ mod tests {
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&s, &mut bad);
         assert!(bad.is_empty() && o.gates() && o.any() && !o.packs());
-        assert_eq!(o.gate_list().len(), gates::GATES.len());
+        assert_eq!(o.gate_list().len(), gates::GATES.len() - gates::HELD.len());
         assert_eq!(o.notes().len(), 1);
         s.set(FOREST, Value::s("open")).unwrap();
         let o: Opts = read(&s, &mut bad);
-        assert!(o.gates && o.forest_open && !o.gates() && !o.any());
-        assert!(o.gate_list().is_empty() && o.notes()[0].contains("no gate applies"));
+        assert!(o.gates() && o.gate_list().len() == gates::GATES.len() - gates::HELD.len() - 1);
         s.set(FOREST, Value::s("closed_deku")).unwrap();
+        s.set(KAKARIKO, Value::s("open")).unwrap();
+        let o: Opts = read(&s, &mut bad);
+        assert!(o.mido_gone && o.gate_list().len() == gates::GATES.len() - gates::HELD.len() - 1);
+        s.set(KAKARIKO, Value::s("zelda")).unwrap();
         s.set(ENTRANCES, Value::s("dungeons")).unwrap();
         let o: Opts = read(&s, &mut bad);
         assert!(o.entrances && !o.gates());
@@ -518,12 +564,28 @@ mod tests {
     }
 
     #[test]
+    fn a_broken_gate_or_shop_setting_is_reported_and_skips_the_gate() {
+        let mut bad: Vec<String> = Vec::new();
+        assert_eq!(chosen(Ok("open"), &mut bad), Some("open"));
+        assert!(bad.is_empty());
+        assert_eq!(chosen(Err(Error::Msg("open_forest is gone".to_string())), &mut bad), None);
+        assert_eq!(bad, vec!["open_forest is gone".to_string()]);
+        let mut s: Settings = Settings::default();
+        s.set(NO_AMMO, Value::Bool(true)).unwrap();
+        let plain: Opts = read(&s, &mut bad);
+        assert!(!plain.shops && !plain.notes()[0].contains("Shopsanity"));
+        s.set(crate::shops::plan::SETTING, Value::s("deals_2")).unwrap();
+        let shop: Opts = read(&s, &mut bad);
+        assert!(shop.shops && shop.notes().len() == 1 && shop.notes()[0].contains("Shopsanity is on"));
+    }
+
+    #[test]
     fn each_setting_is_read_and_survives_the_settings_string() {
         let mut s: Settings = Settings::default();
         s.set(HEALTH, Value::Int(250)).unwrap();
         s.set(DAMAGE, Value::Int(50)).unwrap();
         s.set(SPEED, Value::Int(200)).unwrap();
-        for id in [NO_HEARTS, NO_FAIRIES, NO_AMMO, LOSE_HEART, NO_BOTTLES, NO_TARGET, NO_DUPES, RESPAWN, MINIBOSSES, REGEN, MINIONS, BEAN_PITCH, ZORA_AMBUSH, FAIRY_HELPS, BACKUP, GATES, ENCOUNTERS] {
+        for id in [NO_HEARTS, NO_FAIRIES, NO_AMMO, LOSE_HEART, NO_BOTTLES, NO_TARGET, NO_DUPES, RESPAWN, MINIBOSSES, REGEN, MINIONS, BEAN_PITCH, ZORA_AMBUSH, FAIRY_HELPS, BACKUP, GATES, ENCOUNTERS, CUCCO, SPAWN_COMBO] {
             s.set(id, Value::Bool(true)).unwrap();
         }
         s.set(MORE, Value::s("half")).unwrap();
@@ -531,9 +593,9 @@ mod tests {
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&back, &mut bad);
         assert!(bad.is_empty());
-        assert_eq!(o, Opts { health: 250, damage: 50, speed: 200, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 50, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, gates: true, encounters: true, ..Opts::default() });
+        assert_eq!(o, Opts { health: 250, damage: 50, speed: 200, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 50, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, gates: true, encounters: true, cucco: true, spawn_combo: true, ..Opts::default() });
         assert!(o.any() && o.packs());
-        assert_eq!(o.notes().len(), 21);
+        assert_eq!(o.notes().len(), 24);
         assert_eq!(o.notes().iter().collect::<std::collections::BTreeSet<&String>>().len(), o.notes().len());
         assert!(o.notes().iter().any(|n| n.contains("About 50 in 100")));
         assert!(Opts { extra: 100, ..Opts::default() }.any() && !Opts { extra: 100, ..Opts::default() }.packs());
@@ -647,7 +709,7 @@ mod tests {
             return;
         };
         let mut rf: Romfs = Romfs::open(&root).unwrap();
-        let o: Opts = Opts { health: 200, damage: 150, speed: 150, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 100, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, gates: true, encounters: true, ..Opts::default() };
+        let o: Opts = Opts { health: 200, damage: 150, speed: 150, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 100, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, gates: true, encounters: true, cucco: true, ..Opts::default() };
         let outs: Vec<Out> = stage(&mut rf, &o, &none, "seed").unwrap();
         let at = |p: &str| -> &Out { outs.iter().find(|x| x.path == p).unwrap_or_else(|| panic!("{p} was not staged")) };
         for f in [fairy::ACTOR_INFO, fairy::GLOBAL, bean::FILE, flows::GOSSIP_FILE, flows::OVER_FILE, flows::BOOT_FILE, drops::FOLIAGE, lottery::FILE, regen::GLOBAL, regen::ACTOR_INFO, "Pack/Actor/Enemy_Stalfos.pack.zs", "Pack/Actor/Enemy_Keese.pack.zs"] {
@@ -677,6 +739,12 @@ mod tests {
             at(&ambush::file(m, "Static"));
         }
         for f in encounters::files() {
+            at(&f);
+        }
+        for f in surprises::drop_packs(&rf).unwrap() {
+            at(&f);
+        }
+        for f in cucco::packs(&rf).unwrap() {
             at(&f);
         }
         assert!(!outs.iter().any(|x| x.path.contains("Player_")), "the player packs are left alone");
@@ -721,15 +789,17 @@ mod tests {
             assert_eq!(count(&now), count(&base) + 1, "{} carries the miniboss", s.file);
             assert_eq!(has(&now, s.mini), has(&base, s.mini) + 1);
         }
-        let graph: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&es, regen::STALFOS_GRAPH).unwrap().data).unwrap();
-        assert_eq!(graph.find_els(regen::HEAL).len(), 2, "the Stalfos pack carries the health, the regen and the fairy edit");
-        assert_eq!(graph.find_els(fairy::CLEAR).len(), 1);
-        assert_eq!(graph.find_els(backup::REQUEST).len(), 1, "the Stalfos pack carries the backup call on top of the regen and fairy edits");
         assert!(sarc::get(&es, backup::NEW).is_some());
         let shared: Vec<Entry> = sarc::parse(&rf.zs.decompress(&at(regen::GLOBAL).z).unwrap()).unwrap();
-        let common: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&shared, regen::GRAPH).unwrap().data).unwrap();
-        assert_eq!((common.find_els(regen::HEAL).len(), common.find_els(fairy::CLEAR).len(), common.find_els(backup::REQUEST).len()), (2, 1, 1), "the shared enemy graph carries regen, fairy and backup");
-        assert!(crate::ainb::audit(&common).is_empty());
+        let vanilla: Vec<Entry> = sarc::parse(&rf.read_zs(regen::GLOBAL).unwrap()).unwrap();
+        for g in hook::GRAPHS {
+            assert_eq!(sarc::get(&shared, g).map(|e| &e.data), sarc::get(&vanilla, g).map(|e| &e.data), "{g} stays vanilla");
+        }
+        for name in ["AI/Enemy_Stalfos.utility.root.ainb", "AI/EnemyBase.utility.root.ainb"] {
+            let caller: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&shared, name).unwrap().data).unwrap();
+            assert_eq!((caller.find_els(regen::HEAL).len(), caller.find_els(fairy::CLEAR).len(), caller.find_els(backup::REQUEST).len()), (2, 1, 1), "{name} carries regen, fairy and backup");
+            assert!(crate::ainb::audit(&caller).is_empty());
+        }
         assert_eq!(outs.iter().filter(|x| x.path == "Pack/Actor/Enemy_Stalfos.pack.zs").count(), 1);
         let table: Byml = Byml::parse(&rf.zs.decompress(&at(regen::ACTOR_INFO).z).unwrap()).unwrap();
         let before: Byml = rf.read_byml(regen::ACTOR_INFO).unwrap();
@@ -1093,8 +1163,10 @@ mod tests {
         let life: &str = "Life/LifeParameters/Enemy_Stalfos.game__life__LifeParameters.bgyml";
         let Some(Node::I32(a)) = max_life(&was, life) else { panic!() };
         assert_eq!(max_life(&es, life), Some(Node::I32(a * 2)));
-        let graph: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&es, backup::STALFOS_GRAPH).unwrap().data).unwrap();
+        let global: Vec<Entry> = sarc::parse(&rf.zs.decompress(&outs.iter().find(|x| x.path == backup::GLOBAL).unwrap().z).unwrap()).unwrap();
+        let graph: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&global, "AI/Enemy_Stalfos.utility.root.ainb").unwrap().data).unwrap();
         assert_eq!(graph.find_els(backup::REQUEST).len(), 1);
+        assert!(sarc::get(&es, backup::STALFOS_GRAPH).map(|e| &e.data) == sarc::get(&was, backup::STALFOS_GRAPH).map(|e| &e.data), "the module itself is vanilla");
         assert!(sarc::get(&es, backup::NEW).is_some() && sarc::get(&was, backup::NEW).is_none());
         assert_eq!(backup::holder_of(&es, "Enemy_Stalfos").unwrap().as_deref(), Some(backup::NEW));
         assert!(!outs.iter().any(|x| x.path.contains("Player_")), "the player packs are left alone");

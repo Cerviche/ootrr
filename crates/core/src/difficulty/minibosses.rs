@@ -248,14 +248,6 @@ pub fn one(rf: &mut Romfs, have: Have, s: &Spot) -> Res<[Out; 2]> {
     Ok([banc, Out { path: p.logic, old: was.len(), new: g.len(), z: g }])
 }
 
-pub fn stage(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
-    let mut outs: Vec<Out> = Vec::new();
-    for s in &SPOTS {
-        outs.extend(one(rf, have, s)?);
-    }
-    Ok(outs)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

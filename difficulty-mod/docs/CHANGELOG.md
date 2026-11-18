@@ -2,6 +2,19 @@
 
 One entry per release candidate (rc), newest first. Each rc is one commit on the `difficulty` branch. "Played" means seen in the running game, by hand or by a script through Longshot's control bridge (see [TESTING.md](TESTING.md)). Feature details are in [features/](features/).
 
+## rc 10
+
+Played by hand unless it says otherwise. Things known not to work are listed in [TODO.md](TODO.md).
+
+- **Enemies block the way, rebuilt.** A gate is the game's own purple barrier. Nothing is there until you come near its guard; then the barrier rises and the guard appears with it; it drops when the guards are dead. Seven gates are in: three on Zora's River (Lizalfos; the upper one has two), the Deku Tree path (the withered Deku Babas, closed forest only), the small room in the Lost Woods (two barriers), and the road to Gerudo Valley in adult Hyrule Field (an Iron Knuckle). All seven were seen working. Five more are built but held back until they work (see TODO). See [features/20](features/20-enemies-block-the-way.md).
+- **New in special encounters: grass and pot surprises.** Cut grass can release a wall Skulltula or a little Floormaster hand; a broken pot a Poe or a little hand; and about one plain pot in ten is a flying pot. The chance is 1 in 100 in this rc (1 in 50 is planned). Grass surprises were seen working at a raised test rate. Pots in the Market guard house gave nothing; not understood yet. See [features/23](features/23-grass-and-pot-surprises.md).
+- **New in special encounters: ten Like Likes around Lake Hylia.** Not played yet.
+- **Special encounters:** the Iron Knuckle in Hyrule Field is awake from the start ("perfect"). Dead Hand in the Hyrule Field hole was moved back twice and still rises near the entrance.
+- **New: Cuccos take revenge at once.** One hit brings the swarm. Seen working in Kakariko. The two minigame cucco kinds are left out. See [features/24](features/24-cucco-revenge.md).
+- **Enemy regen, fairies help enemies, call for backup** now run beside the game's damage-flash routine instead of inside it. Not confirmed: with these on, killing a gate guard crashed the game once. Leave them off for now.
+- **New setting that does not work yet: spawn enemies with L + R + D-pad.** The checkbox is there; pressing the buttons does nothing. See [features/25](features/25-spawn-enemies-combo.md).
+- Review fixes: a broken gate or shop setting is reported instead of ignored; the battle-music change is pinned to its five enemies; tips corrected.
+
 ## rc 9
 
 - **Lose heart on death now works.** The heart is taken after the Try Again reload, in an event the game runs once the map is back. Played by script and by hand: 6 → 5 → 4 → 3 hearts, a further death stays at 3, a fairy revival costs no heart. Limit: the loss lasts for the play session; quitting and continuing restores the hearts. See [features/07](features/07-lose-heart-on-death.md).

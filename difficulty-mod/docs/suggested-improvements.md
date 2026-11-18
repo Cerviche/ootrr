@@ -96,3 +96,15 @@ Options, cheapest first:
 3. ~~Lose heart on death at three hearts~~ Answered: whatever is simplest.
 4. **Dead Hand hole (N2):** which hole is "the hole which is really dark and spooky"? The Zora's Domain one, or another (for example one in Kakariko or the Graveyard)? An approximate place is enough; I can find it on the object map.
 5. **A15:** is it acceptable that bottles stay blocked until you leave the area or the enemy is dead?
+
+## E. From the code review of 18 Nov (review-fixes branch)
+
+| # | Feature | Suggestion | Why | Confidence |
+|---|---|---|---|---|
+| E1 | No ammo drops | Options if the Shopsanity warning is not enough: (a) refuse the combination with a clear error; (b) leave the "most depleted resource" help for arrows only, so one source stays; (c) make the logic place a seed-guaranteed arrow shop. Only the note was built | Shopsanity special deals can replace the shelf that sold arrows; logic does not check that ammo can be bought. (c) needs a logic change well over 50 lines | Your call: (a) is a few lines, (b) changes what the setting means, (c) is a project |
+| E2 | Enemy graph edits | Grow each size table entry once per file, not once per pack (review finding 7) | `staging::grow_out` adds the delta plus 0x400 on every call, so the shared blackboard table (157 packs) is reserved about 170 KB too large. Not done: it changes upstream `staging.rs` | Low risk, small change; I did not touch upstream code without asking |
+| E3 | Build | Fail the build when `late` holds one path twice, or let `story_skip` and `deku_bridge` read through `late` (finding 8) | A later step would silently replace a difficulty edit of the same file; no overlap exists today | Medium |
+| E4 | Lose heart | Prefer a test of an ordinary later save before building the autosave fix (finding 10 is separate: end the boot ladder at the original second event) | See the lose-heart feature file | Needs the game |
+| E5 | Enemy damage | Resolve the parent chain before rounding (finding 12); said to be harmless at the usual factors | Child files that inherit part of the attack data can end up with a different factor | Medium, needs a test per case |
+| E6 | Code | Move the "read through `have`, else the game file" helper and the fresh-hash functions into shared modules; delete the dead `SeatedUntilNear` branch in `wake.rs` or make it a setting | About ten copies of the helper; four fresh-hash variants with different scopes | Mechanical but wide; left for a quiet moment |
+| E7 | Frame counts | One timing in the game settles regen, fairy and backup (30 frames per second assumed) | `FRAMES` in the three files | Needs the game |
