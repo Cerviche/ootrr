@@ -21,6 +21,8 @@ pub enum Keep {
     Overworld,
     Regional,
     Start,
+    /// Ganon's Boss Key only: given by the Light Arrows cutscene (crate::lacs_key).
+    Lacs,
 }
 
 impl Keep {
@@ -58,6 +60,7 @@ pub struct Plan {
     pub hearts: bool,
     pub world: pu::Free,
     pub songs: Songs,
+    pub harp_colors: bool,
     pub hints: bool,
     pub fast: bool,
     pub chest_sizes: bool,
@@ -83,6 +86,10 @@ pub struct Plan {
     pub shops: crate::shops::Opts,
     pub bridge: bool,
     pub silver: bool,
+    /// crate::medal_gate: Some(n) when the Light Arrows scene waits for n dungeon rewards.
+    pub lacs: Option<u8>,
+    /// crate::rainbow_bridge: Some(n) when the bridge waits for n dungeon rewards.
+    pub rainbow: Option<u8>,
 }
 
 pub use crate::slice::unsupported::not_yet;
@@ -168,8 +175,17 @@ impl Plan {
         if self.world.remake() {
             out.push((crate::spots::free::KEY, crate::spots::free::ON));
         }
+        if self.shops.on() {
+            out.push((crate::shops::door::LOGIC_KEY, "true"));
+        }
         if self.rewards.dungeon_rewards {
             out.push((crate::medal_gate::LOGIC_KEY, "true"));
+        }
+        if let Some(n) = self.lacs {
+            out.extend(crate::medal_gate::lacs_logic(n));
+        }
+        if let Some(n) = self.rainbow {
+            out.extend(crate::rainbow_bridge::logic(n));
         }
         if self.rewards.potion {
             out.push((crate::flow_extra::potion::KEY, crate::flow_extra::potion::ON));
@@ -218,6 +234,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let start: crate::start_items::Start = crate::start_items::Start::read(s, &mut bad);
     let mut gates: crate::open_world::Gates = crate::open_world::Gates::read(s, &mut bad);
     let songs: Songs = crate::songs::mode(s, &mut bad);
+    let harp_colors: bool = toggle(s, crate::song_models::SETTING, &mut bad);
     let chosen: Vec<String> = s.items("starting_items").map(|v| v.to_vec()).unwrap_or_default();
     let kit: crate::start_items::Kit = crate::start_items::read(s, &mut bad);
     // Settings that would hand out the same check twice.
@@ -245,6 +262,11 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let shops: crate::shops::Opts = crate::shops::plan::read(s, &mut bad);
     let bridge: bool = crate::deku_bridge::mode(s, &mut bad);
     let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
+    let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
+    let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
+    if lacs.is_some() && (!rewards.on || matches!(chests, Mode::Off | Mode::Overworld)) {
+        bad.push(crate::lacs_key::NEEDS.to_string());
+    }
     let excluded: Vec<String> = s.items("disabled_locations").map(|v| v.to_vec()).unwrap_or_default();
     if !bad.is_empty() {
         let lines: Vec<String> = bad.iter().map(|b| format!("  {b}")).collect();
@@ -333,7 +355,14 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if silver {
         notes.push(crate::slice::silver::NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, story, endings })
+    if rainbow.is_some() {
+        notes.push(crate::rainbow_bridge::NOTE.to_string());
+    }
+    if lacs.is_some() {
+        notes.push(crate::lacs_key::NOTE.to_string());
+        notes.push(crate::medal_gate::LACS_NOTE.to_string());
+    }
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, story, endings })
 }
 
 #[cfg(test)]

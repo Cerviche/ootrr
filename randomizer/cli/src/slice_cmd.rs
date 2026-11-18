@@ -171,7 +171,10 @@ pub fn build(a: &[String]) -> Res<()> {
     let b: Built = slice::build_for(&seed, romfs, P::new(load), name, host)?;
     let c: &BuildCounts = &b.counts;
     print!("{}", b.report);
-    for n in cosmetic::apply(&b.root, romfs, &cos, &seed.seed)? {
+    for n in ootrr_core::title_logo::apply(&b.root, P::new(romfs))? {
+        println!("{n}");
+    }
+    for n in cosmetic::apply(&b.root, P::new(romfs), &cos, &seed.seed)? {
         println!("{n}");
     }
     if let (true, Some(s)) = (with_update, &source) {

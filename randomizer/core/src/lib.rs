@@ -12,7 +12,7 @@ macro_rules! parts {
 
 pub use ootrr_game::{bfevfl, bfres, byml, catalog, catalog_json, chest_slot, dungeon_text, entrance_swap, entrances, error, flags, flags_build, flags_gen, flags_harvest, flags_keyed, flags_map, flags_names, flags_rel, flags_scan, ips, items, json, modpack, msbt, murmur, placement, rng, romfs, rsizetable, sarc, save, tex, zs};
 pub use ootrr_logic::{fill, logic_demo, logic_items, logic_json, logic_synth, logic_val, rule_ast, rules, search, spoiler, tier_chain, world};
-pub use ootrr_cosmetics::{colors, cosmetic, sfx, slink};
+pub use ootrr_cosmetics::{colors, cosmetic, sfx, slink, title_logo};
 
 pub mod ainb;
 pub mod boss_heart;
@@ -29,13 +29,18 @@ pub mod dungeon_grant;
 pub mod entr;
 pub mod event_chests;
 pub mod fast;
+pub mod gerudo_card;
 pub mod flow_locations;
 pub mod flow_extra;
 pub mod flow_sim;
 pub mod hints;
 pub mod intro_skip;
+pub mod gift_keys;
+pub mod item_window;
+pub mod lacs_key;
 pub mod medal_gate;
 pub mod npc_hints;
+pub mod rainbow_bridge;
 pub mod open_world;
 pub mod pickup_pack;
 pub mod pickup_persist;
@@ -63,6 +68,7 @@ pub mod start_items;
 pub mod start_reward;
 pub mod start_state;
 pub mod no_tutorials;
+pub mod ocarina_hold;
 pub mod story_skip;
 pub mod songs;
 pub mod spots;
