@@ -167,8 +167,30 @@ pub fn edit_flow(f: &mut Flow, index: usize, event: &str, item: Item, d: &'stati
         *entry = WINDOW.to_string();
     } else {
         *entry = window.ok_or_else(|| E::Msg(format!("gift keys: {event} calls {flow}:{entry}, which has no window-only copy")))?.to_string();
+        if item == Item::Small {
+            hold_as_pickup(params);
+        }
     }
     Ok(())
+}
+
+/// The small key's item actor has no model of its own (its ModelInfo borrows the ground key's),
+/// and a give routine that holds the item up never shows it: Link raises his hands and the scene
+/// waits forever (GC Rolling Goron as Adult, in game). The routines hold up ground pickups the
+/// same way the vanilla Rolling Goron hands out Obj_Armor_Goron, so a small key there is handed out
+/// as the game's own key pickup, whose actor name is the small key. The window-only copy adds
+/// nothing, and the credit after it names the dungeon.
+pub const SMALL_KEY_ITEM: &str = "Item_Dungeon_SmallKey";
+pub const SMALL_KEY_PICKUP: &str = "Obj_Dungeon_SmallKey";
+
+fn hold_as_pickup(params: &mut Option<Cont>) {
+    if let Some(c) = params.as_mut() {
+        for (k, v) in c.items.iter_mut() {
+            if k == PARAM && matches!(v, Val::Str(s) if s == SMALL_KEY_ITEM) {
+                *v = Val::Str(SMALL_KEY_PICKUP.to_string());
+            }
+        }
+    }
 }
 
 fn stem(file: &str) -> &str {
@@ -200,4 +222,53 @@ pub fn apply(rf: &mut Romfs, files: &mut Vec<StagedFile>, gs: &[Gift], extra: &[
         crate::item_window::window(&mut c, rf, files, fl, en)?;
     }
     c.store(rf, files)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bfevfl::Bf;
+
+    fn sage_of_fire() -> Option<(Romfs, Bf)> {
+        let p: std::path::PathBuf = ootrr_game::test_romfs::path();
+        if !p.is_dir() {
+            eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", p.display());
+            return None;
+        }
+        let mut rf: Romfs = Romfs::open(&p).unwrap();
+        let z: Vec<u8> = rf.read("Event/EventFlow/SageOfFire.bfevfl.zs").unwrap();
+        let b: Bf = Bf::parse(&rf.zs.decompress(&z).unwrap()).unwrap();
+        Some((rf, b))
+    }
+
+    fn actor(f: &Flow, i: usize) -> String {
+        f.events[i].kind.params().and_then(|c| c.get(PARAM)).and_then(|v| match v {
+            Val::Str(s) => Some(s.clone()),
+            _ => None,
+        }).unwrap()
+    }
+
+    /// GC Rolling Goron as Adult (SageOfFire Event18) holds its item up through
+    /// Dm_SY_GetInEvent:GetInEvent_NotTurn. A small key there froze the game with Link's hands up.
+    #[test]
+    fn a_small_key_held_up_by_an_npc_is_handed_out_as_the_ground_key() {
+        let Some((_, mut b)) = sage_of_fire() else { return };
+        let f: &mut Flow = b.flows.first_mut().unwrap();
+        let (i, ev): (usize, String) = (177, "Event18".to_string());
+        assert_eq!(actor(f, i), "Obj_Armor_Goron");
+        let mut small: Flow = f.clone();
+        if let Some((_, v)) = small.events[i].kind.params_mut().and_then(|c| c.items.iter_mut().find(|(k, _)| k == PARAM)) {
+            *v = Val::Str(SMALL_KEY_ITEM.to_string());
+        }
+        let mut boss: Flow = small.clone();
+        edit_flow(&mut small, i, &ev, Item::Small, "GerudoTrainingGround", Some("OOTRR_W_GetInEvent_NotTurn")).unwrap();
+        assert_eq!(actor(&small, i), SMALL_KEY_PICKUP);
+        assert!(matches!(&small.events[i].kind, Kind::Sub { entry, .. } if entry == "OOTRR_W_GetInEvent_NotTurn"));
+        // Other dungeon items keep their own actor, which has a model of its own.
+        if let Some((_, v)) = boss.events[i].kind.params_mut().and_then(|c| c.items.iter_mut().find(|(k, _)| k == PARAM)) {
+            *v = Val::Str("Item_Dungeon_BossKey".to_string());
+        }
+        edit_flow(&mut boss, i, &ev, Item::Other(Grant::Boss), "FireTemple", Some("OOTRR_W_GetInEvent_NotTurn")).unwrap();
+        assert_eq!(actor(&boss, i), "Item_Dungeon_BossKey");
+    }
 }

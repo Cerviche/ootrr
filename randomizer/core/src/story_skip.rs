@@ -900,11 +900,16 @@ fn item_get(f: &mut Flow, name: &str, g: &SceneGive, then: u16, entries: &[&str]
     let at: u16 = idx(f.events.len())?;
     let window: String = crate::item_window::name(ITEM_GET.1);
     let entry: &str = if g.key.is_some() { &window } else { ITEM_GET.1 };
+    // The small key's item actor cannot be held up; its ground pickup can (crate::gift_keys).
+    let actor: String = match g.key {
+        Some((crate::gift_keys::Item::Small, _)) if g.actor == crate::gift_keys::SMALL_KEY_ITEM => crate::gift_keys::SMALL_KEY_PICKUP.to_string(),
+        _ => g.actor.clone(),
+    };
     f.events.push(Event {
         name: name.to_string(),
         kind: Kind::Sub {
             next: then,
-            params: Some(Cont { items: vec![("ActorName".to_string(), Val::Str(g.actor.clone()))] }),
+            params: Some(Cont { items: vec![("ActorName".to_string(), Val::Str(actor))] }),
             flow: ITEM_GET.0.to_string(),
             entry: entry.to_string(),
         },
