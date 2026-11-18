@@ -35,3 +35,6 @@ Never played. To test:
 ## Notes
 - Sun's Song and Song of Storms fairy spots are a separate mechanism (`FairySpirit_AppearPoint`) and are untouched.
 - Good pattern to reuse: when the game already has a "nothing happens" branch, route to it. That is safer than cutting events out.
+
+## Seen in the game
+Not tested (batch 1 stopped early; no song-playing routine exists).

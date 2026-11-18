@@ -41,3 +41,6 @@ rc 2's fix has not been played. To test:
 ## Notes
 - The seed logic does not change. With this on you can run out of ammo with no way to refill except shops, so a seed may become very hard. I did not add logic for that.
 - Deku Babas dropping sticks and nuts use named actors in their own tables; those are covered by the name rule (`Obj_DekuStick`, `Obj_DekuNut`).
+
+## Seen in the game (18 Nov, batch 1, aborted)
+Same mod as 04. Ammo read from the give list after bombs were used: bombs 20 to 9, sticks 10, nuts 20, seeds 30 unchanged during the walk. The number of things cut was not counted, so NOT TESTED.

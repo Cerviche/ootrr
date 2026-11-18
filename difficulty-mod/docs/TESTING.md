@@ -25,6 +25,15 @@ Change as little as possible per test. With everything on, a crash tells you not
 - The client is `scripts/longshot_ctl.py` in the Longshot repo (standard library only). Longshot's `docs/control.md` documents every command.
 - Useful commands: `launch <game folder> --user <save folder>`, `status`, `press A --frames 8`, `stick L 0 1 --frames 90`, `shot <file.png>`, `teleport <map or id>`, `age adult`, `watch --events oot --flags <names>`, `quit`.
 
+### Two local additions to the bridge
+
+We added two commands to our own Longshot source build. They are not in Longshot itself and not in this repo; they are kept as a patch beside the Longshot clone and re-applied after an update.
+
+- `warp X Y Z`: moves Link to a position in the current map (same units as `status`'s position). Refused while an event plays or a map loads. Seen working for short and 100-unit jumps; a jump to a spot with no ground made Link fall out, lose a heart and respawn.
+- `caption --test "..." --expect "..." --result "..."`: a small panel at the bottom left of the game window saying what is being tested, what is expected and the result. Every scripted test uses it so a person watching can follow. It does not appear in `shot` screenshots.
+
+Run the game windowed (`HOS_FULLSCREEN=0`) so it can be watched beside other windows.
+
 ### Keep the real install safe
 
 Never test in the folder you play in. Make a shadow game folder:
@@ -39,6 +48,7 @@ One randomizer mod at a time in the mods folder; mods load only at game start. U
 ### A typical scripted check
 
 1. `ootrr generate <preset.json> "<seed>" <out.ootrr>` then `ootrr build <out.ootrr> <game romfs> <shadow mods folder> <name> --host longshot`. A preset is `{"id":"t","name":"t","tip":"t","order":99,"settings":{...}}`.
+   - Put the randomizer's time savers in every test preset: `"skip_intro": true, "skip_cutscenes": "all", "faster_chests": true`. Leave them off only when the scene itself is under test.
 2. Launch the shadow game, press A through the title until `status` says `play`.
 3. Read the starting state, do the thing, read the state again, take a screenshot.
 4. Quit the game before starting the next run.

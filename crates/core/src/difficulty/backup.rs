@@ -67,11 +67,11 @@ const PARALLEL: u16 = 3;
 const SWITCH: u16 = 7;
 const LINK_EXTRA: usize = 8;
 const DEPTH: usize = 16;
-const MAT34: &str = "const sead::Matrix34f";
-const MAT33: &str = "const sead::Matrix33f";
+pub const MAT34: &str = "const sead::Matrix34f";
+pub const MAT33: &str = "const sead::Matrix33f";
 const OVER: &str = "bb::OverwriteParam";
 
-fn flag(v: bool) -> Vec<u8> {
+pub fn flag(v: bool) -> Vec<u8> {
     (v as u32).to_le_bytes().to_vec()
 }
 
@@ -79,7 +79,7 @@ fn vec3(x: f32, y: f32, z: f32) -> Vec<u8> {
     [x, y, z].iter().flat_map(|v| v.to_le_bytes()).collect()
 }
 
-fn switch<'a>(seed: &'a str, input: usize, yes: usize, no: usize) -> Spec<'a> {
+pub fn switch<'a>(seed: &'a str, input: usize, yes: usize, no: usize) -> Spec<'a> {
     let mut s: Spec = Spec::composite(SWITCH, seed)
         .prop(0, "CalculateTiming", vec![0; 4])
         .prop(1, "ChildFrameSync", flag(false))
@@ -92,7 +92,7 @@ fn switch<'a>(seed: &'a str, input: usize, yes: usize, no: usize) -> Spec<'a> {
     s
 }
 
-fn flag_query<'a>(seed: &'a str, key: Vec<u8>) -> Spec<'a> {
+pub fn flag_query<'a>(seed: &'a str, key: Vec<u8>) -> Spec<'a> {
     Spec::query(GETB, seed).prop(0, "BlackboardType", 1i32.to_le_bytes().to_vec()).prop(3, "BlackboardKey", key).out(1, "Bool")
 }
 
@@ -100,7 +100,7 @@ fn both<'a>(seed: &'a str, first: usize, second: usize) -> Spec<'a> {
     Spec::composite(PARALLEL, seed).prop(0, "EndPolicy", vec![0; 4]).prop(0, "ResultPolicy", vec![0; 4]).kid(first, "").kid(second, "")
 }
 
-fn feed(a: &mut Ainb, from: usize, to: usize, out: &str) -> Res<()> {
+pub fn feed(a: &mut Ainb, from: usize, to: usize, out: &str) -> Res<()> {
     let name: u32 = a.pool.add(out);
     let reader: &mut crate::ainb::Param = a.params.get_mut(to).ok_or(Error::Format("enemy backup: no such reader"))?;
     let n: u8 = reader.pl[0][0];
@@ -328,7 +328,7 @@ pub fn helper_of(actor: &str) -> usize {
     }
 }
 
-fn flag_row(key: &str, start: bool) -> Node {
+pub fn flag_row(key: &str, start: bool) -> Node {
     Node::Map(vec![
         ("BBKey".to_string(), Node::Str(key.to_string())),
         ("InitVal".to_string(), Node::Bool(start)),
@@ -954,5 +954,37 @@ mod tests {
             assert!(t.get(file).is_some_and(|n| n as usize > holder_file(helper).unwrap().len()), "{file}");
         }
         println!("{} actors, {} callers, {} off, {} bare, {} held, {} files", plan.who.len(), plan.callers().count(), plan.off.len(), plan.bare.len(), plan.held.len(), outs.len());
+    }
+
+    #[test]
+    fn the_vanilla_damage_color_node_is_untouched_after_regen_fairy_and_backup() {
+        let Some(dir) = dump() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&dir).unwrap();
+        let es: Vec<Entry> = sarc::parse(&rf.read_zs(GLOBAL).unwrap()).unwrap();
+        let raw: Vec<u8> = sarc::get(&es, GRAPH).unwrap().data.clone();
+        let old: Ainb = Ainb::parse(&raw).unwrap();
+        assert_eq!((old.els.len(), root(&old), old.el_name(0)), (1, Some(0), HOST));
+        let vanilla: String = show(&old);
+        let element: &str = vanilla.split("element 0 ").nth(1).unwrap();
+        let first: Vec<u8> = super::super::regen::patch_graph(&raw, GRAPH).unwrap();
+        let second: Vec<u8> = super::super::fairy::patch_graph(&first, GRAPH).unwrap();
+        let third: Vec<u8> = patch_graph(&second, GRAPH).unwrap();
+        for out in [&first, &second, &third] {
+            let a: Ainb = Ainb::parse(out).unwrap();
+            let text: String = show(&a);
+            assert_eq!(a.find_els(HOST), vec![0]);
+            assert!(text.contains(&format!("element 0 {element}").split("element 1 ").next().unwrap().trim_end().to_string()));
+            let mut at: usize = 0;
+            while Some(at) != root(&a) {
+                let (parent, _): (usize, usize) = a.parent_of(at).unwrap();
+                assert_eq!((a.el_type(parent), a.params[parent].group(2).first().map(|g| g.a as usize)), (3, Some(at)));
+                at = parent;
+            }
+            assert_eq!(a.params[0].group(2).len(), 0);
+            assert_eq!(a.find_els(HOST).len(), 1);
+        }
     }
 }

@@ -37,3 +37,6 @@ rc 2's fix has not been played. To test:
 - Enemies that start no battle music (Stalfos, some minibosses) will not block bottles. You confirmed music is the right signal, so that gap follows from it.
 - If you randomize music, the check still uses the name `BGM_EnemyBattle`; I believe the name is kept, but it is untested.
 - The head shake is a guess at a "can't do that" gesture. If it looks wrong, the animation name is one constant, `REFUSE_AS`.
+
+## Seen in the game
+Not tested (batch 1 stopped early; no filled bottle was set up).

@@ -48,3 +48,22 @@ Never played by hand. To test:
 - This is the first time the repo adds a whole node to a logic graph, and the first appended actor in a `_Static` map. If loading the dungeon crashes, that is why.
 - The miniboss is in the room before the intro triggers. Whether cutscenes pause it is inferred, not seen.
 - In Jabu, Forest and Spirit the delete signal is a quest step. If a seed starts past that step, the miniboss never appears.
+
+## Dodongo black screen: code-only investigation (18 Nov, no game run)
+Cause not proven. What was ruled out by dumping the real files:
+- The BYML writer is faithful: parse then write of all five `_Static` files and Dodongo's `_Dynamic` is byte-identical.
+- The new hash is unique, the graph module `Gimmick_DodongoCavern_BossBattle_75a7` is used by exactly one group in one map, and the new actor has the same keys as the four spots that load.
+- Not a "static has none of this actor" problem: the Deku Tree and Jabu-Jabu also have no Stalfos (child) in any of their files and load.
+
+What is unique to the Dodongo edit (ranked hypotheses):
+1. The cavern uses only `Enemy_MiddleBoss_Lizalfos` (4 in `_Static`, with `Links`, `Name`, `IsIntendedForEventAppear` or `IsEnterLandBattleOnInitialization`). Plain `Enemy_Lizalfos` is in no Dodongo file and in only one other map (Spirit Temple `_Static`). Its pack may depend on something the cavern does not load.
+2. The spot is `[14.8, 74.0, -48.5]`, chosen by hand; the boss stands at `[33.2, 73.49, -77.6]` over lava. A bad spawn point is a possible cause of a stuck load.
+3. Dodongo's boss group has the most nested `AiGroup` references (6) and a duplicate `Area_663f` id; a reference appended after them might not be handled the same way.
+4. Dodongo's `_Static` has no `PlgGdTable` (the other four have one). This is vanilla, so a cause only if the edit interacts with it.
+
+Experiment (build four `DodongoCavern_Static` variants, each alone, no graph edit, one launch each):
+- A: actor `Enemy_Lizalfos` appended, no AiGroup reference. Black means hypothesis 1 or 2.
+- B: AiGroup reference appended, no actor. Black means hypothesis 3.
+- C: as A but `Enemy_MiddleBoss_Lizalfos` copied with the keys of a vanilla one. Loads means hypothesis 1.
+- D: as A but `Enemy_Keese` (used in the cavern already) at the same spot. Black means position or "append to this file" (2 or other).
+Other features: `minions.rs`, `extras.rs`, `ambush.rs` and `gates.rs` clone or add actors whose kind is already in the same map, mostly in `_Dynamic`; only `minibosses.rs` appends a kind new to the map to a `_Static` file. Load-test Deku Tree, Jabu-Jabu, Forest and Spirit Temples again with the final build and walk into the boss rooms.

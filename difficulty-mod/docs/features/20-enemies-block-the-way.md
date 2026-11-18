@@ -49,3 +49,34 @@ I did not add more gates. None of the other candidates could be checked as safe 
 4. Go through the tree and come out: you are east of the wall, the babas are back, so is the wall; hit a baba from this side.
 5. With the Stone of Forest, the wall must not be there.
 If the engine refuses a simple actor node bound to a baba, the next step is a vanilla typed node or a counter room.
+
+
+## Redesign (branch `feature/gates-v2`, never played)
+User, after the hands-on session: "there was no wall. don't make it invisible. use the burnable spiderweb wall but give it the purple glow that invincible enemies have." Earlier: "the wall shouldn't be invisible. make it visible. make it mido, or maybe the spiderweb wall but with the purple glowing effect."
+
+### What was built
+- Each guard now has, besides the air wall, a visible web: `Obj_InsideTheDekuTree_SpiderWeb_A_02` (the solid, elastic wall web used in the Deku Tree, Hyrule Field and the Shadow Temple) plus its cosmetic partner `Obj_InsideTheDekuTree_InteractiveSpiderWebParts_A_02` (instance name `SpiderwebPart`), joined by a `Reference` link from the web to the part, as in the game's own maps. Two webs stand on the wall line at x 36.4 and 40.4, one per guard, at scale 1 (the game places these with no scale).
+- The air wall stays as the real blocker and is thicker (z scale 0.12, like Mido's blocker, instead of 0.03). The old wall was thin and Link crossed it in the hands-on session.
+- Each web, part and wall is deleted by the Dead output of its guard through the same graph nodes (`ActorLogicSimpleActor`, `Logic_Delete`), so the webs of a guard vanish when that guard dies and the air wall vanishes when both are dead. Webs and parts copy the guard's `Presence` flag.
+
+### Fire-proof: not done
+The web dies by fire through its chemical parameters (`RequestDeathIfBurned` and `RequestDeathIfExploded` are true in `Obj_SpiderWeb`) and through its AI graph `Spiderweb_Wall` (burning leads to a death request; a lit Deku Stick sends an ignite message). Changing that needs a private copy of the actor (a new actor class with its own pack, rows in the actor info tables, the tag table and the resource size table, and an edited AI graph), as the cow clone feature does. That is data only but large and cannot be checked here, so it was not built. Instead the air wall holds when the web burns: fire removes the picture, never the blocker. The closest alternative if the user wants an unburnable visible barrier: a cosmetic web prop (`Land_Deku_SpiderWebProp_*`, no chemical parameters, no collision) in front of the air wall; its size is unknown.
+
+### Purple glow: not done
+The tint is not a model or actor parameter. It is applied by the native node `ExecuteSetEnemyDamageColorAndLight` in `AI/EnemyCommon.common.reactiondamagecolor.module.ainb` (the node's only data is its name; the colour lives in game code) and runs from the enemy graphs. No map actor key, model info or material parameter that a non-enemy object can carry was found. A glow would need game code or a rebuilt model, so the webs have none.
+
+### Why the user saw no wall
+Not the open-forest setting: `open_forest` defaults to "closed", so the gate is on by default, and the preset in the hands-on session set `enemy_gates` with entrances off. The map file of that session's mod could not be inspected afterwards (the mod folder was replaced), so the cause is not proven. Candidates: the wall was only 0.3 thick (now 1.2), a guard counted as dead (Dead true) before it was spawned, or the mod lacked the map. Nothing else in the difficulty code edits the Kokiri Forest map files, so a later merge overwriting it is ruled out. The test must print the mod's map and graph first (see `playtest/gates-v2/TESTS.md`).
+
+### Unverified
+Everything in the game: that the map loads, the web size and facing, that the air wall blocks, the deletion by the guards, the return of the webs.
+
+
+## Session fixes (18 Nov, feature/session-fixes, not played)
+User, with the gate v2 build: the web is visible and blocks, a bomb destroys it, and after that, with both guards alive, he could walk through.
+- Why the wall failed: the invisible wall was `FldObj_AirWall_Player_GenerateNavMesh`, whose box is 4 by 4 by 4 before scaling (half extents 2). At scale (1.6, 1.5, 0.12) it was 6.4 wide, 6 high and 0.5 thick, not the 16 wide the earlier text said, so it was narrower than the two webs together (34.4 to 42.4). The game places that class in `_Dynamic` maps (Mido's blocker); our wall is in the static map, where the game uses `FldObj_AirWall_Common_Cube` (six in this map). The earlier script test that "stopped" Link at z -19.9 was within a metre of a guard Baba and may have hit the Baba.
+- Change: the wall is now `FldObj_AirWall_Common_Cube` (a 1 unit cube standing on its origin), at (38.43, 112.2, -19.08), scale (16, 7, 1.2): x 30.4 to 46.4, y 112.2 to 119.2, z -19.68 to -18.48. Both guards and both webs are inside it. Same deletion wiring (both guards dead).
+- Webs: still the Deku Tree wall web and its part. A bomb or fire can still destroy the web, but the wall stays, so the way stays shut until both guards are dead. A bombed web leaves an invisible wall.
+- Not built: a private bomb-proof web. It needs a new actor class (pack, actor info rows, tag table, size table, edited AI and life data) and a wrong entry would crash Kokiri Forest on load with no way to check here. The air wall does the blocking. The purple glow is still not done.
+- Test: `the_wall_covers_the_webs_and_the_guards_and_uses_a_class_the_static_map_already_holds`.
+- In the game: see `playtest\session-fixes\TESTS.md`.

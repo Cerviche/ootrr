@@ -32,3 +32,6 @@ Never played. To test:
 ## Notes
 - This is the weakest of the three sliders because coverage is partial. A fuller version would have to scale animation rates, which I did not find a safe global handle for.
 - Turn speed was left alone on purpose; faster turning changes how fair a fight feels more than faster running does.
+
+## Seen in the game
+Not tested (batch 1 stopped early, 18 Nov).

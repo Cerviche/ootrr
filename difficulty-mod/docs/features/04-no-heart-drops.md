@@ -33,3 +33,6 @@ rc 2's fix has not been played. To test:
 ## Notes
 - The lesson for any drop work: the per-actor table is not the whole story; check the global lottery.
 - If you use pot or grass shuffle, hearts placed there as items are intended to remain.
+
+## Seen in the game (18 Nov, batch 1, aborted)
+Mod: no_heart_drops, no_ammo_drops, no_gossip_fairies, enemy_damage 500, enemy_health 50 (all ON). Link at 58 of 80 quarter hearts (bombs on himself, 2 quarter hearts each), walking and swinging the sword in Kokiri Forest. A "You got a recovery heart!" box appeared at (-9.1, 111.8, 17.4): life 58 to 62. Two hearts were visible on the ground in the screenshot. The script did not log what was cut or which actor dropped them, so it is NOT known whether this was a drop (FAIL) or a heart the map places (allowed). Result: NOT TESTED; needs a run that watches each cut. Screenshot kept under playtestatch\shots.
