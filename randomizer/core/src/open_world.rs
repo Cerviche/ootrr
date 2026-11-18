@@ -572,6 +572,8 @@ mod tests {
         let no_bean = |n: &str| n == "Magic Bean" || n == "Buy Magic Bean";
         assert!(!reach(&[], &no_bean, At::Loc("Colossus Freestanding PoH")));
         assert!(reach(&[(BEANS, Value::Bool(true))], &no_bean, At::Loc("Colossus Freestanding PoH")));
+        assert!(!reach(&[], &no_bean, At::Loc("DMT Freestanding PoH")));
+        assert!(reach(&[(BEANS, Value::Bool(true))], &no_bean, At::Loc("DMT Freestanding PoH")));
         let no_mask = |n: &str| n == "Keaton Mask";
         assert!(!reach(&[], &no_mask, At::Loc("Market Mask Shop Item 1")));
         assert!(reach(&[(MASKS, Value::Bool(true))], &no_mask, At::Loc("Market Mask Shop Item 1")));
