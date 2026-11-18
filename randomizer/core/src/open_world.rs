@@ -606,7 +606,7 @@ mod tests {
             &[(ZORA, Value::s("open")), (JABU, Value::Bool(true))],
             &[(JABU, Value::Bool(true)), (TIME, Value::Bool(true)), (BEDS, Value::Bool(true))],
             &[(ZORA, Value::s("open")), (JABU, Value::Bool(true)), (DOOR, Value::Bool(true)), (TIME, Value::Bool(true)), ("open_forest", Value::s("open")), ("open_kakariko", Value::s("open"))],
-            &[(DOOR, Value::Bool(true)), (TIME, Value::Bool(true)), ("shuffle_skulltulas", Value::s("matched")), ("shuffle_dungeon_rewards", Value::Bool(true))],
+            &[(DOOR, Value::Bool(true)), (TIME, Value::Bool(true)), ("shuffle_skulltulas", Value::s("matched")), ("shuffle_dungeon_rewards", Value::s("anywhere"))],
         ];
         for (n, c) in combos.iter().enumerate() {
             let mut s: Settings = Settings::default();

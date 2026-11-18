@@ -39,7 +39,7 @@ pub fn edit_file_with(file: &str, raw: &[u8], ts: &[Target], keys: bool, small: 
     let mut wraps: Vec<(u64, String)> = Vec::new();
     let mut touched: Vec<u64> = Vec::new();
     for (i, t) in ts.iter().enumerate() {
-        let n: usize = if t.old_actor == HEART {
+        let n: usize = if t.old_actor == HEART && t.heart_chest {
             let chest: &str = if small.contains(&t.hash) { crate::chest_size::PAIRS[0].0 } else { CHEST };
             let n: usize = swap(&mut y, t.hash, &t.new_actor, chest);
             if n > 0 {

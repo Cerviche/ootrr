@@ -1130,7 +1130,7 @@ mod tests {
     fn stones_and_medallions_move_when_asked() {
         let d: Data = Data::load().unwrap();
         let mut s: Settings = Settings::default();
-        s.set("shuffle_dungeon_rewards", Value::Bool(true)).unwrap();
+        s.set("shuffle_dungeon_rewards", Value::s("anywhere")).unwrap();
         assert!(plan(&s).unwrap().rewards.dungeon_rewards);
         let mut moved: usize = 0;
         for n in 0..3 {
@@ -1144,10 +1144,38 @@ mod tests {
     }
 
     #[test]
+    fn end_of_dungeons_shuffles_stones_and_medallions_only_among_their_events() {
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_dungeon_rewards", Value::s("dungeons")).unwrap();
+        let p: Plan = plan(&s).unwrap();
+        assert!(p.rewards.dungeon_rewards && p.rewards.dungeon_own);
+        let mut moved: usize = 0;
+        for n in 0..4 {
+            let g: Generated = generate_data(&d, &s, &format!("end of dungeons {n}"), &GenOpts::default()).unwrap();
+            let mut got: Vec<&str> = Vec::new();
+            for (l, _) in HELD {
+                let item: &String = g.seed_file.placements.get(l).unwrap_or_else(|| panic!("{n} {l} is not shuffled"));
+                assert!(held_item(item), "{n} {l} holds {item}");
+                got.push(item.as_str());
+                moved += usize::from(d.vanilla_of(l) != Some(item.as_str()));
+            }
+            got.sort();
+            let mut want: Vec<&str> = HELD.iter().map(|h| h.1).collect();
+            want.sort();
+            assert_eq!(got, want, "{n}");
+            for (l, i) in &g.seed_file.placements {
+                assert!(!held_item(i) || held_loc(l), "{n} put {i} at {l}");
+            }
+        }
+        assert!(moved > 0);
+    }
+
+    #[test]
     fn rewards_off_and_stones_and_medallions_on_keep_the_old_seeds() {
         let d: Data = Data::load().unwrap();
         let mut on: Settings = Settings::default();
-        on.set("shuffle_dungeon_rewards", Value::Bool(true)).unwrap();
+        on.set("shuffle_dungeon_rewards", Value::s("anywhere")).unwrap();
         let mut pots: Settings = on.clone();
         pots.set("shuffle_pots", Value::s("all")).unwrap();
         pots.set("shuffle_crates", Value::s("all")).unwrap();
@@ -1171,7 +1199,7 @@ mod tests {
             s.set(crate::qol::NAVI, Value::s("off")).unwrap();
             let g: Generated = generate_data(&d, &s, seed, &GenOpts::default()).unwrap();
             let mut f: SeedFile = g.seed_file.clone();
-            if s.flag("shuffle_dungeon_rewards").unwrap() {
+            if s.text("shuffle_dungeon_rewards").unwrap() != "vanilla" {
                 assert_ne!(f.settings_string, old);
             } else {
                 assert_eq!(f.settings_string, old);

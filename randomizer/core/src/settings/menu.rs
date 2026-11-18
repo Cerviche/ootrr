@@ -292,17 +292,10 @@ const BOSS_KEYS: View = View {
 
 const DUNGEON_REWARDS: View = View {
     id: "shuffle_dungeon_rewards",
-    label: "Shuffle Dungeon Rewards",
-    tip: "Shuffles the location of Spiritual Stones and medallions.\nVanilla - Spiritual Stones and medallions will be given by their respective boss.\n\nEnd of dungeons - Spiritual Stones and medallions will be given as rewards for beating major dungeons. Link will always start with one stone or medallion.\n\nAny dungeon - Spiritual Stones and medallions can be found inside any dungeon.\n\nOverworld - Spiritual Stones and medallions can only be found outside of dungeons.\n\nAnywhere - Spiritual Stones and medallions can appear anywhere.",
+    label: "Dungeon Rewards",
+    tip: "Where the Spiritual Stones and Medallions can be found.\n\nVanilla - Rewards are not shuffled. Each boss and Rauru give their usual Stone or Medallion.\n\nEnd of dungeons - The Stones and Medallions are shuffled only among themselves: each boss and Rauru give one random Stone or Medallion.\n\nAnywhere - The Stones and Medallions can appear anywhere, and the bosses and Rauru can give any item.",
     kind: Kind::Pick,
-    opts: &[
-        yes("Vanilla", "false"),
-        missing("End of Dungeons"),
-        missing("Own Dungeon"),
-        missing("Any Dungeon"),
-        missing("Overworld"),
-        yes("Anywhere", "true"),
-    ],
+    opts: &[yes("Vanilla", "vanilla"), yes("End of dungeons", "dungeons"), yes("Anywhere", "anywhere")],
 };
 
 const GERUDO_KEYS: View = View {

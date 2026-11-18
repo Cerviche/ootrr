@@ -570,11 +570,13 @@ mod tests {
         let p = crate::slice::support::plan(&s).unwrap();
         assert!(!p.logic().contains(&(LOGIC_KEY, "true")));
         assert!(!p.defaults().contains(&(SETTING, "true")));
-        s.set(SETTING, Value::Bool(true)).unwrap();
-        let p = crate::slice::support::plan(&s).unwrap();
-        assert!(p.logic().contains(&(LOGIC_KEY, "true")));
-        assert!(p.defaults().contains(&(SETTING, "true")));
-        assert_eq!(crate::start_defaults::presets::chosen(&p.defaults()).unwrap().iter().filter(|e| exps().contains(e)).count(), 3);
+        for v in ["anywhere", "dungeons"] {
+            s.set(SETTING, Value::s(v)).unwrap();
+            let p = crate::slice::support::plan(&s).unwrap();
+            assert!(p.logic().contains(&(LOGIC_KEY, "true")), "{v}");
+            assert!(p.defaults().contains(&(SETTING, "true")), "{v}");
+            assert_eq!(crate::start_defaults::presets::chosen(&p.defaults()).unwrap().iter().filter(|e| exps().contains(e)).count(), 3, "{v}");
+        }
     }
 
     fn run(terms: &[(i32, String)], held: &[&str]) -> bool {

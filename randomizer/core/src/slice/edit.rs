@@ -659,6 +659,7 @@ mod tests {
             ev: None,
             family: None,
             key: None,
+            heart_chest: false,
         }
     }
 
@@ -686,11 +687,31 @@ mod tests {
             ])
         };
         let b: Vec<u8> = raw(vec![heart(1), heart(2)]);
-        let ts: Vec<Target> = vec![target(1, HEART, "TBox_Rupee_Red"), target(2, HEART, "Item_Hookshot")];
+        let chest = |h: u64, new: &str| Target { heart_chest: true, ..target(h, HEART, new) };
+        let ts: Vec<Target> = vec![chest(1, "TBox_Rupee_Red"), chest(2, "Item_Hookshot")];
         let e: Edited = edit_file_with("Banc/Area/a.bcett.byml.zs", &b, &ts, false, &BS::from([1]), &BM::new()).unwrap().unwrap();
         let back: Byml = Byml::parse(&e.bytes).unwrap();
         let g: Vec<&str> = back.root.get("Actors").unwrap().as_arr().unwrap().iter().map(|a| a.get("Gyaml").unwrap().as_str().unwrap()).collect();
         assert_eq!(g, vec!["Obj_TBox_A_01", CHEST]);
+        assert_eq!(e.hearts.len(), 2);
+    }
+
+    #[test]
+    fn a_boss_heart_with_a_ground_pickup_becomes_that_pickup_and_needs_no_unlock() {
+        let heart = |h: u64| -> Node {
+            Node::Map(vec![
+                ("Gyaml".to_string(), Node::Str(HEART.to_string())),
+                ("Hash".to_string(), Node::U64(h)),
+                ("Translate".to_string(), Node::Arr(vec![Node::F32(1.0), Node::F32(2.0), Node::F32(3.0)])),
+            ])
+        };
+        let b: Vec<u8> = raw(vec![heart(1)]);
+        let e: Edited = edit_file_with("Banc/Area/a.bcett.byml.zs", &b, &[target(1, HEART, "Obj_Hookshot")], false, &BS::new(), &BM::new()).unwrap().unwrap();
+        let back: Byml = Byml::parse(&e.bytes).unwrap();
+        let a: &Node = &back.root.get("Actors").unwrap().as_arr().unwrap()[0];
+        assert_eq!(a.get("Gyaml").and_then(|v| v.as_str()), Some("Obj_Hookshot"));
+        assert!(a.get("Dynamic").and_then(|d| d.get("Drop__DropActor")).is_none());
+        assert!(e.hearts.is_empty());
     }
 
     #[test]

@@ -57,7 +57,7 @@ fn kind_of(d: &Data, loc: &str, item: &str) -> Option<Kind> {
     if d.pots.has(loc) {
         return crate::pot_slice::pickup::of(item).is_none().then_some(Kind::Holder);
     }
-    if d.cat.by_name(loc).is_some_and(crate::slice::pickups::is_world) {
+    if d.cat.by_name(loc).is_some_and(crate::slice::pickups::on_ground) {
         let shipped: bool = crate::slice::pickups::ground_actor(item).is_some() || shield(item).is_some();
         return (!shipped).then_some(Kind::Free);
     }
@@ -73,7 +73,12 @@ pub fn need(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Res<BM<Str
         let Some(k) = kind_of(d, loc, item) else {
             continue;
         };
-        let p: Pick = resolve(d, item, fixed.get(loc).map(|s| s.as_str())).map_err(|e| E::Msg(format!("{loc} holds {item}, which this build cannot place there yet: {e}")))?;
+        let p: Pick = match resolve(d, item, fixed.get(loc).map(|s| s.as_str())) {
+            Ok(p) => p,
+            // A boss heart whose item has no pack keeps the chest it always had (crate::boss_heart).
+            Err(_) if d.cat.by_name(loc).is_some_and(|l| l.kind == "bossheart") => continue,
+            Err(e) => return Err(E::Msg(format!("{loc} holds {item}, which this build cannot place there yet: {e}"))),
+        };
         let name: String = if k.kit() { p.hang() } else { p.pack.clone() };
         let w: &mut Want = out.entry(name.clone()).or_insert_with(|| Want { name, pick: p, kind: k, spots: Vec::new() });
         w.spots.push(loc.clone());
@@ -367,6 +372,39 @@ mod tests {
         for c in ["Animal_Cow_DMT", "Animal_Cow_Kakariko", "Animal_Cow_HFGrotto", "Animal_Cow_LLR_Left", "Animal_Cow_LLR_Right"] {
             assert!(romfs.join(pack_of(c)).is_file(), "{c}");
         }
+        let _ = fs::remove_dir_all(&load);
+    }
+
+    #[test]
+    fn a_key_item_on_a_boss_heart_stands_there_as_its_pickup_instead_of_a_chest() {
+        use crate::slice::generate::{generate_data, GenOpts, Generated};
+        let Some(root) = real() else {
+            return;
+        };
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = wide();
+        s.set("shuffle_boss_hearts", crate::settings::Value::Bool(true)).unwrap();
+        let loc: &str = "Deku Tree Queen Gohma Heart";
+        let o: GenOpts = GenOpts { plando: vec![crate::slice::plando::parse(&format!("{loc}=Megaton Hammer")).unwrap()], ..GenOpts::default() };
+        let g: Generated = generate_data(&d, &s, "boss heart pickup", &o).unwrap();
+        assert_eq!(g.seed_file.placements.get(loc).map(|v| v.as_str()), Some("Megaton Hammer"));
+        let order: Verdict = fixed_actors(&d, &g.seed_file).unwrap();
+        let wants: BM<String, Want> = need(&d, &g.seed_file, &order.assign).unwrap();
+        assert!(wants.get("Obj_Hammer").is_some_and(|w| w.spots.iter().any(|x| x == loc)), "{:?}", wants.keys());
+        let load: PB = std::env::temp_dir().join(format!("ootrr_boss_heart_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&load);
+        let b: Built = crate::slice::edit::build_for(&g.seed_file, &root, &load, "boss heart", Host::Hookshot).unwrap();
+        let l: &crate::catalog::Loc = d.cat.by_name(loc).unwrap();
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        for r in &l.refs {
+            for f in &r.files {
+                let raw: Vec<u8> = rf.zs.decompress(&fs::read(b.root.join("romfs").join(f)).unwrap()).unwrap();
+                let y: Byml = Byml::parse(&raw).unwrap();
+                let a: &crate::byml::Node = y.root.get("Actors").unwrap().as_arr().unwrap().iter().find(|a| crate::placement::hash_of(a) == Some(r.hash)).unwrap();
+                assert_eq!(a.get("Gyaml").and_then(|v| v.as_str()), Some("Obj_Hammer"), "{f}");
+            }
+        }
+        assert!(b.root.join("romfs").join(pack_of("Obj_Hammer")).is_file());
         let _ = fs::remove_dir_all(&load);
     }
 
