@@ -43,7 +43,7 @@ pub const RESULT: &str = "EventSetEventResult";
 pub const HEART_MARK: &str = "OOTRRLoseHeart";
 pub const BOTTLE_MARK: &str = "OOTRRNoBottle";
 
-fn flow<'a>(b: &'a mut Bf, name: &str) -> Res<&'a mut Flow> {
+pub(super) fn flow<'a>(b: &'a mut Bf, name: &str) -> Res<&'a mut Flow> {
     b.flows.iter_mut().find(|f| f.name == name).ok_or_else(|| Error::Msg(format!("difficulty: the flow {name} is not in its file")))
 }
 
@@ -68,7 +68,7 @@ fn slot(list: &mut Vec<String>, name: &str) -> u16 {
     (list.len() - 1) as u16
 }
 
-fn query(f: &mut Flow, actor: &str, name: &str) -> Res<(u16, u16)> {
+pub(super) fn query(f: &mut Flow, actor: &str, name: &str) -> Res<(u16, u16)> {
     let a: usize = actor_at(f, actor)?;
     Ok((a as u16, slot(&mut f.actors[a].queries, name)))
 }
@@ -78,7 +78,7 @@ fn action(f: &mut Flow, actor: &str, name: &str) -> Res<(u16, u16)> {
     Ok((a as u16, slot(&mut f.actors[a].actions, name)))
 }
 
-fn push(f: &mut Flow, name: String, kind: Kind) -> Res<u16> {
+pub(super) fn push(f: &mut Flow, name: String, kind: Kind) -> Res<u16> {
     if f.events.len() >= NONE as usize {
         return Err(Error::Format("difficulty: too many events in a flow"));
     }
@@ -86,11 +86,11 @@ fn push(f: &mut Flow, name: String, kind: Kind) -> Res<u16> {
     Ok((f.events.len() - 1) as u16)
 }
 
-fn cont(items: Vec<(&str, Val)>) -> Option<Cont> {
+pub(super) fn cont(items: Vec<(&str, Val)>) -> Option<Cont> {
     Some(Cont { items: items.into_iter().map(|(k, v)| (k.to_string(), v)).collect() })
 }
 
-fn finish(b: &Bf) -> Res<Vec<u8>> {
+pub(super) fn finish(b: &Bf) -> Res<Vec<u8>> {
     let out: Vec<u8> = b.write()?;
     if Bf::parse(&out)? != *b {
         return Err(Error::Format("difficulty: an edited flow does not read back"));
@@ -98,7 +98,7 @@ fn finish(b: &Bf) -> Res<Vec<u8>> {
     Ok(out)
 }
 
-fn marked(f: &Flow, mark: &str) -> bool {
+pub(super) fn marked(f: &Flow, mark: &str) -> bool {
     f.events.iter().any(|e| e.name.starts_with(mark))
 }
 

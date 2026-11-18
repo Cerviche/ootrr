@@ -681,8 +681,9 @@ pub const MENU: &[Page] = &[
         label: "Difficulty",
         heading: GAMEPLAY,
         sections: &[
-            sec("Enemies", &["enemy_health", "enemy_damage", "enemy_speed"]),
-            sec("Drops and healing", &["no_heart_drops", "no_ammo_drops", "no_gossip_fairies", "no_bottles_in_combat"]),
+            sec("Enemies", &["enemy_health", "enemy_damage", "enemy_speed", "enemy_regen", "no_z_targeting", "more_enemies", "enemies_respawn_sooner"]),
+            sec("Drops and healing", &["no_heart_drops", "no_ammo_drops", "no_gossip_fairies", "no_bottles_in_combat", "no_dupe_items"]),
+            sec("Boss fights", &["boss_minibosses", "boss_minions"]),
             sec("Game over", &["lose_heart_on_death"]),
         ],
     },

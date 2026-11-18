@@ -41,6 +41,7 @@ pub struct NOut<'a> {
     pub k: usize,
     pub name: &'a str,
     pub class: &'a str,
+    pub read: bool,
 }
 
 pub struct Spec<'a> {
@@ -89,12 +90,17 @@ impl<'a> Spec<'a> {
     }
 
     pub fn out(mut self, k: usize, name: &'a str) -> Spec<'a> {
-        self.outs.push(NOut { k, name, class: "" });
+        self.outs.push(NOut { k, name, class: "", read: true });
+        self
+    }
+
+    pub fn spare(mut self, k: usize, name: &'a str) -> Spec<'a> {
+        self.outs.push(NOut { k, name, class: "", read: false });
         self
     }
 
     pub fn out_ptr(mut self, name: &'a str, class: &'a str) -> Spec<'a> {
-        self.outs.push(NOut { k: PTR, name, class });
+        self.outs.push(NOut { k: PTR, name, class, read: true });
         self
     }
 
@@ -225,7 +231,7 @@ impl Ainb {
             p.ioe[x.k][1] += 1;
         }
         for x in &s.outs {
-            let nm: u32 = self.pool.add(x.name) | LINKED;
+            let nm: u32 = self.pool.add(x.name) | if x.read { LINKED } else { 0 };
             self.outs[x.k].extend_from_slice(&nm.to_le_bytes());
             if x.k == PTR {
                 let cl: u32 = self.pool.add(x.class);
