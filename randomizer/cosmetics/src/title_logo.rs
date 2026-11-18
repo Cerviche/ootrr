@@ -226,9 +226,154 @@ pub fn splice(vz: &[u8], raw: &[u8]) -> Res<Option<Vec<u8>>> {
     Ok(Some(out))
 }
 
+/// Names the logo can take in the Title archive, all as long as the game's name.
+const NEW_NAMES: [&str; 4] = ["Logo_USEU_0p", "Logo_USEU_0r", "Logo_USEU_0x", "Logo_USEU_0z"];
+
+fn le_u16(b: &[u8], o: usize) -> Option<usize> {
+    Some(u16::from_le_bytes([*b.get(o)?, *b.get(o + 1)?]) as usize)
+}
+
+fn le_u32(b: &[u8], o: usize) -> Option<u32> {
+    Some(u32::from_le_bytes(b.get(o..o + 4)?.try_into().ok()?))
+}
+
+/// The name the name-lookup tree (the "_DIC" table) at `dic` of the texture file `b` finds for
+/// `key`, walked as the game walks it: each node tests one bit counted from the name's last letter.
+fn dic_find(b: &[u8], dic: usize, key: &[u8]) -> Option<Vec<u8>> {
+    let node = |i: usize| -> Option<(i32, usize, usize, usize)> {
+        let o: usize = dic + 8 + i * 16;
+        let bit: i32 = le_u32(b, o)? as i32;
+        let ptr: usize = usize::try_from(u64::from_le_bytes(b.get(o + 8..o + 16)?.try_into().ok()?)).ok()?;
+        Some((bit, le_u16(b, o + 4)?, le_u16(b, o + 6)?, ptr))
+    };
+    let at = |k: &[u8], bit: i32| -> usize {
+        let i: usize = (bit as usize) >> 3;
+        if i < k.len() { usize::from((k[k.len() - 1 - i] >> (bit & 7)) & 1) } else { 0 }
+    };
+    let n: usize = le_u32(b, dic + 4)? as usize;
+    let mut cur = node(0)?;
+    let mut next = node(cur.1)?;
+    for _ in 0..=n {
+        if cur.0 >= next.0 {
+            break;
+        }
+        cur = next;
+        next = node(if at(key, cur.0) == 1 { cur.2 } else { cur.1 })?;
+    }
+    if next.3 == 0 {
+        return None;
+    }
+    let len: usize = le_u16(b, next.3)?;
+    Some(b.get(next.3 + 2..next.3 + 2 + len)?.to_vec())
+}
+
+/// Whether the texture file `b` has a name tree over exactly `names` that finds every one of them.
+fn dic_ok(b: &[u8], names: &[String]) -> bool {
+    let mut at: usize = 0;
+    while let Some(i) = b[at..].windows(4).position(|w| w == b"_DIC") {
+        let dic: usize = at + i;
+        if le_u32(b, dic + 4).map(|n| n as usize) == Some(names.len()) && names.iter().all(|n| dic_find(b, dic, n.as_bytes()).as_deref() == Some(n.as_bytes())) {
+            return true;
+        }
+        at = dic + 4;
+    }
+    false
+}
+
+/// Swaps every whole-name `old` (followed by a zero byte) for `new` of the same length.
+fn swap_name(b: &mut [u8], old: &str, new: &str) -> usize {
+    let (o, n): (&[u8], &[u8]) = (old.as_bytes(), new.as_bytes());
+    let mut hits: usize = 0;
+    let mut i: usize = 0;
+    while i + o.len() < b.len() {
+        if &b[i..i + o.len()] == o && b[i + o.len()] == 0 && (i == 0 || !b[i - 1].is_ascii_alphanumeric() && b[i - 1] != b'_') {
+            b[i..i + o.len()].copy_from_slice(n);
+            hits += 1;
+            i += o.len();
+        } else {
+            i += 1;
+        }
+    }
+    hits
+}
+
+/// Draws the line only into the small Title archive and leaves the 244 MB Common archive alone:
+/// the logo in the Title archive is renamed (a name no other archive has, as long, checked to stay
+/// findable in its name tree) and both layouts that show the logo, the title screen's in the
+/// Common layout archive and the Title one, point at it. Needs the Title archive's textures to be
+/// usable by the Common layout on the title screen; untested in the game. None when anything does
+/// not fit, and then both archives get the line.
+fn title_only(mod_root: &P, rf: &mut Romfs, p: &Patch) -> Res<Option<Vec<String>>> {
+    let (Some(title), Some(common)) = (p.files.iter().find(|f| f.contains("/Title.")), p.files.iter().find(|f| f.contains("/Common."))) else {
+        return Ok(None);
+    };
+    let layout = |f: &str| f.replace(".bntx.zs", ".blarc.zs");
+    let out = |f: &str| mod_root.join("romfs").join(f);
+    if [title.clone(), common.clone(), layout(title), layout(common)].iter().any(|f| out(f).is_file()) {
+        return Ok(None);
+    }
+    let mut raw: Vec<u8> = rf.read_zs(title)?;
+    if !apply_raw(&mut raw, p)? {
+        return Ok(None);
+    }
+    let names: Vec<String> = bntx::parse(&raw)?.into_iter().map(|t| t.name).collect();
+    let others: Vec<String> = bntx::parse(&rf.read_zs(common)?)?.into_iter().map(|t| t.name).collect();
+    if !dic_ok(&raw, &names) {
+        return Ok(None);
+    }
+    let mut chosen: Option<(String, Vec<u8>)> = None;
+    for new in NEW_NAMES {
+        if names.iter().chain(&others).any(|n| n == new) {
+            continue;
+        }
+        let mut b: Vec<u8> = raw.clone();
+        if swap_name(&mut b, &p.texture, new) == 0 {
+            continue;
+        }
+        let renamed: Vec<String> = names.iter().map(|n| if *n == p.texture { new.to_string() } else { n.clone() }).collect();
+        if bntx::parse(&b)?.into_iter().map(|t| t.name).collect::<Vec<String>>() == renamed && dic_ok(&b, &renamed) {
+            chosen = Some((new.to_string(), b));
+            break;
+        }
+    }
+    let Some((new, tex)) = chosen else {
+        return Ok(None);
+    };
+    let mut layouts: Vec<(String, Vec<u8>)> = Vec::new();
+    for f in [layout(common), layout(title)] {
+        let mut b: Vec<u8> = rf.read_zs(&f)?;
+        let n: usize = swap_name(&mut b, &p.texture, &new);
+        if n == 0 && f == layout(common) {
+            return Ok(None);
+        }
+        if n > 0 {
+            layouts.push((f, b));
+        }
+    }
+    let mut notes: Vec<String> = Vec::new();
+    let tz: Vec<u8> = match splice(&rf.read(title)?, &tex)? {
+        Some(z) => z,
+        None => compress(&tex)?,
+    };
+    let mb = |n: usize| n as f64 / 1_048_576.0;
+    for (f, z) in std::iter::once((title.clone(), tz)).chain(layouts.iter().map(|(f, b)| Ok::<_, E>((f.clone(), compress(b)?))).collect::<Res<Vec<_>>>()?) {
+        let o: PB = out(&f);
+        if let Some(d) = o.parent() {
+            fs::create_dir_all(d)?;
+        }
+        notes.push(format!("Title logo: {f} written ({:.1} MB)", mb(z.len())));
+        fs::write(&o, z)?;
+    }
+    notes.push(format!("Title logo: the Randomizer line is drawn only in the Title archive, as {new}, and the title screen layouts point at it; the Common archive stays the game's. Experimental, untested in the game."));
+    Ok(Some(notes))
+}
+
 pub fn apply(mod_root: &P, romfs: &P) -> Res<Vec<String>> {
     let p: Patch = patch()?;
     let mut rf: Romfs = Romfs::open(romfs)?;
+    if let Some(notes) = title_only(mod_root, &mut rf, &p)? {
+        return Ok(notes);
+    }
     let mut notes: Vec<String> = Vec::new();
     for f in &p.files {
         let out: PB = mod_root.join("romfs").join(f);
