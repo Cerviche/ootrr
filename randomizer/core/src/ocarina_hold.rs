@@ -19,8 +19,9 @@
 //! equip slot as the starting items do ([`after`]).
 //!
 //! This covers the NPC gifts that hold the item up (slice::flow_rules::holds_up) and the reward
-//! scenes the story skips turn into the standard item get (story_skip::item_get and
-//! patch_song_grant), for a placed item or the scene's own. The seed build writes the pickup packs
+//! scenes the story skips turn into the standard item get (story_skip::item_get, Sheik's songs
+//! included through the song triggers), for a placed item or the scene's own. The Great Fairies give
+//! with their own routine and Requiem keeps its scene's window, so the NPC gift rule covers them. The seed build writes the pickup packs
 //! all of those can hand out.
 
 use std::sync::OnceLock;
@@ -146,17 +147,12 @@ fn forms_in(d: &Data, item: &str) -> Vec<String> {
 
 /// The reward scenes the story skips turn into the standard item get (story_skip), which holds the
 /// item up whatever the check holds.
-pub fn scene_locs(d: &Data) -> Vec<String> {
+pub fn scene_locs() -> Vec<String> {
     let mut out: Vec<String> = vec![crate::lacs_key::LOC.to_string(), crate::slice::flow_rules::SARIA.to_string(), crate::story_skip::RAURU_LOC.to_string()];
-    out.extend(crate::story_skip::FAIRIES.iter().map(|x| x.0.to_string()));
     out.extend(crate::story_skip::REWARD_SCENES.iter().map(|x| x.0.to_string()));
     for t in &crate::story_skip::SONG_TRIGGERS {
         out.push(t.loc.to_string());
         out.extend(t.also.iter().map(|x| x.to_string()));
-    }
-    for c in &crate::story_skip::SHEIK_CUTS {
-        let file: String = format!("{}.bfevfl", c.scene);
-        out.extend(d.flow.locs.iter().filter(|l| l.edits.iter().any(|e| e.role == "grant" && e.file == file)).map(|l| l.name.clone()));
     }
     out.sort();
     out.dedup();
@@ -176,7 +172,7 @@ pub fn spots(d: &Data, seed: &SeedFile) -> Vec<(String, Vec<String>)> {
             }
         }
     }
-    for loc in scene_locs(d) {
+    for loc in scene_locs() {
         if out.iter().any(|x| x.0 == loc) {
             continue;
         }
@@ -229,8 +225,8 @@ mod tests {
         assert_eq!(tier_of("Obj_Melody_ForestMinuet"), Some("Item_Melody_ForestMinuet"));
         assert_eq!(tier_of("Obj_Ocarina_TimeLand"), Some("Item_Ocarina_Time"));
         assert!(equip_key("Item_Melody_ForestMinuet").is_none() && equip_key("Item_Ocarina_Time") == Some(EQUIP));
-        let scenes: Vec<String> = scene_locs(&d);
-        for l in ["LW Gift from Saria", "Song from Impa", "ToT Reward from Rauru", "DMT Great Fairy Reward", "Queen Gohma"] {
+        let scenes: Vec<String> = scene_locs();
+        for l in ["LW Gift from Saria", "Song from Impa", "ToT Reward from Rauru", "Sheik in Forest", "Queen Gohma"] {
             assert!(scenes.iter().any(|x| x == l), "{l}");
         }
         assert!(scenes.iter().any(|l| l.starts_with("Sheik")), "{scenes:?}");

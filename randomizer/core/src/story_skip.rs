@@ -1094,6 +1094,8 @@ pub const FAIRIES: [(&str, &str); 6] = [
     ("OGC Great Fairy Reward", "Dm_FairyFountain_Courage"),
 ];
 const FAIRY_PREFIX: &str = "OOTRRFairy";
+/// The part of each fairy's gift scene that runs her give (her own item get routine).
+const FAIRY_GIVE: &str = "C15-01";
 
 fn wait0(f: &mut Flow, next: u16) -> Res<Kind> {
     let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, "EventSystemActor", "EventWait")?;
@@ -1115,8 +1117,8 @@ fn is_sub_to(k: &Kind, entry: &str) -> bool {
 
 /// A Great Fairy, once paid. The talk and the payment stay. The music stop, the skip marker and the
 /// fairy rising (GreatFairy_Appear) before her gift scene become zero-frame waits, the gift scene
-/// becomes the release of the music mute and the standard item get with what the check holds, and
-/// her leaving (GreatFairy_Disappear: her parting talk, the "all fairies met" message and the
+/// becomes the release of the music mute and only her own give (her C15-01 part: the fairy item get
+/// routine, built for this scene's Link, with what the check holds), and her leaving (GreatFairy_Disappear: her parting talk, the "all fairies met" message and the
 /// heal) becomes only the heal (TriForcePoint:Recover). Din's MP check before the gift stays.
 pub fn patch_fairy_give(b: &mut Bf, flow: &str, g: &SceneGive) -> Res<()> {
     let f: &mut Flow = flow_mut(b, flow)?;
@@ -1206,9 +1208,15 @@ pub fn patch_fairy_give(b: &mut Bf, flow: &str, g: &SceneGive) -> Res<()> {
             None
         });
     let then: u16 = next_of(&f.events[gift].kind).ok_or(Error::Format("story skip: the fairy gift has no next"))?;
-    let entries: Vec<String> = entries_reaching(f, gift);
-    let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
-    let at: u16 = item_get(f, &format!("{FAIRY_PREFIX}{flow}"), g, then, &names)?;
+    if !f.entries.iter().any(|e| e.name == FAIRY_GIVE) {
+        return Err(Error::Msg(format!("story skip: {flow} has no {FAIRY_GIVE} give part, the game files differ")));
+    }
+    let _ = g;
+    let at: u16 = idx(f.events.len())?;
+    f.events.push(Event { name: format!("{FAIRY_PREFIX}Give"), kind: Kind::Sub { next: then, params: None, flow: String::new(), entry: FAIRY_GIVE.to_string() } });
+    for e in f.entries.iter_mut().filter(|e| e.subs.contains(&idx(gift).unwrap_or(NONE))) {
+        e.subs.push(at);
+    }
     f.events[gift].kind = match release {
         Some(mut k) => {
             set_next(&mut k, at)?;
@@ -1216,6 +1224,12 @@ pub fn patch_fairy_give(b: &mut Bf, flow: &str, g: &SceneGive) -> Res<()> {
         }
         None => wait0(f, at)?,
     };
+    // An entry's preload list (subs) names its sub calls. The rising and the gift scene call are
+    // no longer sub calls, and a list that names another event makes the game refuse the event.
+    let is_sub: Vec<bool> = f.events.iter().map(|e| matches!(e.kind, Kind::Sub { .. } | Kind::SubSwitch { .. })).collect();
+    for e in f.entries.iter_mut() {
+        e.subs.retain(|&i| is_sub.get(i as usize).copied().unwrap_or(false));
+    }
     Ok(())
 }
 
@@ -1240,12 +1254,14 @@ pub struct SongTrigger {
     pub cut: &'static [&'static str],
     pub give: &'static str,
     pub also: &'static [&'static str],
+    /// Calls the scene makes that carry state (flow, entry), run in its place.
+    pub calls: &'static [(&'static str, &'static str)],
 }
 
-pub const SONG_TRIGGERS: [SongTrigger; 6] = [
-    SongTrigger { loc: "Song from Impa", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Zelda", also: &[] },
-    SongTrigger { loc: "Song from Malon", flow: "SubEvent_GetEponaSong", cut: &[], give: "Dm_MelodyGet_Epona", also: &[] },
-    SongTrigger { loc: "Song from Saria", flow: "SacredForestMeadow", cut: &[], give: "Dm_MelodyGet_Saria", also: &[] },
+pub const SONG_TRIGGERS: [SongTrigger; 11] = [
+    SongTrigger { loc: "Song from Impa", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Zelda", also: &[], calls: &[] },
+    SongTrigger { loc: "Song from Malon", flow: "SubEvent_GetEponaSong", cut: &[], give: "Dm_MelodyGet_Epona", also: &[], calls: &[] },
+    SongTrigger { loc: "Song from Saria", flow: "SacredForestMeadow", cut: &[], give: "Dm_MelodyGet_Saria", also: &[], calls: &[] },
     // The lesson, then one of the day or night flips (the time change after each stays), then Sun_03.
     SongTrigger {
         loc: "Song from Royal Familys Tomb",
@@ -1253,10 +1269,19 @@ pub const SONG_TRIGGERS: [SongTrigger; 6] = [
         cut: &["Dm_MelodyGet_Sun", "Dm_MelodyGet_Sun_01", "Dm_MelodyGet_Sun_04", "Dm_MelodyGet_Sun_05", "Dm_MelodyGet_Sun_06", "Dm_MelodyGet_Sun_07", "Dm_MelodyGet_Sun_08", "Dm_MelodyGet_Sun_09", "Dm_MelodyGet_Sun_10"],
         give: "Dm_MelodyGet_Sun_03",
         also: &[],
+        calls: &[],
     },
     // The Ocarina of Time scene also hands over the Ocarina.
-    SongTrigger { loc: "Song from Ocarina of Time", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Time", also: &["HF Ocarina of Time Item"] },
-    SongTrigger { loc: "Song from Windmill", flow: "Npc_Hylia_009_Adult", cut: &[], give: "Dm_MelodyGet_Storm", also: &[] },
+    SongTrigger { loc: "Song from Ocarina of Time", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Time", also: &["HF Ocarina of Time Item"], calls: &[] },
+    SongTrigger { loc: "Song from Windmill", flow: "Npc_Hylia_009_Adult", cut: &[], give: "Dm_MelodyGet_Storm", also: &[], calls: &[] },
+    // Sheik's songs, played from the sage quest flows. Running the item get inside Sheik's own scene
+    // stalled (the scene's Link uses its own animation set), so like the others the scene is
+    // dropped from the flow that plays it. Requiem is started by its map and keeps its cut scene.
+    SongTrigger { loc: "Sheik in Forest", flow: "SageOfForest", cut: &[], give: "Dm_MelodyGet_Forest", also: &[], calls: &[("AllSage", "MeetSheik_And_Gone")] },
+    SongTrigger { loc: "Sheik in Crater", flow: "SageOfFire", cut: &[], give: "Dm_MelodyGet_Fire", also: &[], calls: &[("AllSage", "MeetSheik_And_Gone")] },
+    SongTrigger { loc: "Sheik in Ice Cavern", flow: "SageOfWater", cut: &[], give: "Dm_MelodyGet_Water", also: &[], calls: &[("AllSage", "MeetSheik_And_Gone")] },
+    SongTrigger { loc: "Sheik in Kakariko", flow: "Dm_SY_BancChangeArrive", cut: &[], give: "Dm_MelodyGet_Shadow", also: &[], calls: &[] },
+    SongTrigger { loc: "Sheik at Temple", flow: "AllSage", cut: &[], give: "Dm_MelodyGet_Shine", also: &[], calls: &[] },
 ];
 const SONG_PREFIX: &str = "OOTRRSong";
 
@@ -1335,6 +1360,10 @@ pub fn patch_song_trigger(b: &mut Bf, t: &SongTrigger, writes: &[Write], gives: 
         for w in writes {
             let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, &w.actor, &w.act)?;
             kinds.push(Kind::Action { next: NONE, actor: a, act: x, params: w.params.clone() });
+        }
+        for (fl, en) in t.calls {
+            let local: bool = *fl == t.flow;
+            kinds.push(Kind::Sub { next: NONE, params: None, flow: if local { String::new() } else { fl.to_string() }, entry: en.to_string() });
         }
         kinds.push(fade_in(f)?);
         let first: u16 = chain(f, &format!("{SONG_PREFIX}{}_{i}_", t.give), kinds, then)?;
