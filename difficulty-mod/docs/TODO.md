@@ -2,19 +2,24 @@
 
 Newest state first. "Seen" means seen in the running game. Items move to the changelog when they work.
 
-## Broken or unsafe: leave these settings off
+## Broken or unsafe
 
-| What | What happens | Next step |
+Nothing known at the moment. Enemies call for backup and the spawn combination were here until rc 12; both are fixed.
+
+## To confirm by hand
+
+| What | State | What to do |
 |---|---|---|
-| Enemies call for backup | **Crashes the game.** Scripted test, run twice (18 Nov): with backup on, alone or with the others, the game crashes within seconds of an enemy appearing near Link; with regen alone, fairies alone, or nothing on, the same test never crashes. Its helper has never been seen | Fix how backup stores its two flags on enemies (a fix was started and is saved in `playtest
-ext-fixes-wip.patch`), then rerun `playtest\crashtest` |
-| Enemy regen, fairies help enemies | No crash in the scripted test (spawn an enemy, Din's Fire, 30 s nearby). Neither has been seen doing its job: enemy health cannot be read yet | Show enemy health in the Longshot debug panel (in progress), then check healing |
-| Spawn enemies with L + R + D-pad | Nothing happens on any button combination. An earlier version crashed; that crash is fixed | Find which link fails: reading the controller from Link's script, or Link creating an enemy |
-| Gate guards look red | The Deku Baba guarding the Deku Tree path looks bright red. Nothing in the gate code tints a guard, and created guards are not red, so this may be how that plant looks | Compare with the same plant in a game with no difficulty settings |
+| Spawn enemies with L + R + D-pad | Works with scripted button presses | Try it on a real controller. Does a kill free one of the 12 slots? |
+| Enemies call for backup | Works in a scripted run; the wait is about 12 seconds, not the 25 intended | Decide: keep 12 seconds or go to 25 |
+| Fairies help enemies | No crash; never seen doing its job | Use a fairy near a hurt enemy with the health panel on |
+| The six held-back gates | Maps load and guards are there | Kill the guards, see the barrier drop, then switch each gate on |
+| Dead Hand in the Hyrule Field hole | Placed further back and his rise distance shortened; not seen since | Drop in and look |
+| Grass that gives bugs | Joined the surprise pool; not seen | Cut the clump by the Dead Hand hole |
 
 ## Built but held back (not in this release candidate's gate list)
 
-All six have their fix in the code; none has been played since. They are switched on again one by one as each is seen working.
+All six have their fix in the code. A scripted run (19 Nov) showed every map loads and the guards are present; killing the guards and the barrier dropping has not been seen. They are switched on one by one as each is seen working.
 
 | Gate | Problem seen | Fix in the code, to be played |
 |---|---|---|

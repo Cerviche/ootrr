@@ -14,3 +14,5 @@ Each row: what to do, where (map and position), the setup the script does first,
 Hands-on: hole 9 is a Song of Storms hole (user saw it); ocarina and song given; entry not confirmed in the log |
 | 5 | Lose heart on death | Get a bottled fairy (give lists only swords and shields), die once with it | Deku Tree baba room | Bottle with a fairy in the inventory | Fairy revival must cost no heart (NOT TESTED) | Open |
 | 6 | Batch 1 (06, 08) | Play a song at a gossip stone; fill a bottle (fairy) and use it in and out of combat; die with the fairy | Kokiri Forest / Deku Tree baba room | Mod with those settings, ocarina and song, empty bottle via give | Whether the fairy spirit appears; head shake in combat; automatic fairy revival | Open |
+
+| 19 Nov | Gate guards: kill and barrier | Stand on each guard mark (gates 1, 2, 11, 12), kill the guard with a sword or Din Fire, look toward the wall | Maps and marks in docs; test exe with HELD empty at playtest\gatetest | Shots before and after of the purple barrier | Open |

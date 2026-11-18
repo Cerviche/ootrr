@@ -174,9 +174,7 @@ impl Ainb {
                 }
                 Src::Link(from, _) => {
                     self.query_pos(*from).ok_or(Error::Format("ainb: a linked input must read a query node"))?;
-                    if !srcs.contains(from) {
-                        srcs.push(*from);
-                    }
+                    srcs.push(*from);
                 }
             }
         }

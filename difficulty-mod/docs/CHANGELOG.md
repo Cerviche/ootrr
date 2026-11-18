@@ -2,6 +2,18 @@
 
 One entry per release candidate (rc), newest first. Each rc is one commit on the `difficulty` branch. "Played" means seen in the running game, by hand or by a script through Longshot's control bridge (see [TESTING.md](TESTING.md)). Feature details are in [features/](features/).
 
+## rc 12
+
+Results here come from scripted runs in the game unless they say otherwise. Enemy health can now be read during tests, which is what made several of these checks possible.
+
+- **Enemies call for backup: fixed and seen working.** It crashed the game seconds after an enemy appeared; the cause was how its two flags were stored. Now: no crash through 90 seconds beside two Lizalfos, and each called one Peahat larva, once, at 10 and 16 seconds. The wait is about 12 seconds, not the 25 intended. See [features/17](features/17-enemies-call-for-backup.md).
+- **Spawn enemies with L + R + D-pad: fixed and seen working** with scripted button presses: 12 presses gave 12 enemies in front of Link, D-pad Up repeated the last kind, and further presses gave nothing (12 alive at once). Before, only the first press ever worked. Not yet tried on a real controller. See [features/25](features/25-spawn-enemies-combo.md).
+- **Enemy regen: seen working.** A Stalfos hit from 18 to 11 waited four seconds, then healed 1 about every two seconds back to 18; with the setting off it stayed at 12 for a minute.
+- **Enemy health: seen working by the numbers.** At 2x a Stalfos has 36 and a Lizalfos 18.
+- **Like Likes at Lake Hylia: present.** The map loads and they are at their spots.
+- **"Red gate guards" was not a bug.** The big Deku Baba on the Deku Tree path has a red head with every difficulty setting off.
+- **Gates:** unchanged from rc 11 (six on). The six held back all load their maps and show their guards; killing the guards and seeing the barrier drop is still to be done by hand.
+
 ## rc 11
 
 - **Merged upstream** (32 commits; the repository layout changed: `crates/` is now `randomizer/`). All upstream tests and ours pass.

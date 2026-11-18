@@ -1,6 +1,6 @@
 # Enemies call for backup
 
-Setting `enemy_backup` (number 126), checkbox. Code: `crates/core/src/difficulty/backup.rs`. Built by a sub-agent on `feature/enemy-backup` (`f3f674c`).
+Setting `enemy_backup` (number 126), checkbox. Code: `randomizer/core/src/difficulty/backup.rs`. Built by a sub-agent on `feature/enemy-backup` (`f3f674c`).
 
 ## Request
 "enemes call for backup. if you take too long defeating an enemy, they can call summon another enemy"
@@ -34,8 +34,8 @@ A holder file shared by callers of different groups falls back to the larva.
 - A real build; the built mod has the patched graphs, new file, holder entries and memory growth.
 
 ## In the game
-Never played, and this is the riskiest feature. To test:
-- Turn this on alone. Find one ordinary enemy (a Deku Baba or Stalfos), stay close without killing it for 40 seconds.
+Played in a scripted test on 19 Nov after the Opus fix (see the end of this file). To test by hand:
+- Turn this on alone. Find one ordinary enemy (a Deku Baba or Stalfos), stay close without killing it for 20 seconds.
 - Pass: a Peahat larva appears above it. Kill the larva and keep fighting: no second one may come.
 - First check: that the map loads at all, then that the helper actor is created outside the map it normally lives in (Shabom outside Jabu-Jabu, flying pot in the Ice Cavern, Shadow or Spirit Temple).
 - Fight a boss or miniboss for a minute: nothing may appear.
@@ -62,3 +62,11 @@ The user saw enemies tinted red with regen, fairy and backup on (screenshot of a
 - Hosting: as in 09, the guard switch is an extra child of the Parallel that holds the damage colour module call, in every caller graph. The module graphs stay as the game has them.
 - Exclusion (review finding 6): the keys `OotrrBackupEligible` and `OotrrBackupUsed` were only in the copies of `EnemyCommon...BlackboardParamTable.bgyml` of packs of actors that may call, so with one copy per path the load order would decide. Now every one of the 157 packs that carries the table gets the same bytes (also boss and non-`Enemy_` packs, whose heap grows by the backup amount too). Bosses are kept out by the graph instead: their own caller graphs are not edited, and a shared caller graph is edited only when at least one ordinary `Enemy_` actor uses it (`Enemy_IronKnuckle`'s graph and `DungeonBossBase` are left alone). Test: `every copy of the common blackboard table carries the backup keys` in the game-file test and `graphs_of_bosses_are_left_alone_and_shared_ones_follow_their_users`.
 - Known remainder: `Enemy_MiddleBoss_Lizalfos` (shares the `EnemyBase` graph) and `Enemy_Guay_Boss` (shares `Enemy_Guay_Flock`) are still excluded only by having no `Backup` holder entry, so they run the eligibility queries on a key they do not have. Check in the game that the Lizalfos miniboss in a dungeon calls nothing.
+
+## Opus fix: the crash (19 Nov, `feature/opus-fixes`, commit `e4ff217`)
+- **Defect.** Both flags were added with `IsInstanceParam: true`, which marks a key filled from the map placement (as the knight wake key is, set in the placement's `Dynamic`). Across the game's graphs (the AI pack and every actor pack), no type 1 blackboard write ever names such a key: about 3,600 type 1 writes all go to plain keys, while reads of placement keys do exist. Our latch (`ExecuteBlackboardSetBool` on `OotrrBackupUsed`) was the only write of a placement key in the game, and it crashed the game the moment it ran (`longshot.exe+0x753a5b3`, x8 = x9 = -1; the crashing node object has the same class pointer, `0x849a2148`, in every backup and spawn crash log, and a key handle of -1). The timer finishes after about 12 s and not 25 (750 frames at 60), which is why the old crash came a few seconds after the test's Lizalfos had been fighting.
+- **Fix.** Both rows are plain keys now (`state_row`, `IsInstanceParam: false`); the knight wake key stays a placement key. Nothing else changed.
+- **Checked by tests.** `the_game_reads_placement_keys_from_graphs_but_never_writes_one` (the rule above, over every graph in the game). `every_key_a_backup_node_uses_is_a_plain_key_where_its_blackboard_type_looks_for_every_actor_that_runs_it`: stages the real mod, finds every graph that hosts backup nodes (shared ones in the AI pack and ones inside actor packs), every actor that runs each of them, follows that actor's `BlackboardInfo` (and parents) to its tables, and requires each type 1 key to be there as a plain key, and each type 0 key to be in the graph's own key section. With the old rows it fails; no host actor lacks the keys.
+- **Seen in the game** (scripted, Hyrule Field, backup only, `playtest\opus-fixes\TESTS.md`): no crash for the whole run, including 90 s with two Lizalfos next to Link (the old build crashed 4 to 8 s after a Lizalfos appeared). One new Peahat larva per Lizalfos, 10 and 16 s after the second one appeared, both staying beside Link; no further helper after both Lizalfos died. The scripted kill rounds did not run.
+- The setting text now says about 12 seconds. If the user wants 25, `FRAMES` goes to 1500 (not tried).
+- Still open: Shabom and flying pot helpers outside their home dungeons; the Lizalfos miniboss and `Enemy_Guay_Boss` run the shared graph and now have the `Eligible` key (every copy of the table is the same), so they are kept out only by having no `Backup` holder entry: check in Dodongo's Cavern that the miniboss calls nothing and does not crash.

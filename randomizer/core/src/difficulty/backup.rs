@@ -257,19 +257,25 @@ pub fn flag_row(key: &str, start: bool) -> Node {
     ])
 }
 
+pub fn state_row(key: &str, start: bool) -> Node {
+    let mut row: Node = flag_row(key, start);
+    row.set("IsInstanceParam", Node::Bool(false));
+    row
+}
+
 pub fn add_flags(raw: &[u8]) -> Res<Vec<u8>> {
     let mut y: Byml = Byml::parse(raw)?;
     let list: &mut Vec<Node> = y.root.get_mut(BOOLS).and_then(Node::as_arr_mut).ok_or(Error::Format("enemy backup: the common blackboard has no bool list"))?;
     if list.iter().any(|r| matches!(r.get("BBKey").and_then(Node::as_str), Some(ELIGIBLE | USED))) {
         return Err(Error::Format("enemy backup: the common blackboard already has the backup flags"));
     }
-    list.push(flag_row(ELIGIBLE, true));
-    list.push(flag_row(USED, false));
+    list.push(state_row(ELIGIBLE, true));
+    list.push(state_row(USED, false));
     let n: usize = list.len();
     let out: Vec<u8> = y.write()?;
     let back: Byml = Byml::parse(&out)?;
     let rows: &[Node] = back.root.get(BOOLS).and_then(Node::as_arr).ok_or(Error::Format("enemy backup: the common blackboard does not read back"))?;
-    if rows.len() != n || rows.last() != Some(&flag_row(USED, false)) || back.root != y.root {
+    if rows.len() != n || rows.last() != Some(&state_row(USED, false)) || back.root != y.root {
         return Err(Error::Format("enemy backup: the common blackboard does not read back"));
     }
     Ok(out)
@@ -539,7 +545,7 @@ mod tests {
         assert!(patch_entries(&mut boss, &plan, "Enemy_MiddleBoss_X").unwrap().contains(TABLE));
         assert!(patch_entries(&mut es, &plan, "Enemy_A").unwrap().contains(TABLE));
         let flags = |es: &[Entry]| -> Vec<Node> { Byml::parse(&sarc::get(es, TABLE).unwrap().data).unwrap().root.get(BOOLS).and_then(Node::as_arr).unwrap().to_vec() };
-        assert_eq!(flags(&es), vec![flag_row("IsX", false), flag_row(ELIGIBLE, true), flag_row(USED, false)]);
+        assert_eq!(flags(&es), vec![flag_row("IsX", false), state_row(ELIGIBLE, true), state_row(USED, false)]);
         assert_eq!(sarc::get(&es, TABLE).unwrap().data, sarc::get(&boss, TABLE).unwrap().data, "every copy of the table gets the same keys, whoever owns it");
         assert!(add_flags(&sarc::get(&es, TABLE).unwrap().data).is_err());
     }
@@ -820,7 +826,7 @@ mod tests {
             assert!(want == helper_of(a) || want == 0, "{a} gets its group helper or the larva");
             let flags: Byml = Byml::parse(&sarc::get(es, TABLE).unwrap_or_else(|| panic!("{a} has no common blackboard")).data).unwrap();
             let rows: &[Node] = flags.root.get(BOOLS).and_then(Node::as_arr).unwrap();
-            assert_eq!(&rows[rows.len() - 2..], &[flag_row(ELIGIBLE, true), flag_row(USED, false)], "{a}");
+            assert_eq!(&rows[rows.len() - 2..], &[state_row(ELIGIBLE, true), state_row(USED, false)], "{a}");
         }
         assert!(plan.off.len() >= 30, "{:?}", plan.off);
         for a in &plan.off {
@@ -908,5 +914,170 @@ mod tests {
             assert_eq!(out.params[call], base.params[call], "the call itself is untouched with mask {mask}");
             assert_eq!(out.find_els(MODULES[0]), vec![call]);
         }
+    }
+    fn blackboard_type(a: &Ainb, i: usize) -> Option<i32> {
+        show(a).split("\nelement ").nth(i + 1)?.lines().find_map(|l| l.trim().strip_prefix("prop s32 BlackboardType = "))?.parse().ok()
+    }
+
+    fn own_keys(a: &Ainb) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        let mut at: usize = 56;
+        for t in 0..7 {
+            for _ in 0..u16::from_le_bytes([a.bb[t * 8], a.bb[t * 8 + 1]]) {
+                out.push(a.s(u32::from_le_bytes(a.bb[at..at + 4].try_into().unwrap()) & 0x3f_ffff).to_string());
+                at += 8;
+            }
+        }
+        out
+    }
+
+    fn rows_in(es: &[Entry], file: &str, out: &mut Map<String, bool>, depth: usize) {
+        let Some(e) = sarc::get(es, file) else { return };
+        let y: Byml = Byml::parse(&e.data).unwrap();
+        let Node::Map(m) = &y.root else { return };
+        for r in m.iter().filter_map(|(_, v)| v.as_arr()).flatten() {
+            if let Some(k) = r.get("BBKey").and_then(Node::as_str) {
+                out.insert(k.to_string(), r.get("IsInstanceParam") == Some(&Node::Bool(true)));
+            }
+        }
+        if let Some(up) = y.root.get(PARENT).and_then(Node::as_str).and_then(packed).filter(|_| depth < DEPTH) {
+            rows_in(es, &up, out, depth + 1);
+        }
+    }
+
+    fn keys_of(es: &[Entry], actor: &str) -> Map<String, bool> {
+        let mut info: Option<String> = None;
+        let mut at: Option<String> = Some(actor_file(actor));
+        for _ in 0..DEPTH {
+            let Some(y) = at.as_deref().and_then(|f| sarc::get(es, f)).map(|e| Byml::parse(&e.data).unwrap()) else { break };
+            if let Some(r) = y.root.get(PARTS).and_then(|c| c.get("BlackboardRef")).and_then(Node::as_str) {
+                info = packed(r);
+                break;
+            }
+            at = y.root.get(PARENT).and_then(Node::as_str).and_then(packed);
+        }
+        let mut out: Map<String, bool> = Map::new();
+        for _ in 0..DEPTH {
+            let Some(y) = info.as_deref().and_then(|f| sarc::get(es, f)).map(|e| Byml::parse(&e.data).unwrap()) else { break };
+            for t in y.root.get("BlackboardParamTables").and_then(Node::as_arr).unwrap_or(&[]) {
+                if let Some(f) = t.as_str().and_then(packed) {
+                    rows_in(es, &f, &mut out, 0);
+                }
+            }
+            info = y.root.get(PARENT).and_then(Node::as_str).and_then(packed);
+        }
+        out
+    }
+
+    fn table_keys(rf: &mut Romfs) -> Map<String, bool> {
+        let mut out: Map<String, bool> = Map::new();
+        for f in rf.list("Pack/Actor").unwrap() {
+            let es: Vec<Entry> = sarc::parse(&rf.read_zs(&f).unwrap()).unwrap();
+            for e in es.iter().filter(|e| e.name.contains("BlackboardParamTable/")) {
+                let mut rows: Map<String, bool> = Map::new();
+                rows_in(&es, &e.name, &mut rows, DEPTH);
+                for (k, inst) in rows {
+                    *out.entry(k).or_insert(inst) |= inst;
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn the_game_reads_placement_keys_from_graphs_but_never_writes_one() {
+        let Some(dir) = dump() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&dir).unwrap();
+        let rows: Map<String, bool> = table_keys(&mut rf);
+        let mut graphs: Vec<Entry> = sarc::parse(&rf.read_zs(GLOBAL).unwrap()).unwrap();
+        for f in rf.list("Pack/Actor").unwrap() {
+            graphs.extend(sarc::parse(&rf.read_zs(&f).unwrap()).unwrap().into_iter().filter(|e| e.name.ends_with(".ainb")));
+        }
+        let (mut plain, mut reads, mut placed): (usize, usize, Vec<String>) = (0, 0, Vec::new());
+        for e in &graphs {
+            let Ok(a) = Ainb::parse(&e.data) else { continue };
+            for i in (0..a.els.len()).filter(|i| a.el_name(*i).contains("Blackboard")) {
+                if blackboard_type(&a, i) != Some(1) {
+                    continue;
+                }
+                match a.prop_str(i, "BlackboardKey").and_then(|k| rows.get(k)) {
+                    Some(true) if a.el_name(i).starts_with("Query") => reads += 1,
+                    Some(true) => placed.push(format!("{} {}", e.name, a.el_name(i))),
+                    Some(false) => plain += 1,
+                    None => {}
+                }
+            }
+        }
+        assert!(placed.is_empty(), "{placed:?}");
+        assert!(reads > 20, "{reads} nodes read a placement key");
+        assert!(plain > 3000, "{plain} nodes read or write a plain actor key");
+    }
+
+    #[test]
+    fn every_key_a_backup_node_uses_is_a_plain_key_where_its_blackboard_type_looks_for_every_actor_that_runs_it() {
+        let Some(dir) = dump() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&dir).unwrap();
+        let (plan, outs): (Plan, Vec<Out>) = stage(&mut rf, &none, "Pack/Actor").unwrap();
+        let mut staged: Map<String, Vec<Entry>> = Map::new();
+        for x in &outs[..outs.len() - 1] {
+            staged.insert(x.path.clone(), sarc::parse(&rf.zs.decompress(&x.z).unwrap()).unwrap());
+        }
+        let old_global: Vec<Entry> = sarc::parse(&rf.read_zs(GLOBAL).unwrap()).unwrap();
+        let mut uses: Map<String, Vec<(i32, String)>> = Map::new();
+        let mut hosted = |path: &str, es: &[Entry], old: &[Entry]| {
+            for e in es.iter().filter(|e| hook::is_caller(e)) {
+                let a: Ainb = Ainb::parse(&e.data).unwrap();
+                let first: usize = sarc::get(old, &e.name).map(|o| Ainb::parse(&o.data).unwrap().els.len()).unwrap_or(0);
+                let mut keys: Vec<(i32, String)> = Vec::new();
+                for i in first..a.els.len() {
+                    let Some(t) = blackboard_type(&a, i) else { continue };
+                    let k: String = a.prop_str(i, "BlackboardKey").unwrap().to_string();
+                    if t == 0 {
+                        assert!(own_keys(&a).contains(&k), "{k} is not a key of {} in {path}", e.name);
+                    }
+                    keys.push((t, k));
+                }
+                if !keys.is_empty() {
+                    uses.insert(format!("{path}:{}", e.name), keys);
+                }
+            }
+        };
+        hosted(GLOBAL, staged.get(GLOBAL).unwrap(), &old_global);
+        let mut packs: Vec<(String, Vec<Entry>)> = Vec::new();
+        for f in rf.list("Pack/Actor").unwrap() {
+            let old: Vec<Entry> = sarc::parse(&rf.read_zs(&f).unwrap()).unwrap();
+            let now: Vec<Entry> = staged.get(&f).cloned().unwrap_or_else(|| old.clone());
+            hosted(&f, &now, &old);
+            packs.push((f, now));
+        }
+        let global: Set<String> = uses.keys().filter_map(|k| k.strip_prefix(&format!("{GLOBAL}:"))).map(str::to_string).collect();
+        assert!(global.contains("AI/EnemyBase.utility.root.ainb"), "{global:?}");
+        let (mut checked, mut lacking): (usize, Vec<String>) = (0, Vec::new());
+        for (f, now) in &packs {
+            let actor: &str = actor_of(f).unwrap();
+            let mut run: Vec<String> = hook::shared_of(now, &global).into_iter().map(|g| format!("{GLOBAL}:{g}")).collect();
+            run.extend(uses.keys().filter(|k| k.starts_with(&format!("{f}:"))).cloned());
+            if run.is_empty() {
+                continue;
+            }
+            let keys: Map<String, bool> = keys_of(now, actor);
+            for g in &run {
+                for (_, k) in uses.get(g).unwrap().iter().filter(|u| u.0 == 1) {
+                    match keys.get(k) {
+                        Some(false) => checked += 1,
+                        Some(true) => panic!("{actor} runs {g}, whose node names the placement key {k}: the game resolves it to no handle"),
+                        None => lacking.push(format!("{actor} {g} {k}")),
+                    }
+                }
+            }
+        }
+        assert!(lacking.is_empty(), "{} uses of a key an actor does not have: {lacking:?}", lacking.len());
+        assert!(checked >= 2 * plan.callers().count(), "{checked}");
     }
 }

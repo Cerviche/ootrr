@@ -108,3 +108,8 @@ Options, cheapest first:
 | E5 | Enemy damage | Resolve the parent chain before rounding (finding 12); said to be harmless at the usual factors | Child files that inherit part of the attack data can end up with a different factor | Medium, needs a test per case |
 | E6 | Code | Move the "read through `have`, else the game file" helper and the fresh-hash functions into shared modules; delete the dead `SeatedUntilNear` branch in `wake.rs` or make it a setting | About ten copies of the helper; four fresh-hash variants with different scopes | Mechanical but wide; left for a quiet moment |
 | E7 | Frame counts | One timing in the game settles regen, fairy and backup (30 frames per second assumed) | `FRAMES` in the three files | Needs the game |
+
+
+## From the Opus fixes (19 Nov)
+- Call for backup: the helper comes after about 12 s of fighting, not 25 (the timer counts 60 frames a second). Question for the user: keep 12 s or set 25 (`FRAMES` 1500, one line)?
+- Spawn combo: after 12 alive enemies nothing more appears; whether killing one frees its slot is not yet seen. Test on a real pad with the Longshot L+R+D-pad shortcut off.

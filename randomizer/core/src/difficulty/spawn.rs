@@ -15,6 +15,7 @@ pub const HELD: &str = "ActorHoldSettings";
 pub const HOLD_KEY: &str = "OotrrSpawn";
 pub const BIT_KEYS: [&str; 6] = ["OotrrSpawnBit0", "OotrrSpawnBit1", "OotrrSpawnBit2", "OotrrSpawnBit3", "OotrrSpawnBit4", "OotrrSpawnBit5"];
 pub const PENDING: &str = "OotrrSpawnPending";
+pub const SLOT_KEY: &str = "OotrrSpawnSlot";
 pub const ENEMIES: [&str; 43] = ["Enemy_Stalfos", "Enemy_Lizalfos", "Enemy_Dinolfos", "Enemy_Wolfos", "Enemy_Wolfos_White", "Enemy_Moblin_Club", "Enemy_Tektite_Red", "Enemy_Tektite_Blue", "Enemy_Keese", "Enemy_Keese_Fire", "Enemy_Keese_Ice", "Enemy_Skulltula", "Enemy_Skullwalltula", "Enemy_Dekubaba", "Enemy_Scrub_Mad", "Enemy_Octorok", "Enemy_Peahat", "Enemy_Leever", "Enemy_Leever_Big", "Enemy_Poe", "Enemy_Poe_Big", "Enemy_ReDead", "Enemy_Gibdo", "Enemy_LikeLike", "Enemy_Floormaster", "Enemy_Wallmaster", "Enemy_Amos", "Enemy_Beamos", "Enemy_Bubble_Blue", "Enemy_Bubble_Red", "Enemy_Bubble_Green", "Enemy_TorchSlug", "Enemy_Dodongo", "Enemy_BabyDodongo", "Enemy_Freezard", "Enemy_ShellBlade", "Enemy_Stinger", "Enemy_Biri", "Enemy_Bari", "Enemy_Stalchild", "Enemy_Guay", "Enemy_IronKnuckle_Silver", "Enemy_FlyingPot"];
 pub const MAX_ACTORS: i32 = 12;
 pub const AHEAD: f32 = 3.0;
@@ -28,17 +29,24 @@ pub const CREATE: &str = "OneShotActorHolderTryRequestCreateActorWithActorFileNa
 pub const FORWARD: &str = "QueryActorGetForwardDir";
 pub const SCALE: &str = "QueryMathMulF32AndVector3f";
 pub const SUM: &str = "QueryMathAddVector3f";
+pub const GET_S32: &str = "QueryBlackboardGetS32";
+pub const SET_S32: &str = "ExecuteBlackboardSetS32";
+pub const ADD_S32: &str = "QueryMathAddS32";
+pub const LESS_S32: &str = "QueryMathLessS32";
+pub const PICK_S32: &str = "QuerySelectS32ByBool";
+pub const SLEEPER: &str = "QueryActorHolderGetEnableCancelSleepIndex";
 pub const U32: &str = "const u32";
 pub const OVER: &str = "bb::OverwriteParam";
 pub const PARALLEL: u16 = 3;
 pub const LOCAL: i32 = 0;
 pub const BB_TYPES: usize = 7;
+pub const BB_S32: usize = 1;
 pub const BB_BOOL: usize = 4;
 pub const BB_HEAD: usize = BB_TYPES * 8;
 pub const BB_SIZES: [usize; BB_TYPES] = [4, 4, 4, 4, 4, 12, 0];
 pub const BB_PLAIN: u32 = 0x0080_0000;
 
-pub const NOTE: &str = "Hold L and R (the shoulder buttons) and press the D-pad Down to spawn a random ordinary enemy a few steps in front of Link. Press the D-pad Up with L and R held to spawn the same kind again. The pool has 43 kinds, from Stalfos and Lizalfos to Poes, Gibdos, Freezards and the silver Iron Knuckle. An enemy whose data the current area has not loaded will not appear, and at most twelve spawned enemies are kept at once. Experimental, untested in the game.";
+pub const NOTE: &str = "Hold L and R (the shoulder buttons) and press the D-pad Down to spawn a random ordinary enemy a few steps in front of Link. Press the D-pad Up with L and R held to spawn the same kind again. The pool has 43 kinds, from Stalfos and Lizalfos to Poes, Gibdos, Freezards and the silver Iron Knuckle. An enemy whose data the current area has not loaded will not appear, and at most twelve spawned enemies are kept at once. Experimental.";
 
 fn vec3(x: f32, y: f32, z: f32) -> Vec<u8> {
     [x, y, z].iter().flat_map(|v| v.to_le_bytes()).collect()
@@ -114,18 +122,18 @@ fn set_bool(a: &mut Ainb, seed: &str, key: &str, value: Result<bool, usize>) -> 
     a.add_node(&s)
 }
 
-fn create(a: &mut Ainb, enemy: &str, index: usize) -> Res<usize> {
+fn create(a: &mut Ainb, enemy: &str, index: usize, slot: usize) -> Res<usize> {
     let name: Vec<u8> = key_of(a, enemy);
     let key: Vec<u8> = key_of(a, HOLD_KEY);
-    a.add_node(&Spec::node(CREATE, &format!("ootrr spawn create {index} {enemy}")).prop(1, "ExecuteEveryFrame", flag(false)).constant(3, "ActorFileName", name).idle(0, "Index", vec![0; 4]).constant(3, "Key", key))
+    a.add_node(&Spec::node(CREATE, &format!("ootrr spawn create {index} {enemy}")).prop(1, "ExecuteEveryFrame", flag(false)).constant(3, "ActorFileName", name).linked(0, "Index", slot, 0).constant(3, "Key", key))
 }
 
-fn tree(a: &mut Ainb, gets: &[usize; 6], level: usize, index: usize) -> Res<usize> {
+fn tree(a: &mut Ainb, gets: &[usize; 6], slot: usize, level: usize, index: usize) -> Res<usize> {
     if level == gets.len() {
-        return create(a, ENEMIES[index * ENEMIES.len() / (1 << gets.len())], index);
+        return create(a, ENEMIES[index * ENEMIES.len() / (1 << gets.len())], index, slot);
     }
-    let yes: usize = tree(a, gets, level + 1, index * 2 + 1)?;
-    let no: usize = tree(a, gets, level + 1, index * 2)?;
+    let yes: usize = tree(a, gets, slot, level + 1, index * 2 + 1)?;
+    let no: usize = tree(a, gets, slot, level + 1, index * 2)?;
     a.add_node(&switch(&format!("ootrr spawn tree {level} {index}"), gets[level], yes, no))
 }
 
@@ -151,7 +159,8 @@ pub fn patch_graph(raw: &[u8]) -> Res<Vec<u8>> {
     if a.bb.len() != BB_HEAD || a.bb.iter().any(|b| *b != 0) {
         return Err(Error::Format("spawn combo: the player scheduler already has local keys"));
     }
-    let keys: Vec<(usize, &str)> = BIT_KEYS.iter().chain([PENDING].iter()).map(|k| (BB_BOOL, *k)).collect();
+    let mut keys: Vec<(usize, &str)> = BIT_KEYS.iter().chain([PENDING].iter()).map(|k| (BB_BOOL, *k)).collect();
+    keys.insert(0, (BB_S32, SLOT_KEY));
     a.bb = local_keys(&mut a, &keys)?;
     let seed = |n: &str| format!("ootrr spawn {n}");
     let user: u32 = a.pool.add("");
@@ -192,14 +201,28 @@ pub fn patch_graph(raw: &[u8]) -> Res<Vec<u8>> {
     }
     let pending_key: Vec<u8> = key_of(&mut a, PENDING);
     let pending: usize = a.add_node(&get_bool(&seed("pending"), pending_key))?;
-    let picked: usize = tree(&mut a, &gets, 0, 0)?;
+    let slot_key: Vec<u8> = key_of(&mut a, SLOT_KEY);
+    let slot: usize = a.add_node(&Spec::query(GET_S32, &seed("slot")).prop(0, "BlackboardType", LOCAL.to_le_bytes().to_vec()).prop(3, "BlackboardKey", slot_key.clone()).out(0, "S32"))?;
+    let picked: usize = tree(&mut a, &gets, slot, 0, 0)?;
+    let next: usize = a.add_node(&Spec::query(ADD_S32, &seed("next slot")).linked(0, "InputA", slot, 0).constant(0, "InputB", 1i32.to_le_bytes().to_vec()).out(0, "Result"))?;
+    let inside: usize = a.add_node(&Spec::query(LESS_S32, &seed("slot inside")).linked(0, "S32", next, 0).constant(0, "S32Base", MAX_ACTORS.to_le_bytes().to_vec()).out(1, "Bool"))?;
+    let wrapped: usize = a.add_node(&Spec::query(PICK_S32, &seed("slot wrapped")).constant(0, "FalseValue", 0i32.to_le_bytes().to_vec()).linked(0, "TrueValue", next, 0).linked(1, "Bool", inside, 0).out(0, "S32"))?;
+    let step_slot: usize = a.add_node(
+        &Spec::node(SET_S32, &seed("slot on"))
+            .prop(0, "BlackboardType", LOCAL.to_le_bytes().to_vec())
+            .prop(1, "ExecuteOnce", flag(false))
+            .prop(1, "IsIgnoreNotExistsError", flag(false))
+            .prop(3, "BlackboardKey", slot_key)
+            .linked(0, "S32", wrapped, 0),
+    )?;
     let clear: usize = set_bool(&mut a, &seed("pending off"), PENDING, Ok(false))?;
-    let fired: usize = par(&mut a, &seed("fire"), &[clear, picked])?;
+    let fired: usize = par(&mut a, &seed("fire"), &[clear, picked, step_slot])?;
     let waiting: usize = idle(&mut a, "fire")?;
     let fire: usize = a.add_node(&switch(&seed("fire gate"), pending, fired, waiting))?;
 
     let hold: Vec<u8> = key_of(&mut a, HOLD_KEY);
     let ready: usize = a.add_node(&Spec::query(READY, &seed("ready")).constant(3, "Key", hold.clone()).out(1, "IsExist"))?;
+    let sleeper: usize = a.add_node(&Spec::query(SLEEPER, &seed("sleeper")).constant(3, "Key", hold.clone()).out(0, "Index").spare(1, "IsExist"))?;
     let place: usize = a.add_node(&Spec::query(PLACE, &seed("place")).out_ptr("Mat34F", MAT34))?;
     let split: usize = a.add_node(&Spec::query(SPLIT, &seed("split")).linked_ptr("Matrix34f", MAT34, place).out(4, "Translation").spare_ptr("Rotation", MAT33))?;
     route(&mut a, place, split, "Mat34F", "Matrix34f")?;
@@ -215,7 +238,7 @@ pub fn patch_graph(raw: &[u8]) -> Res<Vec<u8>> {
         &Spec::node(WAKE, &seed("wake"))
             .prop(1, "ExecuteEveryFrame", flag(true))
             .prop(1, "IsForeachActor", flag(false))
-            .idle(0, "Index", vec![0; 4])
+            .linked(0, "Index", sleeper, 0)
             .constant(3, "Key", hold)
             .linked(4, "Pos", lift, 0)
             .idle(4, "Scale", vec3(1.0, 1.0, 1.0))
@@ -340,6 +363,46 @@ mod tests {
         }
     }
 
+    fn same_anywhere(rf: &mut Romfs, new: &Ainb, node: &str) {
+        let mut packs: Vec<String> = vec![crate::difficulty::backup::GLOBAL.to_string()];
+        packs.extend(rf.list("Pack/Actor").unwrap());
+        for p in packs {
+            let es: Vec<Entry> = sarc::parse(&rf.read_zs(&p).unwrap()).unwrap();
+            if let Some(e) = es.iter().filter(|e| e.name.ends_with(".ainb")).find(|e| Ainb::parse(&e.data).is_ok_and(|a| !a.find_els(node).is_empty())) {
+                let name: String = e.name.clone();
+                return same(rf, new, node, &p, &name);
+            }
+        }
+        panic!("{node} is in no vanilla graph");
+    }
+
+    #[test]
+    fn each_spawn_takes_the_next_holder_slot_and_the_wake_takes_the_sleeping_one() {
+        let Some(root) = dump() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let (_, new): (Ainb, Ainb) = built(&mut rf);
+        for n in [GET_S32, SET_S32, ADD_S32, LESS_S32, PICK_S32, SLEEPER] {
+            same_anywhere(&mut rf, &new, n);
+        }
+        let slot: usize = new.find_els(GET_S32)[0];
+        assert_eq!(new.prop_str(slot, "BlackboardKey"), Some(SLOT_KEY));
+        let creates: Vec<usize> = new.find_els(CREATE);
+        assert_eq!(creates.len(), 64);
+        for c in &creates {
+            assert_eq!(new.params[*c].group(0).iter().map(|p| p.a as usize).collect::<Vec<usize>>(), vec![slot], "every create reads the slot");
+        }
+        let sleeper: usize = new.find_els(SLEEPER)[0];
+        let wake: usize = new.find_els(WAKE)[0];
+        assert!(new.params[wake].group(0).iter().any(|p| p.a as usize == sleeper), "the wake reads the sleeping actor's index");
+        let step: usize = new.find_els(SET_S32)[0];
+        assert_eq!(new.prop_str(step, "BlackboardKey"), Some(SLOT_KEY));
+        let fire: usize = (0..new.els.len()).find(|i| new.el_type(*i) == PARALLEL && kids(&new, *i).contains(&step)).unwrap();
+        assert_eq!(kids(&new, fire).len(), 3, "clear pending, create, step the slot");
+    }
+
     fn built(rf: &mut Romfs) -> (Ainb, Ainb) {
         let old: Ainb = graph(rf, bunny::FILE, ROOT);
         let raw: Vec<u8> = sarc::get(&sarc::parse(&rf.read_zs(bunny::FILE).unwrap()).unwrap(), ROOT).unwrap().data.clone();
@@ -385,9 +448,27 @@ mod tests {
             seen += keys.len();
         }
         assert_eq!(seen, 12);
+        let plain = |a: &Ainb| -> bool {
+            let n: usize = (0..BB_TYPES).map(|t| u16::from_le_bytes([a.bb[t * 8], a.bb[t * 8 + 1]]) as usize).sum();
+            let s32: u16 = u16::from_le_bytes([a.bb[BB_S32 * 8], a.bb[BB_S32 * 8 + 1]]);
+            let bools: u16 = u16::from_le_bytes([a.bb[BB_BOOL * 8], a.bb[BB_BOOL * 8 + 1]]);
+            let only: bool = (0..BB_TYPES).all(|t| t == BB_S32 || t == BB_BOOL || a.bb[t * 8] == 0 && a.bb[t * 8 + 1] == 0);
+            only && s32 > 0 && bools > 0 && (0..n).all(|i| u32::from_le_bytes(a.bb[BB_HEAD + i * 8..BB_HEAD + i * 8 + 4].try_into().unwrap()) & !0x3f_ffff == BB_PLAIN)
+        };
+        let es: Vec<Entry> = sarc::parse(&rf.read_zs(crate::difficulty::backup::GLOBAL).unwrap()).unwrap();
+        let mut mixed: Ainb = es.iter().filter(|e| e.name.ends_with(".ainb")).filter_map(|e| Ainb::parse(&e.data).ok()).find(|a| plain(a)).unwrap();
+        let names: Vec<(usize, String)> = local_names(&mixed);
+        let keys: Vec<(usize, &str)> = names.iter().map(|k| (k.0, k.1.as_str())).collect();
+        let theirs: Vec<u8> = mixed.bb.clone();
+        let notes: u32 = u32::from_le_bytes(theirs[BB_HEAD + 4..BB_HEAD + 8].try_into().unwrap());
+        let mut ours: Vec<u8> = local_keys(&mut mixed, &keys).unwrap();
+        for i in 0..keys.len() {
+            ours[BB_HEAD + i * 8 + 4..BB_HEAD + i * 8 + 8].copy_from_slice(&notes.to_le_bytes());
+        }
+        assert_eq!(ours[..BB_HEAD + keys.len() * 8], theirs[..BB_HEAD + keys.len() * 8], "an s32 key and bools");
         let (old, new) = built(&mut rf);
         assert_eq!(old.bb, vec![0u8; BB_HEAD]);
-        assert_eq!(new.bb.len(), BB_HEAD + 7 * 8 + 7 * 4);
+        assert_eq!(new.bb.len(), BB_HEAD + 8 * 8 + 8 * 4);
         let type_of = |a: &Ainb, i: usize| -> String { crate::ainb::show::show(a).split("\nelement ").nth(i + 1).unwrap().lines().find(|l| l.contains("BlackboardType")).unwrap().trim().to_string() };
         for i in new.find_els(SETB).into_iter().chain(new.find_els(GETB)) {
             assert_eq!(type_of(&new, i), "prop s32 BlackboardType = 0");
@@ -397,6 +478,31 @@ mod tests {
         for i in vanilla.find_els(SETB) {
             assert_eq!(type_of(&vanilla, i), "prop s32 BlackboardType = 0");
         }
+    }
+
+    fn waits_on(a: &Ainb, i: usize) -> Vec<usize> {
+        let queries: Vec<usize> = (0..a.els.len()).filter(|j| a.query_pos(*j).is_some()).collect();
+        let base: usize = u16::from_le_bytes([a.els[i][0x24], a.els[i][0x25]]) as usize;
+        let n: usize = u16::from_le_bytes([a.els[i][0x26], a.els[i][0x27]]) as usize;
+        (base..base + n).map(|k| queries[u16::from_le_bytes([a.qids[k * 4], a.qids[k * 4 + 1]]) as usize]).collect()
+    }
+
+    #[test]
+    fn a_node_that_reads_one_query_twice_lists_it_twice_as_the_game_does() {
+        let Some(root) = dump() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let game: Ainb = graph(&mut rf, "Pack/Actor/GameSystemActor.pack.zs", "AI/GameSystemActor.event.root.ainb");
+        let check: usize = game.find_els(CHECK)[0];
+        let either: usize = (0..game.els.len()).find(|i| game.el_name(*i) == "QueryLogicalDisjunction" && game.params[*i].group(0).len() == 2 && game.params[*i].group(0).iter().all(|p| p.a as usize == check)).unwrap();
+        assert_eq!(waits_on(&game, either), vec![check, check]);
+        let (_, new): (Ainb, Ainb) = built(&mut rf);
+        let checks: Vec<usize> = new.find_els(CHECK);
+        let both: usize = new.find_els(CONJUNCTION)[0];
+        assert_eq!(new.params[both].group(0).iter().map(|p| p.a as usize).collect::<Vec<usize>>(), vec![checks[0], checks[0]]);
+        assert_eq!(waits_on(&new, both), vec![checks[0], checks[0]]);
     }
 
     fn kids(a: &Ainb, i: usize) -> Vec<usize> {
@@ -544,7 +650,9 @@ mod tests {
             let g: Ainb = Ainb::parse(&sarc::get(&now, ROOT).unwrap().data).unwrap();
             let mut want: Vec<&str> = BIT_KEYS.to_vec();
             want.push(PENDING);
-            assert_eq!(local_names(&g), want.iter().map(|k| (BB_BOOL, k.to_string())).collect::<Vec<(usize, String)>>());
+            let mut keys: Vec<(usize, String)> = vec![(BB_S32, SLOT_KEY.to_string())];
+            keys.extend(want.iter().map(|k| (BB_BOOL, k.to_string())));
+            assert_eq!(local_names(&g), keys);
             let h: Byml = Byml::parse(&sarc::get(&now, &holder).unwrap().data).unwrap();
             assert_eq!(h.root.get(HELD).unwrap().get(HOLD_KEY), Some(&holder_entry()));
         }
