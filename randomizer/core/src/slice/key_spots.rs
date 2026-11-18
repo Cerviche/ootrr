@@ -100,6 +100,11 @@ pub fn pick(content: &str) -> Option<Pick> {
     picks().get(content).cloned()
 }
 
+/// The pick that builds the pickup pack `pack`.
+pub fn by_pack(pack: &str) -> Option<Pick> {
+    picks().values().find(|p| p.pack == pack).cloned()
+}
+
 fn family(i: &Item) -> Option<&'static str> {
     family_of(&i.tiers)
 }

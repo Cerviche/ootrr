@@ -20,6 +20,10 @@ pub const SHARED_ANIM: &str = "Item_Common_Animation";
 const ANIM_LIST: &str = "AnimationResources";
 const ANIM_NAME: &str = "ModelProjectName";
 pub const ELINK_REF: &str = "ELinkRef";
+/// The effect and sound link setup every vanilla pickup with an ELinkRef also names
+/// (Component/XLink/ActorBasic). The pickup base has none, and without it the ELink user never
+/// plays: the glint stayed off with either user.
+pub const XLINK_REF: &str = "XLinkRef";
 /// What a pickup plays on its own: the shared Item_Common set's turn in place, as the game's
 /// fishing pond Heart Piece (Obj_Heart_Piece_MiniGame) does. Without it the item model stands in
 /// its bare pose, centred on the actor, half sunk in the floor, and never turns.
@@ -163,6 +167,7 @@ pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
         glint.set(ELINK_USER, Node::Str(GLINT_USER.to_string()));
         let glint_path: String = glint_file(&s.name);
         comps.set(ELINK_REF, Node::Str(local(&glint_path)));
+        comps.set(XLINK_REF, Node::Str(need(&donor, DONOR, XLINK_REF)?.to_string()));
         extra.push((glint_path, Byml { root: glint, version, big: false }.write()?));
     } else {
         comps.set(AS_INFO_REF, Node::Str(need(&donor, DONOR, AS_INFO_REF)?.to_string()));
@@ -267,12 +272,14 @@ pub(crate) mod tests {
                         (AS_REF, "?AS/Item_Common.root.asb"),
                         (ATTENTION_REF, "?Component/Attention/Press.game__component__AttentionSenderParam.bgyml"),
                         (NAME_REF, "?ActorSystem/ActorName/Item_Arrow_Fire.engine__actor__ActorName.bgyml"),
+                        (XLINK_REF, "?Component/XLink/ActorBasic.engine__component__XLinkParam.bgyml"),
                     ]),
                 ),
             ]),
         )
         .unwrap();
         p.add("Component/ASInfo/Item_Obj.engine__component__ASInfo.bgyml", &one).unwrap();
+        p.add("Component/XLink/ActorBasic.engine__component__XLinkParam.bgyml", &one).unwrap();
         p.add("Component/Attention/Press.game__component__AttentionSenderParam.bgyml", &one).unwrap();
         p.add(
             &actor_file("Item_Test"),
@@ -412,6 +419,7 @@ pub(crate) mod tests {
         let text = |k: &str| c.get(k).and_then(|v| v.as_str()).map(|x| x.to_string());
         assert_eq!(text(AS_INFO_REF).as_deref(), Some("?Component/ASInfo/Obj_Test.engine__component__ASInfo.bgyml"));
         assert_eq!(text(ELINK_REF).as_deref(), Some("?Component/ELink/Obj_Test.engine__component__ELinkParam.bgyml"));
+        assert_eq!(text(XLINK_REF).as_deref(), Some("?Component/XLink/ActorBasic.engine__component__XLinkParam.bgyml"));
         let own = |f: &str| -> Byml { Byml::parse(&m.extra.iter().find(|e| e.0 == f).unwrap().1).unwrap() };
         let spin: Byml = own(&spin_file("Obj_Test"));
         assert_eq!(spin.root.get(PARENT).and_then(|v| v.as_str()), Some("Work/Component/ASInfo/Item_Obj.engine__component__ASInfo.gyml"));

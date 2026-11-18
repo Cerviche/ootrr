@@ -1,30 +1,33 @@
 //! Lifts a pickup's item model off the ground.
 //!
-//! A pickup rests on its physics body, and the actor's origin sits as far above the ground as the
-//! body reaches below it: the base pickup's sphere starts at the origin, the token's capsule 0.2 m
-//! below. Item models are centred on their origin (Link holds them there), so they sank by as much
-//! as they reach below it, and the turn (actor::SPIN) also tips them over. The pickup gets its own
-//! copy of the body's shapes moved down until the body reaches as far below the origin as the
-//! model reaches in any direction ([`of_row`], capped by [`CAP`]), with copies of the controller
-//! set and the physics settings that point at them.
+//! Item models are centred on their origin (Link holds them there), and the turn (actor::SPIN)
+//! also tips them, so a pickup whose origin sits on the ground shows half its model below it.
+//! Pickups do not rest on their physics body (moving the body changed nothing in the game):
+//!
+//! - A dropped pickup (a Gold Skulltula's, a pot's) follows the drop bounce curve until its ground
+//!   check, a ray from 0.1 m above the origin and GroundCheckLength (0.11 m) long, meets the
+//!   ground (Obj_Item_Base's PerimeterAnalyserParam, detector HitGround). The pickup gets its own
+//!   copy with the ray longer by the lift, so it lands that far up ([`ground`]).
+//! - A pickup placed in a map stays where it stands (soft fixed placement), so the map edit
+//!   raises its position by the lift (slice::banc_edit, [`for_pack`]).
+//!
+//! The lift is the farthest the model reaches from its origin along any axis ([`of_row`], from
+//! the model's ModelAabbMin and ModelAabbMax), up to [`CAP`].
 
 use crate::byml::{Byml, Node};
 use crate::error::{Error as E, Res};
 use crate::pickup_pack::actor::Made;
-use crate::pickup_pack::closure::{chain, local, norm, work, Pool, COMPONENTS, PARENT};
+use crate::pickup_pack::closure::{chain, local, norm, Pool, COMPONENTS};
 use crate::pickup_pack::{Layers, BASE};
 use crate::romfs::Romfs;
 
-pub const PHYSICS_REF: &str = "PhysicsRef";
+pub const PERIMETER_REF: &str = "PerimeterAnalyserRef";
 /// The highest lift, in millimetres: the Megaton Hammer reaches 1.45 m along its handle.
 pub const CAP: u32 = 600;
-const SET_PATH: &str = "ControllerSetPath";
-const SHAPES: &str = "ShapeNamePathAry";
-const BODIES: &str = "RigidBodyEntityNamePathAry";
-const SHAPE_NAME: &str = "ShapeName";
-const FILE_PATH: &str = "FilePath";
-const NAME: &str = "Name";
-const POINTS: [&str; 5] = ["Center", "CenterA", "CenterB", "Min", "Max"];
+const DETECTORS: &str = "DetectorList";
+const GROUND: &str = "HitGround";
+const CHECKS: &str = "GroundCheckParams";
+const LENGTH: &str = "GroundCheckLength";
 
 /// The lift for a model, in millimetres, from its actor row's ModelAabbMin and ModelAabbMax: the
 /// farthest the model reaches from its origin along any axis, up to [`CAP`].
@@ -48,6 +51,10 @@ fn num(n: &Node) -> Option<f32> {
     }
 }
 
+fn lift_of(t: &Byml, shown: &str) -> u32 {
+    crate::pickup_pack::rows::find(t, shown).and_then(of_row).unwrap_or(0)
+}
+
 /// `l` with the lift filled in for a spin layer: from the actor row of the model the pickup shows
 /// (the model layer's donor, else the item).
 pub fn layers(rf: &mut Romfs, item: &str, l: &Layers) -> Res<Layers> {
@@ -56,115 +63,78 @@ pub fn layers(rf: &mut Romfs, item: &str, l: &Layers) -> Res<Layers> {
     }
     let shown: &str = l.model.as_deref().unwrap_or(item);
     let t: Byml = rf.read_byml(crate::pickup_pack::rows::ACTOR_INFO)?;
-    let mm: u32 = crate::pickup_pack::rows::find(&t, shown).and_then(of_row).unwrap_or(0);
-    Ok(Layers { lift: mm, ..l.clone() })
+    Ok(Layers { lift: lift_of(&t, shown), ..l.clone() })
 }
 
-pub fn physics_file(name: &str) -> String {
-    format!("Component/Physics/{name}.engine__component__PhysicsParam.bgyml")
+/// The lift of the seed pickup pack `pack` (a pickup the catalog builds), in metres.
+pub fn for_pack(t: &Byml, pack: &str) -> Option<f32> {
+    let p: crate::slice::key_spots::Pick = crate::slice::key_spots::by_pack(pack)?;
+    let (s, l) = p.spec().ok()?;
+    let mm: u32 = lift_of(t, l.model.as_deref().unwrap_or(&s.item));
+    (mm > 0).then_some(mm as f32 / 1000.0)
 }
 
-pub fn set_file(name: &str) -> String {
-    format!("Phive/ControllerSetParam/{name}.phive__ControllerSetParam.bgyml")
+pub fn perimeter_file(name: &str) -> String {
+    format!("Component/PerimeterAnalyserParam/{name}.game__component__PerimeterAnalyserParam.bgyml")
 }
 
-pub fn shape_file(name: &str, k: usize) -> String {
-    format!("Phive/ShapeParam/{name}_Lift_{k}.phive__ShapeParam.bgyml")
-}
-
-fn text<'a>(n: &'a Node, k: &str) -> Option<&'a str> {
-    n.get(k).and_then(|v| v.as_str())
-}
-
-fn file(p: &Pool, work_path: &str, what: &str) -> Res<(String, Byml)> {
-    let f: String = norm(work_path).ok_or_else(|| E::Msg(format!("lift: the {what} reference {work_path} is not a file")))?;
-    if p.get(&f).is_none() {
-        return Err(E::Msg(format!("lift: the {what} {f} is not in the pickup's packs")));
-    }
-    let y: Byml = p.byml(&f)?;
-    Ok((f, y))
-}
-
-/// Moves every point of a shape down by `dy` metres.
-fn shift(n: &mut Node, dy: f32) {
-    match n {
-        Node::Map(m) => {
-            for (k, v) in m.iter_mut() {
-                if POINTS.contains(&k.as_str()) {
-                    if let Some(Node::F32(y)) = v.get_mut("Y") {
-                        *y -= dy;
-                        continue;
-                    }
-                }
-                shift(v, dy);
+/// Lengthens every ground check ray of a perimeter analyser by `dy` metres.
+fn reach(root: &mut Node, dy: f32) -> usize {
+    let mut n: usize = 0;
+    if let Some(cs) = root.get_mut(DETECTORS).and_then(|d| d.get_mut(GROUND)).and_then(|g| g.get_mut(CHECKS)).and_then(|c| c.as_arr_mut()) {
+        for c in cs.iter_mut() {
+            if let Some(Node::F32(l)) = c.get_mut(LENGTH) {
+                *l += dy;
+                n += 1;
             }
         }
-        Node::Arr(a) => a.iter_mut().for_each(|x| shift(x, dy)),
-        _ => {}
     }
+    n
 }
 
-fn bottom(shape: &Node) -> Option<f32> {
-    shape.get("AutoCalc").and_then(|a| a.get("Min")).and_then(|m| m.get("Y")).and_then(num)
-}
-
-/// Gives the pickup `m` (actor `name`) a body that reaches `mm` millimetres below its origin, built
-/// from the body its actor uses (its own PhysicsRef, else the pickup base's). Nothing changes when
-/// the body already reaches that far.
-pub fn apply(p: &Pool, mut m: Made, name: &str, mm: u32) -> Res<Made> {
+/// Gives the pickup `m` (actor `name`) a ground check `mm` millimetres longer, built from the one
+/// its actor uses (its own PerimeterAnalyserRef, else the pickup base's).
+pub fn ground(p: &Pool, mut m: Made, name: &str, mm: u32) -> Res<Made> {
     if mm == 0 {
         return Ok(m);
     }
     let mut actor: Byml = Byml::parse(&m.actor.1)?;
-    let own: Option<String> = actor.root.get(COMPONENTS).and_then(|c| text(c, PHYSICS_REF)).map(|s| s.to_string());
+    let own: Option<String> = actor.root.get(COMPONENTS).and_then(|c| c.get(PERIMETER_REF)).and_then(|v| v.as_str()).map(|s| s.to_string());
     let base_ref: String = match own {
         Some(r) => r,
-        None => chain(p, BASE)?.comps.get(PHYSICS_REF).cloned().ok_or(E::Format("lift: the pickup base has no physics"))?,
+        None => chain(p, BASE)?.comps.get(PERIMETER_REF).cloned().ok_or(E::Format("lift: the pickup base has no perimeter analyser"))?,
     };
-    let (phys_path, phys): (String, Byml) = file(p, &base_ref, "physics")?;
-    let set_ref: String = text(&phys.root, SET_PATH).map(|s| s.to_string()).ok_or_else(|| E::Msg(format!("lift: {phys_path} names no controller set")))?;
-    let (_, mut set): (String, Byml) = file(p, &set_ref, "controller set")?;
-    let body_ref: String = set.root.get(BODIES).and_then(|a| a.as_arr()).and_then(|a| a.first()).and_then(|b| text(b, FILE_PATH)).map(|s| s.to_string()).ok_or(E::Format("lift: the controller set has no rigid body"))?;
-    let (_, body): (String, Byml) = file(p, &body_ref, "rigid body")?;
-    let body_shape: String = text(&body.root, SHAPE_NAME).map(|s| s.to_string()).ok_or(E::Format("lift: the rigid body names no shape"))?;
-    let shapes: Vec<(String, String)> = set
-        .root
-        .get(SHAPES)
-        .and_then(|a| a.as_arr())
-        .map(|a| a.iter().filter_map(|s| Some((text(s, NAME)?.to_string(), text(s, FILE_PATH)?.to_string()))).collect())
-        .unwrap_or_default();
-    let (_, main): (String, Byml) = file(p, &shapes.iter().find(|s| s.0 == body_shape).map(|s| s.1.clone()).ok_or_else(|| E::Msg(format!("lift: the controller set has no shape {body_shape}")))?, "body shape")?;
-    let low: f32 = bottom(&main.root).ok_or(E::Format("lift: the body shape has no bounds"))?;
-    let dy: f32 = mm as f32 / 1000.0 + low;
-    if dy <= 0.0 {
-        return Ok(m);
+    let f: String = norm(&base_ref).ok_or_else(|| E::Msg(format!("lift: {base_ref} is not a file")))?;
+    if p.get(&f).is_none() {
+        return Err(E::Msg(format!("lift: the perimeter analyser {f} is not in the pickup's packs")));
     }
-    let mut paths: Vec<String> = Vec::new();
-    for (k, (_, path)) in shapes.iter().enumerate() {
-        let (_, mut y): (String, Byml) = file(p, path, "shape")?;
-        if y.root.get("Polytope").and_then(|a| a.as_arr()).is_some_and(|a| !a.is_empty()) {
-            return Err(E::Format("lift: a body made of polytopes cannot be moved"));
-        }
-        shift(&mut y.root, dy);
-        let f: String = shape_file(name, k);
-        m.extra.push((f.clone(), y.write()?));
-        paths.push(work(&f));
+    let mut y: Byml = p.byml(&f)?;
+    if reach(&mut y.root, mm as f32 / 1000.0) == 0 {
+        return Err(E::Msg(format!("lift: {f} has no ground check to lengthen")));
     }
-    if let Some(a) = set.root.get_mut(SHAPES).and_then(|a| a.as_arr_mut()) {
-        for (s, w) in a.iter_mut().zip(&paths) {
-            s.set(FILE_PATH, Node::Str(w.clone()));
-        }
-    }
-    let sf: String = set_file(name);
-    m.extra.push((sf.clone(), set.write()?));
-    let mut ph: Node = Node::Map(Vec::new());
-    ph.set(PARENT, Node::Str(work(&phys_path)));
-    ph.set(SET_PATH, Node::Str(work(&sf)));
-    let pf: String = physics_file(name);
-    m.extra.push((pf.clone(), Byml { root: ph, version: phys.version, big: phys.big }.write()?));
-    actor.root.get_mut(COMPONENTS).ok_or(E::Format("lift: the actor has no component list"))?.set(PHYSICS_REF, Node::Str(local(&pf)));
+    let pf: String = perimeter_file(name);
+    m.extra.push((pf.clone(), y.write()?));
+    actor.root.get_mut(COMPONENTS).ok_or(E::Format("lift: the actor has no component list"))?.set(PERIMETER_REF, Node::Str(local(&pf)));
     m.actor.1 = actor.write()?;
     Ok(m)
+}
+
+/// Raises the map actor `hash` of `y` by `dy` metres. Returns how many actors moved.
+pub fn raise(y: &mut Byml, hash: u64, dy: f32) -> usize {
+    let Some(list) = y.root.get_mut("Actors").and_then(|a| a.as_arr_mut()) else {
+        return 0;
+    };
+    let mut n: usize = 0;
+    for a in list.iter_mut() {
+        if crate::placement::hash_of(a) != Some(hash) {
+            continue;
+        }
+        if let Some(Node::F32(v)) = a.get_mut("Translate").and_then(|t| t.as_arr_mut()).and_then(|t| t.get_mut(1)) {
+            *v += dy;
+            n += 1;
+        }
+    }
+    n
 }
 
 #[cfg(test)]
@@ -184,15 +154,11 @@ mod tests {
     }
 
     #[test]
-    fn a_shape_moves_every_point_down() {
-        let mut s: Node = Node::Map(vec![
-            ("AutoCalc".into(), Node::Map(vec![("Center".into(), v(0.0, 0.2, 0.0)), ("Min".into(), v(-0.2, 0.0, -0.2)), ("Max".into(), v(0.2, 0.4, 0.2))])),
-            ("Sphere".into(), Node::Arr(vec![Node::Map(vec![("Center".into(), v(0.0, 0.2, 0.0)), ("Radius".into(), Node::F32(0.2))])])),
-        ]);
-        shift(&mut s, 0.5);
-        assert_eq!(bottom(&s), Some(-0.5));
-        let c = s.get("Sphere").and_then(|a| a.as_arr()).and_then(|a| a.first()).and_then(|x| x.get("Center")).and_then(|c| c.get("Y")).cloned();
-        assert_eq!(c, Some(Node::F32(-0.3)));
-        assert_eq!(s.get("Sphere").and_then(|a| a.as_arr()).and_then(|a| a.first()).and_then(|x| x.get("Radius")).cloned(), Some(Node::F32(0.2)));
+    fn the_ground_check_grows_by_the_lift() {
+        let check = Node::Map(vec![(LENGTH.into(), Node::F32(0.11)), ("RayCastStartOffset".into(), v(0.0, 0.1, 0.0))]);
+        let mut root = Node::Map(vec![(DETECTORS.into(), Node::Map(vec![(GROUND.into(), Node::Map(vec![(CHECKS.into(), Node::Arr(vec![check]))]))]))]);
+        assert_eq!(reach(&mut root, 0.5), 1);
+        let l = root.get(DETECTORS).and_then(|d| d.get(GROUND)).and_then(|g| g.get(CHECKS)).and_then(|c| c.as_arr()).and_then(|c| c.first()).and_then(|c| c.get(LENGTH)).cloned();
+        assert_eq!(l, Some(Node::F32(0.61)));
     }
 }

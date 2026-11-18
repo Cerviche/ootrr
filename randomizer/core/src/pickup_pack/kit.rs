@@ -167,20 +167,7 @@ pub fn touch(p: &Pool, name: &str) -> Res<bool> {
 pub fn token_like(p: &Pool, t: &Pool, name: &str) -> Res<bool> {
     let c: Chain = chain(p, name)?;
     let tc: Chain = chain(t, TOKEN)?;
-    let same = |k: &str| -> bool {
-        let (mine, theirs): (Option<&String>, Option<&String>) = (c.comps.get(k), tc.comps.get(k));
-        mine.is_some() && (mine == theirs || k == PHYSICS_REF && theirs.is_some_and(|t| lifted_from(p, mine, t)))
-    };
-    Ok(HANG_REFS.iter().all(|k| same(k)) && !falls(p, &c)? && auto(p, &c)?)
-}
-
-/// Whether the physics `mine` points at is the token's body `theirs` moved down by
-/// crate::pickup_pack::lift: a child of it with its own controller set.
-fn lifted_from(p: &Pool, mine: Option<&String>, theirs: &str) -> bool {
-    let (Some(f), Some(t)) = (mine.and_then(|m| norm(m)), norm(theirs)) else {
-        return false;
-    };
-    p.byml(&f).ok().and_then(|y| y.root.get(PARENT).and_then(|v| v.as_str()).map(|s| s.to_string())) == Some(work(&t))
+    Ok(HANG_REFS.iter().all(|k| c.comps.get(*k).is_some() && c.comps.get(*k) == tc.comps.get(*k)) && !falls(p, &c)? && auto(p, &c)?)
 }
 
 fn child(p: &Pool, s: &Spec, own: &Chain) -> Res<Made> {
@@ -270,7 +257,7 @@ pub fn plan_with(packs: &[Vec<Entry>], s: &Spec, l: &Layers) -> Res<Plan> {
     };
     let m: Made = with_kit(&p, first, hangs(&s.name))?;
     // A shipped pickup keeps its own body; an item model is lifted off the ground.
-    let m: Made = if l.spin && !from_pickup { crate::pickup_pack::lift::apply(&p, m, &s.name, l.lift)? } else { m };
+    let m: Made = if l.spin && !from_pickup { crate::pickup_pack::lift::ground(&p, m, &s.name, l.lift)? } else { m };
     let mut fresh: Vec<(String, usize)> = Vec::new();
     for (f, d) in [&m.actor, &m.pouch].into_iter().chain(m.extra.iter()) {
         if p.get(f).is_some() {

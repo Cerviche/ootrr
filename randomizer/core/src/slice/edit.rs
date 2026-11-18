@@ -164,6 +164,12 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let small_hearts: BS<u64> = if p.chest_sizes { crate::chest_size::small_hearts(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.keys.map)) } else { BS::new() };
     let moves: crate::chest_size::Moves = if sizes.is_empty() { crate::chest_size::Moves::default() } else { crate::chest_size::moves(&crate::chest_size::scan(&mut rf, &sizes)?, &sizes) };
     let mut resized_n: usize = 0;
+    // Freestanding spots swapped to a seed pickup stand higher, so the turning item model clears
+    // the ground (crate::pickup_pack::lift).
+    let lifts: BM<String, f32> = {
+        let info: crate::byml::Byml = rf.read_byml(crate::pickup_pack::rows::ACTOR_INFO)?;
+        ts.iter().filter(|t| extra.has(&t.new_actor)).filter_map(|t| crate::pickup_pack::lift::for_pack(&info, &t.new_actor).map(|dy| (t.new_actor.clone(), dy))).collect()
+    };
     for f in banc_files(&rf)? {
         let vanilla: Vec<u8> = rf.read_zs(&f)?;
         let resized: Option<Vec<u8>> = crate::chest_size::resize(&vanilla, &f, &sizes, &moves)?.map(|(b, n)| {
@@ -171,7 +177,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             b
         });
         let raw: &[u8] = resized.as_deref().unwrap_or(&vanilla);
-        let e: Option<Edited> = edit_file_with(&f, raw, &ts, roam, &small_hearts)?;
+        let e: Option<Edited> = edit_file_with(&f, raw, &ts, roam, &small_hearts, &lifts)?;
         let e: Option<Edited> = match (e, &resized) {
             (Some(mut e), Some(_)) => {
                 e.old_len = vanilla.len();
@@ -666,7 +672,7 @@ mod tests {
         };
         let b: Vec<u8> = raw(vec![heart(1), heart(2)]);
         let ts: Vec<Target> = vec![target(1, HEART, "TBox_Rupee_Red"), target(2, HEART, "Item_Hookshot")];
-        let e: Edited = edit_file_with("Banc/Area/a.bcett.byml.zs", &b, &ts, false, &BS::from([1])).unwrap().unwrap();
+        let e: Edited = edit_file_with("Banc/Area/a.bcett.byml.zs", &b, &ts, false, &BS::from([1]), &BM::new()).unwrap().unwrap();
         let back: Byml = Byml::parse(&e.bytes).unwrap();
         let g: Vec<&str> = back.root.get("Actors").unwrap().as_arr().unwrap().iter().map(|a| a.get("Gyaml").unwrap().as_str().unwrap()).collect();
         assert_eq!(g, vec!["Obj_TBox_A_01", CHEST]);
