@@ -203,6 +203,14 @@ pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -
         let names: Vec<String> = twins.iter().map(|t| fall::name_of(t)).collect();
         let _ = writeln!(b.report, "Falling pickups were added to this mod for items dropped by pots ({}): {}. They fall to the ground like a rupee instead of hanging where the pot broke. Not tested in the game yet.", names.len(), names.join(", "));
     }
+    let songs = crate::slice::support::plan(&seed.settings()?.settings)?;
+    if songs.songs == crate::slice::support::Songs::Anywhere && songs.harp_colors {
+        let names: Vec<String> = wants.keys().cloned().collect();
+        let tinted: Vec<String> = crate::song_models::color_packs(&mut rf, &base, &names)?;
+        if !tinted.is_empty() {
+            let _ = writeln!(b.report, "Song pickups show the harp in their song colour: {}", tinted.join(", "));
+        }
+    }
     let lines: Vec<String> = audit(&mut rf, &base, &wants)?;
     b.counts.files += wants.len();
     let _ = writeln!(b.report, "{} pickup packs for key items at pickup spots were added to this mod with their actor rows and size table entries, all audited. None of them is tested in the game yet:", wants.len());

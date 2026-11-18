@@ -486,6 +486,11 @@ pub fn build() -> Schema {
             .opt("anywhere", "Anywhere", "Songs can appear anywhere, also in pots, crates, freestanding spots and at Gold Skulltulas when those are shuffled, and song locations can hold any item."),
     );
     s.push(
+        Setting::toggle(104, crate::song_models::SETTING, "shuffle", "Harp colour by song", true)
+            .tip("A song found as an item shows Sheik's harp in the colour of that song on the ocarina menu, so you can tell the songs apart before you pick one up. Experimental, untested in the game.")
+            .when("shuffle_songs", "anywhere"),
+    );
+    s.push(
         Setting::toggle(41, "gossip_hints", "world", "Gossip stone hints", false)
             .tip("Every gossip stone tells you where an important item lies. The stones need no Mask of Truth text change, only the words are replaced."),
     );
