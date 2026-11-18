@@ -1,6 +1,10 @@
+pub mod ambush;
+pub mod backup;
+pub mod bean;
 pub mod drops;
 pub mod dupes;
 pub mod extras;
+pub mod fairy;
 pub mod flows;
 pub mod lottery;
 pub mod minibosses;
@@ -35,6 +39,10 @@ pub const RESPAWN: &str = "enemies_respawn_sooner";
 pub const MINIBOSSES: &str = "boss_minibosses";
 pub const REGEN: &str = "enemy_regen";
 pub const MINIONS: &str = "boss_minions";
+pub const BEAN_PITCH: &str = "bean_pitch";
+pub const ZORA_AMBUSH: &str = "zora_ambush";
+pub const FAIRY_HELPS: &str = "fairy_helps_enemies";
+pub const BACKUP: &str = "enemy_backup";
 
 pub const HEALTH_NUM: u16 = 110;
 pub const DAMAGE_NUM: u16 = 111;
@@ -51,6 +59,10 @@ pub const RESPAWN_NUM: u16 = 123;
 pub const MINIBOSSES_NUM: u16 = 120;
 pub const REGEN_NUM: u16 = 118;
 pub const MINIONS_NUM: u16 = 121;
+pub const BEAN_PITCH_NUM: u16 = 128;
+pub const ZORA_AMBUSH_NUM: u16 = 127;
+pub const FAIRY_HELPS_NUM: u16 = 125;
+pub const BACKUP_NUM: u16 = 126;
 
 pub const NORMAL: i64 = 100;
 pub const STAT_RANGE: (i64, i64) = (50, 500);
@@ -78,11 +90,15 @@ pub struct Opts {
     pub minibosses: bool,
     pub regen: bool,
     pub minions: bool,
+    pub bean_pitch: bool,
+    pub zora_ambush: bool,
+    pub fairy_helps: bool,
+    pub backup: bool,
 }
 
 impl Default for Opts {
     fn default() -> Opts {
-        Opts { health: NORMAL, damage: NORMAL, speed: NORMAL, no_hearts: false, no_fairies: false, no_ammo: false, lose_heart: false, no_bottles: false, no_target: false, no_dupes: false, extra: 0, respawn: false, minibosses: false, regen: false, minions: false }
+        Opts { health: NORMAL, damage: NORMAL, speed: NORMAL, no_hearts: false, no_fairies: false, no_ammo: false, lose_heart: false, no_bottles: false, no_target: false, no_dupes: false, extra: 0, respawn: false, minibosses: false, regen: false, minions: false, bean_pitch: false, zora_ambush: false, fairy_helps: false, backup: false }
     }
 }
 
@@ -101,7 +117,7 @@ impl Opts {
     }
 
     pub fn any(&self) -> bool {
-        self.packs() || self.no_fairies || self.lose_heart || self.no_bottles || self.no_dupes || self.extra > 0 || self.respawn || self.minibosses || self.regen || self.minions
+        self.packs() || self.no_fairies || self.lose_heart || self.no_bottles || self.no_dupes || self.extra > 0 || self.respawn || self.minibosses || self.regen || self.minions || self.bean_pitch || self.zora_ambush || self.fairy_helps || self.backup
     }
 
     pub fn notes(&self) -> Vec<String> {
@@ -117,6 +133,9 @@ impl Opts {
         }
         if self.regen {
             out.push("Enemies and bosses that are still alive win back one point of health about every five seconds, up to their usual health. Experimental, untested in the game.".to_string());
+        }
+        if self.backup {
+            out.push("An enemy that has had Link as its target for about 25 seconds without a break calls one Peahat larva to its side. Each enemy has at most one larva out at a time and calls the next one only after the last is gone and another 25 seconds have passed. The larvae never call anything themselves. Bosses call one too. Experimental, untested in the game.".to_string());
         }
         if self.no_hearts {
             out.push("Enemies, pots, grass and other random drops never give recovery hearts, also when your health is low. Where the game would hand out a heart because you need one, a green rupee drops. Experimental, untested in the game.".to_string());
@@ -154,6 +173,15 @@ impl Opts {
         if self.minions {
             out.push(minions::NOTE.to_string());
         }
+        if self.bean_pitch {
+            out.push("One talk in five, the Bean Seller by Zora's River offers you some Difficulty Mods between bites before he gets to his usual business. The line is in English in every language. Experimental, untested in the game.".to_string());
+        }
+        if self.zora_ambush {
+            out.push("The empty hole in Zora's Domain has a wall Skulltula on the far wall of each of its three side caves, and a Skulltula appears at the mouth of a side cave once you have walked into it. They come back when the area is loaded again. Experimental, untested in the game.".to_string());
+        }
+        if self.fairy_helps {
+            out.push("When you let a fairy out of a bottle, or a bottled fairy revives you, every enemy and boss that is awake at that moment is healed to full health too. Bringing back the enemy you beat last is not possible with file edits and is not done. Experimental, untested in the game.".to_string());
+        }
         out
     }
 }
@@ -181,7 +209,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             false
         })
     };
-    let o: Opts = Opts { health, damage, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS) };
+    let o: Opts = Opts { health, damage, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS), bean_pitch: flag(BEAN_PITCH), zora_ambush: flag(ZORA_AMBUSH), fairy_helps: flag(FAIRY_HELPS), backup: flag(BACKUP) };
     let extra: i64 = match s.text(MORE) {
         Ok(t) => MORE_LEVELS.iter().find(|l| l.0 == t).map(|l| l.2).unwrap_or_else(|| {
             bad.push(format!("{MORE} is {t}, which is not a known level"));
@@ -271,14 +299,14 @@ pub fn pack_files(rf: &Romfs, o: &Opts) -> Res<Vec<String>> {
     Ok(out)
 }
 
-fn fold(outs: &mut Vec<Out>, more: Vec<Out>) {
-    for m in more {
-        match outs.iter_mut().find(|x| x.path == m.path) {
-            Some(x) => {
-                x.z = m.z;
-                x.new = m.new;
+pub fn merge(late: &mut Vec<Out>, outs: Vec<Out>) {
+    for x in outs {
+        match late.iter_mut().rev().find(|y| y.path == x.path) {
+            Some(y) => {
+                y.z = x.z;
+                y.new = x.new;
             }
-            None => outs.push(m),
+            None => late.push(x),
         }
     }
 }
@@ -288,7 +316,7 @@ fn step(rf: &mut Romfs, outs: &mut Vec<Out>, have: Have, f: impl FnOnce(&mut Rom
         let seen = |p: &str| -> Option<Vec<u8>> { outs.iter().find(|x| x.path == p).map(|x| x.z.clone()).or_else(|| have(p)) };
         f(rf, &seen)?
     };
-    fold(outs, more);
+    merge(outs, more);
     Ok(())
 }
 
@@ -311,11 +339,21 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have, seed: &str) -> Res<Vec<Out>> 
     if o.regen {
         step(rf, &mut outs, have, |rf, have| Ok(regen::stage(rf, have, ACTOR_PACKS)?.1))?;
     }
+    if o.fairy_helps {
+        step(rf, &mut outs, have, |rf, have| Ok(fairy::stage(rf, have, ACTOR_PACKS)?.1))?;
+    }
+    if o.backup {
+        step(rf, &mut outs, have, |rf, have| Ok(backup::stage(rf, have, ACTOR_PACKS)?.1))?;
+    }
     if o.no_fairies {
         step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, flows::GOSSIP_FILE, flows::no_gossip)?]))?;
     }
     if o.lose_heart {
         step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, flows::OVER_FILE, flows::lose_heart)?]))?;
+    }
+    if o.fairy_helps {
+        step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, flows::OVER_FILE, |raw| flows::fairy_used(raw, flows::OVER_FLOW, flows::REVIVE))?]))?;
+        step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, flows::OUT_FAIRY_FILE, |raw| flows::fairy_used(raw, flows::OUT_FAIRY_FLOW, flows::OUT_FAIRY))?]))?;
     }
     if o.no_bottles {
         for (file, name) in flows::BOTTLE_FLOWS {
@@ -328,6 +366,12 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have, seed: &str) -> Res<Vec<Out>> 
         step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, dupes::SHOP_FILE, |raw| dupes::fronts(raw, dupes::SHOP_FLOW, &dupes::goods()))?]))?;
         for (file, name, item) in dupes::SELLERS {
             step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, file, |raw| dupes::fronts(raw, name, &[(None, item)]))?]))?;
+        }
+    }
+    if o.bean_pitch {
+        step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, bean::FILE, bean::pitch)?]))?;
+        for l in crate::hints::languages(rf)? {
+            step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, &l, bean::text)?]))?;
         }
     }
     if o.respawn {
@@ -346,21 +390,23 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have, seed: &str) -> Res<Vec<Out>> 
     if o.minions {
         step(rf, &mut outs, have, minions::stage)?;
     }
+    if o.zora_ambush {
+        step(rf, &mut outs, have, ambush::stage)?;
+    }
     Ok(outs)
 }
 
-pub fn worked(rf: &mut Romfs, pk: &crate::modpack::Pack, o: &Opts, seed: &str, pending: &[Out]) -> Res<Vec<Out>> {
+pub fn worked(rf: &mut Romfs, pk: &crate::modpack::Pack, o: &Opts, seed: &str, late: &mut Vec<Out>) -> Res<()> {
     if !o.any() {
-        return Ok(Vec::new());
+        return Ok(());
     }
     let root: std::path::PathBuf = pk.work.join("romfs");
-    let have = |p: &str| -> Option<Vec<u8>> {
-        match pending.iter().rev().find(|x| x.path == p) {
-            Some(x) => Some(x.z.clone()),
-            None => fs::read(p.split('/').fold(root.clone(), |a, s| a.join(s))).ok(),
-        }
+    let outs: Vec<Out> = {
+        let have = |p: &str| -> Option<Vec<u8>> { late.iter().rev().find(|x| x.path == p).map(|x| x.z.clone()).or_else(|| fs::read(p.split('/').fold(root.clone(), |a, s| a.join(s))).ok()) };
+        stage(rf, o, &have, seed)?
     };
-    stage(rf, o, &have, seed)
+    merge(late, outs);
+    Ok(())
 }
 
 #[cfg(test)]
@@ -384,6 +430,10 @@ mod tests {
         s.set(MINIBOSSES, Value::Bool(false)).unwrap();
         s.set(REGEN, Value::Bool(false)).unwrap();
         s.set(MINIONS, Value::Bool(false)).unwrap();
+        s.set(BEAN_PITCH, Value::Bool(false)).unwrap();
+        s.set(ZORA_AMBUSH, Value::Bool(false)).unwrap();
+        s.set(FAIRY_HELPS, Value::Bool(false)).unwrap();
+        s.set(BACKUP, Value::Bool(false)).unwrap();
         assert_eq!(s.encode().unwrap(), Settings::default().encode().unwrap());
     }
 
@@ -393,7 +443,7 @@ mod tests {
         s.set(HEALTH, Value::Int(250)).unwrap();
         s.set(DAMAGE, Value::Int(50)).unwrap();
         s.set(SPEED, Value::Int(200)).unwrap();
-        for id in [NO_HEARTS, NO_FAIRIES, NO_AMMO, LOSE_HEART, NO_BOTTLES, NO_TARGET, NO_DUPES, RESPAWN, MINIBOSSES, REGEN, MINIONS] {
+        for id in [NO_HEARTS, NO_FAIRIES, NO_AMMO, LOSE_HEART, NO_BOTTLES, NO_TARGET, NO_DUPES, RESPAWN, MINIBOSSES, REGEN, MINIONS, BEAN_PITCH, ZORA_AMBUSH, FAIRY_HELPS, BACKUP] {
             s.set(id, Value::Bool(true)).unwrap();
         }
         s.set(MORE, Value::s("half")).unwrap();
@@ -401,15 +451,17 @@ mod tests {
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&back, &mut bad);
         assert!(bad.is_empty());
-        assert_eq!(o, Opts { health: 250, damage: 50, speed: 200, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 50, respawn: true, minibosses: true, regen: true, minions: true, ..Opts::default() });
+        assert_eq!(o, Opts { health: 250, damage: 50, speed: 200, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 50, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, ..Opts::default() });
         assert!(o.any() && o.packs());
-        assert_eq!(o.notes().len(), 15);
-        assert_eq!(o.notes().iter().collect::<std::collections::BTreeSet<&String>>().len(), 15);
+        assert_eq!(o.notes().len(), 19);
+        assert_eq!(o.notes().iter().collect::<std::collections::BTreeSet<&String>>().len(), o.notes().len());
         assert!(o.notes().iter().any(|n| n.contains("About 50 in 100")));
         assert!(Opts { extra: 100, ..Opts::default() }.any() && !Opts { extra: 100, ..Opts::default() }.packs());
         assert!(s.set(MORE, Value::s("triple")).is_err() || s.clone().finish().is_err());
         assert!(o.notes().iter().any(|n| n.contains("Queen Gohma (Stalfos)") && n.contains("untested in the game")));
         assert!(o.notes().iter().any(|n| n == minions::NOTE));
+        let fun: Opts = Opts { bean_pitch: true, ..Opts::default() };
+        assert!(fun.any() && !fun.packs() && fun.notes().len() == 1);
         assert!(o.notes()[0].contains("2.5 times"));
         assert!(o.notes()[1].contains("0.5 times"));
         assert!(o.notes()[2].contains("2 times"));
@@ -515,10 +567,10 @@ mod tests {
             return;
         };
         let mut rf: Romfs = Romfs::open(&root).unwrap();
-        let o: Opts = Opts { health: 200, damage: 150, speed: 150, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 100, respawn: true, minibosses: true, regen: true, minions: true, ..Opts::default() };
+        let o: Opts = Opts { health: 200, damage: 150, speed: 150, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 100, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, ..Opts::default() };
         let outs: Vec<Out> = stage(&mut rf, &o, &none, "seed").unwrap();
         let at = |p: &str| -> &Out { outs.iter().find(|x| x.path == p).unwrap_or_else(|| panic!("{p} was not staged")) };
-        for f in [flows::GOSSIP_FILE, flows::OVER_FILE, drops::FOLIAGE, lottery::FILE, regen::GLOBAL, regen::ACTOR_INFO, "Pack/Actor/Enemy_Stalfos.pack.zs", "Pack/Actor/Enemy_Keese.pack.zs"] {
+        for f in [fairy::ACTOR_INFO, fairy::GLOBAL, bean::FILE, flows::GOSSIP_FILE, flows::OVER_FILE, drops::FOLIAGE, lottery::FILE, regen::GLOBAL, regen::ACTOR_INFO, "Pack/Actor/Enemy_Stalfos.pack.zs", "Pack/Actor/Enemy_Keese.pack.zs"] {
             at(f);
         }
         for (f, _) in flows::BOTTLE_FLOWS {
@@ -541,8 +593,12 @@ mod tests {
         let only: Vec<Out> = stage(&mut rf, &Opts { respawn: true, ..Opts::default() }, &none, "seed").unwrap();
         assert_eq!(only.len(), respawn::TABLES.len());
         assert!(only.iter().all(|x| x.path.starts_with(respawn::DIR) && x.new > x.old && x.z == respawn::always(&rf.read(&x.path).unwrap()).unwrap()));
+        for m in ambush::MAPS {
+            at(&ambush::file(m, "Static"));
+        }
         assert!(!outs.iter().any(|x| x.path.contains("Player_")), "the player packs are left alone");
-        for x in outs.iter().filter(|x| x.path.ends_with(".pack.zs") && x.path != regen::GLOBAL && x.path != minions::DODONGO_PACK && !x.path.contains("Enemy_Stalfos")) {
+        let plain: Vec<Out> = stage(&mut rf, &Opts { health: 200, damage: 150, speed: 150, no_hearts: true, no_ammo: true, no_target: true, ..Opts::default() }, &none, "seed").unwrap();
+        for x in plain.iter().filter(|x| x.path.ends_with(".pack.zs")) {
             assert!(x.new <= x.old, "{} grew", x.path);
         }
         let es: Vec<Entry> = sarc::parse(&rf.zs.decompress(&at("Pack/Actor/Enemy_Stalfos.pack.zs").z).unwrap()).unwrap();
@@ -550,8 +606,8 @@ mod tests {
         let life: &str = "Life/LifeParameters/Enemy_Stalfos.game__life__LifeParameters.bgyml";
         let Some(Node::I32(a)) = max_life(&was, life) else { panic!() };
         assert_eq!(max_life(&es, life), Some(Node::I32(a * 2)));
-        let same: usize = es.iter().zip(was.iter()).filter(|(x, y)| x.name == y.name && x.data == y.data).count();
-        assert!(same >= es.len() - 20, "only a handful of files change, {same} of {} match", es.len());
+        let same: usize = es.iter().filter(|x| sarc::get(&was, &x.name).is_some_and(|y| y.data == x.data)).count();
+        assert!(same >= es.len() - 24, "only a handful of files change, {same} of {} match", es.len());
         let look: Node = Node::U32(target::hash(target::LOOK_ONLY));
         let aims = |es: &[Entry]| -> usize { es.iter().filter(|e| stats::stem(&e.name, target::DIR, target::EXT).is_some_and(target::is_foe) && Byml::parse(&e.data).unwrap().root.get(target::KIND) == Some(&look)).count() };
         assert!(aims(&was) == 0 && aims(&es) > 0, "the Stalfos pack carries the lock-on edit next to the others");
@@ -583,14 +639,38 @@ mod tests {
             assert_eq!(has(&now, s.mini), has(&base, s.mini) + 1);
         }
         let graph: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&es, regen::STALFOS_GRAPH).unwrap().data).unwrap();
-        assert_eq!(graph.find_els(regen::HEAL).len(), 1, "the Stalfos pack carries both the health and the regen edit");
+        assert_eq!(graph.find_els(regen::HEAL).len(), 2, "the Stalfos pack carries the health, the regen and the fairy edit");
+        assert_eq!(graph.find_els(fairy::CLEAR).len(), 1);
+        assert_eq!(graph.find_els(backup::REQUEST).len(), 1, "the Stalfos pack carries the backup call on top of the regen and fairy edits");
+        assert!(sarc::get(&es, backup::NEW).is_some());
+        let shared: Vec<Entry> = sarc::parse(&rf.zs.decompress(&at(regen::GLOBAL).z).unwrap()).unwrap();
+        let common: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&shared, regen::GRAPH).unwrap().data).unwrap();
+        assert_eq!((common.find_els(regen::HEAL).len(), common.find_els(fairy::CLEAR).len(), common.find_els(backup::REQUEST).len()), (2, 1, 1), "the shared enemy graph carries regen, fairy and backup");
+        assert!(crate::ainb::audit(&common).is_empty());
         assert_eq!(outs.iter().filter(|x| x.path == "Pack/Actor/Enemy_Stalfos.pack.zs").count(), 1);
         let table: Byml = Byml::parse(&rf.zs.decompress(&at(regen::ACTOR_INFO).z).unwrap()).unwrap();
         let before: Byml = rf.read_byml(regen::ACTOR_INFO).unwrap();
         let heap = |y: &Byml, n: &str| -> Option<Node> { crate::pickup_pack::rows::find(y, n)?.get(crate::pickup_pack::rows::HEAP).cloned() };
         let Some(Node::I32(h)) = heap(&before, "Enemy_Stalfos") else { panic!() };
-        assert_eq!(heap(&table, "Enemy_Stalfos"), Some(Node::I32(h + regen::HEAP_EXTRA)));
+        assert_eq!(heap(&table, "Enemy_Stalfos"), Some(Node::I32(h + regen::HEAP_EXTRA + fairy::HEAP_EXTRA + backup::HEAP_EXTRA)), "the heap growth of each graph edit adds up");
         assert_eq!(heap(&table, "Player_Child"), heap(&before, "Player_Child"));
+        for (file, name, used, other) in [(flows::OVER_FILE, flows::OVER_FLOW, flows::REVIVE, flows::HEART_MARK), (flows::OUT_FAIRY_FILE, flows::OUT_FAIRY_FLOW, flows::OUT_FAIRY, flows::BOTTLE_MARK)] {
+            let b: crate::bfevfl::Bf = crate::bfevfl::Bf::parse(&rf.zs.decompress(&at(file).z).unwrap()).unwrap();
+            let f: &crate::bfevfl::Flow = b.flows.iter().find(|f| f.name == name).unwrap();
+            let told: Vec<usize> = (0..f.events.len()).filter(|&i| f.events[i].name.starts_with(flows::FAIRY_MARK)).collect();
+            assert_eq!(told.len(), 1, "{name}");
+            for e in f.events.iter() {
+                let crate::bfevfl::Kind::Action { actor, act, next, .. } = &e.kind else { continue };
+                if f.actors[*actor as usize].actions[*act as usize] == used {
+                    assert!(told.contains(&(*next as usize)), "{used} is followed by the flag in {name}");
+                }
+            }
+            assert!(f.events.iter().any(|e| e.name.starts_with(other)), "{name} keeps its other edit");
+        }
+        let only: Vec<Out> = stage(&mut rf, &Opts { fairy_helps: true, ..Opts::default() }, &none, "seed").unwrap();
+        let mut hit: Vec<&str> = only.iter().filter(|x| x.path.starts_with("Event/")).map(|x| x.path.as_str()).collect();
+        hit.sort();
+        assert_eq!(hit, vec![flows::OVER_FILE, flows::OUT_FAIRY_FILE]);
         assert!(stage(&mut rf, &Opts::default(), &none, "seed").unwrap().is_empty());
     }
 
@@ -775,5 +855,107 @@ mod tests {
         assert_eq!(both.iter().filter(|x| x.path == minions::DODONGO_PACK).count(), 1);
         let es: Vec<Entry> = sarc::parse(&rf.zs.decompress(&both.iter().find(|x| x.path == minions::DODONGO_PACK).unwrap().z).unwrap()).unwrap();
         assert_eq!(rolls(&es), vec![2, 3, 4]);
+    }
+
+    fn out(path: &str, z: &[u8], old: usize, new: usize) -> Out {
+        Out { path: path.to_string(), z: z.to_vec(), old, new }
+    }
+
+    #[test]
+    fn a_file_staged_twice_is_written_once_with_the_first_size_it_had() {
+        let mut late: Vec<Out> = vec![out("a", b"1", 10, 14), out("b", b"2", 5, 5)];
+        merge(&mut late, vec![out("a", b"3", 14, 20), out("c", b"4", 7, 9)]);
+        let got: Vec<(&str, &[u8], usize, usize)> = late.iter().map(|x| (x.path.as_str(), x.z.as_slice(), x.old, x.new)).collect();
+        assert_eq!(got, vec![("a", b"3".as_slice(), 10, 20), ("b", b"2".as_slice(), 5, 5), ("c", b"4".as_slice(), 7, 9)]);
+    }
+
+    #[test]
+    fn the_bean_seller_makes_his_pitch_in_the_game_files_on_top_of_other_edits() {
+        use crate::bfevfl::{Bf, Flow, Kind, Val};
+        let Some(root) = dump() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let o: Opts = Opts { bean_pitch: true, ..Opts::default() };
+        let cheap: Vec<u8> = crate::open_world::skips::bean_bytes(&rf.read_zs(bean::FILE).unwrap()).unwrap();
+        let cheap_z: Vec<u8> = zs::compress_raw(&cheap, zs::dict_of(&rf.read(bean::FILE).unwrap())).unwrap();
+        let have = |p: &str| -> Option<Vec<u8>> { if p == bean::FILE { Some(cheap_z.clone()) } else { None } };
+        let outs: Vec<Out> = stage(&mut rf, &o, &have, "seed").unwrap();
+        let langs: Vec<String> = crate::hints::languages(&rf).unwrap();
+        assert!(!langs.is_empty());
+        assert_eq!(outs.len(), 1 + langs.len());
+        assert_eq!(outs[0].path, bean::FILE);
+        assert!(outs[0].new > outs[0].old);
+        let was: Bf = Bf::parse(&cheap).unwrap();
+        let b: Bf = Bf::parse(&rf.zs.decompress(&outs[0].z).unwrap()).unwrap();
+        let f: &Flow = b.flows.iter().find(|x| x.name == bean::FLOW).unwrap();
+        let g: &Flow = was.flows.iter().find(|x| x.name == bean::FLOW).unwrap();
+        let n: usize = g.events.len();
+        assert_eq!(f.events.len(), n + 2);
+        assert_eq!(f.entries, g.entries);
+        let moved: Vec<usize> = (0..n).filter(|&i| f.events[i] != g.events[i]).collect();
+        let [at] = moved.as_slice() else { panic!("one event changes, got {moved:?}") };
+        let Kind::Sub { next: old, entry, .. } = &g.events[*at].kind else { panic!() };
+        assert_eq!(entry, bean::GREET);
+        let Kind::Sub { next: roll, .. } = &f.events[*at].kind else { panic!() };
+        let Kind::Switch { actor, query, cases, .. } = &f.events[*roll as usize].kind else { panic!() };
+        assert_eq!(f.actors[*actor as usize].name, bean::SYSTEM);
+        assert_eq!(f.actors[*actor as usize].queries[*query as usize], bean::RANDOM);
+        assert_eq!(cases.iter().map(|c| c.val).collect::<Vec<u32>>(), vec![0, 1, 2, 3, 4]);
+        assert_eq!(cases.iter().filter(|c| c.ev == *old).count(), 4);
+        let Kind::Action { next, actor, act, params: Some(c) } = &f.events[cases[0].ev as usize].kind else { panic!() };
+        assert_eq!(next, old);
+        assert_eq!(f.actors[*actor as usize].name, bean::SELLER);
+        assert_eq!(f.actors[*actor as usize].actions[*act as usize], bean::TALK);
+        assert_eq!(c.get("MessageId"), Some(&Val::Str(bean::message_id())));
+        assert_eq!(c.get("IsWaitEnd"), Some(&Val::Bool(0x8000_0001)));
+        assert_eq!(c.get("ChoiceNumber"), Some(&Val::Int(0)));
+        let sale = |x: &Flow| x.events.iter().find(|e| e.name == crate::open_world::skips::BEAN_MINUS).and_then(|e| e.kind.params().and_then(|c| c.get("Price").cloned()));
+        assert_eq!(sale(f), Some(Val::Int(crate::open_world::skips::BEAN_PRICE)));
+        for x in &outs[1..] {
+            assert!(langs.contains(&x.path));
+            assert!(x.new > x.old);
+            let es: Vec<Entry> = sarc::parse(&rf.zs.decompress(&x.z).unwrap()).unwrap();
+            let old: Vec<Entry> = sarc::parse(&rf.read_zs(&x.path).unwrap()).unwrap();
+            assert_eq!(es.len(), old.len());
+            assert_eq!(es.iter().zip(old.iter()).filter(|(a, b)| a.data != b.data).map(|(a, _)| a.name.as_str()).collect::<Vec<&str>>(), vec![bean::MSG]);
+            let m: crate::msbt::Msbt = crate::msbt::parse(&sarc::get(&es, bean::MSG).unwrap().data).unwrap();
+            let w: crate::msbt::Msbt = crate::msbt::parse(&sarc::get(&old, bean::MSG).unwrap().data).unwrap();
+            let said: String = crate::msbt::to_markup(&m.text(bean::LABEL).unwrap());
+            assert!(said.ends_with(bean::WORDS), "{} {said}", x.path);
+            assert_eq!(m.names().len(), w.names().len() + 1);
+            for (l, _) in w.names() {
+                assert_eq!(m.raw(l), w.raw(l), "{} {l}", x.path);
+            }
+            assert!(bean::text(&rf.zs.decompress(&x.z).unwrap()).is_err());
+        }
+    }
+
+    #[test]
+    fn the_game_packs_carry_the_backup_call_beside_the_other_edits() {
+        let Some(root) = dump() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let o: Opts = Opts { health: 200, backup: true, ..Opts::default() };
+        let outs: Vec<Out> = stage(&mut rf, &o, &none, "seed").unwrap();
+        let pack: &str = "Pack/Actor/Enemy_Stalfos.pack.zs";
+        assert_eq!(outs.iter().filter(|x| x.path == pack).count(), 1);
+        for f in [backup::GLOBAL, backup::ACTOR_INFO, pack, "Pack/Actor/Enemy_Keese.pack.zs"] {
+            assert!(outs.iter().any(|x| x.path == f), "{f} was not staged");
+        }
+        let x: &Out = outs.iter().find(|x| x.path == pack).unwrap();
+        let es: Vec<Entry> = sarc::parse(&rf.zs.decompress(&x.z).unwrap()).unwrap();
+        let was: Vec<Entry> = sarc::parse(&rf.read_zs(pack).unwrap()).unwrap();
+        let life: &str = "Life/LifeParameters/Enemy_Stalfos.game__life__LifeParameters.bgyml";
+        let Some(Node::I32(a)) = max_life(&was, life) else { panic!() };
+        assert_eq!(max_life(&es, life), Some(Node::I32(a * 2)));
+        let graph: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&es, backup::STALFOS_GRAPH).unwrap().data).unwrap();
+        assert_eq!(graph.find_els(backup::REQUEST).len(), 1);
+        assert!(sarc::get(&es, backup::NEW).is_some() && sarc::get(&was, backup::NEW).is_none());
+        assert_eq!(backup::holder_of(&es, "Enemy_Stalfos").unwrap().as_deref(), Some(backup::NEW));
+        assert!(!outs.iter().any(|x| x.path.contains("Player_")), "the player packs are left alone");
     }
 }

@@ -775,8 +775,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut late: Vec<crate::staging::Out> = if p.qol.any() { crate::qol::worked(&mut rf, &pk, &p.qol)? } else { Vec::new() };
     late.extend(crate::open_world::worked(&mut rf, &pk, &p.open)?);
-    let hard: Vec<crate::staging::Out> = crate::difficulty::worked(&mut rf, &pk, &p.difficulty, &seed.seed, &late)?;
-    late.extend(hard);
+    crate::difficulty::worked(&mut rf, &pk, &p.difficulty, &seed.seed, &mut late)?;
     crate::merchant_prices::stage_bean(&mut rf, seed, p.merchant_prices, p.bean_sale, &mut late)?;
     if p.story {
         late.extend(crate::story_skip::worked(&mut rf, &pk)?);
@@ -797,6 +796,14 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             if let Some(t) = rst.as_mut() {
                 grown += crate::staging::grow_out(&mut rf, t, &o)?;
             }
+        }
+    }
+    if p.difficulty.backup {
+        if rst.is_none() {
+            rst = Some(rsizetable::load(&mut rf)?);
+        }
+        if let Some(t) = rst.as_mut() {
+            crate::difficulty::backup::size(&mut rf, t)?;
         }
     }
     extra += crate::slice::skull_kit::write(&mut rf, &pk, &mut rst, &skull_drops, kit_pool)?;

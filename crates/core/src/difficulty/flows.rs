@@ -40,7 +40,14 @@ pub const ADD_INT: &str = "EventTriggerAddOrSubGameDataInt";
 pub const IS_BGM: &str = "EventQueryIsPlayingBgmName";
 pub const RESULT: &str = "EventSetEventResult";
 
+pub const OUT_FAIRY_FILE: &str = BOTTLE_FLOWS[2].0;
+pub const OUT_FAIRY_FLOW: &str = BOTTLE_FLOWS[2].1;
+pub const OUT_FAIRY: &str = "EventPlayerOutBottleFairy";
+pub const REVIVE: &str = "EventTriggerPlayerUseFairyRecover";
+pub const FAIRY_FLAG: &str = super::fairy::FLAG;
+
 pub const HEART_MARK: &str = "OOTRRLoseHeart";
+pub const FAIRY_MARK: &str = "OOTRRFairyHelps";
 pub const BOTTLE_MARK: &str = "OOTRRNoBottle";
 
 pub(super) fn flow<'a>(b: &'a mut Bf, name: &str) -> Res<&'a mut Flow> {
@@ -73,7 +80,7 @@ pub(super) fn query(f: &mut Flow, actor: &str, name: &str) -> Res<(u16, u16)> {
     Ok((a as u16, slot(&mut f.actors[a].queries, name)))
 }
 
-fn action(f: &mut Flow, actor: &str, name: &str) -> Res<(u16, u16)> {
+pub(super) fn action(f: &mut Flow, actor: &str, name: &str) -> Res<(u16, u16)> {
     let a: usize = actor_at(f, actor)?;
     Ok((a as u16, slot(&mut f.actors[a].actions, name)))
 }
@@ -149,6 +156,41 @@ pub fn lose_heart(raw: &[u8]) -> Res<Vec<u8>> {
     )?;
     if let Kind::Action { next, .. } = &mut f.events[*at].kind {
         *next = keep;
+    }
+    finish(&b)
+}
+
+fn does(f: &Flow, e: &Event, name: &str) -> bool {
+    let Kind::Action { actor, act, .. } = &e.kind else {
+        return false;
+    };
+    f.actors.get(*actor as usize).is_some_and(|a| a.name == PLAYER && a.actions.get(*act as usize).is_some_and(|s| s == name))
+}
+
+pub fn fairy_used(raw: &[u8], name: &str, used: &str) -> Res<Vec<u8>> {
+    let mut b: Bf = Bf::parse(raw)?;
+    let f: &mut Flow = flow(&mut b, name)?;
+    if marked(f, FAIRY_MARK) {
+        return Err(Error::Format("difficulty: a fairy flow is already edited"));
+    }
+    let at: Vec<usize> = (0..f.events.len()).filter(|&i| does(f, &f.events[i], used)).collect();
+    if at.is_empty() {
+        return Err(Error::Msg(format!("difficulty: the flow {name} never runs {used}")));
+    }
+    let (aa, a): (u16, u16) = action(f, DATA, SET_BOOL)?;
+    for (n, i) in at.into_iter().enumerate() {
+        let old: u16 = match &f.events[i].kind {
+            Kind::Action { next, .. } => *next,
+            _ => NONE,
+        };
+        let tell: u16 = push(
+            f,
+            format!("{FAIRY_MARK}Tell{n}"),
+            Kind::Action { next: old, actor: aa, act: a, params: cont(vec![("Index", Val::Int(-1)), ("GameDataName", Val::Str(FAIRY_FLAG.to_string())), ("Value", Val::Bool(TRUE))]) },
+        )?;
+        if let Kind::Action { next, .. } = &mut f.events[i].kind {
+            *next = tell;
+        }
     }
     finish(&b)
 }
@@ -322,6 +364,34 @@ mod tests {
         assert_eq!(params.as_ref().unwrap().get("GameDataName"), Some(&Val::Str(MAX_LIFE.into())));
         assert_eq!(f.actors[*actor as usize].actions[*act as usize], ADD_INT);
         assert!(lose_heart(&out).is_err());
+    }
+
+    #[test]
+    fn the_flag_is_raised_right_after_each_use_of_a_fairy() {
+        let raw: Vec<u8> = file(
+            OUT_FAIRY_FLOW,
+            vec![sys(PLAYER, &["Start", OUT_FAIRY], &[]), sys("PouchSystemActor", &[OUT_FAIRY], &[])],
+            vec![act("A", 0, 0, 1, vec![]), act("B", 0, 1, 2, vec![("IsWaitEnd", Val::Bool(TRUE))]), act("C", 1, 0, 3, vec![]), act("D", 0, 1, NONE, vec![])],
+            &[0],
+        );
+        let out: Vec<u8> = fairy_used(&raw, OUT_FAIRY_FLOW, OUT_FAIRY).unwrap();
+        let b: Bf = Bf::parse(&out).unwrap();
+        let f: &Flow = &b.flows[0];
+        assert_eq!(f.events.len(), 6);
+        let next = |e: usize| -> u16 {
+            let Kind::Action { next, .. } = &f.events[e].kind else { panic!() };
+            *next
+        };
+        assert_eq!((next(0), next(1), next(2), next(3), next(4), next(5)), (1, 4, 3, 5, 2, NONE));
+        for e in [4, 5] {
+            let Kind::Action { actor, act, params, .. } = &f.events[e].kind else { panic!() };
+            assert_eq!((f.actors[*actor as usize].name.as_str(), f.actors[*actor as usize].actions[*act as usize].as_str()), (DATA, SET_BOOL));
+            let c: &Cont = params.as_ref().unwrap();
+            assert_eq!((c.get("GameDataName"), c.get("Value"), c.get("Index")), (Some(&Val::Str(FAIRY_FLAG.into())), Some(&Val::Bool(TRUE)), Some(&Val::Int(-1))));
+        }
+        assert!(fairy_used(&out, OUT_FAIRY_FLOW, OUT_FAIRY).is_err());
+        assert!(fairy_used(&raw, OUT_FAIRY_FLOW, REVIVE).is_err());
+        assert!(fairy_used(&raw, "Other", OUT_FAIRY).is_err());
     }
 
     #[test]

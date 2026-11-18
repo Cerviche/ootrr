@@ -24,10 +24,12 @@ pub const ROLE: usize = 6;
 pub const PTR: usize = 5;
 pub const CONST: u32 = 0x80_0000;
 pub const LINKED: u32 = 0x8000_0000;
+pub const IDLE: u32 = 0x180_0000;
 
 pub enum Src {
     Const(Vec<u8>),
     Link(usize, i16),
+    Idle(Vec<u8>),
 }
 
 pub struct NIn<'a> {
@@ -86,6 +88,21 @@ impl<'a> Spec<'a> {
 
     pub fn constant(mut self, k: usize, name: &'a str, v: Vec<u8>) -> Spec<'a> {
         self.ins.push(NIn { k, name, class: "", src: Src::Const(v) });
+        self
+    }
+
+    pub fn idle(mut self, k: usize, name: &'a str, v: Vec<u8>) -> Spec<'a> {
+        self.ins.push(NIn { k, name, class: "", src: Src::Idle(v) });
+        self
+    }
+
+    pub fn idle_ptr(mut self, name: &'a str, class: &'a str) -> Spec<'a> {
+        self.ins.push(NIn { k: PTR, name, class, src: Src::Idle(Vec::new()) });
+        self
+    }
+
+    pub fn spare_ptr(mut self, name: &'a str, class: &'a str) -> Spec<'a> {
+        self.outs.push(NOut { k: PTR, name, class, read: false });
         self
     }
 
@@ -150,6 +167,11 @@ impl Ainb {
                         return Err(Error::Format("ainb: bad constant input"));
                     }
                 }
+                Src::Idle(v) => {
+                    if v.len() != VALSZ[x.k] {
+                        return Err(Error::Format("ainb: bad idle input"));
+                    }
+                }
                 Src::Link(from, _) => {
                     self.query_pos(*from).ok_or(Error::Format("ainb: a linked input must read a query node"))?;
                     if !srcs.contains(from) {
@@ -207,6 +229,7 @@ impl Ainb {
             let nm: u32 = self.pool.add(x.name);
             let (src, at, flags, val): (i16, i16, u32, Vec<u8>) = match &x.src {
                 Src::Const(v) => (-1, 0, CONST, v.clone()),
+                Src::Idle(v) => (-1, 0, IDLE, v.clone()),
                 Src::Link(from, at) => {
                     links.push(Plug { a: *from as u32, b: nm, extra: vec![0; s.link_extra] });
                     (*from as i16, *at, 0, vec![0; VALSZ[x.k]])

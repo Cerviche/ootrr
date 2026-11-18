@@ -201,6 +201,8 @@ fn difficulty() -> Vec<Setting> {
             .tip("How fast enemies move and how often they attack, from three quarters (0.75x) to twice (2x) the usual speed. Enemies that only move through their animations, such as Octoroks and Skulltulas, keep their pace. The settings string stores this as a percentage. Experimental, untested in the game."),
         Setting::toggle(d::REGEN_NUM, d::REGEN, "difficulty", "Enemies regen health", false)
             .tip("Enemies and bosses that are still alive slowly win back health, one point about every five seconds, never above their usual health. A Stalfos has 18 points, so a hurt one is whole again after a minute and a half. Enemies with one or two points of health hardly notice. Experimental, untested in the game."),
+        Setting::toggle(d::BACKUP_NUM, d::BACKUP, "difficulty", "Enemies call for backup", false)
+            .tip("Take too long over an enemy and it calls for help. An enemy that has had Link as its target for about 25 seconds without a break calls one Peahat larva to its side. Each enemy has at most one larva out at a time, and calls the next one only after the last is gone and another 25 seconds have passed. The larvae never call anything themselves. Bosses and minibosses call one too. A called larva does not count for doors that open when a room is cleared. Experimental, untested in the game."),
         Setting::toggle(d::NO_HEARTS_NUM, d::NO_HEARTS, "difficulty", "No heart drops", false)
             .tip("Enemies, pots, grass and other random drops never give recovery hearts. Hearts that are placed as shuffled items are still there. Experimental, untested in the game."),
         Setting::toggle(d::NO_FAIRIES_NUM, d::NO_FAIRIES, "difficulty", "No gossip fairies", false)
@@ -226,6 +228,12 @@ fn difficulty() -> Vec<Setting> {
             .tip("A strong enemy waits in the boss room and fights alongside the boss. It is there when you enter and leaves when the boss is beaten, so it never blocks the heart container or the way out. Covers Queen Gohma (Stalfos), King Dodongo (Lizalfos), Barinade (Stalfos), Phantom Ganon (Stalfos) and Twinrova (Dinolfos). Volvagia, Morpha, Bongo Bongo, Ganondorf and Ganon are unchanged because their arenas have no safe ground for it, and so are the dream world boss fights. Experimental, untested in the game."),
         Setting::toggle(d::MINIONS_NUM, d::MINIONS, "difficulty", "Bosses spawn minions", false)
             .tip("Dungeon bosses have a few weak enemies with them. Three Keese fly around the rooms of Gohma, Phantom Ganon, Morpha and Bongo Bongo, three Fire Keese around Volvagia, two Fire Keese and two Ice Keese around Twinrova and three Biri float around Barinade. King Dodongo calls Baby Dodongos from the start of his fight and calls more of them later on. The Keese and Biri are in the boss room whenever you are, also after the boss is beaten. Ganondorf, Ganon and the dream world boss stages are unchanged. Experimental, untested in the game."),
+        Setting::toggle(d::BEAN_PITCH_NUM, d::BEAN_PITCH, "difficulty", "Bean Seller's sales pitch", false)
+            .tip("Just for fun. One talk in five, the Bean Seller by Zora's River says \"Chomp Chomp... would you like some Difficulty Mods?\" before he carries on with his usual talk and his beans. Nothing else changes, and the line is in English in every language. Experimental, untested in the game."),
+        Setting::toggle(d::ZORA_AMBUSH_NUM, d::ZORA_AMBUSH, "difficulty", "Zora's Domain ambush", false)
+            .tip("The hole in Zora's Domain that holds nothing but a few rupees gets company. A wall Skulltula sits on the far wall of each of its three side caves, and once you walk into a side cave a Skulltula appears at its mouth behind you, so it is waiting on your way out. They come back when the area is loaded again. Experimental, untested in the game."),
+        Setting::toggle(d::FAIRY_HELPS_NUM, d::FAIRY_HELPS, "difficulty", "Fairies help enemies too", false)
+            .tip("When you let a fairy out of a bottle to heal, or a fairy in a bottle revives you, every enemy and boss that is awake at that moment is healed to full health as well. The enemy you beat last is not brought back, because that cannot be done by editing the game files. Fairies you touch in the world heal only you. Experimental, untested in the game."),
     ]
 }
 
