@@ -75,7 +75,17 @@ pub fn slots(d: &Data, placed: &BM<String, String>) -> Vec<Slot> {
         let Some(f) = d.family(item) else {
             continue;
         };
-        let give: Give = if fixed_spot(d, loc) {
+        // A shelf deal of an upgrade names and gives the next tier at run time (shelf::hook), like
+        // a chest chain.
+        let shelf: bool = crate::shops::is_loc(loc) && crate::shops::jobs::tiered_family(d, item).is_some();
+        let give: Give = if shelf {
+            if covered(d, placed, f) {
+                used.insert(f);
+                Give::Flow
+            } else {
+                Give::Open
+            }
+        } else if fixed_spot(d, loc) {
             Give::Open
         } else if is_sale(d, loc) {
             if crate::scrubs_a::home(d, loc, item) {
