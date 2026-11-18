@@ -73,11 +73,11 @@ impl Frame {
     }
 }
 
-fn text<'a>(n: &'a Node, k: &str) -> &'a str {
+pub fn text<'a>(n: &'a Node, k: &str) -> &'a str {
     n.get(k).and_then(|v| v.as_str()).unwrap_or("")
 }
 
-fn vec3(n: &Node, k: &str) -> Option<[f32; 3]> {
+pub fn vec3(n: &Node, k: &str) -> Option<[f32; 3]> {
     let a: &[Node] = n.get(k)?.as_arr()?;
     match a {
         [Node::F32(x), Node::F32(y), Node::F32(z)] => Some([*x, *y, *z]),
@@ -128,7 +128,7 @@ pub fn fresh(raws: &[&[u8]], seed: &str) -> u64 {
     h
 }
 
-fn floats(v: [f32; 3]) -> Node {
+pub fn floats(v: [f32; 3]) -> Node {
     Node::Arr(v.iter().map(|x| Node::F32(*x)).collect())
 }
 
@@ -143,7 +143,7 @@ pub fn actor(gyaml: &str, hash: u64, at: [f32; 3], rot: [f32; 3]) -> Node {
     a
 }
 
-fn link(id: &str, hash: u64) -> Node {
+pub fn link(id: &str, hash: u64) -> Node {
     let mut r: Node = Node::Map(Vec::new());
     r.set("Id", Node::Str(id.to_string()));
     r.set("Path", Node::Str(id.to_string()));
@@ -151,7 +151,7 @@ fn link(id: &str, hash: u64) -> Node {
     r
 }
 
-fn list<'a>(y: &'a mut Byml, k: &'static str) -> Res<&'a mut Vec<Node>> {
+pub fn list<'a>(y: &'a mut Byml, k: &'static str) -> Res<&'a mut Vec<Node>> {
     y.root.get_mut(k).and_then(|a| a.as_arr_mut()).ok_or_else(|| E::Msg(format!("zora ambush: the map has no {k} list, the game files differ")))
 }
 

@@ -1,4 +1,5 @@
 pub mod ambush;
+pub mod gates;
 pub mod backup;
 pub mod bean;
 pub mod drops;
@@ -43,6 +44,9 @@ pub const BEAN_PITCH: &str = "bean_pitch";
 pub const ZORA_AMBUSH: &str = "zora_ambush";
 pub const FAIRY_HELPS: &str = "fairy_helps_enemies";
 pub const BACKUP: &str = "enemy_backup";
+pub const GATES: &str = "enemy_gates";
+pub const FOREST: &str = "open_forest";
+pub const ENTRANCES: &str = "shuffle_entrances";
 
 pub const HEALTH_NUM: u16 = 110;
 pub const DAMAGE_NUM: u16 = 111;
@@ -63,6 +67,7 @@ pub const BEAN_PITCH_NUM: u16 = 128;
 pub const ZORA_AMBUSH_NUM: u16 = 127;
 pub const FAIRY_HELPS_NUM: u16 = 125;
 pub const BACKUP_NUM: u16 = 126;
+pub const GATES_NUM: u16 = 129;
 
 pub const NORMAL: i64 = 100;
 pub const STAT_RANGE: (i64, i64) = (50, 500);
@@ -94,11 +99,14 @@ pub struct Opts {
     pub zora_ambush: bool,
     pub fairy_helps: bool,
     pub backup: bool,
+    pub gates: bool,
+    pub forest_open: bool,
+    pub entrances: bool,
 }
 
 impl Default for Opts {
     fn default() -> Opts {
-        Opts { health: NORMAL, damage: NORMAL, speed: NORMAL, no_hearts: false, no_fairies: false, no_ammo: false, lose_heart: false, no_bottles: false, no_target: false, no_dupes: false, extra: 0, respawn: false, minibosses: false, regen: false, minions: false, bean_pitch: false, zora_ambush: false, fairy_helps: false, backup: false }
+        Opts { health: NORMAL, damage: NORMAL, speed: NORMAL, no_hearts: false, no_fairies: false, no_ammo: false, lose_heart: false, no_bottles: false, no_target: false, no_dupes: false, extra: 0, respawn: false, minibosses: false, regen: false, minions: false, bean_pitch: false, zora_ambush: false, fairy_helps: false, backup: false, gates: false, forest_open: false, entrances: false }
     }
 }
 
@@ -116,8 +124,19 @@ impl Opts {
         self.health != NORMAL || self.damage != NORMAL || self.speed != NORMAL || self.cut().any() || self.no_target
     }
 
+    pub fn gate_list(&self) -> Vec<gates::Gate> {
+        if !self.gates {
+            return Vec::new();
+        }
+        gates::GATES.iter().filter(|g| gates::active(g, self.forest_open, self.entrances)).copied().collect()
+    }
+
+    pub fn gates(&self) -> bool {
+        !self.gate_list().is_empty()
+    }
+
     pub fn any(&self) -> bool {
-        self.packs() || self.no_fairies || self.lose_heart || self.no_bottles || self.no_dupes || self.extra > 0 || self.respawn || self.minibosses || self.regen || self.minions || self.bean_pitch || self.zora_ambush || self.fairy_helps || self.backup
+        self.packs() || self.no_fairies || self.lose_heart || self.no_bottles || self.no_dupes || self.extra > 0 || self.respawn || self.minibosses || self.regen || self.minions || self.bean_pitch || self.zora_ambush || self.fairy_helps || self.backup || self.gates()
     }
 
     pub fn notes(&self) -> Vec<String> {
@@ -182,6 +201,14 @@ impl Opts {
         if self.fairy_helps {
             out.push("When you let a fairy out of a bottle, or a bottled fairy revives you, every enemy and boss that is awake at that moment is healed to full health too. Bringing back the enemy you beat last is not possible with file edits and is not done. Experimental, untested in the game.".to_string());
         }
+        if self.gates {
+            let names: Vec<&str> = self.gate_list().iter().map(|g| g.name).collect();
+            if names.is_empty() {
+                out.push("Enemies block the way is on, but no gate applies to these settings (an open forest or shuffled entrances would make it add a requirement), so nothing is gated.".to_string());
+            } else {
+                out.push(format!("An invisible wall stands in the way at {} while those enemies are alive and goes away when they are beaten. The enemies stand in the wall, so they can be reached from both sides. Nothing is saved: when the area loads again and the enemies are back, so is the wall. Experimental, untested in the game.", names.join(" and ")));
+            }
+        }
         out
     }
 }
@@ -209,7 +236,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             false
         })
     };
-    let o: Opts = Opts { health, damage, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS), bean_pitch: flag(BEAN_PITCH), zora_ambush: flag(ZORA_AMBUSH), fairy_helps: flag(FAIRY_HELPS), backup: flag(BACKUP) };
+    let o: Opts = Opts { health, damage, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS), bean_pitch: flag(BEAN_PITCH), zora_ambush: flag(ZORA_AMBUSH), fairy_helps: flag(FAIRY_HELPS), backup: flag(BACKUP), gates: flag(GATES), forest_open: false, entrances: false };
     let extra: i64 = match s.text(MORE) {
         Ok(t) => MORE_LEVELS.iter().find(|l| l.0 == t).map(|l| l.2).unwrap_or_else(|| {
             bad.push(format!("{MORE} is {t}, which is not a known level"));
@@ -220,7 +247,9 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             0
         }
     };
-    Opts { extra, ..o }
+    let forest_open: bool = s.text(FOREST).map(|t| t == "open").unwrap_or(false);
+    let entrances: bool = s.text(ENTRANCES).map(|t| t != "off").unwrap_or(false);
+    Opts { extra, forest_open, entrances, ..o }
 }
 
 fn edit_entry(e: &Entry, o: &Opts) -> Res<Option<Vec<u8>>> {
@@ -393,6 +422,10 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have, seed: &str) -> Res<Vec<Out>> 
     if o.zora_ambush {
         step(rf, &mut outs, have, ambush::stage)?;
     }
+    let gl: Vec<gates::Gate> = o.gate_list();
+    if !gl.is_empty() {
+        step(rf, &mut outs, have, |rf, have| gates::stage(rf, have, &gl))?;
+    }
     Ok(outs)
 }
 
@@ -434,7 +467,29 @@ mod tests {
         s.set(ZORA_AMBUSH, Value::Bool(false)).unwrap();
         s.set(FAIRY_HELPS, Value::Bool(false)).unwrap();
         s.set(BACKUP, Value::Bool(false)).unwrap();
+        s.set(GATES, Value::Bool(false)).unwrap();
         assert_eq!(s.encode().unwrap(), Settings::default().encode().unwrap());
+    }
+
+    #[test]
+    fn the_gates_follow_the_forest_and_entrance_settings() {
+        let mut s: Settings = Settings::default();
+        s.set(GATES, Value::Bool(true)).unwrap();
+        let mut bad: Vec<String> = Vec::new();
+        let o: Opts = read(&s, &mut bad);
+        assert!(bad.is_empty() && o.gates() && o.any() && !o.packs());
+        assert_eq!(o.gate_list().len(), gates::GATES.len());
+        assert_eq!(o.notes().len(), 1);
+        s.set(FOREST, Value::s("open")).unwrap();
+        let o: Opts = read(&s, &mut bad);
+        assert!(o.gates && o.forest_open && !o.gates() && !o.any());
+        assert!(o.gate_list().is_empty() && o.notes()[0].contains("no gate applies"));
+        s.set(FOREST, Value::s("closed_deku")).unwrap();
+        s.set(ENTRANCES, Value::s("dungeons")).unwrap();
+        let o: Opts = read(&s, &mut bad);
+        assert!(o.entrances && !o.gates());
+        let off: Opts = Opts { gates: false, ..Opts::default() };
+        assert!(off.gate_list().is_empty() && !off.any() && off.notes().is_empty());
     }
 
     #[test]
@@ -443,7 +498,7 @@ mod tests {
         s.set(HEALTH, Value::Int(250)).unwrap();
         s.set(DAMAGE, Value::Int(50)).unwrap();
         s.set(SPEED, Value::Int(200)).unwrap();
-        for id in [NO_HEARTS, NO_FAIRIES, NO_AMMO, LOSE_HEART, NO_BOTTLES, NO_TARGET, NO_DUPES, RESPAWN, MINIBOSSES, REGEN, MINIONS, BEAN_PITCH, ZORA_AMBUSH, FAIRY_HELPS, BACKUP] {
+        for id in [NO_HEARTS, NO_FAIRIES, NO_AMMO, LOSE_HEART, NO_BOTTLES, NO_TARGET, NO_DUPES, RESPAWN, MINIBOSSES, REGEN, MINIONS, BEAN_PITCH, ZORA_AMBUSH, FAIRY_HELPS, BACKUP, GATES] {
             s.set(id, Value::Bool(true)).unwrap();
         }
         s.set(MORE, Value::s("half")).unwrap();
@@ -451,9 +506,9 @@ mod tests {
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&back, &mut bad);
         assert!(bad.is_empty());
-        assert_eq!(o, Opts { health: 250, damage: 50, speed: 200, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 50, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, ..Opts::default() });
+        assert_eq!(o, Opts { health: 250, damage: 50, speed: 200, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 50, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, gates: true, ..Opts::default() });
         assert!(o.any() && o.packs());
-        assert_eq!(o.notes().len(), 19);
+        assert_eq!(o.notes().len(), 20);
         assert_eq!(o.notes().iter().collect::<std::collections::BTreeSet<&String>>().len(), o.notes().len());
         assert!(o.notes().iter().any(|n| n.contains("About 50 in 100")));
         assert!(Opts { extra: 100, ..Opts::default() }.any() && !Opts { extra: 100, ..Opts::default() }.packs());
@@ -567,7 +622,7 @@ mod tests {
             return;
         };
         let mut rf: Romfs = Romfs::open(&root).unwrap();
-        let o: Opts = Opts { health: 200, damage: 150, speed: 150, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 100, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, ..Opts::default() };
+        let o: Opts = Opts { health: 200, damage: 150, speed: 150, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 100, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, gates: true, ..Opts::default() };
         let outs: Vec<Out> = stage(&mut rf, &o, &none, "seed").unwrap();
         let at = |p: &str| -> &Out { outs.iter().find(|x| x.path == p).unwrap_or_else(|| panic!("{p} was not staged")) };
         for f in [fairy::ACTOR_INFO, fairy::GLOBAL, bean::FILE, flows::GOSSIP_FILE, flows::OVER_FILE, drops::FOLIAGE, lottery::FILE, regen::GLOBAL, regen::ACTOR_INFO, "Pack/Actor/Enemy_Stalfos.pack.zs", "Pack/Actor/Enemy_Keese.pack.zs"] {

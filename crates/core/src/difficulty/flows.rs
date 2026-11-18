@@ -15,6 +15,8 @@ pub const BOTTLE_FLOWS: [(&str, &str); 3] = [
 pub const MAX_LIFE: &str = "PlayerStatus.MaxLife";
 pub const HEART: i32 = 4;
 pub const FLOOR_HEARTS: i32 = 3;
+pub const TOP_HEARTS: i32 = 20;
+pub const SET_MAX: &str = "EventTriggerSetMaxLife";
 pub const BATTLE_BGM: &str = "BGM_EnemyBattle";
 pub const BOSS_FLAG: &str = "IsBossBattle";
 pub const APPEAR_FLAG: &str = "GossipStone_FairySpiritAppearOk";
@@ -132,22 +134,21 @@ pub fn lose_heart(raw: &[u8]) -> Res<Vec<u8>> {
         _ => NONE,
     };
     let (qa, q): (u16, u16) = query(f, DATA, IS_INT)?;
-    let (aa, a): (u16, u16) = action(f, DATA, ADD_INT)?;
-    let sub: u16 = push(
-        f,
-        format!("{HEART_MARK}Take"),
-        Kind::Action { next: old, actor: aa, act: a, params: cont(vec![("Index", Val::Int(-1)), ("GameDataName", Val::Str(MAX_LIFE.to_string())), ("Value", Val::Int(-HEART))]) },
-    )?;
-    let mut cases: Vec<Case> = vec![Case { val: 2, ev: sub }];
-    if old != NONE {
-        cases.insert(0, Case { val: 1, ev: old });
-        cases.insert(0, Case { val: 0, ev: old });
+    let (pa, set): (u16, u16) = action(f, PLAYER, SET_MAX)?;
+    let mut check: u16 = old;
+    for h in FLOOR_HEARTS + 1..=TOP_HEARTS {
+        let take: u16 = push(f, format!("{HEART_MARK}Take{h}"), Kind::Action { next: old, actor: pa, act: set, params: cont(vec![("MaxLife", Val::Int((h - 1) * HEART))]) })?;
+        let mut cases: Vec<Case> = vec![Case { val: 1, ev: take }];
+        if check != NONE {
+            cases.insert(0, Case { val: 0, ev: check });
+            cases.push(Case { val: 2, ev: check });
+        }
+        check = push(
+            f,
+            format!("{HEART_MARK}Check{h}"),
+            Kind::Switch { actor: qa, query: q, cases, params: cont(vec![("Index", Val::Int(-1)), ("GameDataName", Val::Str(MAX_LIFE.to_string())), ("Value", Val::Int(h * HEART))]) },
+        )?;
     }
-    let check: u16 = push(
-        f,
-        format!("{HEART_MARK}Check"),
-        Kind::Switch { actor: qa, query: q, cases, params: cont(vec![("Index", Val::Int(-1)), ("GameDataName", Val::Str(MAX_LIFE.to_string())), ("Value", Val::Int(FLOOR_HEARTS * HEART))]) },
-    )?;
     let (ka, k): (u16, u16) = action(f, DATA, SET_BOOL)?;
     let keep: u16 = push(
         f,
@@ -344,25 +345,32 @@ mod tests {
         let out: Vec<u8> = lose_heart(&raw).unwrap();
         let b: Bf = Bf::parse(&out).unwrap();
         let f: &Flow = &b.flows[0];
-        assert_eq!(f.events.len(), 6);
+        let rungs: usize = (TOP_HEARTS - FLOOR_HEARTS) as usize;
+        let keep: usize = 3 + 2 * rungs;
+        assert_eq!(f.events.len(), keep + 1);
         let Kind::Action { next, .. } = &f.events[1].kind else { panic!() };
-        assert_eq!(*next, 5);
-        let Kind::Action { next, params, actor, act } = &f.events[5].kind else { panic!() };
-        assert_eq!(*next, 4, "the game over save is asked for before the heart check");
+        assert_eq!(*next as usize, keep);
+        let Kind::Action { next, params, actor, act } = &f.events[keep].kind else { panic!() };
+        assert_eq!(*next as usize, keep - 1, "the game over save is asked for before the heart checks");
         assert_eq!(params.as_ref().unwrap().get("GameDataName"), Some(&Val::Str(SAVE_FLAG.into())));
         assert_eq!(params.as_ref().unwrap().get("Value"), Some(&Val::Bool(TRUE)));
         assert_eq!(f.actors[*actor as usize].actions[*act as usize], SET_BOOL);
         let Kind::Action { next, .. } = &f.events[0].kind else { panic!() };
         assert_eq!(*next, 2, "going back to the title screen costs nothing");
         let Kind::Switch { cases, params, actor, query } = &f.events[4].kind else { panic!() };
-        assert_eq!(cases, &vec![Case { val: 0, ev: 2 }, Case { val: 1, ev: 2 }, Case { val: 2, ev: 3 }]);
-        assert_eq!(params.as_ref().unwrap().get("Value"), Some(&Val::Int(12)));
+        assert_eq!(cases, &vec![Case { val: 0, ev: 2 }, Case { val: 1, ev: 3 }, Case { val: 2, ev: 2 }], "four hearts is the lowest rung, below it nothing is taken");
+        assert_eq!(params.as_ref().unwrap().get("Value"), Some(&Val::Int(16)));
+        assert_eq!(params.as_ref().unwrap().get("GameDataName"), Some(&Val::Str(MAX_LIFE.into())));
         assert_eq!(f.actors[*actor as usize].queries[*query as usize], IS_INT);
         let Kind::Action { next, params, actor, act } = &f.events[3].kind else { panic!() };
         assert_eq!(*next, 2);
-        assert_eq!(params.as_ref().unwrap().get("Value"), Some(&Val::Int(-4)));
-        assert_eq!(params.as_ref().unwrap().get("GameDataName"), Some(&Val::Str(MAX_LIFE.into())));
-        assert_eq!(f.actors[*actor as usize].actions[*act as usize], ADD_INT);
+        assert_eq!(params.as_ref().unwrap().get("MaxLife"), Some(&Val::Int(12)));
+        assert_eq!((f.actors[*actor as usize].name.as_str(), f.actors[*actor as usize].actions[*act as usize].as_str()), (PLAYER, SET_MAX));
+        let Kind::Switch { cases, params, .. } = &f.events[keep - 1].kind else { panic!() };
+        assert_eq!(params.as_ref().unwrap().get("Value"), Some(&Val::Int(80)));
+        assert_eq!(cases, &vec![Case { val: 0, ev: (keep - 3) as u16 }, Case { val: 1, ev: (keep - 2) as u16 }, Case { val: 2, ev: (keep - 3) as u16 }]);
+        let Kind::Action { params, .. } = &f.events[keep - 2].kind else { panic!() };
+        assert_eq!(params.as_ref().unwrap().get("MaxLife"), Some(&Val::Int(76)), "twenty hearts drop to nineteen");
         assert!(lose_heart(&out).is_err());
     }
 
