@@ -106,7 +106,7 @@ pub fn lacs_logic(n: u8) -> [(&'static str, &'static str); 2] {
 /// The flags are split in two halves and the formula ORs, over every way to share k
 /// between the halves, the AND of the two smaller counts. The game's formulas have no
 /// sum, so this keeps the formula small: at most 145 terms for 9 flags.
-fn at_least(flags: &[&str], k: usize) -> Option<Vec<(i32, String)>> {
+pub fn at_least(flags: &[&str], k: usize) -> Option<Vec<(i32, String)>> {
     if k == 0 {
         return None;
     }
@@ -268,7 +268,7 @@ pub fn banc_bytes(raw: &[u8]) -> Res<Vec<u8>> {
     Ok(out)
 }
 
-fn module(rf: &mut Romfs, path: &str, f: impl FnOnce(&mut Ainb) -> Res<()>) -> Res<Out> {
+pub fn module(rf: &mut Romfs, path: &str, f: impl FnOnce(&mut Ainb) -> Res<()>) -> Res<Out> {
     let raw: Vec<u8> = rf.read(path)?;
     let mut a: Ainb = Ainb::parse(&raw)?;
     f(&mut a)?;

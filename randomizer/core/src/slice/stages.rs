@@ -140,6 +140,9 @@ fn medal_gate(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     } else if c.p.lacs.is_some() {
         crate::medal_gate::stage_lacs(rf, more, Some(c.work))?;
     }
+    if c.p.rainbow.is_some() {
+        crate::rainbow_bridge::stage(rf, more)?;
+    }
     Ok(())
 }
 
@@ -179,6 +182,9 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
         crate::medal_gate::override_lacs(&mut edits, n);
     }
     edits.extend(crate::gerudo_card::exps());
+    if let Some(n) = c.p.rainbow {
+        edits.push(crate::rainbow_bridge::exp(n));
+    }
     crate::start_defaults::stage(rf, more, &edits)
 }
 

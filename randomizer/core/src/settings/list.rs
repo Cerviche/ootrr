@@ -54,7 +54,7 @@ fn reward_goal(s: Setting) -> Setting {
 
 fn bridge() -> Vec<Setting> {
     let b: Setting = reward_goal(
-        Setting::choice(24, "bridge", "goal", "Rainbow Bridge", "medallions")
+        Setting::choice(24, "bridge", "goal", "Rainbow Bridge", "vanilla")
             .tag(Tag::Core)
             .tip("What it takes to make the Rainbow Bridge to Ganon's Castle appear.")
             .opt("open", "Always open", "The bridge is there from the start.")

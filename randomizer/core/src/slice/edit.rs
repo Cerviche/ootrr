@@ -438,6 +438,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if p.shops.on() {
         late.push(crate::shops::door::worked(&mut rf, &pk)?);
     }
+    if p.rainbow.is_some() {
+        crate::story_skip::stage_late(&mut rf, &mut late, &work, "AllSage", crate::rainbow_bridge::patch_lacs_step)?;
+    }
     for o in late {
         pk.write_romfs(&o.path, &o.z)?;
         extra += 1;
