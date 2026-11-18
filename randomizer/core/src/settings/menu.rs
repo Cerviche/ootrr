@@ -212,11 +212,11 @@ const JABU: View = View {
 const CARPENTERS: View = View {
     id: "gerudo_fortress",
     label: "Fortress Carpenters",
-    tip: "Sets the state of the carpenters captured by Gerudo in Gerudo Fortress, and with it the number of guards that spawn.\n\nNormal - All 4 carpenters are required to be saved.\n\nFast - Not supported by this build.\n\nOpen - Tested in game. Start with the Gerudo Membership Card and the bridge built. The Membership Card check is still in the game and randomized. It triggers when you interact with your first jail cell.\n\nOnly \"Normal\" is compatible with Gerudo Fortress Keyrings.",
+    tip: "Sets the state of the carpenters captured by Gerudo in Gerudo Fortress, and with it the number of guards that spawn.\n\nNormal - All 4 carpenters are required to be saved.\n\nFast - Tested in game. Three carpenters start free. The Membership Card is vanilla and is granted when the last carpenter is rescued.\n\nOpen - Tested in game. Start with the Gerudo Membership Card and the bridge built. The Membership Card check is still in the game and randomized. It triggers when you interact with your first jail cell.\n\nOnly \"Normal\" is compatible with Gerudo Fortress Keyrings.",
     kind: Kind::Pick,
     opts: &[
         yes("Normal", "normal"),
-        broken("Fast", "fast"),
+        yes("Fast", "fast"),
         yes("Open", "open"),
     ],
 };

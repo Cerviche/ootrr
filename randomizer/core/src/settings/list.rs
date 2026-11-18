@@ -247,9 +247,9 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::choice(7, "gerudo_fortress", "world", "Gerudo Fortress", "normal")
-            .tip("How many carpenters must be rescued to open the Fortress. Fast is not supported by this build.")
+            .tip("How many carpenters must be rescued to open the Fortress.")
             .opt("normal", "Rescue all four", "Free all four carpenters.")
-            .opt("fast", "Rescue one", "Not supported by this build.")
+            .opt("fast", "Rescue one", "Tested in game. Three carpenters start free. The Membership Card is vanilla and is granted when the last carpenter is rescued.")
             .opt("open", "Open", "Tested in game. Start with the Gerudo Membership Card and the bridge built. The Membership Card check is still in the game and randomized. It triggers when you interact with your first jail cell."),
     );
     s.push(

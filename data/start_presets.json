@@ -30,6 +30,25 @@
     },
     {
       "setting": "gerudo_fortress",
+      "value": "fast",
+      "edits": [
+        {"kind": "enum", "name": "Step_SageOfSpirit", "value": "Step01"},
+        {"kind": "int", "name": "GerudoFortress_Meet_FourCarpenter_NumOfCarpenterHelped", "value": 3},
+        {"kind": "int", "name": "GerudoFortress_Meet_FourCarpenter_NumOfCarpenterHelped_02", "value": 1},
+        {"kind": "bool", "name": "GerudoFortress_Saved_Npc_Hylia_013_Adult", "value": true},
+        {"kind": "bool", "name": "GerudoFortress_Saved_Npc_Hylia_014_Adult", "value": true},
+        {"kind": "bool", "name": "GerudoFortress_Saved_Npc_Hylia_015_Adult", "value": true},
+        {"kind": "bool", "name": "GerudoFortress_DestroyGerudoThief_Npc_Hylia_013_Adult", "value": true},
+        {"kind": "bool", "name": "GerudoFortress_DestroyGerudoThief_Npc_Hylia_014_Adult", "value": true},
+        {"kind": "bool", "name": "GerudoFortress_DestroyGerudoThief_Npc_Hylia_015_Adult", "value": true},
+        {"kind": "bool", "name": "GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_013_Adult", "value": true},
+        {"kind": "bool", "name": "GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_014_Adult", "value": true},
+        {"kind": "bool", "name": "GerudoFortress_IsAfterHelpCarpenter_Npc_Hylia_015_Adult", "value": true}
+      ],
+      "note": "Tested in game. Three carpenters start free and the last one still needs rescuing. The Membership Card is vanilla and is granted by the game when the last carpenter is freed."
+    },
+    {
+      "setting": "gerudo_fortress",
       "value": "open",
       "edits": [
         {"kind": "enum", "name": "Step_SageOfSpirit", "value": "Step02"},

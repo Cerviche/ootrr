@@ -59,6 +59,7 @@ pub const BEDS_NOTE: &str = "Beds offer Sleep until morning and Sleep until nigh
 pub enum Fortress {
     #[default]
     Normal,
+    Fast,
     Open,
 }
 
@@ -66,6 +67,7 @@ impl Fortress {
     pub fn value(self) -> Option<&'static str> {
         match self {
             Self::Normal => None,
+            Self::Fast => Some("fast"),
             Self::Open => Some("open"),
         }
     }
@@ -213,10 +215,11 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let bridge: bool = flag(BRIDGE);
     let fortress: Fortress = match s.text(FORTRESS) {
         Ok("normal") => Fortress::Normal,
+        Ok("fast") => Fortress::Fast,
         Ok("open") => Fortress::Open,
         Ok(v) => {
             bad.push(format!(
-                "{FORTRESS} is {v}, which this build cannot apply yet (only normal and open work)"
+                "{FORTRESS} is {v}, which this build cannot apply yet (only normal, fast and open work)"
             ));
             Fortress::Normal
         }
