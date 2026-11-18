@@ -236,7 +236,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let songs: Songs = crate::songs::mode(s, &mut bad);
     let harp_colors: bool = toggle(s, crate::song_models::SETTING, &mut bad);
     let chosen: Vec<String> = s.items("starting_items").map(|v| v.to_vec()).unwrap_or_default();
-    let kit: crate::start_items::Kit = crate::start_items::read(s, &mut bad);
+    let mut kit: crate::start_items::Kit = crate::start_items::read(s, &mut bad);
     // Settings that would hand out the same check twice.
     // The open gate needs the forest open: its story state skips the Deku Tree quest past Mido.
     // The schema locks the gate to zelda otherwise (the page greys it out and a settings string
@@ -258,6 +258,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, gates.kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
+    if open.fortress == crate::open_world::Fortress::Open {
+        crate::start_items::give::add(&mut kit, "gerudo_card");
+    }
     rewards.read_merchants(s, open.beans, &mut bad);
     // Always on in this randomizer, like the other cutscene skips (no setting).
     let story: bool = true;

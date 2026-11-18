@@ -137,10 +137,18 @@ mod tests {
             assert!(marked.contains(&id), "{id}");
         }
         // The bridge applies Vanilla and Dungeon rewards (crate::rainbow_bridge).
-        for id in ["starting_hearts", "starting_songs", "shuffle_chests", "shuffle_potion_shop", "bridge", "bridge_rewards"] {
+        for id in [
+            "starting_hearts",
+            "starting_songs",
+            "shuffle_chests",
+            "shuffle_potion_shop",
+            "bridge",
+            "bridge_rewards",
+            "gerudo_fortress",
+        ] {
             assert!(!marked.contains(&id), "{id}");
         }
-        assert_eq!(marked.len(), 17);
+        assert_eq!(marked.len(), 16);
         for s in all {
             if let Some(u) = s.get("unsupported") {
                 assert_eq!(u.as_bool(), Some(true));
