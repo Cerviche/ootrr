@@ -126,6 +126,106 @@ pub fn compress(raw: &[u8]) -> Res<Vec<u8>> {
     sized(&frame, raw.len())
 }
 
+/// A block decompresses to at most this much.
+const BLOCK_MAX: usize = 131072;
+
+/// The length of a zstd frame header and its window byte, for a frame with no dictionary and no
+/// checksum that is not a single segment (as the game's files are); None for any other frame.
+fn plain_header(z: &[u8]) -> Option<(usize, u8)> {
+    if z.len() < 6 || z[..4] != MAGIC {
+        return None;
+    }
+    let fhd: u8 = z[4];
+    if fhd & 0x07 != 0 || fhd & SINGLE != 0 {
+        return None;
+    }
+    let fcs: usize = [0, 2, 4, 8][usize::from(fhd >> 6)];
+    Some((6 + fcs, z[5]))
+}
+
+/// The length of any dictionary-less zstd frame header, and whether the frame ends in a checksum.
+fn header_len(z: &[u8]) -> Option<(usize, bool)> {
+    if z.len() < 5 || z[..4] != MAGIC || z[4] & 0x03 != 0 {
+        return None;
+    }
+    let fhd: u8 = z[4];
+    let single: bool = fhd & SINGLE != 0;
+    let fcs: usize = match fhd >> 6 {
+        0 if single => 1,
+        0 => 0,
+        1 => 2,
+        2 => 4,
+        _ => 8,
+    };
+    Some((5 + usize::from(!single) + fcs, fhd & 0x04 != 0))
+}
+
+/// Where each block of the frame `z` starts, from `from`, and where the last one ends.
+fn block_starts(z: &[u8], from: usize) -> Option<Vec<usize>> {
+    let mut at: usize = from;
+    let mut out: Vec<usize> = Vec::new();
+    loop {
+        let h: u32 = u32::from_le_bytes([*z.get(at)?, *z.get(at + 1)?, *z.get(at + 2)?, 0]);
+        let n: usize = (h >> 3) as usize;
+        let len: usize = match (h >> 1) & 3 {
+            0 | 2 => n,
+            1 => 1,
+            _ => return None,
+        };
+        out.push(at);
+        at += 3 + len;
+        if h & 1 == 1 {
+            out.push(at);
+            return Some(out);
+        }
+    }
+}
+
+/// The game's own compressed file `vz` with `raw` (the file with the logo drawn) in it: the game's
+/// compressed blocks up to the block holding the first changed byte, then the rest compressed
+/// here. Only the logo differs, late in each archive, so most of the file keeps the game's
+/// compression instead of ruzstd's fastest level. The compressor here writes every offset in full
+/// and every table anew, so its blocks lean on nothing the game's blocks left behind; the result
+/// is decoded and compared before it is used. None when it cannot be spliced.
+pub fn splice(vz: &[u8], raw: &[u8]) -> Res<Option<Vec<u8>>> {
+    let Some((hlen, window)) = plain_header(vz) else {
+        return Ok(None);
+    };
+    let Some(starts) = block_starts(vz, hlen) else {
+        return Ok(None);
+    };
+    let mut z: crate::zs::Zs = crate::zs::Zs::new();
+    let old: Vec<u8> = z.decompress(vz)?;
+    let Some(first) = old.iter().zip(raw).position(|(a, b)| a != b) else {
+        return Ok(None);
+    };
+    let k: usize = (first / BLOCK_MAX).min(starts.len().saturating_sub(2));
+    if k == 0 || old.len() != raw.len() {
+        return Ok(None);
+    }
+    // The first k blocks alone, as a frame of their own, tell how much they decompress to.
+    let mut head: Vec<u8> = MAGIC.to_vec();
+    head.extend_from_slice(&[0x00, window]);
+    let at: usize = head.len() + starts[k - 1] - starts[0];
+    head.extend_from_slice(&vz[starts[0]..starts[k]]);
+    head[at] |= 1;
+    let kept: usize = z.decompress(&head)?.len();
+    if kept > first {
+        return Ok(None);
+    }
+    let tail: Vec<u8> = ruzstd::encoding::compress_to_vec(&raw[kept..], ruzstd::encoding::CompressionLevel::Fastest);
+    let Some((th, sum)) = header_len(&tail) else {
+        return Ok(None);
+    };
+    let end: usize = if sum { tail.len().saturating_sub(4) } else { tail.len() };
+    let mut out: Vec<u8> = vz[..starts[k]].to_vec();
+    out.extend_from_slice(&tail[th..end]);
+    if z.decompress(&out)? != raw {
+        return Ok(None);
+    }
+    Ok(Some(out))
+}
+
 pub fn apply(mod_root: &P, romfs: &P) -> Res<Vec<String>> {
     let p: Patch = patch()?;
     let mut rf: Romfs = Romfs::open(romfs)?;
@@ -139,8 +239,13 @@ pub fn apply(mod_root: &P, romfs: &P) -> Res<Vec<String>> {
         if let Some(d) = out.parent() {
             fs::create_dir_all(d)?;
         }
-        fs::write(&out, compress(&raw)?)?;
-        notes.push(format!("Title logo: the Randomizer line is drawn under the logo in {f}"));
+        let z: Vec<u8> = match splice(&rf.read(f)?, &raw)? {
+            Some(z) => z,
+            None => compress(&raw)?,
+        };
+        let mb = |n: usize| n as f64 / 1_048_576.0;
+        notes.push(format!("Title logo: the Randomizer line is drawn under the logo in {f} ({:.1} MB)", mb(z.len())));
+        fs::write(&out, z)?;
     }
     Ok(notes)
 }
@@ -168,6 +273,27 @@ mod tests {
         assert!(z.len() < raw.len());
         let mut d = crate::zs::Zs::new();
         assert_eq!(d.decompress(&z).unwrap(), raw);
+    }
+
+    #[test]
+    fn a_late_change_keeps_the_game_blocks_before_it() {
+        let old: Vec<u8> = (0..700_000u32).map(|i| (i % 253) as u8 ^ (i >> 11) as u8).collect();
+        let vz: Vec<u8> = compress(&old).unwrap();
+        let mut raw: Vec<u8> = old.clone();
+        for b in &mut raw[600_000..600_100] {
+            *b ^= 0x5A;
+        }
+        let out: Vec<u8> = splice(&vz, &raw).unwrap().unwrap();
+        let mut d = crate::zs::Zs::new();
+        assert_eq!(d.decompress(&out).unwrap(), raw);
+        let (h, _) = plain_header(&vz).unwrap();
+        let starts: Vec<usize> = block_starts(&vz, h).unwrap();
+        let k: usize = 600_000 / BLOCK_MAX;
+        assert_eq!(out[..starts[k]], vz[..starts[k]], "the blocks before the change are the game's");
+        assert!(splice(&vz, &old).unwrap().is_none(), "nothing changed, nothing to splice");
+        let mut early: Vec<u8> = old.clone();
+        early[10] ^= 1;
+        assert!(splice(&vz, &early).unwrap().is_none(), "a change in the first block leaves nothing to keep");
     }
 
     #[test]
