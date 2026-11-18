@@ -175,6 +175,7 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if let Some(n) = c.p.lacs {
         crate::medal_gate::override_lacs(&mut edits, n);
     }
+    edits.extend(crate::gerudo_card::exps());
     crate::start_defaults::stage(rf, more, &edits)
 }
 
