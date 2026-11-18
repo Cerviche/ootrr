@@ -336,7 +336,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
                 rst = Some(rsizetable::load(&mut rf)?);
             }
             if let Some(t) = rst.as_mut()
-                && let Some(n) = t.get(peer)
+                && let Some(n) = t.get(&peer)
             {
                 t.set_size(&o.path, n)?;
                 grown += 1;

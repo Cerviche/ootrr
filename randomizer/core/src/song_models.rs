@@ -47,6 +47,66 @@ pub const COLORS: [(&str, [u8; 3]); 12] = [
     ("LightPrelude", [208, 172, 76]),
 ];
 
+/// The harp's albedo texture. Its colour parameters are white and its shader does not read them
+/// (the tinted copies looked the same in the game), so each song's harp copy gets its own albedo,
+/// recoloured, under a name of the same length that only swaps the middle "Sheik" for a five
+/// letter song code. The name stays as long and keeps its "_Alb" end, so the name lookups of the
+/// model and the texture file, which branch on the last letters, still find it.
+pub const ALBEDO: &str = "Mt_Harp_Sheik_Item_Harp_Sheik_Alb";
+const ALBEDO_HEAD: &str = "Mt_Harp_Sheik_Item_Harp_";
+const ALBEDO_TAIL: &str = "_Alb";
+pub const CODES: [(&str, &str); 12] = [
+    ("ZeldaLullaby", "Zelda"),
+    ("EponaSong", "Epona"),
+    ("SariaSong", "Saria"),
+    ("SunSong", "SunSg"),
+    ("TimeSong", "TimeS"),
+    ("StormSong", "Storm"),
+    ("ForestMinuet", "Minut"),
+    ("FireBolero", "Boler"),
+    ("WaterSerenade", "Seren"),
+    ("SpiritRequiem", "Requm"),
+    ("ShadowNocturne", "Noctn"),
+    ("LightPrelude", "Prelu"),
+];
+
+pub fn albedo_of(song: &str) -> Option<String> {
+    let code: &str = CODES.iter().find(|c| c.0 == song)?.1;
+    Some(format!("{ALBEDO_HEAD}{code}{ALBEDO_TAIL}"))
+}
+
+pub fn tex_file(name: &str) -> String {
+    format!("Tex/{name}.bntx.zs")
+}
+
+/// Swaps every `old` for `new` (the same length) in `b`. Returns how many were swapped.
+pub fn rename(b: &mut [u8], old: &str, new: &str) -> Res<usize> {
+    let (o, n): (&[u8], &[u8]) = (old.as_bytes(), new.as_bytes());
+    if o.len() != n.len() {
+        return Err(Error::Format("song models: a texture name must keep its length"));
+    }
+    let mut hits: usize = 0;
+    let mut i: usize = 0;
+    while i + o.len() <= b.len() {
+        if &b[i..i + o.len()] == o {
+            b[i..i + o.len()].copy_from_slice(n);
+            hits += 1;
+            i += o.len();
+        } else {
+            i += 1;
+        }
+    }
+    Ok(hits)
+}
+
+/// A pixel in the song's colour at the pixel's own brightness.
+pub fn recolor(px: [u8; 3], to: [u8; 3]) -> [u8; 3] {
+    let l: f32 = crate::tex::shift::luma(lin(px));
+    let t: [f32; 3] = lin(to);
+    let lt: f32 = crate::tex::shift::luma(t).max(1e-4);
+    crate::tex::shift::srgb(t.map(|v| v * l / lt))
+}
+
 pub fn pack_of(song: &str) -> String {
     format!("Pack/Actor/Item_Melody_{song}.pack.zs")
 }
@@ -67,8 +127,11 @@ pub fn color_of(song: &str) -> Option<[u8; 3]> {
     COLORS.iter().find(|c| c.0 == song).map(|c| c.1)
 }
 
-pub fn size_peer(path: &str) -> Option<&'static str> {
-    SONGS.iter().any(|s| model_file(s) == path).then_some(HARP_FILE)
+pub fn size_peer(path: &str) -> Option<String> {
+    if SONGS.iter().any(|s| model_file(s) == path) {
+        return Some(HARP_FILE.to_string());
+    }
+    SONGS.iter().any(|s| albedo_of(s).is_some_and(|a| tex_file(&a) == path)).then(|| tex_file(ALBEDO))
 }
 
 pub fn repoint(raw: &[u8], file: &str, project: &str) -> Res<Vec<u8>> {
@@ -132,11 +195,25 @@ pub fn harps(rf: &mut Romfs) -> Res<Vec<Out>> {
     let z: Vec<u8> = rf.read(HARP_FILE)?;
     let raw: Vec<u8> = rf.zs.decompress(&z)?;
     let keys: BM<String, u64> = bfres::keys(&rf.read_zs(NAMES)?)?;
+    let tz: Vec<u8> = rf.read(&tex_file(ALBEDO))?;
+    let tex: Vec<u8> = rf.zs.decompress(&tz)?;
     let mut outs: Vec<Out> = Vec::new();
     for s in SONGS {
         let c: [u8; 3] = color_of(s).ok_or(Error::Format("song models: a song has no harp colour"))?;
-        let b: Vec<u8> = tint(&raw, &keys, c)?;
+        let name: String = albedo_of(s).ok_or(Error::Format("song models: a song has no texture code"))?;
+        let mut b: Vec<u8> = tint(&raw, &keys, c)?;
+        if rename(&mut b, ALBEDO, &name)? == 0 {
+            return Err(Error::Format("song models: the harp model does not name its albedo texture, the game files differ"));
+        }
         outs.push(Out { path: model_file(s), old: 0, new: b.len(), z: zs::compress_raw(&b, zs::dict_of(&z))? });
+        let mut t: Vec<u8> = tex.clone();
+        if crate::tex::repaint::repaint(&mut t, &|px| recolor(px, c))?.changed == 0 {
+            return Err(Error::Format("song models: the harp albedo could not be recoloured"));
+        }
+        if rename(&mut t, ALBEDO, &name)? == 0 {
+            return Err(Error::Format("song models: the harp albedo file does not carry its name, the game files differ"));
+        }
+        outs.push(Out { path: tex_file(&name), old: 0, new: t.len(), z: zs::compress_raw(&t, zs::dict_of(&tz))? });
     }
     Ok(outs)
 }
@@ -328,8 +405,19 @@ mod tests {
     fn every_song_has_one_colour_and_its_own_model_file() {
         for s in SONGS {
             assert_eq!(COLORS.iter().filter(|c| c.0 == s).count(), 1, "{s}");
-            assert_eq!(size_peer(&model_file(s)), Some(HARP_FILE));
+            assert_eq!(size_peer(&model_file(s)).as_deref(), Some(HARP_FILE));
+            let t: String = albedo_of(s).unwrap();
+            assert_eq!(t.len(), ALBEDO.len(), "{s}");
+            assert!(t.ends_with("_Alb") && t != ALBEDO, "{s}");
+            assert_eq!(size_peer(&tex_file(&t)), Some(tex_file(ALBEDO)));
         }
+        let names: std::collections::BTreeSet<String> = SONGS.iter().filter_map(|s| albedo_of(s)).collect();
+        assert_eq!(names.len(), SONGS.len());
+        let mut b: Vec<u8> = format!("x{ALBEDO}y{ALBEDO}").into_bytes();
+        assert_eq!(rename(&mut b, ALBEDO, &albedo_of("SunSong").unwrap()).unwrap(), 2);
+        assert!(rename(&mut b, ALBEDO, "short").is_err());
+        let r: [u8; 3] = recolor([128, 128, 128], [255, 0, 0]);
+        assert!(r[0] > 0 && r[1] == 0 && r[2] == 0);
         assert_eq!(COLORS.len(), SONGS.len());
         assert_eq!(model_file("SunSong"), "Model/Item_Harp_SunSong.Item_Harp_Sheik.bfres.zs");
         assert_eq!(size_peer(HARP_FILE), None);
