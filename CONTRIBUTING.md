@@ -14,21 +14,37 @@ Thanks for helping. OOTRR is a randomizer for the Ocarina of Time Switch 2 remak
 
 ```
 cargo build --release
-cargo test --workspace --release
+cargo test --workspace
 ```
+
+`cargo test` builds with the `test` profile: our code at opt level 1 and the dependencies at opt level 3, so the slow seed and game file tests run several times faster than plain debug and the build stays quick. CI runs `cargo test --workspace --profile ci`, a release build without LTO. Avoid `cargo test --release`, it compiles with LTO and one codegen unit and takes minutes before the first test runs.
+
+Seed pins live in `data/pins/*.json`, one file per pin test (`old_seeds`, `rewards_off_and_stones`, `beehives`). A change that moves the item pool moves them. When that is intended, run the pin tests with `OOTRR_UPDATE_PINS=1` set, check that only the pins you expected changed, and commit the json. Two branches that both move a pin conflict only in that file: take either side and run the update again after the merge.
+
+A test that loops over many independent cases (every catalog pack, every combination) runs on one thread. Split it with the `parts!` macro from `lib.rs`: write a function that takes a part number and checks only the cases whose index matches, and let `parts!` make one test per part.
 
 Many tests read the extracted game. Set `OOTRR_ROMFS` to your extracted game folder (the one with Pack, Banc, Event and System) so they run. Without it they skip. A few tracker tests read `OOTRR_TEST_ROMFS` and `OOTRR_TEST_SAVES`. The release build must have no warnings.
 
-Never run `ootrr` with no arguments. It starts the local web server and may open a browser. Use a subcommand. The usage list is in `crates/cli/src/main.rs`.
+Never run `ootrr` with no arguments. It starts the local web server and may open a browser. Use a subcommand. The usage list is in `randomizer/cli/src/main.rs`.
 
 ## Layout
 
-- `crates/core`: the generator, logic engine, writers for the game's file formats, the slice code that turns a seed into edits
-- `crates/cli`: the `ootrr` command line tool
-- `crates/web`: the local web page, including the tracker
-- `data/`: location catalogs, logic data (`data/logic`), flag names (`data/flags.json`), start presets
+- `randomizer/game`: reading and writing the game's files and tables (byml, sarc, zs, msbt, bfevfl, bfres, textures, the RomFS reader, size tables, flags, the location catalog, saves). Nothing in it knows about seeds or settings.
+- `randomizer/logic`: the logic engine (rules, world, search, fill, spoiler). It depends on `game` only for errors and the random generator.
+- `randomizer/cosmetics`: music, sound effect and colour randomizers.
+- `randomizer/core`: the generator and every feature that turns a seed into edits. It re-exports the three crates above, so `crate::byml` and `ootrr_core::byml` keep working.
+- `randomizer/cli`: the `ootrr` command line tool
+- `web`: the local web page and the tracker. Everything that is the page lives here, the randomizer lives in `randomizer/`
+- `data/`: location catalogs, logic data (`data/logic`: one file per dungeon in `World`, and one file per overworld area in `World/Overworld`, loaded in the order listed in `randomizer/core/src/slice/world_files.rs`), flag names (`data/flags.json`), start presets
 - `tools/audit.py`: the check that no game data slipped into the repo. Run it before a release.
+- `tools/repath_patch.py`: rewrites a patch made before the move to `randomizer/` and `web/` so it applies to the new paths (`python tools/repath_patch.py old.patch new.patch`). Hunks for the old `data/logic/World/Overworld.json` need moving by hand into its area file.
 - `packaging/`: installers
+
+## Adding a feature
+
+- A rule about which item may sit at which spot goes in `randomizer/core/src/slice/place_rules.rs`: write a function that answers for the spots it knows (Some) and passes on the rest (None), and add it to `RULES`. The first rule with an answer wins, so its place in the list matters.
+- A file the build adds or edits after the chests goes in `randomizer/core/src/slice/stages.rs`: write a stage function that pushes its files, and add it to `STAGES`. Stages run in list order. If a stage needs something new from the build, add it to `Ctx`.
+- Settings go in the feature's own module where it has one (see `shops/plan.rs`), and on an In Dev menu page.
 
 ## Code style
 
@@ -50,7 +66,7 @@ Never run `ootrr` with no arguments. It starts the local web server and may open
 - Old settings strings must keep their meaning. The settings model has an optional baseline for this, see the commit that made story and NPC rewards on by default.
 - Number your settings in a range the maintainer gives you, so two branches never collide.
 - Write a plain tip for each setting and say when it is experimental or untested in the game.
-- Every new setting goes under the **In Dev** heading of the settings menu first, never straight onto the Randomizer or Gameplay pages. Add it to an In Dev page in `crates/core/src/settings/menu.rs` (an existing one, or a new page named after the feature with `heading: IN_DEV`). A maintainer moves it to its proper page once it is reviewed. This keeps the main pages to settings that are known to work. A setting with no place in the menu also lands under In Dev, on the Unsorted page, but the menu test still asks you to place it.
+- Every new setting goes under the **In Dev** heading of the settings menu first, never straight onto the Randomizer or Gameplay pages. Add it to an In Dev page in `randomizer/core/src/settings/menu.rs` (an existing one, or a new page named after the feature with `heading: IN_DEV`). A maintainer moves it to its proper page once it is reviewed. This keeps the main pages to settings that are known to work. A setting with no place in the menu also lands under In Dev, on the Unsorted page, but the menu test still asks you to place it.
 
 ## Editing the game's files
 

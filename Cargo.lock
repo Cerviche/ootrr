@@ -7,6 +7,7 @@ name = "ootrr"
 version = "0.6.2"
 dependencies = [
  "ootrr-core",
+ "ootrr-mem",
  "ootrr-web",
 ]
 
@@ -14,7 +15,37 @@ dependencies = [
 name = "ootrr-core"
 version = "0.6.2"
 dependencies = [
+ "ootrr-cosmetics",
+ "ootrr-game",
+ "ootrr-logic",
+]
+
+[[package]]
+name = "ootrr-cosmetics"
+version = "0.6.2"
+dependencies = [
+ "ootrr-game",
+]
+
+[[package]]
+name = "ootrr-game"
+version = "0.6.2"
+dependencies = [
  "ruzstd",
+]
+
+[[package]]
+name = "ootrr-logic"
+version = "0.6.2"
+dependencies = [
+ "ootrr-game",
+]
+
+[[package]]
+name = "ootrr-mem"
+version = "0.6.2"
+dependencies = [
+ "ootrr-core",
 ]
 
 [[package]]
@@ -22,6 +53,8 @@ name = "ootrr-web"
 version = "0.6.2"
 dependencies = [
  "ootrr-core",
+ "ootrr-game",
+ "ootrr-mem",
 ]
 
 [[package]]
