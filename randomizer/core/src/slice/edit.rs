@@ -435,6 +435,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     extra += crate::slice::skull_kit::write(&mut rf, &pk, &mut rst, &skull_drops, kit_pool)?;
     let (cow_files, cow_lines): (usize, Vec<String>) = crate::cow_clone::write(&mut rf, &pk, &mut rst)?;
     extra += cow_files;
+    if p.open.epona {
+        extra += crate::open_world::write_epona_event(&mut rf, &pk, &mut rst)?;
+    }
     let loads: Option<(crate::staging::Out, crate::flow_extra::analyzed::Added)> = crate::flow_extra::analyzed::worked(&mut rf, &pk.work.join("romfs"))?;
     if let Some((o, _)) = &loads {
         pk.write_romfs(&o.path, &o.z)?;
