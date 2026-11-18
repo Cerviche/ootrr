@@ -103,7 +103,10 @@ pub fn plan(d: &Data, cs: &[Choice], o: &Opts) -> Res<(Vec<Change>, usize, Vec<S
         // Saria's gift and the other gift scenes hand out any pouch item through the generic
         // pouch add and get window (crate::slice::flow_rules::gift_scene), so they skip the accept list.
         let saria: bool = l.name == crate::slice::flow_rules::SARIA || crate::slice::flow_rules::any_item(l);
-        if !d.usable(&c.item) && !(saria && plausible(&c.item)) {
+        // The pickup actor a hold up hands out in place of a song or an Ocarina (crate::ocarina_hold)
+        // is a pack the seed build writes itself.
+        let held: bool = crate::ocarina_hold::is_form(&c.item);
+        if !d.usable(&c.item) && !(saria && plausible(&c.item)) && !held {
             if !(o.untested && plausible(&c.item)) {
                 return Err(E::Msg(format!(
                     "{} is not a name the game's own event flows hand out, so {} refuses it. Pass the untested option to try it anyway",
