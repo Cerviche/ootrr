@@ -1366,7 +1366,18 @@ pub fn patch_song_trigger(b: &mut Bf, t: &SongTrigger, writes: &[Write], gives: 
             kinds.push(Kind::Sub { next: NONE, params: None, flow: if local { String::new() } else { fl.to_string() }, entry: en.to_string() });
         }
         kinds.push(fade_in(f)?);
+        let n: usize = kinds.len();
         let first: u16 = chain(f, &format!("{SONG_PREFIX}{}_{i}_", t.give), kinds, then)?;
+        // Each entry lists the sub calls it makes (its preload list). A call missing from it is
+        // never prepared, and the game crashed on Sheik's MeetSheik_And_Gone call at Bolero.
+        let calls: Vec<u16> = (usize::from(first)..usize::from(first) + n).filter(|&x| matches!(f.events[x].kind, Kind::Sub { .. })).map(idx).collect::<Res<Vec<u16>>>()?;
+        for e in f.entries.iter_mut().filter(|e| entries.contains(&e.name)) {
+            for c in &calls {
+                if !e.subs.contains(c) {
+                    e.subs.push(*c);
+                }
+            }
+        }
         let name: String = f.events[i].name.clone();
         transition_to_flag(f, SONG_PREFIX, &name, t.give, Some(first))?;
     }
@@ -1774,6 +1785,26 @@ mod tests {
 
     fn none(_p: &str) -> Option<Vec<u8>> {
         None
+    }
+
+    #[test]
+    fn every_entry_of_a_patched_song_trigger_preloads_the_calls_it_now_makes() {
+        let Some(root) = dump() else { return };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        for t in &SONG_TRIGGERS {
+            let writes: Vec<Write> = scene_writes(&mut rf, t.give).unwrap();
+            let gives: Vec<SceneGive> = std::iter::once(t.loc).chain(t.also.iter().copied()).map(|_| SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None }).collect();
+            let mut b: Bf = Bf::parse(&rf.read_zs(&format!("Event/EventFlow/{}.bfevfl.zs", t.flow)).unwrap()).unwrap();
+            patch_song_trigger(&mut b, t, &writes, &gives).unwrap();
+            let f: &Flow = b.flows.iter().find(|x| x.name == t.flow).unwrap();
+            for i in (0..f.events.len()).filter(|&i| f.events[i].name.starts_with(SONG_PREFIX) && matches!(f.events[i].kind, Kind::Sub { .. })) {
+                let ins: Vec<String> = entries_reaching(f, i);
+                assert!(!ins.is_empty(), "{}: {} is reached by no entry", t.flow, f.events[i].name);
+                for e in f.entries.iter().filter(|e| ins.contains(&e.name)) {
+                    assert!(e.subs.contains(&(i as u16)), "{}: entry {} does not preload {}", t.flow, e.name, f.events[i].name);
+                }
+            }
+        }
     }
 
     /// Follows single nexts from `start`, collecting each event's summary.
