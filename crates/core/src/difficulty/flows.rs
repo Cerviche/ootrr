@@ -196,30 +196,30 @@ pub fn fairy_used(raw: &[u8], name: &str, used: &str) -> Res<Vec<u8>> {
     finish(&b)
 }
 
-fn refusal(f: &mut Flow, i: usize) -> Res<u16> {
-    let (pa, away): (u16, u16) = action(f, PLAYER, PUT_AWAY)?;
-    let (_, shake): (u16, u16) = action(f, PLAYER, PLAY_AS)?;
-    let (_, start): (u16, u16) = action(f, PLAYER, START)?;
-    let last: u16 = push(f, format!("{BOTTLE_MARK}Away{i}"), Kind::Action { next: NONE, actor: pa, act: away, params: cont(vec![("IsWaitEnd", Val::Bool(TRUE)), ("IsImmediateDrawn", Val::Bool(FALSE))]) })?;
-    let no: u16 = push(
-        f,
-        format!("{BOTTLE_MARK}Shake{i}"),
-        Kind::Action {
-            next: last,
-            actor: pa,
-            act: shake,
-            params: cont(vec![
-                ("IsWaitEnd", Val::Bool(TRUE)),
-                ("IsAllSlot", Val::Bool(FALSE)),
-                ("ForceFadeFrame", Val::Int(-1)),
-                ("KeepOneTimeAnm", Val::Bool(FALSE)),
-                ("ASCommand", Val::Str(REFUSE_AS.to_string())),
-                ("UseAnmDriven", Val::Bool(FALSE)),
-                ("ClothWarpMode", Val::Int(0)),
-            ]),
-        },
-    )?;
-    push(f, format!("{BOTTLE_MARK}Start{i}"), Kind::Action { next: no, actor: pa, act: start, params: None })
+pub(super) type Step<'a> = (&'a str, &'a str, Option<Cont>);
+
+pub(super) fn refusal(f: &mut Flow, tag: &str, i: usize, before: Vec<Step>, after: Vec<Step>) -> Res<u16> {
+    let mut steps: Vec<Step> = before;
+    steps.push((PLAYER, PLAY_AS, shake()));
+    steps.extend(after);
+    let mut next: u16 = NONE;
+    for (n, (actor, name, params)) in steps.into_iter().enumerate().rev() {
+        let (a, act): (u16, u16) = action(f, actor, name)?;
+        next = push(f, format!("{tag}Refuse{i}_{n}"), Kind::Action { next, actor: a, act, params })?;
+    }
+    Ok(next)
+}
+
+fn shake() -> Option<Cont> {
+    cont(vec![
+        ("IsWaitEnd", Val::Bool(TRUE)),
+        ("IsAllSlot", Val::Bool(FALSE)),
+        ("ForceFadeFrame", Val::Int(-1)),
+        ("KeepOneTimeAnm", Val::Bool(FALSE)),
+        ("ASCommand", Val::Str(REFUSE_AS.to_string())),
+        ("UseAnmDriven", Val::Bool(FALSE)),
+        ("ClothWarpMode", Val::Int(0)),
+    ])
 }
 
 pub fn no_bottles(raw: &[u8], name: &str) -> Res<Vec<u8>> {
@@ -238,7 +238,8 @@ pub fn no_bottles(raw: &[u8], name: &str) -> Res<Vec<u8>> {
         if main == NONE {
             continue;
         }
-        let deny: u16 = refusal(f, i)?;
+        let away: Option<Cont> = cont(vec![("IsWaitEnd", Val::Bool(TRUE)), ("IsImmediateDrawn", Val::Bool(FALSE))]);
+        let deny: u16 = refusal(f, BOTTLE_MARK, i, vec![(PLAYER, START, None)], vec![(PLAYER, PUT_AWAY, away)])?;
         let quiet: u16 = push(
             f,
             format!("{BOTTLE_MARK}Music{i}"),

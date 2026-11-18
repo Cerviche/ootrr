@@ -212,7 +212,7 @@ fn difficulty() -> Vec<Setting> {
         Setting::toggle(d::LOSE_HEART_NUM, d::LOSE_HEART, "difficulty", "Lose heart on death", false)
             .tip("Each time you get a game over and continue, you lose one heart container, down to a minimum of three hearts. Being revived by a fairy in a bottle is not a game over. Experimental, untested in the game."),
         Setting::toggle(d::NO_BOTTLES_NUM, d::NO_BOTTLES, "difficulty", "No bottles during combat", false)
-            .tip("You cannot drink from a bottle or let out its contents while an enemy is after you. The game is read as being in combat while the enemy battle music plays or during a boss battle, so enemies that start no battle music do not block bottles. Experimental, untested in the game."),
+            .tip("You cannot drink from a bottle or let out its contents while an enemy is after you. The game is read as being in combat while the enemy battle music plays or during a boss battle, so with this setting on, the enemies that normally fight without battle music, Leevers and Moblins, now start it. Experimental, untested in the game."),
         Setting::toggle(d::NO_TARGET_NUM, d::NO_TARGET, "difficulty", "No Z-targeting", false)
             .tip("You cannot lock on to enemies or bosses, so the camera and Link no longer stay turned toward them. Aim assist for the bow, slingshot, hookshot and boomerang is unchanged. Talking to people, reading signs, the training rocks and locking on to anything that is not an enemy still work, and so does holding the button with no target. A few bosses turn the camera to themselves at set moments and may still do so. Experimental, untested in the game."),
         Setting::toggle(d::NO_DUPES_NUM, d::NO_DUPES, "difficulty", "No dupe items", false)

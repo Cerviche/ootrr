@@ -1,6 +1,7 @@
 pub mod ambush;
 pub mod gates;
 pub mod backup;
+pub mod battle_bgm;
 pub mod bean;
 pub mod drops;
 pub mod dupes;
@@ -121,7 +122,7 @@ impl Opts {
     }
 
     pub fn packs(&self) -> bool {
-        self.health != NORMAL || self.damage != NORMAL || self.speed != NORMAL || self.cut().any() || self.no_target
+        self.health != NORMAL || self.damage != NORMAL || self.speed != NORMAL || self.cut().any() || self.no_target || self.no_bottles
     }
 
     pub fn gate_list(&self) -> Vec<gates::Gate> {
@@ -169,7 +170,7 @@ impl Opts {
             out.push("Each game over that you continue from takes away one heart container, down to three hearts, and the game is saved as it stood when you fell, so the loss and everything you had collected stay. A fairy in a bottle that revives you costs nothing. Experimental, untested in the game.".to_string());
         }
         if self.no_bottles {
-            out.push("While the enemy battle music plays or during a boss battle, Link shakes his head and puts the bottle away without drinking or letting out its contents. Experimental, untested in the game.".to_string());
+            out.push("While the enemy battle music plays or during a boss battle, Link shakes his head and puts the bottle away without drinking or letting out its contents. Leevers and Moblins, which normally fight without battle music, now start it, because the music is how the game is read as in combat. Experimental, untested in the game.".to_string());
         }
         if self.no_target {
             out.push("Enemies and bosses cannot be locked on to. Aim assist, talking to people, reading signs and locking on to things that are not enemies are unchanged. Experimental, untested in the game.".to_string());
@@ -297,6 +298,14 @@ pub fn edit_pack(raw: &[u8], o: &Opts) -> Res<Option<Vec<u8>>> {
             hit = true;
         }
     }
+    if o.no_bottles {
+        for (n, d) in battle_bgm::edit(&es)? {
+            if let Some(e) = es.iter_mut().find(|e| e.name == n) {
+                e.data = d;
+                hit = true;
+            }
+        }
+    }
     if !hit {
         return Ok(None);
     }
@@ -390,8 +399,8 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have, seed: &str) -> Res<Vec<Out>> 
         }
     }
     if o.no_dupes {
-        step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, dupes::CATCH_FILE, |raw| dupes::entries(raw, dupes::CATCH_FLOW, &dupes::CATCH_ENTRIES))?]))?;
-        step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, dupes::GIVE_FILE, |raw| dupes::entries(raw, dupes::GIVE_FLOW, &dupes::GIVE_ENTRIES))?]))?;
+        step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, dupes::CATCH_FILE, |raw| dupes::entries(raw, dupes::CATCH_FLOW, &dupes::CATCH_ENTRIES, dupes::Ending::Catch))?]))?;
+        step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, dupes::GIVE_FILE, |raw| dupes::entries(raw, dupes::GIVE_FLOW, &dupes::GIVE_ENTRIES, dupes::Ending::Give))?]))?;
         step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, dupes::SHOP_FILE, |raw| dupes::fronts(raw, dupes::SHOP_FLOW, &dupes::goods()))?]))?;
         for (file, name, item) in dupes::SELLERS {
             step(rf, &mut outs, have, |rf, have| Ok(vec![edit_zs(rf, have, file, |raw| dupes::fronts(raw, name, &[(None, item)]))?]))?;
@@ -638,8 +647,8 @@ mod tests {
             let b: crate::bfevfl::Bf = crate::bfevfl::Bf::parse(&rf.zs.decompress(&at(p).z).unwrap()).unwrap();
             b.flows.iter().flat_map(|f| f.events.iter()).filter(|e| e.name.starts_with(dupes::MARK)).count()
         };
-        assert_eq!(added(&mut rf, dupes::CATCH_FILE), dupes::CATCH_ENTRIES.len());
-        assert_eq!(added(&mut rf, dupes::GIVE_FILE), dupes::GIVE_ENTRIES.len());
+        assert_eq!(added(&mut rf, dupes::CATCH_FILE), 5 * dupes::CATCH_ENTRIES.len());
+        assert_eq!(added(&mut rf, dupes::GIVE_FILE), 3 * dupes::GIVE_ENTRIES.len());
         assert_eq!(added(&mut rf, dupes::SHOP_FILE), 2 * dupes::GOODS.len(), "the shop asks for an empty bottle in one place");
         assert_eq!(dupes::SELLERS.map(|(f, _, _)| added(&mut rf, f)), [3, 1]);
         for f in respawn::files() {
@@ -726,6 +735,64 @@ mod tests {
         let mut hit: Vec<&str> = only.iter().filter(|x| x.path.starts_with("Event/")).map(|x| x.path.as_str()).collect();
         hit.sort();
         assert_eq!(hit, vec![flows::OVER_FILE, flows::OUT_FAIRY_FILE]);
+        assert!(stage(&mut rf, &Opts::default(), &none, "seed").unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_game_files_give_quiet_enemies_the_battle_music() {
+        let Some(root) = dump() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let quiet: [&str; 5] = ["Enemy_Leever", "Enemy_Leever_Big", "Enemy_Leever_Fixed", "Enemy_Moblin", "Enemy_Moblin_Club"];
+        let bgm_of = |es: &[Entry], n: &str| -> Option<String> { Byml::parse(&sarc::get(es, n).unwrap().data).unwrap().root.get(battle_bgm::BGM).and_then(|v| v.as_str()).map(|s| s.to_string()) };
+        let on: Opts = Opts { no_bottles: true, ..Opts::default() };
+        assert!(on.packs());
+        let outs: Vec<Out> = stage(&mut rf, &on, &none, "seed").unwrap();
+        let mut names: Vec<String> = outs.iter().filter(|x| x.path.starts_with(ACTOR_PACKS)).map(|x| x.path.clone()).collect();
+        names.sort();
+        let mut want: Vec<String> = quiet.iter().map(|q| format!("Pack/Actor/{q}.pack.zs")).collect();
+        want.sort();
+        assert_eq!(names, want, "only the packs whose enemy has no battle music change");
+        let mut t: crate::rsizetable::Rst = crate::rsizetable::load(&mut rf).unwrap();
+        for x in outs.iter().filter(|x| x.path.starts_with(ACTOR_PACKS)) {
+            let was: Vec<Entry> = sarc::parse(&rf.read_zs(&x.path).unwrap()).unwrap();
+            let now: Vec<Entry> = sarc::parse(&rf.zs.decompress(&x.z).unwrap()).unwrap();
+            let link: String = battle_bgm::linked(&was).unwrap()[0].clone();
+            assert!(link.ends_with("EnemyNoBattleBgm.game__component__BattlePresentationParam.bgyml"));
+            assert_eq!(bgm_of(&was, &link), None);
+            assert_eq!(bgm_of(&now, &link).as_deref(), Some(battle_bgm::THEME), "{}", x.path);
+            let changed: Vec<&str> = now.iter().filter(|e| sarc::get(&was, &e.name).is_none_or(|w| w.data != e.data)).map(|e| e.name.as_str()).collect();
+            assert_eq!(changed, vec![link.as_str()], "{} changes that one file", x.path);
+            assert!(x.new > x.old);
+            let inner: Option<u32> = t.get(&link);
+            assert!(crate::staging::grow_out(&mut rf, &mut t, x).unwrap() >= 2, "the pack and the file inside it grow in the size table");
+            assert!(t.get(&link) > inner);
+        }
+        let copies: Vec<Vec<u8>> = quiet.iter().map(|q| {
+            let es: Vec<Entry> = sarc::parse(&rf.zs.decompress(&outs.iter().find(|x| x.path.contains(&format!("/{q}."))).unwrap().z).unwrap()).unwrap();
+            let link: String = battle_bgm::linked(&es).unwrap()[0].clone();
+            sarc::get(&es, &link).unwrap().data.clone()
+        }).collect();
+        assert!(copies.windows(2).all(|w| w[0] == w[1]), "every copy gets the identical edit");
+        for keep in ["Enemy_Stalfos", "Enemy_Keese", "Enemy_Dodongo", "Enemy_DungeonBoss_Ganon", "Enemy_DungeonBoss_Dodongo", "Enemy_MiddleBoss_Lizalfos", "Enemy_IronKnuckle_Black", "Enemy_Stalfos_Weak"] {
+            let p: String = format!("Pack/Actor/{keep}.pack.zs");
+            assert!(!names.contains(&p), "{p} already has its own music");
+            let es: Vec<Entry> = sarc::parse(&rf.read_zs(&p).unwrap()).unwrap();
+            let link: String = battle_bgm::linked(&es).unwrap()[0].clone();
+            assert!(!battle_bgm::silent(&es, &link, 0).unwrap(), "{p}");
+        }
+        let boss: Vec<Entry> = sarc::parse(&rf.read_zs("Pack/Actor/Enemy_DungeonBoss_Ganon.pack.zs").unwrap()).unwrap();
+        let link: String = battle_bgm::linked(&boss).unwrap()[0].clone();
+        assert_eq!(bgm_of(&boss, &link).as_deref(), Some("BGM_DungeonBoss_Ganon"));
+        let off: Vec<Out> = stage(&mut rf, &Opts { no_target: true, speed: 150, ..Opts::default() }, &none, "seed").unwrap();
+        for q in quiet {
+            let p: String = format!("Pack/Actor/{q}.pack.zs");
+            let es: Vec<Entry> = sarc::parse(&rf.zs.decompress(&off.iter().find(|x| x.path == p).unwrap().z).unwrap()).unwrap();
+            let link: String = battle_bgm::linked(&es).unwrap()[0].clone();
+            assert_eq!(bgm_of(&es, &link), None, "{p} stays quiet with the setting off");
+        }
         assert!(stage(&mut rf, &Opts::default(), &none, "seed").unwrap().is_empty());
     }
 

@@ -1,6 +1,6 @@
-use super::flows::{cont, finish, flow, marked, push, query, DATA};
+use super::flows::{cont, finish, flow, marked, push, query, refusal, Step, DATA, PLAYER, PLAY_AS, PUT_AWAY, START};
 use crate::bfevfl::flow::NONE;
-use crate::bfevfl::{Bf, Case, Event, Flow, Kind, Val};
+use crate::bfevfl::{Bf, Case, Cont, Event, Flow, Kind, Val};
 use crate::error::{Error, Res};
 
 pub const CATCH_FILE: &str = "Event/EventFlow/Dm_SY_InsertBottle.bfevfl.zs";
@@ -40,6 +40,16 @@ pub const GOODS: [(&str, i32); 11] = [
     ("Item_Bottle_HalfMilk", HALF_MILK),
 ];
 
+pub const CAMERA: &str = "EventCamera";
+pub const TO_PLAYER_CAMERA: &str = "EventChangeTemporarilyToPlayerCamera";
+pub const TALK_AS: &str = "EvtTalk";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ending {
+    Catch,
+    Give,
+}
+
 pub const POUCH: &str = "PouchSystemActor";
 pub const HOLDS: &str = "EventQueryIsExistBottleTypeInPouch";
 pub const ANY_EMPTY: &str = "EventQueryIsAnyBottleEmpty";
@@ -60,7 +70,39 @@ fn passes(f: &Flow) -> bool {
     f.events.iter().any(|e| e.kind.params().is_some_and(|c| c.items.iter().any(|(_, v)| *v == Val::Arg(ITEM.to_string()))))
 }
 
-pub fn entries(raw: &[u8], name: &str, list: &[&str]) -> Res<Vec<u8>> {
+fn vanilla(f: &Flow, actor: &str, name: &str) -> Res<Option<Cont>> {
+    let hit: Option<&Event> = f.events.iter().find(|e| {
+        let Kind::Action { actor: a, act, .. } = &e.kind else {
+            return false;
+        };
+        f.actors.get(*a as usize).is_some_and(|x| x.name == actor && x.sub.is_empty() && x.actions.get(*act as usize).is_some_and(|s| s == name))
+    });
+    match hit {
+        Some(Event { kind: Kind::Action { params, .. }, .. }) => Ok(params.clone()),
+        _ => Err(Error::Msg(format!("difficulty: the flow never runs {name}, so a refusal cannot copy it"))),
+    }
+}
+
+fn talk() -> Option<Cont> {
+    cont(vec![
+        ("ForceFadeFrame", Val::Int(0)),
+        ("ClothWarpMode", Val::Int(-1)),
+        ("ASCommand", Val::Str(TALK_AS.to_string())),
+        ("UseAnmDriven", Val::Bool(0)),
+        ("KeepOneTimeAnm", Val::Bool(0)),
+        ("IsWaitEnd", Val::Bool(0)),
+        ("IsAllSlot", Val::Bool(0x8000_0001)),
+    ])
+}
+
+fn endings(f: &Flow, ending: Ending) -> Res<(Vec<Step<'static>>, Vec<Step<'static>>)> {
+    match ending {
+        Ending::Catch => Ok((vec![(CAMERA, TO_PLAYER_CAMERA, vanilla(f, CAMERA, TO_PLAYER_CAMERA)?), (PLAYER, START, vanilla(f, PLAYER, START)?)], vec![(PLAYER, PUT_AWAY, vanilla(f, PLAYER, PUT_AWAY)?)])),
+        Ending::Give => Ok((Vec::new(), vec![(PLAYER, PLAY_AS, talk())])),
+    }
+}
+
+pub fn entries(raw: &[u8], name: &str, list: &[&str], ending: Ending) -> Res<Vec<u8>> {
     let mut b: Bf = Bf::parse(raw)?;
     let f: &mut Flow = flow(&mut b, name)?;
     if marked(f, MARK) {
@@ -76,7 +118,9 @@ pub fn entries(raw: &[u8], name: &str, list: &[&str]) -> Res<Vec<u8>> {
         if main == NONE {
             return Err(Error::Msg(format!("difficulty: the entry {want} of {name} is empty")));
         }
-        let gate: u16 = push(f, format!("{MARK}Entry{i}"), Kind::Switch { actor: pa, query: pq, cases: vec![Case { val: NO, ev: main }], params: cont(vec![(ITEM, Val::Arg(ITEM.to_string()))]) })?;
+        let (before, after): (Vec<Step>, Vec<Step>) = endings(f, ending)?;
+        let deny: u16 = refusal(f, MARK, i, before, after)?;
+        let gate: u16 = push(f, format!("{MARK}Entry{i}"), Kind::Switch { actor: pa, query: pq, cases: vec![Case { val: YES, ev: deny }, Case { val: NO, ev: main }], params: cont(vec![(ITEM, Val::Arg(ITEM.to_string()))]) })?;
         f.entries[i].main = gate;
     }
     finish(&b)
@@ -143,6 +187,7 @@ pub fn fronts(raw: &[u8], name: &str, goods: &[Good]) -> Res<Vec<u8>> {
 mod tests {
     use super::*;
     use crate::bfevfl::{Actor, Entry};
+    use crate::difficulty::flows::REFUSE_AS;
 
     fn sys(name: &str, actions: &[&str], queries: &[&str]) -> Actor {
         Actor {
@@ -172,24 +217,94 @@ mod tests {
         (a.name.as_str(), a.queries[*query as usize].as_str(), cases, params.as_ref().and_then(|c| c.get(ITEM)), params.as_ref().and_then(|c| c.get("Value")))
     }
 
+    fn chain(f: &Flow, from: u16) -> Vec<(String, String)> {
+        let mut out: Vec<(String, String)> = Vec::new();
+        let mut at: u16 = from;
+        while at != NONE {
+            let Kind::Action { next, actor, act, params } = &f.events[at as usize].kind else { panic!("event {at} is not an action") };
+            let a: &Actor = &f.actors[*actor as usize];
+            let asked: String = match params.as_ref().and_then(|c| c.get("ASCommand")) {
+                Some(Val::Str(s)) => s.clone(),
+                _ => String::new(),
+            };
+            out.push((format!("{}.{}", a.name, a.actions[*act as usize]), asked));
+            at = *next;
+        }
+        out
+    }
+
+    fn step(actor: &str, name: &str, asked: &str) -> (String, String) {
+        (format!("{actor}.{name}"), asked.to_string())
+    }
+
+    fn gate(f: &Flow, i: usize) -> (u16, u16) {
+        let (actor, q, cases, item, _) = switch(f, f.entries[i].main);
+        assert_eq!((actor, q), (POUCH, HOLDS));
+        assert_eq!(item, Some(&Val::Arg(ITEM.into())));
+        assert_eq!((cases[0].val, cases[1].val), (YES, NO));
+        (cases[0].ev, cases[1].ev)
+    }
+
     #[test]
-    fn a_filling_entry_only_runs_when_the_content_is_not_held() {
+    fn a_catch_that_is_refused_ends_like_a_catch_that_is_done() {
+        let camera: Event = Event { name: "Cam".into(), kind: Kind::Action { next: 1, actor: 1, act: 0, params: cont(vec![("EnableControle", Val::Bool(0x8000_0001)), ("IsWaitEnd", Val::Bool(0))]) } };
+        let begin: Event = Event { name: "Start".into(), kind: Kind::Action { next: 2, actor: 0, act: 0, params: None } };
         let push_it: Event = act("Push", NONE, vec![("Item", Val::Arg(ITEM.into()))]);
-        let raw: Vec<u8> = file("Fill", vec![sys(POUCH, &["EventTriggerPushToEmptyBottle"], &[])], vec![push_it, act("Other", NONE, vec![])], &[("In", 0), ("Plain", 1)]);
-        let out: Vec<u8> = entries(&raw, "Fill", &["In"]).unwrap();
+        let away: Event = Event { name: "Away".into(), kind: Kind::Action { next: NONE, actor: 0, act: 2, params: cont(vec![("IsWaitEnd", Val::Bool(0x8000_0001)), ("IsImmediateDrawn", Val::Bool(0x8000_0001))]) } };
+        let actors: Vec<Actor> = vec![sys(PLAYER, &[START, PLAY_AS, PUT_AWAY], &[]), sys(CAMERA, &[TO_PLAYER_CAMERA], &[]), sys(POUCH, &["EventTriggerPushToEmptyBottle"], &[])];
+        let raw: Vec<u8> = file("Fill", actors, vec![camera, begin, Event { name: "Push".into(), kind: Kind::Action { next: 3, actor: 2, act: 0, params: push_it.kind.params().cloned() } }, away], &[("In", 0)]);
+        let out: Vec<u8> = entries(&raw, "Fill", &["In"], Ending::Catch).unwrap();
         let b: Bf = Bf::parse(&out).unwrap();
         let f: &Flow = &b.flows[0];
-        assert_eq!(f.events.len(), 3);
-        assert_eq!((f.entries[0].main, f.entries[1].main), (2, 1), "an entry that fills no bottle is left alone");
-        let (actor, q, cases, item, _) = switch(f, 2);
-        assert_eq!((actor, q), (POUCH, HOLDS));
-        assert_eq!(cases, &vec![Case { val: NO, ev: 0 }], "holding the content ends the event");
-        assert_eq!(item, Some(&Val::Arg(ITEM.into())));
-        assert!(entries(&out, "Fill", &["In"]).is_err());
-        assert!(entries(&raw, "Fill", &["Missing"]).is_err());
-        assert!(entries(&raw, "Other", &["In"]).is_err());
+        assert_eq!(f.events.len(), 4 + 5);
+        let (deny, go) = gate(f, 0);
+        assert_eq!(go, 0, "a content that is not held goes through the vanilla flow");
+        assert_eq!(
+            chain(f, deny),
+            vec![step(CAMERA, TO_PLAYER_CAMERA, ""), step(PLAYER, START, ""), step(PLAYER, PLAY_AS, REFUSE_AS), step(PLAYER, PUT_AWAY, "")],
+            "the refusal opens and closes the way the catch does, and ends there"
+        );
+        let Kind::Action { params, .. } = &f.events[deny as usize].kind else { panic!() };
+        assert_eq!(params.as_ref().unwrap().get("EnableControle"), Some(&Val::Bool(0x8000_0001)));
+        let Kind::Action { params, .. } = &f.events[chain_end(f, deny) as usize].kind else { panic!() };
+        assert_eq!(params.as_ref().unwrap().get("IsImmediateDrawn"), Some(&Val::Bool(0x8000_0001)));
+        assert!(entries(&out, "Fill", &["In"], Ending::Catch).is_err());
+        assert!(entries(&raw, "Fill", &["Missing"], Ending::Catch).is_err());
+        assert!(entries(&raw, "Other", &["In"], Ending::Catch).is_err());
+        let bare: Vec<u8> = file("Fill", vec![sys(PLAYER, &[START], &[]), sys(POUCH, &["Use"], &[])], vec![act("Other", NONE, vec![("Item", Val::Arg(ITEM.into()))])], &[("In", 0)]);
+        assert!(entries(&bare, "Fill", &["In"], Ending::Catch).is_err());
         let blind: Vec<u8> = file("Fill", vec![sys(POUCH, &["Use"], &[])], vec![act("Other", NONE, vec![])], &[("In", 0)]);
-        assert!(entries(&blind, "Fill", &["In"]).is_err());
+        assert!(entries(&blind, "Fill", &["In"], Ending::Catch).is_err());
+    }
+
+    fn chain_end(f: &Flow, from: u16) -> u16 {
+        let mut at: u16 = from;
+        loop {
+            let Kind::Action { next, .. } = &f.events[at as usize].kind else { panic!() };
+            if *next == NONE {
+                return at;
+            }
+            at = *next;
+        }
+    }
+
+    #[test]
+    fn a_hand_over_that_is_refused_shakes_its_head_and_returns_to_the_caller() {
+        let push_it: Event = act("Push", NONE, vec![("Item", Val::Arg(ITEM.into()))]);
+        let raw: Vec<u8> = file("Give", vec![sys(PLAYER, &[PLAY_AS], &[]), sys(POUCH, &["EventTriggerPushToEmptyBottle"], &[])], vec![act("Other", NONE, vec![]), Event { name: "Push".into(), kind: Kind::Action { next: NONE, actor: 1, act: 0, params: push_it.kind.params().cloned() } }], &[("In", 1), ("Plain", 0)]);
+        let out: Vec<u8> = entries(&raw, "Give", &["In"], Ending::Give).unwrap();
+        let b: Bf = Bf::parse(&out).unwrap();
+        let f: &Flow = &b.flows[0];
+        assert_eq!(f.events.len(), 2 + 3);
+        assert_eq!(f.entries[1].main, 0, "an entry that is not guarded is left alone");
+        let (deny, go) = gate(f, 0);
+        assert_eq!(go, 1);
+        assert_eq!(chain(f, deny), vec![step(PLAYER, PLAY_AS, REFUSE_AS), step(PLAYER, PLAY_AS, TALK_AS)], "the refusal answers no, goes back to talking and then ends, which returns to the caller");
+        let Kind::Action { params, .. } = &f.events[chain_end(f, deny) as usize].kind else { panic!() };
+        assert_eq!(params.as_ref().unwrap().get("IsWaitEnd"), Some(&Val::Bool(0)), "the talk pose is not waited for, as in the vanilla tail");
+        assert!(entries(&out, "Give", &["In"], Ending::Give).is_err());
+        let blind: Vec<u8> = file("Give", vec![sys(POUCH, &["Use"], &[])], vec![act("Other", NONE, vec![])], &[("In", 0)]);
+        assert!(entries(&blind, "Give", &["In"], Ending::Give).is_err());
     }
 
     fn asks(free: u16, held: u16) -> Event {
