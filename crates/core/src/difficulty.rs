@@ -155,7 +155,7 @@ impl Opts {
             out.push("Enemies and bosses that are still alive win back one point of health about every five seconds, up to their usual health. Experimental, untested in the game.".to_string());
         }
         if self.backup {
-            out.push("An enemy that has had Link as its target for about 25 seconds without a break calls one Peahat larva to its side. Each enemy has at most one larva out at a time and calls the next one only after the last is gone and another 25 seconds have passed. The larvae never call anything themselves. Bosses call one too. Experimental, untested in the game.".to_string());
+            out.push("An ordinary enemy that has had Link as its target for about 25 seconds without a break calls one helper to its side, once in its life. The helper is a Peahat larva, except for enemies native to Jabu-Jabu's Belly (a Shabom) and to the Ice Cavern and the Shadow and Spirit Temples (a flying pot). Helpers never call anything themselves. Bosses, minibosses, Iron Knuckles, Dead Hand, Dark Link and Phantom Ganon never call. Experimental, untested in the game.".to_string());
         }
         if self.no_hearts {
             out.push("Enemies, pots, grass and other random drops never give recovery hearts, also when your health is low. Where the game would hand out a heart because you need one, a green rupee drops. Experimental, untested in the game.".to_string());

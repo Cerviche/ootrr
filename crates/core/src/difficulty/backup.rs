@@ -1,4 +1,4 @@
-use std::collections::BTreeSet as Set;
+use std::collections::{BTreeMap as Map, BTreeSet as Set};
 
 use crate::ainb::build::Spec;
 use crate::ainb::{audit, root, set_root, Ainb, Plug};
@@ -30,9 +30,23 @@ pub const SPLIT: &str = "QueryMathMtx34fToVec3fMat33f";
 pub const LIFT: &str = "QueryMathAddVector3f";
 pub const TIMER: &str = "SelectorGenericFrameCounter";
 pub const IDLE: &str = "ExecuteGenericDummyAction";
+pub const GETB: &str = "QueryBlackboardGetBoolNoError";
+pub const SETB: &str = "ExecuteBlackboardSetBool";
 pub const KEY: &str = "Backup";
+pub const ELIGIBLE: &str = "OotrrBackupEligible";
+pub const USED: &str = "OotrrBackupUsed";
+pub const TABLE: &str = "Component/Blackboard/BlackboardParamTable/EnemyCommon.engine__component__BlackboardParamTable.bgyml";
+pub const BOOLS: &str = "BlackboardParamBoolArray";
 pub const CALLERS: &str = "Enemy_";
 pub const HELPER: &str = "Enemy_Peahat_Larva_Independent";
+pub const HELPERS: [(&str, &str); 3] = [
+    (HELPER, NEW),
+    ("Enemy_Shabom", "Component/ActorHolderParam/OotrrBackupBubble.game__component__ActorHolderParam.bgyml"),
+    ("Enemy_FlyingPot", "Component/ActorHolderParam/OotrrBackupPot.game__component__ActorHolderParam.bgyml"),
+];
+pub const OUT_OF_BOUNDS: [&str; 8] = ["Enemy_DungeonBoss_", "Enemy_MiddleBoss_", "Enemy_IronKnuckle_", "Enemy_DeadHand", "Enemy_PhantomGanon", "Enemy_GhostPicturePerformer_", "Enemy_Guay_Boss", "Enemy_KotakeKoumeBattleManager"];
+pub const BUBBLE_CALLERS: [&str; 8] = ["Enemy_Bari", "Enemy_Biri", "Enemy_Stinger", "Enemy_Stinger_UnderWater", "Enemy_ShellBlade", "Enemy_Tentacle_Blue", "Enemy_Tentacle_Green", "Enemy_Tentacle_Red"];
+pub const POT_CALLERS: [&str; 11] = ["Enemy_Freezard", "Enemy_Freezard_Fixed", "Enemy_Gibdo", "Enemy_ReDead", "Enemy_ReDead_AlwaysRespawn", "Enemy_ReDead_ClimaxOnly", "Enemy_Wallmaster", "Enemy_LikeLike", "Enemy_Floormaster", "Enemy_Floormaster_Little", "Enemy_Floormaster_Truth"];
 pub const FRAMES: f32 = 750.0;
 pub const RISE: f32 = 1.5;
 pub const MAX: i32 = 1;
@@ -76,6 +90,14 @@ fn switch<'a>(seed: &'a str, input: usize, yes: usize, no: usize) -> Spec<'a> {
         .kid(no, "False");
     s.link_extra = LINK_EXTRA;
     s
+}
+
+fn flag_query<'a>(seed: &'a str, key: Vec<u8>) -> Spec<'a> {
+    Spec::query(GETB, seed).prop(0, "BlackboardType", 1i32.to_le_bytes().to_vec()).prop(3, "BlackboardKey", key).out(1, "Bool")
+}
+
+fn both<'a>(seed: &'a str, first: usize, second: usize) -> Spec<'a> {
+    Spec::composite(PARALLEL, seed).prop(0, "EndPolicy", vec![0; 4]).prop(0, "ResultPolicy", vec![0; 4]).kid(first, "").kid(second, "")
 }
 
 fn feed(a: &mut Ainb, from: usize, to: usize, out: &str) -> Res<()> {
@@ -130,7 +152,20 @@ pub fn patch_graph(raw: &[u8], name: &str) -> Res<Vec<u8>> {
             .idle_ptr("Rot", MAT33),
     )?;
     feed(&mut a, lift, wake, "Result")?;
+    let eligible_key: Vec<u8> = a.pool.add(ELIGIBLE).to_le_bytes().to_vec();
+    let used_key: Vec<u8> = a.pool.add(USED).to_le_bytes().to_vec();
+    let eligible: usize = a.add_node(&flag_query("ootrr enemy backup eligible", eligible_key))?;
+    let used: usize = a.add_node(&flag_query("ootrr enemy backup used", used_key.clone()))?;
+    let latch: usize = a.add_node(
+        &Spec::node(SETB, "ootrr enemy backup latch")
+            .prop(0, "BlackboardType", 1i32.to_le_bytes().to_vec())
+            .prop(1, "ExecuteOnce", flag(true))
+            .prop(1, "IsIgnoreNotExistsError", flag(true))
+            .prop(3, "BlackboardKey", used_key)
+            .constant(1, "Bool", flag(true)),
+    )?;
     let call: usize = a.add_node(&Spec::node(REQUEST, "ootrr enemy backup call").prop(1, "ExecuteEveryFrame", flag(false)).prop(1, "IsForeachActor", flag(false)).idle(0, "Index", vec![0; 4]).constant(3, "Key", key))?;
+    let request: usize = a.add_node(&both("ootrr enemy backup request", call, latch))?;
     let wait: usize = a.add_node(&Spec::node(IDLE, "ootrr enemy backup idle wait"))?;
     let timer: usize = a.add_node(
         &Spec::node(TIMER, "ootrr enemy backup timer")
@@ -143,14 +178,18 @@ pub fn patch_graph(raw: &[u8], name: &str) -> Res<Vec<u8>> {
             .spare(2, "CurrentFrame")
             .spare(2, "FinishFrame")
             .kid(wait, "NotFinish")
-            .kid(call, "Finish"),
+            .kid(request, "Finish"),
     )?;
+    let spent: usize = a.add_node(&Spec::node(IDLE, "ootrr enemy backup idle spent"))?;
+    let unused: usize = a.add_node(&switch("ootrr enemy backup unused", used, spent, timer))?;
     let kept: usize = a.add_node(&Spec::node(IDLE, "ootrr enemy backup idle kept"))?;
-    let alone: usize = a.add_node(&switch("ootrr enemy backup alone", empty, timer, kept))?;
+    let alone: usize = a.add_node(&switch("ootrr enemy backup alone", empty, unused, kept))?;
     let gate: usize = a.add_node(&switch("ootrr enemy backup gate", ready, wake, alone))?;
     let calm: usize = a.add_node(&Spec::node(IDLE, "ootrr enemy backup idle calm"))?;
     let battle: usize = a.add_node(&switch("ootrr enemy backup battle", fight, gate, calm))?;
-    let top: usize = a.add_node(&Spec::composite(PARALLEL, "ootrr enemy backup root").prop(0, "EndPolicy", vec![0; 4]).prop(0, "ResultPolicy", vec![0; 4]).kid(host, "").kid(battle, ""))?;
+    let off: usize = a.add_node(&Spec::node(IDLE, "ootrr enemy backup idle off"))?;
+    let guard: usize = a.add_node(&switch("ootrr enemy backup guard", eligible, battle, off))?;
+    let top: usize = a.add_node(&both("ootrr enemy backup root", host, guard))?;
     set_root(&mut a, top)?;
     let bad: Vec<String> = audit(&a);
     if !bad.is_empty() {
@@ -236,17 +275,17 @@ pub fn holder_of(es: &[Entry], actor: &str) -> Res<Option<String>> {
     Ok(None)
 }
 
-pub fn entry() -> Node {
+pub fn entry(helper: &str) -> Node {
     Node::Map(vec![
-        ("Actor".to_string(), Node::Str(format!("Work/Actor/{HELPER}.engine__actor__ActorParam.gyml"))),
+        ("Actor".to_string(), Node::Str(format!("Work/Actor/{helper}.engine__actor__ActorParam.gyml"))),
         ("IsCreateFirstWithHolder".to_string(), Node::Bool(false)),
         ("IsEnableWaitCreateAndIgnition".to_string(), Node::Bool(false)),
         ("MaxActors".to_string(), Node::I32(MAX)),
     ])
 }
 
-pub fn holder_file() -> Res<Vec<u8>> {
-    let y: Byml = Byml { root: Node::Map(vec![(HELD.to_string(), Node::Map(vec![(KEY.to_string(), entry())]))]), version: VERSION, big: false };
+pub fn holder_file(helper: &str) -> Res<Vec<u8>> {
+    let y: Byml = Byml { root: Node::Map(vec![(HELD.to_string(), Node::Map(vec![(KEY.to_string(), entry(helper))]))]), version: VERSION, big: false };
     y.write()
 }
 
@@ -267,19 +306,69 @@ fn put(raw: &[u8], group: &str, k: &str, v: Node) -> Res<Vec<u8>> {
     Ok(out)
 }
 
-pub fn add_ref(raw: &[u8]) -> Res<Vec<u8>> {
-    put(raw, PARTS, SLOT, Node::Str(format!("?{NEW}")))
+pub fn add_ref(raw: &[u8], file: &str) -> Res<Vec<u8>> {
+    put(raw, PARTS, SLOT, Node::Str(format!("?{file}")))
 }
 
-pub fn add_key(raw: &[u8]) -> Res<Vec<u8>> {
-    put(raw, HELD, KEY, entry())
+pub fn add_key(raw: &[u8], helper: &str) -> Res<Vec<u8>> {
+    put(raw, HELD, KEY, entry(helper))
+}
+
+pub fn excluded(actor: &str) -> bool {
+    OUT_OF_BOUNDS.iter().any(|p| actor.starts_with(p))
+}
+
+pub fn helper_of(actor: &str) -> usize {
+    if BUBBLE_CALLERS.contains(&actor) {
+        1
+    } else if POT_CALLERS.contains(&actor) {
+        2
+    } else {
+        0
+    }
+}
+
+fn flag_row(key: &str, start: bool) -> Node {
+    Node::Map(vec![
+        ("BBKey".to_string(), Node::Str(key.to_string())),
+        ("InitVal".to_string(), Node::Bool(start)),
+        ("IsInstanceParam".to_string(), Node::Bool(true)),
+        ("IsRecord".to_string(), Node::Bool(false)),
+        ("IsSafeParamForExternalTools".to_string(), Node::Bool(false)),
+    ])
+}
+
+pub fn add_flags(raw: &[u8]) -> Res<Vec<u8>> {
+    let mut y: Byml = Byml::parse(raw)?;
+    let list: &mut Vec<Node> = y.root.get_mut(BOOLS).and_then(Node::as_arr_mut).ok_or(Error::Format("enemy backup: the common blackboard has no bool list"))?;
+    if list.iter().any(|r| matches!(r.get("BBKey").and_then(Node::as_str), Some(ELIGIBLE | USED))) {
+        return Err(Error::Format("enemy backup: the common blackboard already has the backup flags"));
+    }
+    list.push(flag_row(ELIGIBLE, true));
+    list.push(flag_row(USED, false));
+    let n: usize = list.len();
+    let out: Vec<u8> = y.write()?;
+    let back: Byml = Byml::parse(&out)?;
+    let rows: &[Node] = back.root.get(BOOLS).and_then(Node::as_arr).ok_or(Error::Format("enemy backup: the common blackboard does not read back"))?;
+    if rows.len() != n || rows.last() != Some(&flag_row(USED, false)) || back.root != y.root {
+        return Err(Error::Format("enemy backup: the common blackboard does not read back"));
+    }
+    Ok(out)
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Plan {
     pub who: Set<String>,
-    pub bare: Set<String>,
-    pub held: Set<String>,
+    pub off: Set<String>,
+    pub bare: Map<String, usize>,
+    pub held: Map<String, usize>,
+}
+
+fn settle(m: &mut Map<String, usize>, file: String, helper: usize) {
+    let at: &mut usize = m.entry(file).or_insert(helper);
+    if *at != helper {
+        *at = 0;
+    }
 }
 
 impl Plan {
@@ -288,45 +377,54 @@ impl Plan {
         if !actor.starts_with(CALLERS) {
             return Ok(());
         }
+        if excluded(actor) {
+            self.off.insert(actor.to_string());
+            return Ok(());
+        }
+        let helper: usize = helper_of(actor);
         match holder_of(es, actor)? {
-            Some(h) => self.held.insert(h),
-            None => self.bare.insert(actor_file(actor)),
+            Some(h) => settle(&mut self.held, h, helper),
+            None => settle(&mut self.bare, actor_file(actor), helper),
         };
         Ok(())
     }
 
     pub fn callers(&self) -> impl Iterator<Item = &String> {
-        self.who.iter().filter(|a| a.starts_with(CALLERS))
+        self.who.iter().filter(|a| a.starts_with(CALLERS) && !self.off.contains(*a))
     }
 
     pub fn wants(&self, name: &str) -> bool {
-        name == STALFOS_GRAPH || self.bare.contains(name) || self.held.contains(name)
+        name == STALFOS_GRAPH || name == TABLE || self.bare.contains_key(name) || self.held.contains_key(name)
     }
 }
 
-pub fn patch_entries(es: &mut Vec<Entry>, plan: &Plan) -> Res<Set<String>> {
+pub fn patch_entries(es: &mut Vec<Entry>, plan: &Plan, actor: &str) -> Res<Set<String>> {
     let mut hit: Set<String> = Set::new();
-    let mut fresh: bool = false;
+    let mut fresh: Set<usize> = Set::new();
+    let off: bool = excluded(actor);
     for e in es.iter_mut() {
         let new: Vec<u8> = if GRAPHS.contains(&e.name.as_str()) {
             patch_graph(&e.data, &e.name)?
-        } else if plan.bare.contains(&e.name) {
-            fresh = true;
-            add_ref(&e.data)?
-        } else if plan.held.contains(&e.name) {
-            add_key(&e.data)?
+        } else if let Some(h) = plan.bare.get(&e.name) {
+            fresh.insert(*h);
+            add_ref(&e.data, HELPERS[*h].1)?
+        } else if let Some(h) = plan.held.get(&e.name) {
+            add_key(&e.data, HELPERS[*h].0)?
+        } else if e.name == TABLE && !off && plan.callers().any(|c| c == actor) {
+            add_flags(&e.data)?
         } else {
             continue;
         };
         e.data = new;
         hit.insert(e.name.clone());
     }
-    if fresh {
-        if sarc::get(es, NEW).is_some() {
+    for h in fresh {
+        let (helper, file): (&str, &str) = HELPERS[h];
+        if sarc::get(es, file).is_some() {
             return Err(Error::Format("enemy backup: the pack already has a backup holder"));
         }
-        sarc::set(es, NEW, holder_file()?);
-        hit.insert(NEW.to_string());
+        sarc::set(es, file, holder_file(helper)?);
+        hit.insert(file.to_string());
     }
     Ok(hit)
 }
@@ -382,7 +480,7 @@ fn opened(rf: &mut Romfs, have: Have, path: &str) -> Res<(Vec<u8>, usize, Vec<En
 
 fn visit(rf: &mut Romfs, have: Have, path: &str, plan: &Plan, seen: &mut Set<String>) -> Res<Option<Out>> {
     let (z, old, mut es): (Vec<u8>, usize, Vec<Entry>) = opened(rf, have, path)?;
-    let hit: Set<String> = patch_entries(&mut es, plan)?;
+    let hit: Set<String> = patch_entries(&mut es, plan, actor_of(path).unwrap_or(""))?;
     if hit.is_empty() {
         return Ok(None);
     }
@@ -403,7 +501,7 @@ pub fn stage(rf: &mut Romfs, have: Have, dir: &str) -> Res<(Plan, Vec<Out>)> {
         if runs(&es, &shared) {
             plan.note(&es, &name)?;
         }
-        let keep: Vec<String> = es.iter().filter(|e| e.name == STALFOS_GRAPH || e.name.starts_with(HOLDER_DIR) || (e.name.starts_with(ACTOR_DIR) && e.name.ends_with(ACTOR_EXT))).map(|e| e.name.clone()).collect();
+        let keep: Vec<String> = es.iter().filter(|e| e.name == STALFOS_GRAPH || e.name == TABLE || e.name.starts_with(HOLDER_DIR) || (e.name.starts_with(ACTOR_DIR) && e.name.ends_with(ACTOR_EXT))).map(|e| e.name.clone()).collect();
         if !keep.is_empty() {
             index.push((f, keep));
         }
@@ -419,19 +517,21 @@ pub fn stage(rf: &mut Romfs, have: Have, dir: &str) -> Res<(Plan, Vec<Out>)> {
             outs.extend(visit(rf, have, f, &plan, &mut seen)?);
         }
     }
-    if let Some(lost) = plan.bare.iter().chain(plan.held.iter()).find(|n| !seen.contains(*n)) {
+    if let Some(lost) = plan.bare.keys().chain(plan.held.keys()).find(|n| !seen.contains(*n)) {
         return Err(Error::Msg(format!("enemy backup: {lost} is in no actor pack")));
     }
     outs.push(edit_zs(rf, have, ACTOR_INFO, |raw| grow_heap(raw, &plan.who))?);
     Ok((plan, outs))
 }
 
-pub fn size(rf: &mut Romfs, t: &mut Rst) -> Res<u32> {
+pub fn size(rf: &mut Romfs, t: &mut Rst) -> Res<()> {
     let es: Vec<Entry> = sarc::parse(&rf.read_zs(PEER.0)?)?;
     let peer: &Entry = sarc::get(&es, PEER.1).ok_or(Error::Msg(format!("enemy backup: {} has no {}", PEER.0, PEER.1)))?;
-    let n: u32 = sizes::file_size(t, &[(peer.name.clone(), peer.data.len())], NEW, holder_file()?.len())?;
-    t.set_size(NEW, n)?;
-    Ok(n)
+    for (helper, file) in HELPERS {
+        let n: u32 = sizes::file_size(t, &[(peer.name.clone(), peer.data.len())], file, holder_file(helper)?.len())?;
+        t.set_size(file, n)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -499,7 +599,7 @@ mod tests {
         assert_eq!((plan.who.len(), plan.callers().count(), plan.bare.len(), plan.held.len()), (4, 3, 2, 1));
         assert!(plan.wants(STALFOS_GRAPH) && plan.wants(&actor_file("Enemy_A")) && plan.wants(D));
         assert!(!plan.wants(&actor_file("Enemy_C")) && !plan.wants(GRAPH));
-        let hit: Set<String> = patch_entries(&mut es, &plan).unwrap();
+        let hit: Set<String> = patch_entries(&mut es, &plan, "Enemy_A").unwrap();
         assert_eq!(hit.len(), 4);
         for a in ["Enemy_A", "Enemy_B"] {
             assert_eq!(holder_of(&es, a).unwrap().as_deref(), Some(NEW));
@@ -508,25 +608,57 @@ mod tests {
         let Some(Node::Map(m)) = a.root.get(PARTS) else { panic!() };
         assert_eq!(m.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), vec!["ASRef", SLOT, "LifeRef"]);
         let fresh: Byml = Byml::parse(&sarc::get(&es, NEW).unwrap().data).unwrap();
-        assert_eq!(fresh.root.get(HELD).and_then(|h| h.get(KEY)), Some(&entry()));
+        assert_eq!(fresh.root.get(HELD).and_then(|h| h.get(KEY)), Some(&entry(HELPER)));
         let d: Byml = Byml::parse(&sarc::get(&es, D).unwrap().data).unwrap();
         let Some(Node::Map(h)) = d.root.get(HELD) else { panic!() };
         assert_eq!(h.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), vec![KEY, "Weapon"]);
-        assert_eq!(h[0].1, entry());
-        assert!(patch_entries(&mut es, &plan).is_err(), "a patched pack is not patched twice");
+        assert_eq!(h[0].1, entry(HELPER));
+        assert!(patch_entries(&mut es, &plan, "Enemy_A").is_err(), "a patched pack is not patched twice");
         let mut other: Vec<Entry> = vec![file("Life/a.bgyml", vec![("MaxLife", Node::I32(1))])];
-        assert!(patch_entries(&mut other, &plan).unwrap().is_empty());
+        assert!(patch_entries(&mut other, &plan, "Enemy_A").unwrap().is_empty());
         assert_eq!(other.len(), 1);
     }
 
     #[test]
     fn the_called_actor_is_made_on_demand_and_one_at_a_time() {
-        let e: Node = entry();
+        let e: Node = entry(HELPER);
         assert_eq!(e.get("Actor").and_then(Node::as_str), Some("Work/Actor/Enemy_Peahat_Larva_Independent.engine__actor__ActorParam.gyml"));
         assert_eq!(e.get("IsCreateFirstWithHolder"), Some(&Node::Bool(false)));
         assert_eq!(e.get("MaxActors"), Some(&Node::I32(1)));
-        assert_eq!(holder_file().unwrap(), holder_file().unwrap());
+        assert_eq!(holder_file(HELPER).unwrap(), holder_file(HELPER).unwrap());
+        assert_eq!(entry(HELPERS[2].0).get("Actor").and_then(Node::as_str), Some("Work/Actor/Enemy_FlyingPot.engine__actor__ActorParam.gyml"));
+        assert!(HELPERS.iter().all(|h| h.1.starts_with(HOLDER_DIR)));
         assert!(NEW.starts_with(HOLDER_DIR));
+    }
+
+    #[test]
+    fn bosses_and_their_kin_are_left_out_and_helpers_follow_the_caller() {
+        for a in ["Enemy_DungeonBoss_Gohma", "Enemy_MiddleBoss_DarkLink", "Enemy_IronKnuckle_Black", "Enemy_DeadHand", "Enemy_DeadHand_Hand", "Enemy_PhantomGanonHorse", "Enemy_GhostPicturePerformer_PhantomGanon", "Enemy_Guay_Boss"] {
+            assert!(excluded(a), "{a}");
+        }
+        for a in ["Enemy_Stalfos", "Enemy_Keese", "Enemy_Dodongo", "Enemy_Guay"] {
+            assert!(!excluded(a), "{a}");
+        }
+        assert_eq!((helper_of("Enemy_Keese"), helper_of("Enemy_Octorok"), helper_of("Enemy_Biri"), helper_of("Enemy_Freezard"), helper_of("Enemy_Stalfos")), (0, 0, 1, 2, 0));
+        let mut m: Map<String, usize> = Map::new();
+        settle(&mut m, "f".to_string(), 2);
+        settle(&mut m, "f".to_string(), 2);
+        assert_eq!(m["f"], 2);
+        settle(&mut m, "f".to_string(), 1);
+        assert_eq!(m["f"], 0, "a holder shared by callers that want different helpers falls back to the larva");
+        let mut es: Vec<Entry> = pack();
+        let mut plan: Plan = Plan::default();
+        plan.note(&es, "Enemy_MiddleBoss_X").unwrap();
+        plan.note(&es, "Enemy_A").unwrap();
+        assert_eq!((plan.who.len(), plan.off.len(), plan.callers().count(), plan.bare.len()), (2, 1, 1, 1));
+        let table: Entry = Entry { name: TABLE.to_string(), data: Byml { root: Node::Map(vec![(BOOLS.to_string(), Node::Arr(vec![flag_row("IsX", false)]))]), version: VERSION, big: false }.write().unwrap() };
+        es.push(table);
+        let mut boss: Vec<Entry> = es.clone();
+        assert!(!patch_entries(&mut boss, &plan, "Enemy_MiddleBoss_X").unwrap().contains(TABLE));
+        assert!(patch_entries(&mut es, &plan, "Enemy_A").unwrap().contains(TABLE));
+        let rows: Vec<Node> = Byml::parse(&sarc::get(&es, TABLE).unwrap().data).unwrap().root.get(BOOLS).and_then(Node::as_arr).unwrap().to_vec();
+        assert_eq!(rows, vec![flag_row("IsX", false), flag_row(ELIGIBLE, true), flag_row(USED, false)]);
+        assert!(add_flags(&sarc::get(&es, TABLE).unwrap().data).is_err());
     }
 
     fn row(name: &str, heap: Node) -> Node {
@@ -591,6 +723,10 @@ mod tests {
         a.find_els(name)[0]
     }
 
+    fn a_once(a: &Ainb, i: usize) -> bool {
+        lines(a, i).iter().any(|l| l.contains("ExecuteOnce = true"))
+    }
+
     fn classes(a: &Ainb, i: usize) -> Vec<String> {
         let p: &crate::ainb::Param = &a.params[i];
         let word = |b: &[u8]| -> String { a.s(u32::from_le_bytes([b[4], b[5], b[6], b[7]])).to_string() };
@@ -624,26 +760,34 @@ mod tests {
         assert_eq!(old.write().unwrap(), was.data, "the untouched graph rewrites byte for byte");
         let out: Vec<u8> = patch_graph(&was.data, GRAPH).unwrap();
         let a: Ainb = Ainb::parse(&out).unwrap();
-        assert_eq!(a.els.len(), old.els.len() + 16);
+        assert_eq!(a.els.len(), old.els.len() + 24);
         let top: usize = root(&a).unwrap();
         assert_eq!((a.el_type(top), a.role(top) & 4, a.role(0) & 4), (PARALLEL, 4, 0));
         let kids = |i: usize| -> Vec<usize> { a.params[i].group(2).iter().map(|g| g.a as usize).collect() };
-        let battle: usize = kids(top)[1];
-        assert_eq!((a.el_name(kids(top)[0]), a.el_type(battle)), (HOST, SWITCH));
+        let guard: usize = kids(top)[1];
+        assert_eq!((a.el_name(kids(top)[0]), a.el_type(guard)), (HOST, SWITCH));
+        let battle: usize = kids(guard)[0];
+        assert_eq!((a.el_type(battle), a.el_name(kids(guard)[1])), (SWITCH, IDLE));
         let gate: usize = kids(battle)[0];
         assert_eq!((a.el_type(gate), a.el_name(kids(battle)[1])), (SWITCH, IDLE));
         let alone: usize = kids(gate)[1];
         assert_eq!((a.el_name(kids(gate)[0]), a.el_type(alone)), (WAKE, SWITCH));
-        let timer: usize = kids(alone)[0];
-        assert_eq!((a.el_name(timer), a.el_name(kids(alone)[1])), (TIMER, IDLE));
-        assert_eq!((a.el_name(kids(timer)[0]), a.el_name(kids(timer)[1])), (IDLE, REQUEST));
-        let reads = |i: usize| -> String { a.el_name(a.input(1, a.input_ids(i, 1)[0]).unwrap().src as usize).to_string() };
-        assert_eq!((reads(gate), reads(alone), reads(battle)), (READY.to_string(), EMPTY.to_string(), FIGHT.to_string()));
+        let unused: usize = kids(alone)[0];
+        assert_eq!((a.el_type(unused), a.el_name(kids(alone)[1])), (SWITCH, IDLE));
+        let timer: usize = kids(unused)[1];
+        assert_eq!((a.el_name(kids(unused)[0]), a.el_name(timer)), (IDLE, TIMER));
+        let request: usize = kids(timer)[1];
+        assert_eq!((a.el_name(kids(timer)[0]), a.el_type(request)), (IDLE, PARALLEL));
+        assert_eq!((a.el_name(kids(request)[0]), a.el_name(kids(request)[1])), (REQUEST, SETB));
+        let source = |i: usize| -> usize { a.input(1, a.input_ids(i, 1)[0]).unwrap().src as usize };
+        let reads = |i: usize| -> String { a.el_name(source(i)).to_string() };
+        assert_eq!((reads(guard), reads(unused), reads(gate), reads(alone), reads(battle)), (GETB.to_string(), GETB.to_string(), READY.to_string(), EMPTY.to_string(), FIGHT.to_string()));
+        assert_eq!((a.prop_str(source(guard), "BlackboardKey"), a.prop_str(source(unused), "BlackboardKey"), a.prop_str(kids(request)[1], "BlackboardKey")), (Some(ELIGIBLE), Some(USED), Some(USED)));
         for n in [READY, EMPTY, WAKE, REQUEST] {
             assert_eq!(a.in_str(one(&a, n), "Key"), Some(KEY), "{n}");
         }
         let shown: String = show(&a);
-        for line in ["prop bool IsLoop = false", "prop f32 CountFrames = 750", "in vec3 InputB = (0, 1.5, 0) flags 0x800000", "\"NotFinish\"", "\"Finish\""] {
+        for line in ["prop bool ExecuteOnce = true", "prop bool IsIgnoreNotExistsError = true", "in bool Bool = true flags 0x800000", "prop bool IsLoop = false", "prop f32 CountFrames = 750", "in vec3 InputB = (0, 1.5, 0) flags 0x800000", "\"NotFinish\"", "\"Finish\""] {
             assert!(shown.contains(line), "{line} is missing from\n{shown}");
         }
         assert!(patch_graph(&out, GRAPH).is_err(), "a patched graph is not patched twice");
@@ -658,6 +802,20 @@ mod tests {
         let mut rf: Romfs = Romfs::open(&dir).unwrap();
         let mine: Ainb = Ainb::parse(&patch_graph(&graph(&mut rf, GLOBAL, GRAPH).write().unwrap(), GRAPH).unwrap()).unwrap();
         let lure: Ainb = graph(&mut rf, "Pack/Actor/Weapon_Lure.pack.zs", "AI/Weapon_Lure.root.ainb");
+        let tektite: Ainb = graph(&mut rf, "Pack/Actor/Enemy_Tektite_Blue.pack.zs", "AI/Enemy_Tektite.action.interruptboomerang.module.ainb");
+        let set: usize = tektite.find_els(SETB).into_iter().find(|i| a_once(&tektite, *i)).unwrap();
+        assert_eq!(shape(&mine, one(&mine, SETB)), shape(&tektite, set));
+        assert_eq!(plugs(&mine, one(&mine, SETB)), plugs(&tektite, set));
+        assert_eq!(classes(&mine, one(&mine, SETB)), classes(&tektite, set));
+        assert_eq!(tektite.prop_str(set, "BlackboardKey"), Some("IsStunLightEnable"));
+        let amos: Ainb = graph(&mut rf, "Pack/Actor/Enemy_Amos.pack.zs", "AI/Amos.brain.inaccessibletotarget.module.ainb");
+        let get: usize = amos.find_els(GETB)[0];
+        assert_eq!(mine.find_els(GETB).len(), 2);
+        for g in mine.find_els(GETB) {
+            assert_eq!(shape(&mine, g), shape(&amos, get));
+            assert_eq!(plugs(&mine, g), plugs(&amos, get));
+            assert_eq!(classes(&mine, g), classes(&amos, get));
+        }
         for n in [READY, EMPTY, REQUEST, PLACE] {
             assert_eq!(shape(&mine, one(&mine, n)), shape(&lure, one(&lure, n)), "{n}");
             assert_eq!(plugs(&mine, one(&mine, n)), plugs(&lure, one(&lure, n)), "{n}");
@@ -680,7 +838,7 @@ mod tests {
         let glass: Ainb = graph(&mut rf, GLOBAL, "AI/EnemyCommon.common.enableglasstruth.module.ainb");
         let sw: usize = (0..glass.els.len()).find(|i| glass.el_type(*i) == SWITCH).unwrap();
         let switches: Vec<usize> = (0..mine.els.len()).filter(|i| mine.el_type(*i) == SWITCH).collect();
-        assert_eq!(switches.len(), 3);
+        assert_eq!(switches.len(), 5);
         for i in switches {
             assert_eq!(shape(&mine, i), shape(&glass, sw));
             assert_eq!(plugs(&mine, i), plugs(&glass, sw));
@@ -705,11 +863,11 @@ mod tests {
         for a in ["Enemy_Stalfos", "Enemy_Stalfos_ForChild", "Enemy_Keese", "Enemy_Octorok", "Enemy_Poe", "Enemy_Dodongo", "Enemy_DungeonBoss_Gohma"] {
             assert!(plan.who.contains(a), "{a} runs the graph");
         }
-        for a in [HELPER, "Enemy_Peahat_Larva", "Player_Child", "Player_Adult", "Npc_Navi", "Enemy_Beamos", "Enemy_Stalfos_Dictionary"] {
+        for a in [HELPERS[0].0, HELPERS[1].0, HELPERS[2].0, "Enemy_Peahat_Larva", "Player_Child", "Player_Adult", "Npc_Navi", "Enemy_Beamos", "Enemy_Stalfos_Dictionary"] {
             assert!(!plan.who.contains(a), "{a} does not run the graph");
         }
-        assert!(plan.bare.contains(&actor_file("Enemy_Keese")) && !plan.bare.contains(&actor_file("Enemy_Poe")));
-        assert!(plan.held.contains("Component/ActorHolderParam/Enemy_Poe.game__component__ActorHolderParam.bgyml"));
+        assert!(plan.bare.contains_key(&actor_file("Enemy_Keese")) && !plan.bare.contains_key(&actor_file("Enemy_Poe")));
+        assert!(plan.held.contains_key("Component/ActorHolderParam/Enemy_Poe.game__component__ActorHolderParam.bgyml"));
         let last: usize = outs.len() - 1;
         assert_eq!((outs[0].path.as_str(), outs[last].path.as_str()), (GLOBAL, ACTOR_INFO));
         assert_eq!(zs::dict_of(&outs[0].z), zs::dict_of(&rf.read(GLOBAL).unwrap()), "the AI pack keeps its dictionary");
@@ -723,23 +881,43 @@ mod tests {
                 match sarc::get(&old, &e.name) {
                     Some(o) if o.data == e.data => continue,
                     Some(_) => assert!(plan.wants(&e.name), "{} changed in {}", e.name, x.path),
-                    None => assert_eq!(e.name, NEW, "{}", x.path),
+                    None => assert!(HELPERS.iter().any(|h| h.1 == e.name), "{}", x.path),
                 }
                 let first: &Vec<u8> = copies.entry(e.name.clone()).or_insert_with(|| e.data.clone());
                 assert_eq!(first, &e.data, "every copy of {} is the same", e.name);
             }
-            assert_eq!(now.len(), old.len() + usize::from(sarc::get(&now, NEW).is_some()), "{}", x.path);
+            assert_eq!(now.len(), old.len() + HELPERS.iter().filter(|h| sarc::get(&now, h.1).is_some() && sarc::get(&old, h.1).is_none()).count(), "{}", x.path);
             packs.insert(actor_of(&x.path).unwrap().to_string(), now);
         }
         for a in ["Npc_SkullDad", "Obj_InsideJabu_Jabu_SwayingFloor_A_01"] {
             assert!(plan.who.contains(a) && !packs.contains_key(a), "{a} runs the graph and keeps its files");
         }
-        assert!(plan.held.iter().all(|h| h.starts_with("Component/ActorHolderParam/Enemy_")), "{:?}", plan.held);
+        assert!(plan.held.keys().all(|h| h.starts_with("Component/ActorHolderParam/Enemy_")), "{:?}", plan.held);
         for a in plan.callers() {
             let es: &Vec<Entry> = packs.get(a).unwrap_or_else(|| panic!("the pack of {a} was not staged"));
             let h: String = holder_of(es, a).unwrap().unwrap_or_else(|| panic!("{a} has no holder"));
             let y: Byml = Byml::parse(&sarc::get(es, &h).unwrap_or_else(|| panic!("{a} lacks {h}")).data).unwrap();
-            assert_eq!(y.root.get(HELD).and_then(|m| m.get(KEY)), Some(&entry()), "{a} through {h}");
+            let want: usize = plan.held.get(&h).or(plan.bare.get(&actor_file(a))).copied().unwrap_or_else(|| panic!("{a} has no helper"));
+            assert_eq!(y.root.get(HELD).and_then(|m| m.get(KEY)), Some(&entry(HELPERS[want].0)), "{a} through {h}");
+            assert!(want == helper_of(a) || want == 0, "{a} gets its group helper or the larva");
+            let flags: Byml = Byml::parse(&sarc::get(es, TABLE).unwrap_or_else(|| panic!("{a} has no common blackboard")).data).unwrap();
+            let rows: &[Node] = flags.root.get(BOOLS).and_then(Node::as_arr).unwrap();
+            assert_eq!(&rows[rows.len() - 2..], &[flag_row(ELIGIBLE, true), flag_row(USED, false)], "{a}");
+        }
+        assert!(plan.off.len() >= 30, "{:?}", plan.off);
+        for a in &plan.off {
+            assert!(excluded(a) && !plan.callers().any(|c| c == a), "{a}");
+            if let Some(es) = packs.get(a) {
+                let has: bool = sarc::get(es, TABLE).is_some_and(|t| t.data.windows(ELIGIBLE.len()).any(|w| w == ELIGIBLE.as_bytes()));
+                assert!(!has, "{a} must not carry the eligible flag");
+            }
+        }
+        for a in BUBBLE_CALLERS.iter().chain(POT_CALLERS.iter()) {
+            assert!(plan.callers().any(|c| c == a), "{a} is a caller");
+        }
+        for (helper, _) in HELPERS {
+            assert!(!plan.who.contains(helper), "{helper} does not run the shared graph");
+            assert!(rf.read(&format!("Pack/Actor/{helper}.pack.zs")).is_ok(), "{helper} has a pack");
         }
         let peer: Byml = Byml::parse(&sarc::get(&sarc::parse(&rf.read_zs(PEER.0).unwrap()).unwrap(), PEER.1).unwrap().data).unwrap();
         assert_eq!((peer.version, peer.big), (VERSION, false));
@@ -763,7 +941,7 @@ mod tests {
         let before: Vec<Option<u32>> = GRAPHS.iter().map(|g| t.get(g)).collect();
         let stalfos: &str = "Actor/Enemy_Stalfos.engine__actor__ActorParam.bgyml";
         let param: Option<u32> = t.get(stalfos);
-        assert!(before.iter().all(|v| v.is_some()) && param.is_some() && t.get(NEW).is_none());
+        assert!(before.iter().all(|v| v.is_some()) && param.is_some() && HELPERS.iter().all(|h| t.get(h.1).is_none()));
         for o in &outs {
             crate::staging::grow_out(&mut rf, &mut t, o).unwrap();
         }
@@ -771,9 +949,10 @@ mod tests {
             assert!(t.get(g) > was, "the size table entry of {g} grew");
         }
         assert!(t.get(stalfos) > param);
-        let n: u32 = size(&mut rf, &mut t).unwrap();
-        assert_eq!(t.get(NEW), Some(n));
-        assert!(n as usize > holder_file().unwrap().len());
-        println!("{} actors, {} callers, {} bare, {} held, {} files, new entry {n}", plan.who.len(), plan.callers().count(), plan.bare.len(), plan.held.len(), outs.len());
+        size(&mut rf, &mut t).unwrap();
+        for (helper, file) in HELPERS {
+            assert!(t.get(file).is_some_and(|n| n as usize > holder_file(helper).unwrap().len()), "{file}");
+        }
+        println!("{} actors, {} callers, {} off, {} bare, {} held, {} files", plan.who.len(), plan.callers().count(), plan.off.len(), plan.bare.len(), plan.held.len(), outs.len());
     }
 }

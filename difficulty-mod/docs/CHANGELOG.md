@@ -2,6 +2,14 @@
 
 One entry per release candidate (rc), newest first. Each rc is one commit on the `difficulty` branch. "Played" means seen in the running game, by hand or by a script through Longshot's control bridge (see [TESTING.md](TESTING.md)). Feature details are in [features/](features/).
 
+## rc 8
+
+- **Enemies call for backup**, reworked. See [features/17](features/17-enemies-call-for-backup.md).
+  - Strictly once per enemy: no second call, even after the helper dies.
+  - Bosses, minibosses, Iron Knuckles, Dead Hand and Phantom Ganon never call.
+  - The helper fits the caller: Shabom for Jabu-Jabu's enemies, a flying pot for the Ice Cavern, Shadow and Spirit Temple enemies, a Peahat larva for the rest.
+- Played: nothing yet.
+
 ## rc 7
 
 - **No bottles during combat:** Leevers and Moblins, the only enemies that fought without battle music, now start it when this setting is on, so the music check covers them. See [features/08](features/08-no-bottles-in-combat.md).
