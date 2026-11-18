@@ -246,7 +246,9 @@ mod tests {
         assert_eq!(fs::read(v.join("System/Resource/t.zs")).unwrap(), b"new-t");
         assert_eq!(fs::read(v.join("Banc/Deep/a.bin")).unwrap(), b"old-a");
         assert_eq!(fs::read(v.join("Pack/ZsDic.pack.zs")).unwrap(), b"dic");
-        assert!(fs::symlink_metadata(v.join("Untouched")).unwrap().file_type().is_symlink());
+        // Windows without the symlink right falls back to layering the folder with hard links.
+        let m: fs::Metadata = fs::symlink_metadata(v.join("Untouched")).unwrap();
+        assert!(m.file_type().is_symlink() || (cfg!(windows) && m.is_dir()));
         assert!(v.join("Untouched/Inner/y.zs").is_file());
         let again: PB = layered(&data, &b, &u).unwrap();
         assert_eq!(again, v);

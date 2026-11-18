@@ -423,7 +423,12 @@ mod tests {
     #[test]
     fn a_late_change_keeps_the_game_blocks_before_it() {
         let old: Vec<u8> = (0..700_000u32).map(|i| (i % 253) as u8 ^ (i >> 11) as u8).collect();
-        let vz: Vec<u8> = compress(&old).unwrap();
+        // The game's files carry no checksum; ruzstd writes one, so drop it to make a game-like frame.
+        let mut vz: Vec<u8> = compress(&old).unwrap();
+        if vz[4] & 0x04 != 0 {
+            vz[4] &= !0x04;
+            vz.truncate(vz.len() - 4);
+        }
         let mut raw: Vec<u8> = old.clone();
         for b in &mut raw[600_000..600_100] {
             *b ^= 0x5A;

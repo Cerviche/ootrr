@@ -437,9 +437,17 @@ mod tests {
         let raw: Vec<u8> = rf.read_zs(HARP_FILE).unwrap();
         let keys: BM<String, u64> = bfres::keys(&rf.read_zs(NAMES).unwrap()).unwrap();
         let outs: Vec<Out> = harps(&mut rf).unwrap();
-        assert_eq!(outs.len(), SONGS.len());
-        for (s, o) in SONGS.iter().zip(&outs) {
+        // Each song writes its harp model and its own albedo texture.
+        assert_eq!(outs.len(), 2 * SONGS.len());
+        let tex: Vec<u8> = rf.read_zs(&tex_file(ALBEDO)).unwrap();
+        for (s, pair) in SONGS.iter().zip(outs.chunks(2)) {
+            let (o, t): (&Out, &Out) = (&pair[0], &pair[1]);
             assert_eq!(o.path, model_file(s));
+            let name: String = albedo_of(s).unwrap();
+            assert_eq!(t.path, tex_file(&name));
+            let tb: Vec<u8> = rf.zs.decompress(&t.z).unwrap();
+            assert_eq!(tb.len(), tex.len(), "{s}");
+            assert_eq!(crate::tex::bntx::parse(&tb).unwrap()[0].name, name, "{s}");
             let b: Vec<u8> = rf.zs.decompress(&o.z).unwrap();
             assert_eq!(b.len(), raw.len());
             let ms: Vec<bfres::Mat> = bfres::mats(&b).unwrap();
@@ -451,8 +459,10 @@ mod tests {
                 assert_eq!([v[0], v[1], v[2]], want, "{s} {p}");
                 at.push(x);
             }
+            let names: Vec<usize> = (0..b.len().saturating_sub(name.len())).filter(|&i| b[i..i + name.len()] == *name.as_bytes()).collect();
+            assert!(!names.is_empty(), "{s} names its albedo");
             let changed: Vec<usize> = (0..b.len()).filter(|&i| b[i] != raw[i]).collect();
-            assert!(changed.iter().all(|i| at.iter().any(|x| *i >= *x && *i < *x + 12)), "{s}");
+            assert!(changed.iter().all(|i| at.iter().any(|x| *i >= *x && *i < *x + 12) || names.iter().any(|x| *i >= *x && *i < *x + name.len())), "{s}");
         }
     }
 }

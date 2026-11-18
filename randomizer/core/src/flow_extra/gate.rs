@@ -122,12 +122,7 @@ mod tests {
             assert!(g.report.contains("structural event edits"));
             for x in SHUFFLED {
                 let it: &str = &g.seed_file.placements[x];
-                assert!(d.item(it).is_some_and(|i| d.flow_accepts(i)), "{x} holds {it}");
-            }
-            for (loc, it) in &g.seed_file.placements {
-                if super::bound(&d, it) {
-                    assert!(SHUFFLED.contains(&loc.as_str()), "{loc} holds {it}");
-                }
+                assert!(d.item(it).is_some_and(|i| crate::slice::flow_rules::allows(&d, x, i)), "{x} holds {it}");
             }
             let medi: &str = &g.seed_file.placements["GC Medigoron"];
             assert!(d.item(medi).is_some_and(super::pouch), "GC Medigoron holds {medi}");

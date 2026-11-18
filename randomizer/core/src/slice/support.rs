@@ -384,7 +384,9 @@ mod tests {
         assert!(p.notes.iter().any(|n| n.contains("world clock runs from the start")));
         assert_eq!(p.open, crate::open_world::Opts { time: true, ..crate::open_world::Opts::default() });
         assert!(!p.gates.door);
-        assert!(p.notes.iter().any(|n| n.contains("bridge=medallions")));
+        // The default bridge (vanilla) plays as the unmodified game, so it is listed as not applied.
+        assert!(p.notes.iter().any(|n| n.contains("bridge=vanilla")));
+        assert_eq!(p.rainbow, None);
         assert!(p.notes.iter().any(|n| n.contains("intro is skipped")));
         assert!(!p.notes.iter().any(|n| n.contains("Door of Time starts open")));
         assert!(!p.notes.iter().any(|n| n.contains("Kakariko gate starts open")));

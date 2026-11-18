@@ -205,8 +205,9 @@ mod tests {
     #[test]
     fn dependencies_switch_settings_off() {
         let mut s: Settings = Settings::default();
+        // The bridge defaults to vanilla, which counts nothing.
         assert!(!s.is_enabled("bridge_stones"));
-        assert!(s.is_enabled("bridge_medallions"));
+        assert!(!s.is_enabled("bridge_medallions"));
         s.set("bridge", Value::s("stones")).unwrap();
         s.set("bridge_stones", Value::Int(2)).unwrap();
         s.set("bridge_medallions", Value::Int(4)).unwrap();

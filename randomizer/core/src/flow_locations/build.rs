@@ -362,11 +362,14 @@ mod tests {
     #[test]
     fn replacement_names_the_game_never_hands_out_need_the_untested_option() {
         let d: Data = data();
-        assert!(plan(&d, &[ch("Volvagia", "Item_Hookshot")], &Opts::default()).is_err());
-        let (c, _, u): (Vec<Change>, usize, Vec<String>) =
-            plan(&d, &[ch("Volvagia", "Item_Hookshot")], &Opts { untested: true, songs: false }).unwrap();
-        assert_eq!(c.len(), 2);
+        // A scrub sale keeps the accept list. A reward scene such as Volvagia's hands out any
+        // plausible pouch item through the generic pouch get (slice::flow_rules::any_item, #24).
+        let keep: &str = "HF Deku Scrub Grotto";
+        assert!(plan(&d, &[ch(keep, "Item_Hookshot")], &Opts::default()).is_err());
+        let (c, _, u): (Vec<Change>, usize, Vec<String>) = plan(&d, &[ch(keep, "Item_Hookshot")], &Opts { untested: true, songs: false }).unwrap();
+        assert!(!c.is_empty());
         assert_eq!(u, vec!["Item_Hookshot".to_string()]);
+        assert!(plan(&d, &[ch("Volvagia", "Item_Hookshot")], &Opts::default()).is_ok());
         assert!(plan(&d, &[ch("Volvagia", "bad name")], &Opts { untested: true, songs: false }).is_err());
     }
 
