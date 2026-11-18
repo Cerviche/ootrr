@@ -126,6 +126,20 @@ pub fn run(jobs: &Arc<Jobs>, b: &Json) -> Hr<Json> {
         c.begin("Read the game files and edit the chests");
         match slice::build_for(&p.seed, &p.romfs, &p.load, &p.name, p.host) {
             Ok(mut built) => {
+                c.begin("Draw the Randomizer line under the title logo");
+                match ootrr_core::title_logo::apply(&built.root, &p.romfs) {
+                    Ok(notes) => {
+                        for n in notes {
+                            built.report.push_str(&format!("{n}
+"));
+                        }
+                    }
+                    Err(e) => {
+                        c.mark("failed");
+                        c.finish("failed", &e.to_string());
+                        return;
+                    }
+                }
                 if p.cos.any() {
                     c.begin("Write the cosmetic changes");
                     match cosmetic::apply(&built.root, &p.romfs, &p.cos, &p.seed.seed) {
