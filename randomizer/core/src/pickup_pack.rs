@@ -39,11 +39,14 @@ pub struct Layers {
     pub ammo: bool,
     pub magic: bool,
     pub model: Option<String>,
+    /// The pickup turns in place and glints like the freestanding Heart Piece (actor::SPIN,
+    /// actor::GLINT_USER). The seed build turns it on for every pack it writes.
+    pub spin: bool,
 }
 
 impl Layers {
     pub fn plain(&self) -> bool {
-        self.tags.is_empty() && !self.ammo && !self.magic && self.model.is_none()
+        self.tags.is_empty() && !self.ammo && !self.magic && self.model.is_none() && !self.spin
     }
 
     pub fn kit_ok(&self) -> bool {
@@ -91,6 +94,7 @@ mod tests {
         assert!(l.plain());
         assert!(!Layers { ammo: true, ..Layers::default() }.plain());
         assert!(!Layers { magic: true, ..Layers::default() }.plain());
+        assert!(!Layers { spin: true, ..Layers::default() }.plain());
         assert!(!Layers { tags: vec!["LetterBottle".to_string()], ..Layers::default() }.plain());
     }
 }

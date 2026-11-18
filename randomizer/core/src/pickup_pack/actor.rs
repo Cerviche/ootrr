@@ -19,6 +19,15 @@ pub const AUTO_GET: &str = "DefaultAutoGet";
 pub const SHARED_ANIM: &str = "Item_Common_Animation";
 const ANIM_LIST: &str = "AnimationResources";
 const ANIM_NAME: &str = "ModelProjectName";
+pub const ELINK_REF: &str = "ELinkRef";
+/// What a pickup plays on its own: the shared Item_Common set's turn in place, as the game's
+/// fishing pond Heart Piece (Obj_Heart_Piece_MiniGame) does. Without it the item model stands in
+/// its bare pose, centred on the actor, half sunk in the floor, and never turns.
+pub const SPIN: &str = "Rotate_Obj";
+const AUTO_PLAY: &str = "AutoPlayASName";
+/// The effect user the pickups show, the freestanding Heart Piece's, so they glint like it.
+pub const GLINT_USER: &str = "Obj_Heart_Piece";
+const ELINK_USER: &str = "UserName";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Made {
@@ -26,6 +35,16 @@ pub struct Made {
     pub pouch: (String, Vec<u8>),
     pub identity: String,
     pub extra: Vec<(String, Vec<u8>)>,
+}
+
+/// The pickup's own animation settings: the donor's, playing [`SPIN`].
+pub fn spin_file(name: &str) -> String {
+    format!("Component/ASInfo/{name}.engine__component__ASInfo.bgyml")
+}
+
+/// The pickup's own effect settings, naming [`GLINT_USER`].
+pub fn glint_file(name: &str) -> String {
+    format!("Component/ELink/{name}.engine__component__ELinkParam.bgyml")
 }
 
 pub fn pouch_file(name: &str) -> String {
@@ -128,10 +147,25 @@ pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
     let version: u16 = p.byml(&actor_file(DONOR))?.version;
     let pouch_path: String = pouch_file(&s.name);
     let mut comps: Node = Node::Map(Vec::new());
-    comps.set(AS_INFO_REF, Node::Str(need(&donor, DONOR, AS_INFO_REF)?.to_string()));
+    let mut extra: Vec<(String, Vec<u8>)> = Vec::new();
+    if l.spin {
+        let as_info: String = held(p, DONOR, AS_INFO_REF, need(&donor, DONOR, AS_INFO_REF)?)?;
+        let mut spin: Node = Node::Map(Vec::new());
+        spin.set(PARENT, Node::Str(work(&as_info)));
+        spin.set(AUTO_PLAY, Node::Str(SPIN.to_string()));
+        let spin_path: String = spin_file(&s.name);
+        comps.set(AS_INFO_REF, Node::Str(local(&spin_path)));
+        extra.push((spin_path, Byml { root: spin, version, big: false }.write()?));
+        let mut glint: Node = Node::Map(Vec::new());
+        glint.set(ELINK_USER, Node::Str(GLINT_USER.to_string()));
+        let glint_path: String = glint_file(&s.name);
+        comps.set(ELINK_REF, Node::Str(local(&glint_path)));
+        extra.push((glint_path, Byml { root: glint, version, big: false }.write()?));
+    } else {
+        comps.set(AS_INFO_REF, Node::Str(need(&donor, DONOR, AS_INFO_REF)?.to_string()));
+    }
     comps.set(AS_REF, Node::Str(need(&donor, DONOR, AS_REF)?.to_string()));
     comps.set(NAME_REF, Node::Str(need(&item, &s.item, NAME_REF)?.to_string()));
-    let mut extra: Vec<(String, Vec<u8>)> = Vec::new();
     match &l.model {
         Some(m) => {
             let (r, f, b): (String, String, Vec<u8>) = model::anim(&s.name, version)?;
@@ -276,6 +310,7 @@ pub(crate) mod tests {
         assert_eq!(text(MODEL_REF).as_deref(), Some("?Component/ModelInfo/Item_Test.engine__component__ModelInfo.bgyml"));
         assert_eq!(text(POUCH_REF).as_deref(), Some("?Component/PouchContentParam/Obj_Test.game__component__PouchContentParam.bgyml"));
         assert_eq!(text(AS_INFO_REF).as_deref(), Some("?Component/ASInfo/Item_Obj.engine__component__ASInfo.bgyml"));
+        assert_eq!(text(ELINK_REF), None);
         assert_eq!(text(ATTENTION_REF), None);
         assert_eq!(text("PhysicsRef"), None);
         assert_eq!(text("CaptureRef"), None);
@@ -362,6 +397,23 @@ pub(crate) mod tests {
         assert!(make(&p, &second).is_err());
         assert!(!shared_anim(&p, &chain(&p, "Item_Test").unwrap()));
         assert!(fits(&p, &spec(Style::Touch)).unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_spin_layer_plays_the_turn_and_names_the_heart_piece_effects() {
+        let on: Layers = Layers { spin: true, ..Layers::default() };
+        let m: Made = make_with(&pool(), &spec(Style::Touch), &on).unwrap();
+        assert_eq!(m.extra.iter().map(|e| e.0.clone()).collect::<Vec<String>>(), vec![spin_file("Obj_Test"), glint_file("Obj_Test")]);
+        let y: Byml = Byml::parse(&m.actor.1).unwrap();
+        let c: &Node = y.root.get(COMPONENTS).unwrap();
+        let text = |k: &str| c.get(k).and_then(|v| v.as_str()).map(|x| x.to_string());
+        assert_eq!(text(AS_INFO_REF).as_deref(), Some("?Component/ASInfo/Obj_Test.engine__component__ASInfo.bgyml"));
+        assert_eq!(text(ELINK_REF).as_deref(), Some("?Component/ELink/Obj_Test.engine__component__ELinkParam.bgyml"));
+        let own = |f: &str| -> Byml { Byml::parse(&m.extra.iter().find(|e| e.0 == f).unwrap().1).unwrap() };
+        let spin: Byml = own(&spin_file("Obj_Test"));
+        assert_eq!(spin.root.get(PARENT).and_then(|v| v.as_str()), Some("Work/Component/ASInfo/Item_Obj.engine__component__ASInfo.gyml"));
+        assert_eq!(spin.root.get(AUTO_PLAY).and_then(|v| v.as_str()), Some(SPIN));
+        assert_eq!(own(&glint_file("Obj_Test")).root.get(ELINK_USER).and_then(|v| v.as_str()), Some(GLINT_USER));
     }
 
     #[test]
