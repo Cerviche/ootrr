@@ -159,7 +159,7 @@ pub fn run(jobs: &Arc<Jobs>, b: &Json) -> Hr<Json> {
         match slice::build_for(&p.seed, &romfs, &p.load, &p.name, p.host) {
             Ok(mut built) => {
                 c.begin("Draw the Randomizer line under the title logo");
-                match ootrr_core::title_logo::apply(&built.root, &p.romfs) {
+                match ootrr_core::title_logo::apply(&built.root, &romfs) {
                     Ok(notes) => {
                         for n in notes {
                             built.report.push_str(&format!("{n}
