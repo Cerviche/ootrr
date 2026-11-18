@@ -2,6 +2,16 @@
 
 One entry per release candidate (rc), newest first. Each rc is one commit on the `difficulty` branch. "Played" means seen in the running game, by hand or by a script through Longshot's control bridge (see [TESTING.md](TESTING.md)). Feature details are in [features/](features/).
 
+## rc 11
+
+- **Merged upstream** (32 commits; the repository layout changed: `crates/` is now `randomizer/`). All upstream tests and ours pass.
+- **Surprises from grass and pots** are now 1 in 50 for each kind, and grass releases the wall Skulltula (on the ground) or a little Floormaster hand; pots a Poe or a little hand. Played by hand at a raised test rate: "perfect". The clumps of grass that always give a bug (for example round the Dead Hand hole in Hyrule Field) now join the pool; not played yet.
+- **Cuccos take revenge at once** now covers Kakariko's cuccos too. Played: one hit brings the swarm.
+- **Dead Hand** in both holes: placed further back and his rise distance shortened. Not played since; before this he still rose near the entrance.
+- **Gates:** seven were in rc 10; six are in this rc. The Lost Woods room was changed to one Stalfos for both barriers and is held back until that is seen working, along with the five held back before (which got their fixes: own guards for the meadow and the trail, two Stalfos in Gerudo Valley, a rule that a gate only triggers from the guard's side, the Hyrule Field barrier half a unit lower). None of the fixes is played yet.
+- **Enemies call for backup crashes the game** (found by a scripted test, twice). Leave it off. Regen alone and fairies alone did not crash.
+- Docs: the status board, the capture playbook and the code review are now in this folder too.
+
 ## rc 10
 
 Played by hand unless it says otherwise. Things known not to work are listed in [TODO.md](TODO.md).
