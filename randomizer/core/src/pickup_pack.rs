@@ -6,6 +6,7 @@ pub mod closure;
 pub mod fall;
 pub mod guard;
 pub mod kit;
+pub mod lift;
 pub mod magic;
 pub mod meter;
 pub mod model;
@@ -39,9 +40,12 @@ pub struct Layers {
     pub ammo: bool,
     pub magic: bool,
     pub model: Option<String>,
-    /// The pickup turns in place and glints like the freestanding Heart Piece (actor::SPIN,
-    /// actor::GLINT_USER). The seed build turns it on for every pack it writes.
+    /// The pickup turns in place, glints like a Gold Skulltula token and rests clear of the
+    /// ground (actor::SPIN, actor::GLINT_USER, crate::pickup_pack::lift). The seed build turns it on for every pack it writes.
     pub spin: bool,
+    /// With spin: how far, in millimetres, the pickup's body reaches below its origin so that the
+    /// turning item model clears the ground (crate::pickup_pack::lift). The pack builds fill it in.
+    pub lift: u32,
 }
 
 impl Layers {
