@@ -26,7 +26,7 @@ pub struct Ctx<'a> {
 
 pub type Stage = fn(&mut Romfs, &Ctx, &mut Vec<Out>) -> Res<()>;
 
-pub const STAGES: [(&str, Stage); 21] = [
+pub const STAGES: [(&str, Stage); 22] = [
     ("boss heart chests", boss_hearts),
     ("songs", songs),
     ("song models", song_models),
@@ -42,6 +42,7 @@ pub const STAGES: [(&str, Stage); 21] = [
     ("open door of time", door_open),
     ("master sword pedestal", pedestal),
     ("medallion gate", medal_gate),
+    ("fire temple gorons", fire_gorons),
     ("start reward and flags", start_reward),
     ("starting items", start_items),
     ("dpad items", dpad),
@@ -131,6 +132,11 @@ fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 
 fn pedestal(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     more.extend(crate::door_open::stage_pedestal(rf, Some(c.work))?);
+    Ok(())
+}
+
+fn fire_gorons(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    more.extend(crate::fire_gorons::stage(rf)?);
     Ok(())
 }
 
