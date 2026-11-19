@@ -33,6 +33,9 @@ pub const OPENED: &str = "Market_Child_TimeTempleDoor_Opened";
 pub const PREFIX: &str = "OOTRRDoorGate";
 pub const NOTE: &str = "The Door of Time opens when the Song of Time is played at the altar while the Door of Time requirement is met, and Zelda's escape from the castle waits for the same requirement in place of Dodongo's Cavern and Jabu-Jabu's Belly. The altar's song check reads the rewritten computed flag DoorOfTime_IsAfter_Srep2_1_1_Exp, the escape area in Hyrule Field appears while DoorOfTime_IsAfter_Step2_1_Exp holds (Impa's send off played, the escape not played yet, and the requirement met), clearing Dodongo's Cavern and Jabu-Jabu's Belly no longer moves the quest, and opening the door early leaves the escape, the Ocarina of Time and the Song of Time as checks. Experimental and untested in the game.";
 pub const SONGLESS_NOTE: &str = "The Door of Time opens once Zelda's escape has played, without the Song of Time. The door's logic module opens it from the Door of Time quest's Step04 in place of Step06, and the Master Sword can be drawn without the quest. Experimental and untested in the game.";
+pub const VANILLA_NOTE: &str = "The Door of Time opens when the Song of Time is played at the altar once Dodongo's Cavern and Jabu-Jabu's Belly are cleared, without waiting for Zelda's escape. The altar's song check reads the two dungeons' quests (Get_StoneOfFire_IsCompleted_Exp and Get_StoneOfWater_IsCompleted_Exp), and opening the door early leaves the escape, the Ocarina of Time and the Song of Time as checks.";
+pub const FIRE_EXP: &str = "Get_StoneOfFire_IsCompleted_Exp";
+pub const WATER_EXP: &str = "Get_StoneOfWater_IsCompleted_Exp";
 pub const SONG_ONLY_NOTE: &str = "The Door of Time opens when the Song of Time is played at the altar, with no other requirement. The opening scene no longer waits for Zelda's escape and only moves the Door of Time quest to Step06 when the quest is already past Step04, so Zelda's escape, the Ocarina of Time and the Song of Time stay checks. The door's logic module keeps it open from its opened flag, and the Master Sword can be drawn without the quest. Experimental and untested in the game.";
 const COUNTS: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 const AREA_EL: &str = "ActorLogicAreaActor";
@@ -71,11 +74,12 @@ pub struct Opts {
     pub need: Need,
     pub song: bool,
     pub only: bool,
+    pub open: bool,
 }
 
 impl Default for Opts {
     fn default() -> Opts {
-        Opts { need: Need::Vanilla, song: true, only: false }
+        Opts { need: Need::Vanilla, song: true, only: false, open: false }
     }
 }
 
@@ -85,7 +89,7 @@ impl Opts {
     }
 
     pub fn flow(&self) -> bool {
-        self.escape() || self.only
+        !self.open
     }
 
     pub fn exps(&self) -> Vec<Edit> {
@@ -113,6 +117,9 @@ impl Opts {
         let mut out: Vec<String> = Vec::new();
         if self.escape() {
             out.push(NOTE.to_string());
+        }
+        if !self.open && !self.escape() && !self.only {
+            out.push(VANILLA_NOTE.to_string());
         }
         if self.only {
             out.push(SONG_ONLY_NOTE.to_string());
@@ -169,7 +176,7 @@ pub fn read(s: &Settings, open: bool, bad: &mut Vec<String>) -> Opts {
     };
     let only: bool = !open && s.text(SETTING).is_ok_and(|v| v == SONG_ONLY);
     let song: bool = open || only || crate::slice::support::toggle(s, SONG, bad);
-    Opts { need, song, only }
+    Opts { need, song, only, open }
 }
 
 pub fn legacy(v: &mut crate::settings::state::Vals) {
@@ -301,7 +308,7 @@ pub fn patch_check(b: &mut Bf) -> Res<usize> {
     Ok(red.len())
 }
 
-pub fn patch_song(b: &mut Bf, need: Option<&str>) -> Res<()> {
+pub fn patch_song(b: &mut Bf, need: &[&str]) -> Res<()> {
     let f: &mut Flow = b.flows.iter_mut().find(|x| x.name == crate::door_fix::FLOW).ok_or(Error::Format("door gate: no DoorOfTime flow"))?;
     if f.events.iter().any(|e| e.name == format!("{PREFIX}1")) {
         return Err(Error::Format("door gate: the DoorOfTime flow already carries the song gate"));
@@ -314,17 +321,39 @@ pub fn patch_song(b: &mut Bf, need: Option<&str>) -> Res<()> {
         }
         _ => return Err(Error::Format("door gate: Event60 is not the Step04 check of the door song")),
     };
+    let ask = |name: String, slot: (u16, u16), flag: &str, yes: u16| Event {
+        name,
+        kind: Kind::Switch {
+            actor: slot.0,
+            query: slot.1,
+            cases: vec![Case { val: 0, ev: yes }, Case { val: 1, ev: NONE }],
+            params: Some(Cont { items: vec![("GameDataName".to_string(), Val::Str(flag.to_string()))] }),
+        },
+    };
     match need {
-        Some(x) => {
-            if let Kind::Switch { params: Some(p), .. } = &mut f.events[check].kind {
-                for (_, v) in p.items.iter_mut().filter(|(k, _)| k == "GameDataName") {
-                    *v = Val::Str(x.to_string());
-                }
-            }
-        }
-        None => {
+        [] => {
             if crate::door_fix::retarget(f, check as u16, pass).is_empty() {
                 return Err(Error::Format("door gate: nothing leads to the door song check"));
+            }
+        }
+        [first, rest @ ..] => {
+            let slot: (u16, u16) = crate::start_state::query_slot(f, HOLDER, IS_EXP)?;
+            let mut to: u16 = pass;
+            for (i, x) in rest.iter().enumerate().rev() {
+                let n: usize = f.events.len();
+                if n >= NONE as usize {
+                    return Err(Error::Format("door gate: too many events"));
+                }
+                f.events.push(ask(format!("{PREFIX}{}", 2 + i), slot, x, to));
+                to = n as u16;
+            }
+            if let Kind::Switch { cases, params: Some(p), .. } = &mut f.events[check].kind {
+                for (_, v) in p.items.iter_mut().filter(|(k, _)| k == "GameDataName") {
+                    *v = Val::Str(first.to_string());
+                }
+                for c in cases.iter_mut().filter(|c| c.val == 0) {
+                    c.ev = to;
+                }
             }
         }
     }
@@ -393,7 +422,7 @@ pub fn stage_river(rf: &mut Romfs) -> Res<Out> {
 }
 
 pub fn stage_door(rf: &mut Romfs, o: &Opts) -> Res<Vec<Out>> {
-    let early: bool = o.only || o.escape();
+    let early: bool = !o.open;
     let late: bool = !o.song;
     let door: Out = crate::medal_gate::module(rf, crate::door_open::MODULE, |a| {
         if early {
@@ -414,10 +443,11 @@ pub fn stage_flow(rf: &mut Romfs, o: &Opts) -> Res<Out> {
         crate::door_fix::patch_flow(&mut b)?;
         if o.escape() {
             patch_check(&mut b)?;
-            patch_song(&mut b, Some(REQ_EXP))?;
-        }
-        if o.only {
-            patch_song(&mut b, None)?;
+            patch_song(&mut b, &[REQ_EXP])?;
+        } else if o.only {
+            patch_song(&mut b, &[])?;
+        } else {
+            patch_song(&mut b, &[FIRE_EXP, WATER_EXP])?;
         }
         let out: Vec<u8> = b.write()?;
         if Bf::parse(&out)? != b {
@@ -518,7 +548,7 @@ mod tests {
         let mut s: Settings = Settings::default();
         let d: Opts = read(&s, false, &mut bad);
         assert_eq!(d, Opts::default());
-        assert!(d.exps().is_empty() && d.logic().is_empty() && d.notes().is_empty());
+        assert!(d.exps().is_empty() && d.logic().is_empty() && d.notes() == vec![VANILLA_NOTE.to_string()]);
         s.set(SETTING, Value::s(STONES)).unwrap();
         assert_eq!(read(&s, false, &mut bad).need, Need::Stones);
         s.set(SETTING, Value::s(DUNGEONS)).unwrap();
@@ -543,7 +573,7 @@ mod tests {
         assert!(!s.flag(crate::open_world::DOOR).unwrap());
         let mut bad: Vec<String> = Vec::new();
         assert!(crate::open_world::Gates::read(&s, &mut bad).door);
-        assert_eq!(read(&s, true, &mut bad), Opts::default());
+        assert_eq!(read(&s, true, &mut bad), Opts { open: true, ..Opts::default() });
         assert!(bad.is_empty(), "{bad:?}");
     }
 
@@ -612,7 +642,7 @@ mod tests {
         let Some(mut rf) = real() else { return };
         let mut b: Bf = Bf::parse(&rf.read_zs(crate::door_fix::FLOW_FILE).unwrap()).unwrap();
         crate::door_fix::patch_flow(&mut b).unwrap();
-        patch_song(&mut b, None).unwrap();
+        patch_song(&mut b, &[]).unwrap();
         let f: &Flow = &b.flows[0];
         let at = |n: &str| f.events.iter().position(|e| e.name == n).unwrap();
         let (check, s6, guard): (usize, usize, usize) = (at(SONG_CHECK), at(crate::door_fix::STEP06), at(&format!("{PREFIX}1")));
@@ -626,11 +656,11 @@ mod tests {
         assert!(leads(check).is_empty());
         assert_eq!(leads(s6), vec![format!("{PREFIX}1")]);
         assert!(!leads(guard).is_empty());
-        assert!(patch_song(&mut b, None).is_err());
+        assert!(patch_song(&mut b, &[]).is_err());
         let mut c: Bf = Bf::parse(&rf.read_zs(crate::door_fix::FLOW_FILE).unwrap()).unwrap();
         crate::door_fix::patch_flow(&mut c).unwrap();
         patch_check(&mut c).unwrap();
-        patch_song(&mut c, Some(REQ_EXP)).unwrap();
+        patch_song(&mut c, &[REQ_EXP]).unwrap();
         let g: &Flow = &c.flows[0];
         let e: &Event = g.events.iter().find(|e| e.name == SONG_CHECK).unwrap();
         assert_eq!(e.kind.params().and_then(|p| p.get("GameDataName")), Some(&Val::Str(REQ_EXP.to_string())));
@@ -661,7 +691,7 @@ mod tests {
         assert!(step_check(&back, OPEN_STEP).is_ok());
         assert!(step_check(&back, crate::door_open::STEP).is_err());
         assert_eq!(stage_door(&mut rf, &Opts { song: false, ..Opts::default() }).unwrap().len(), 2);
-        assert_eq!(stage_door(&mut rf, &Opts { need: Need::Stones, song: false, only: false }).unwrap().len(), 2);
+        assert_eq!(stage_door(&mut rf, &Opts { need: Need::Stones, song: false, only: false, open: false }).unwrap().len(), 2);
     }
 
     #[test]

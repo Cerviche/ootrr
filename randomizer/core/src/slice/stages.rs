@@ -130,7 +130,7 @@ fn no_tutorials(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if c.p.gates.door {
         more.extend(crate::door_open::stage_door(rf)?);
-    } else if c.p.door.flow() || !c.p.door.song {
+    } else {
         more.extend(crate::door_gate::stage_door(rf, &c.p.door)?);
     }
     if c.p.door.escape() {
