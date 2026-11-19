@@ -81,6 +81,25 @@ pub struct Gate {
 }
 
 pub const HELD: [u8; 1] = [7];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Shuffle {
+    Off,
+    Dungeons,
+    Wide,
+}
+
+impl Shuffle {
+    pub fn from_setting(v: &str) -> Shuffle {
+        match v {
+            "off" => Shuffle::Off,
+            "dungeons" => Shuffle::Dungeons,
+            _ => Shuffle::Wide,
+        }
+    }
+}
+
+pub const BEYOND_DUNGEON_DOOR: [u8; 3] = [1, 2, 6];
 pub const GATES: [Gate; 11] = [
     Gate { id: 1, name: "the passage out of the Sacred Forest Meadow's scrub lane", map: "SacredForestMeadow_Child", a: [-8.13, 114.46, -82.57], b: [-5.03, 114.47, -82.57], spot: [-6.4, 104.81, -53.4], more: &[], also: &[], sink: 0.0, radius: RADIUS, new_kind: SCRUB_GUARD, closed_forest_only: false },
     Gate { id: 2, name: "the Death Mountain Trail below the Dodongo's Cavern path", map: "DeathMountainTrail_Child", a: [-52.85, 106.91, -2.46], b: [-47.86, 106.93, -0.56], spot: [-54.67, 105.8, 6.39], more: &[], also: &[], sink: 0.0, radius: RADIUS, new_kind: DODONGO_GUARD, closed_forest_only: false },
@@ -249,8 +268,22 @@ pub fn approach(g: &Gate, back: f32) -> [f32; 3] {
     [g.spot[0] + (g.spot[0] - m[0]) / d * back, g.spot[1], g.spot[2] + (g.spot[2] - m[2]) / d * back]
 }
 
-pub fn active(g: &Gate, forest_open: bool, mido_gone: bool, entrances: bool) -> bool {
-    !entrances && !(g.closed_forest_only && (forest_open || mido_gone))
+pub fn active(g: &Gate, forest_open: bool, mido_gone: bool, entrances: Shuffle) -> bool {
+    let shuffle_ok: bool = match entrances {
+        Shuffle::Off => true,
+        Shuffle::Dungeons => !BEYOND_DUNGEON_DOOR.contains(&g.id),
+        Shuffle::Wide => false,
+    };
+    shuffle_ok && !(g.closed_forest_only && (forest_open || mido_gone))
+}
+
+pub fn shuffle_note(entrances: Shuffle) -> Option<String> {
+    let off: Vec<String> = GATES.iter().filter(|g| !HELD.contains(&g.id) && !active(g, false, false, entrances)).map(|g| format!("{} (gate {})", g.name, g.id)).collect();
+    match entrances {
+        Shuffle::Off => None,
+        Shuffle::Dungeons => Some(format!("Because dungeon entrances are shuffled, these gates are left out, as a dungeon door lies beyond them: {}.", off.join(", "))),
+        Shuffle::Wide => Some(format!("Because overworld entrances are shuffled, every gate is left out: {}.", off.join(", "))),
+    }
 }
 
 fn dist(a: [f32; 3], b: [f32; 3]) -> f32 {
@@ -807,12 +840,53 @@ mod tests {
 
     #[test]
     fn the_gates_follow_the_forest_and_entrance_settings() {
-        assert!(GATES.iter().all(|g| active(g, false, false, false)));
-        assert!(GATES.iter().all(|g| !active(g, false, false, true)));
+        assert!(GATES.iter().all(|g| active(g, false, false, Shuffle::Off)));
+        assert!(GATES.iter().all(|g| !active(g, false, false, Shuffle::Wide)));
+        let kept: Vec<u8> = GATES.iter().filter(|g| active(g, false, false, Shuffle::Dungeons)).map(|g| g.id).collect();
+        assert_eq!(kept, vec![3, 4, 5, 7, 9, 11, 12, 13]);
         let closed: Vec<u8> = GATES.iter().filter(|g| g.closed_forest_only).map(|g| g.id).collect();
         assert_eq!(closed, vec![6]);
-        assert_eq!(GATES.iter().filter(|g| active(g, true, false, false)).count(), GATES.len() - 1);
-        assert_eq!(GATES.iter().filter(|g| active(g, false, true, false)).count(), GATES.len() - 1);
+        assert_eq!(GATES.iter().filter(|g| active(g, true, false, Shuffle::Off)).count(), GATES.len() - 1);
+        assert_eq!(GATES.iter().filter(|g| active(g, false, true, Shuffle::Off)).count(), GATES.len() - 1);
+        assert_eq!(Shuffle::from_setting("off"), Shuffle::Off);
+        assert_eq!(Shuffle::from_setting("dungeons"), Shuffle::Dungeons);
+        assert_eq!(Shuffle::from_setting("everything"), Shuffle::Wide);
+        assert_eq!(Shuffle::from_setting("nonsense"), Shuffle::Wide);
+        assert!(shuffle_note(Shuffle::Off).is_none());
+        let n: String = shuffle_note(Shuffle::Dungeons).unwrap();
+        assert!(n.contains("gate 6") && n.contains("gate 1)") && n.contains("gate 2)") && !n.contains("gate 9"), "{n}");
+        assert!(shuffle_note(Shuffle::Wide).unwrap().contains("gate 9"));
+    }
+
+    fn side(a: [f32; 3], b: [f32; 3], p: [f64; 3]) -> bool {
+        let dx: f64 = (b[0] - a[0]) as f64;
+        let dz: f64 = (b[2] - a[2]) as f64;
+        dx * (p[2] - a[2] as f64) - dz * (p[0] - a[0] as f64) > 0.0
+    }
+
+    #[test]
+    fn a_gate_is_left_out_exactly_when_a_dungeon_door_lies_beyond_its_wall() {
+        let j: crate::json::Json = crate::json::parse(crate::entr::data::CATALOG).unwrap();
+        let mut beyond: Vec<u8> = Vec::new();
+        for e in j.get("entrances").and_then(|v| v.as_arr()).unwrap() {
+            if e.get("cat").and_then(|v| v.as_str()) != Some("dungeon") {
+                continue;
+            }
+            let map: &str = e.get("map").and_then(|v| v.as_str()).unwrap();
+            let pos: Vec<f64> = e.get("pos").and_then(|v| v.as_arr()).unwrap().iter().map(|x| x.as_f64().unwrap()).collect();
+            let p: [f64; 3] = [pos[0], pos[1], pos[2]];
+            for g in GATES.iter().filter(|g| g.map == map) {
+                let guard: [f64; 3] = [g.spot[0] as f64, g.spot[1] as f64, g.spot[2] as f64];
+                let mut walls: Vec<([f32; 3], [f32; 3])> = vec![(g.a, g.b)];
+                walls.extend_from_slice(g.also);
+                if walls.iter().any(|(a, b)| side(*a, *b, p) != side(*a, *b, guard)) {
+                    beyond.push(g.id);
+                }
+            }
+        }
+        beyond.sort();
+        beyond.dedup();
+        assert_eq!(beyond, BEYOND_DUNGEON_DOOR.to_vec());
     }
 
     #[test]

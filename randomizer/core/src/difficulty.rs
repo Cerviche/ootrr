@@ -119,12 +119,12 @@ pub struct Opts {
     pub forest_open: bool,
     pub shops: bool,
     pub mido_gone: bool,
-    pub entrances: bool,
+    pub entrances: gates::Shuffle,
 }
 
 impl Default for Opts {
     fn default() -> Opts {
-        Opts { health: NORMAL, damage: NORMAL, speed: NORMAL, no_hearts: false, no_fairies: false, no_ammo: false, lose_heart: false, no_bottles: false, no_target: false, no_dupes: false, extra: 0, respawn: false, minibosses: false, regen: false, minions: false, fairy_helps: false, backup: false, gates: false, encounters: false, cucco: false, spawn_combo: false, forest_open: false, shops: false, mido_gone: false, entrances: false }
+        Opts { health: NORMAL, damage: NORMAL, speed: NORMAL, no_hearts: false, no_fairies: false, no_ammo: false, lose_heart: false, no_bottles: false, no_target: false, no_dupes: false, extra: 0, respawn: false, minibosses: false, regen: false, minions: false, fairy_helps: false, backup: false, gates: false, encounters: false, cucco: false, spawn_combo: false, forest_open: false, shops: false, mido_gone: false, entrances: gates::Shuffle::Off }
     }
 }
 
@@ -231,9 +231,12 @@ impl Opts {
         if self.gates {
             let names: Vec<&str> = self.gate_list().iter().map(|g| g.name).collect();
             if names.is_empty() {
-                out.push("Enemies block the way is on, but it is off with shuffled entrances, so nothing is blocked.".to_string());
+                out.push("Enemies block the way is on, but no gate fits these entrance and forest settings, so nothing is blocked.".to_string());
             } else {
                 out.push(format!("A barrier blocks the way at {} while its guards are alive, and drops when they are beaten. At Zora's River the guards are Lizalfos added for this. The barrier and guards come back whenever the area reloads.", names.join(", ")));
+            }
+            if let Some(n) = gates::shuffle_note(self.entrances) {
+                out.push(n);
             }
         }
         out
@@ -274,9 +277,9 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             false
         })
     };
-    let o: Opts = Opts { health, damage, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS), fairy_helps: flag(FAIRY_HELPS), backup: flag(BACKUP), gates: flag(GATES), encounters: false, cucco: flag(CUCCO), spawn_combo: flag(SPAWN_COMBO), forest_open: false, shops: false, mido_gone: false, entrances: false };
+    let o: Opts = Opts { health, damage, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS), fairy_helps: flag(FAIRY_HELPS), backup: flag(BACKUP), gates: flag(GATES), encounters: false, cucco: flag(CUCCO), spawn_combo: flag(SPAWN_COMBO), forest_open: false, shops: false, mido_gone: false, entrances: gates::Shuffle::Off };
     let forest_open: bool = chosen(s.text(FOREST), bad).map(|t| t == "open").unwrap_or(true);
-    let entrances: bool = chosen(s.text(ENTRANCES), bad).map(|t| t != "off").unwrap_or(true);
+    let entrances: gates::Shuffle = chosen(s.text(ENTRANCES), bad).map(|t| gates::Shuffle::from_setting(t)).unwrap_or(gates::Shuffle::Wide);
     let shops: bool = chosen(s.text(crate::shops::plan::SETTING), bad).map(|t| t != "off").unwrap_or(false);
     let closed: bool = s.text(FOREST).map(|t| t == "closed").unwrap_or(true);
     let mido_gone: bool = !closed && s.text(KAKARIKO).map(|t| t == "open").unwrap_or(false);
@@ -534,7 +537,12 @@ mod tests {
         s.set(KAKARIKO, Value::s("closed")).unwrap();
         s.set(ENTRANCES, Value::s("dungeons")).unwrap();
         let o: Opts = read(&s, &mut bad);
-        assert!(o.entrances && !o.gates());
+        assert!(o.entrances == gates::Shuffle::Dungeons && o.gates());
+        assert_eq!(o.gate_list().iter().map(|g| g.id).collect::<Vec<u8>>(), vec![3, 4, 5, 9, 11, 12, 13]);
+        assert!(o.notes().iter().any(|n| n.contains("dungeon entrances are shuffled")));
+        s.set(ENTRANCES, Value::s("everything")).unwrap();
+        let o: Opts = read(&s, &mut bad);
+        assert!(o.entrances == gates::Shuffle::Wide && !o.gates());
         let off: Opts = Opts { gates: false, ..Opts::default() };
         assert!(off.gate_list().is_empty() && !off.any() && off.notes().is_empty());
     }
