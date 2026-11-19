@@ -37,6 +37,11 @@ pub const AREA_HASH: u64 = 5374506228817442823;
 pub const RIVER_MODULE: &str = "Logic/HyruleField_Child_Prefab_32f7.logic.module.ainb";
 pub const RIVER_REQUEST: &str = "EventRequestActor_b3d3";
 pub const RIVER_WALL: &str = "FldObj_AirWall_Player_GenerateNavMesh_066c";
+pub const MOAT_MODULE: &str = "Logic/HyruleField_Child_Prefab_91f9.logic.module.ainb";
+pub const MOAT_OCARINA: &str = "Obj_Ocarina_Time_A_01_7cb3";
+pub const MOAT_HASH: u64 = 2802436684568022035;
+pub const MOAT_STEP: &str = "Step04";
+pub const PICKED: &str = "HavePlayedEvent.HyruleField_DoorOfTime_GetOcarinaOfTime";
 pub const ESCAPE_STEP: &str = "Step03";
 pub const OPEN_STEP: &str = "Step03";
 pub const SONG_CHECK: &str = "Event60";
@@ -46,10 +51,12 @@ pub const ALTAR_NOTE: &str = "Door of Time: the altar in the Temple of Time answ
 pub const VANILLA_NOTE: &str = "Door of Time, Closed - Vanilla: the song opens the door once Dodongo's Cavern and Jabu-Jabu's Belly are cleared (Get_StoneOfFire_IsCompleted_Exp and Get_StoneOfWater_IsCompleted_Exp).";
 pub const NOTE: &str = "Door of Time, Closed - Classic or Dungeon Rewards: the song opens the door once the Stones or the set number of Stones and Medallions are held (DoorOfTime_IsAfter_Srep2_1_1_Exp). Zelda's escape waits for the same requirement in place of Dodongo's Cavern and Jabu-Jabu's Belly: clearing those two dungeons no longer moves the quest, and the escape area in Hyrule Field appears while DoorOfTime_IsAfter_Step2_1_Exp holds (Impa's send off played, the escape not played yet, the requirement met).";
 pub const SONG_ONLY_NOTE: &str = "Door of Time, Closed - Song Only: the Song of Time opens the door with no other requirement.";
+pub const MOAT_NOTE: &str = "Door of Time, Open: the Ocarina of Time lies in the castle moat from the start (its logic module no longer waits for the Door of Time quest's Step04, and its map entry is present until HyruleField_DoorOfTime_GetOcarinaOfTime has played), so HF Ocarina of Time Item and Song from Ocarina of Time need neither the two dungeons nor Zelda's escape. Experimental and untested in the game.";
 pub const SONGLESS_NOTE: &str = "Door of Time: the door also opens by itself once Zelda's escape has played (the door's logic module reads the quest past Step03 in place of Step06). Experimental and untested in the game.";
 
 const COUNTS: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 const AREA_EL: &str = "ActorLogicAreaActor";
+const OCARINA_EL: &str = "ActorLogicOcarinaTime";
 const REQUEST: &str = "ActorLogicEventRequestActor";
 const SIMPLE: &str = "ActorLogicSimpleActor";
 const PROXY: &str = "ActorLogicEventProxyRequestActor";
@@ -126,6 +133,7 @@ impl Opts {
     pub fn notes(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
         if self.open {
+            out.push(MOAT_NOTE.to_string());
             return out;
         }
         out.push(ALTAR_NOTE.to_string());
@@ -265,27 +273,37 @@ pub fn patch_door(a: &mut Ainb) -> Res<()> {
     a.set_in_val(STR, g, &o.to_le_bytes())
 }
 
-pub fn patch_banc(y: &mut Byml) -> Res<()> {
+pub struct Presence {
+    pub hash: u64,
+    pub gyaml: &'static str,
+    pub flag: &'static str,
+    pub negate: bool,
+}
+
+pub const ESCAPE_AREA: Presence = Presence { hash: AREA_HASH, gyaml: "Area", flag: ESCAPE_EXP, negate: false };
+pub const MOAT: Presence = Presence { hash: MOAT_HASH, gyaml: "Obj_Ocarina_Time_A_01", flag: PICKED, negate: true };
+
+pub fn patch_banc(y: &mut Byml, p: &Presence) -> Res<()> {
     let actors: &mut Vec<Node> = y.root.get_mut("Actors").and_then(|n| n.as_arr_mut()).ok_or(Error::Format("door gate: the child Hyrule Field map has no actors"))?;
     let a: &mut Node = actors
         .iter_mut()
-        .find(|a| matches!(a.get("Hash"), Some(Node::U64(h)) if *h == AREA_HASH))
-        .ok_or(Error::Format("door gate: the child Hyrule Field map has no escape area"))?;
-    if a.get("Gyaml").and_then(|g| g.as_str()) != Some("Area") || a.get("Presence").is_some() {
-        return Err(Error::Format("door gate: the escape area is not the unpatched one"));
+        .find(|a| matches!(a.get("Hash"), Some(Node::U64(h)) if *h == p.hash))
+        .ok_or_else(|| Error::Msg(format!("door gate: the child Hyrule Field map has no {}", p.gyaml)))?;
+    if a.get("Gyaml").and_then(|g| g.as_str()) != Some(p.gyaml) || a.get("Presence").is_some() {
+        return Err(Error::Msg(format!("door gate: the {} in the child Hyrule Field map is not the unpatched one", p.gyaml)));
     }
-    let p: Node = Node::Map(vec![
-        ("FlagName".to_string(), Node::Str(ESCAPE_EXP.to_string())),
+    let n: Node = Node::Map(vec![
+        ("FlagName".to_string(), Node::Str(p.flag.to_string())),
         ("IsCheckLazy".to_string(), Node::Bool(false)),
-        ("IsNegation".to_string(), Node::Bool(false)),
+        ("IsNegation".to_string(), Node::Bool(p.negate)),
     ]);
-    a.set("Presence", p);
+    a.set("Presence", n);
     Ok(())
 }
 
-pub fn banc_bytes(raw: &[u8]) -> Res<Vec<u8>> {
+pub fn banc_bytes(raw: &[u8], p: &Presence) -> Res<Vec<u8>> {
     let mut y: Byml = Byml::parse(raw)?;
-    patch_banc(&mut y)?;
+    patch_banc(&mut y, p)?;
     let out: Vec<u8> = y.write()?;
     if Byml::parse(&out)?.root != y.root {
         return Err(Error::Format("door gate: the patched map does not read back"));
@@ -497,22 +515,43 @@ pub fn stage_flow(rf: &mut Romfs, o: &Opts) -> Res<Out> {
     })
 }
 
-pub fn stage_escape(rf: &mut Romfs, more: &mut Vec<Out>, from: Option<&PB>) -> Res<()> {
-    more.push(crate::medal_gate::module(rf, MODULE, patch_module)?);
+fn stage_presence(rf: &mut Romfs, more: &mut Vec<Out>, from: Option<&PB>, p: &Presence) -> Res<()> {
     match more.iter().position(|o| o.path == AREA_FILE) {
         Some(i) => {
             let raw: Vec<u8> = rf.zs.decompress(&more[i].z)?;
-            let out: Vec<u8> = banc_bytes(&raw)?;
+            let out: Vec<u8> = banc_bytes(&raw, p)?;
             let old: usize = more[i].old;
             more[i] = staging::banc_out(rf, AREA_FILE, old, &out)?;
         }
         None => {
             let raw: Vec<u8> = staging::banc_raw(rf, AREA_FILE, from)?;
-            let out: Vec<u8> = banc_bytes(&raw)?;
+            let out: Vec<u8> = banc_bytes(&raw, p)?;
             more.push(staging::banc_out(rf, AREA_FILE, raw.len(), &out)?);
         }
     }
     Ok(())
+}
+
+pub fn stage_escape(rf: &mut Romfs, more: &mut Vec<Out>, from: Option<&PB>) -> Res<()> {
+    more.push(crate::medal_gate::module(rf, MODULE, patch_module)?);
+    stage_presence(rf, more, from, &ESCAPE_AREA)
+}
+
+pub fn patch_moat(a: &mut Ainb) -> Res<()> {
+    let o: usize = one(a.find_els(OCARINA_EL).into_iter().filter(|&i| a.prop_str(i, "InstanceName") == Some(MOAT_OCARINA)).collect(), "moat Ocarina")?;
+    let step: usize = step_check(a, MOAT_STEP)?;
+    let g: usize = a.find_in(o, BOOL, CREATE).ok_or(Error::Format("door gate: the moat Ocarina has no create input"))?;
+    let x = a.input(BOOL, g).ok_or(Error::Format("door gate: input out of range"))?;
+    if x.src < 0 || x.src as usize != step {
+        return Err(Error::Format("door gate: the moat Ocarina is not created from the DoorOfTime Step04 check"));
+    }
+    a.force_bool(o, CREATE, true)?;
+    Ok(())
+}
+
+pub fn stage_moat(rf: &mut Romfs, more: &mut Vec<Out>, from: Option<&PB>) -> Res<()> {
+    more.push(crate::medal_gate::module(rf, MOAT_MODULE, patch_moat)?);
+    stage_presence(rf, more, from, &MOAT)
 }
 
 
@@ -666,11 +705,11 @@ mod tests {
         assert!(patch_module(&mut a).is_err());
         assert!(crate::ainb::audit(&Ainb::parse(&a.write().unwrap()).unwrap()).is_empty());
         let raw: Vec<u8> = rf.read_zs(AREA_FILE).unwrap();
-        let y: Byml = Byml::parse(&banc_bytes(&raw).unwrap()).unwrap();
+        let y: Byml = Byml::parse(&banc_bytes(&raw, &ESCAPE_AREA).unwrap()).unwrap();
         let acts: &[Node] = y.root.get("Actors").and_then(|n| n.as_arr()).unwrap();
         let area: &Node = acts.iter().find(|a| a.get("Hash") == Some(&Node::U64(AREA_HASH))).unwrap();
         assert_eq!(area.get("Presence").and_then(|p| p.get("FlagName")).and_then(|n| n.as_str()), Some(ESCAPE_EXP));
-        assert!(banc_bytes(&y.write().unwrap()).is_err());
+        assert!(banc_bytes(&y.write().unwrap(), &ESCAPE_AREA).is_err());
     }
 
     #[test]
@@ -733,6 +772,22 @@ mod tests {
         let catch: &Event = f.events.iter().find(|e| e.name == format!("{}0", crate::door_fix::PREFIX)).unwrap();
         assert!(matches!(&catch.kind, Kind::Switch { cases, .. } if cases.iter().all(|c| c.ev as usize != s6)));
         assert!(patch_open(&mut b).is_err());
+    }
+
+    #[test]
+    fn the_moat_ocarina_waits_only_for_its_pickup() {
+        let Some(mut rf) = real() else { return };
+        let mut a: Ainb = Ainb::parse(&rf.read(MOAT_MODULE).unwrap()).unwrap();
+        patch_moat(&mut a).unwrap();
+        assert!(patch_moat(&mut a).is_err());
+        assert!(crate::ainb::audit(&Ainb::parse(&a.write().unwrap()).unwrap()).is_empty());
+        let raw: Vec<u8> = rf.read_zs(AREA_FILE).unwrap();
+        let once: Vec<u8> = banc_bytes(&raw, &MOAT).unwrap();
+        let y: Byml = Byml::parse(&banc_bytes(&once, &ESCAPE_AREA).unwrap()).unwrap();
+        let acts: &[Node] = y.root.get("Actors").and_then(|n| n.as_arr()).unwrap();
+        let o: &Node = acts.iter().find(|a| a.get("Hash") == Some(&Node::U64(MOAT_HASH))).unwrap();
+        assert_eq!(o.get("Presence").and_then(|p| p.get("FlagName")).and_then(|n| n.as_str()), Some(PICKED));
+        assert_eq!(o.get("Presence").and_then(|p| p.get("IsNegation")), Some(&Node::Bool(true)));
     }
 
     #[test]
