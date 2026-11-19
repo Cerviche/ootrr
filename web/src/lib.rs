@@ -29,6 +29,7 @@ mod resp;
 mod router;
 pub mod server;
 mod state;
+pub mod stdio;
 mod token;
 pub mod tracker;
 mod tracker_view;
