@@ -26,13 +26,13 @@ pub const AREA: &str = "Area_054e";
 pub const AREA_FILE: &str = "Banc/HyruleField/HyruleField_Child_Static.bcett.byml.zs";
 pub const AREA_HASH: u64 = 5374506228817442823;
 pub const ESCAPE_STEP: &str = "Step03";
-pub const OPEN_STEP: &str = "Step04";
+pub const OPEN_STEP: &str = "Step03";
 pub const SONG_CHECK: &str = "Event60";
 pub const SONG_CHECK_EXP: &str = "DoorOfTime_IsAfter_Step04_Exp";
 pub const OPENED: &str = "Market_Child_TimeTempleDoor_Opened";
 pub const PREFIX: &str = "OOTRRDoorGate";
 pub const NOTE: &str = "The Door of Time opens when the Song of Time is played at the altar while the Door of Time requirement is met, and Zelda's escape from the castle waits for the same requirement in place of Dodongo's Cavern and Jabu-Jabu's Belly. The altar's song check reads the rewritten computed flag DoorOfTime_IsAfter_Srep2_1_1_Exp, the escape area in Hyrule Field appears while DoorOfTime_IsAfter_Step2_1_Exp holds (Impa's send off played, the escape not played yet, and the requirement met), clearing Dodongo's Cavern and Jabu-Jabu's Belly no longer moves the quest, and opening the door early leaves the escape, the Ocarina of Time and the Song of Time as checks. Experimental and untested in the game.";
-pub const SONGLESS_NOTE: &str = "The Door of Time opens once Zelda's escape has played, without the Song of Time. The door's logic module opens it from the Door of Time quest's Step04 in place of Step06, and the Master Sword can be drawn without the quest. Experimental and untested in the game.";
+pub const SONGLESS_NOTE: &str = "The Door of Time opens once Zelda's escape has played, without the Song of Time. The door's logic module opens it once the Door of Time quest is past Step03 in place of Step06, and the Master Sword can be drawn without the quest. Experimental and untested in the game.";
 pub const VANILLA_NOTE: &str = "The Door of Time opens when the Song of Time is played at the altar once Dodongo's Cavern and Jabu-Jabu's Belly are cleared, without waiting for Zelda's escape. The altar's song check reads the two dungeons' quests (Get_StoneOfFire_IsCompleted_Exp and Get_StoneOfWater_IsCompleted_Exp), and opening the door early leaves the escape, the Ocarina of Time and the Song of Time as checks.";
 pub const FIRE_EXP: &str = "Get_StoneOfFire_IsCompleted_Exp";
 pub const WATER_EXP: &str = "Get_StoneOfWater_IsCompleted_Exp";
@@ -58,6 +58,7 @@ const HEAD_EXP: &str = "Get_StoneOfFire_IsCompleted_Exp";
 const STR: usize = 3;
 const BOOL: usize = 1;
 const OUT_BOOL: usize = 4;
+const IS_EQUAL: u16 = 2;
 const AND_OP: i32 = 3;
 const OR_OP: i32 = 4;
 const NOT_OP: i32 = 5;
@@ -398,10 +399,15 @@ pub fn patch_opened(a: &mut Ainb) -> Res<()> {
         return Err(Error::Format("door gate: the door's gate input is not a multi link"));
     }
     let start: usize = (-100 - i32::from(m.src)) as usize;
-    let proxies: Vec<usize> = (start..start + m.plug as usize)
-        .filter(|&j| crate::door_open::multi_entry(a, j).is_some_and(|(e, _)| (e as usize) < a.els.len() && a.el_name(e as usize) == PROXY))
+    let is_step = |a: &Ainb, e: usize| e < a.els.len() && a.el_name(e) == crate::door_open::STEP_CHECK && a.in_str(e, CHALLENGE_IN) == Some(crate::door_open::CHALLENGE);
+    let equal: Vec<usize> = (start..start + m.plug as usize)
+        .filter(|&j| crate::door_open::multi_entry(a, j).is_some_and(|(e, o)| o == IS_EQUAL && is_step(a, e as usize)))
         .collect();
-    let j: usize = one(proxies, "event proxy read in the door's gate")?;
+    let j: usize = one(equal, "exact step read in the door's gate")?;
+    let proxied: bool = (start..start + m.plug as usize).any(|j| crate::door_open::multi_entry(a, j).is_some_and(|(e, _)| (e as usize) < a.els.len() && a.el_name(e as usize) == PROXY));
+    if !proxied {
+        return Err(Error::Format("door gate: the door's gate does not read the event proxy"));
+    }
     let flag: usize = one(a.find_els(FLAG_GET).into_iter().filter(|&i| a.in_str(i, FLAG_IN) == Some(OPENED)).collect(), "opened flag read")?;
     let e: u16 = u16::try_from(flag).map_err(|_| Error::Format("door gate: element index out of range"))?;
     a.multi[8 * j..8 * j + 2].copy_from_slice(&e.to_le_bytes());
