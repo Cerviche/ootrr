@@ -59,6 +59,7 @@ pub mod scrubs_b;
 pub mod settings;
 pub mod shelf;
 pub mod shops;
+pub mod short_get;
 pub mod slice;
 pub mod song_lessons;
 pub mod song_models;

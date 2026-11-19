@@ -414,6 +414,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         late.extend(crate::story_skip::worked(&mut rf, &pk)?);
         crate::story_skip::stage_arrows_give(&mut rf, &mut late, &give_for(crate::lacs_key::LOC))?;
         crate::story_skip::stage_saria_give(&mut rf, &mut late, &give_for(crate::slice::flow_rules::SARIA))?;
+        crate::story_skip::stage_requiem(&mut rf, &mut late, &work)?;
+        crate::story_skip::stage_arrows_row(&mut rf, &mut late, &work)?;
         crate::story_skip::stage_rauru_give(&mut rf, &mut late, &give_for(crate::story_skip::RAURU_LOC))?;
         for (loc, flow) in crate::story_skip::FAIRIES {
             crate::story_skip::stage_fairy_give(&mut rf, &mut late, &work, flow, &give_for(loc))?;
@@ -431,6 +433,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         late.extend(crate::story_skip::worked_endings(&mut rf, &pk)?);
         let gives: Vec<(&str, &[&str], crate::story_skip::SceneGive)> = crate::story_skip::REWARD_SCENES.iter().map(|(loc, scene, extra)| (*scene, *extra, give_for(loc))).collect();
         crate::story_skip::stage_reward_gives(&mut rf, &mut late, &gives)?;
+        crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::story_skip::ARROWS_FLOW, crate::story_skip::patch_last_sage)?;
     }
     if p.bridge {
         late.extend(crate::deku_bridge::worked(&mut rf, &pk)?);
@@ -440,6 +443,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     if p.rainbow.is_some() {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, "AllSage", crate::rainbow_bridge::patch_lacs_step)?;
+    }
+    if p.short {
+        crate::short_get::stage(&mut rf, &mut late, &work)?;
     }
     for o in late {
         pk.write_romfs(&o.path, &o.z)?;
