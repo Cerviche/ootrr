@@ -436,6 +436,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         crate::story_skip::stage_reward_gives(&mut rf, &mut late, &gives)?;
         crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::story_skip::ARROWS_FLOW, crate::story_skip::patch_last_sage)?;
     }
+    crate::fairy_prices::stage(&mut rf, &mut late, &work, p.rewards.fairy_prices, seed)?;
     if p.bridge {
         late.extend(crate::deku_bridge::worked(&mut rf, &pk)?);
     }

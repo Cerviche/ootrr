@@ -54,6 +54,7 @@ pub mod progressive;
 pub mod required;
 pub mod bomb_lift;
 pub mod bomb_pickup;
+pub mod fairy_prices;
 pub mod fire_gorons;
 pub mod merchant_prices;
 pub mod scrub_prices;

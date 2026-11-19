@@ -524,6 +524,18 @@ pub fn build() -> Schema {
             .when(crate::merchant_prices::SETTING, "fixed"),
     );
     s.push(
+        Setting::choice(crate::fairy_prices::NUM, crate::fairy_prices::SETTING, "shuffle", "Great Fairy Prices", "vanilla")
+            .tip("What the six Great Fairies ask as an offering before they grant their reward.")
+            .opt("vanilla", "Vanilla", "The fairy's usual offering: 25, 50, 100, 200, 300 or 500 rupees.")
+            .opt("cheap", "Cheap Balanced", "0 to 95 rupees, favoring low prices.")
+            .opt("fixed", "Fixed", "One price for every Great Fairy."),
+    );
+    s.push(
+        Setting::number(crate::fairy_prices::FIXED_NUM, crate::fairy_prices::FIXED, "shuffle", "Great Fairy Fixed Price", 10, 0, 99)
+            .tip("The offering every Great Fairy asks when Great Fairy Prices is Fixed.")
+            .when(crate::fairy_prices::SETTING, "fixed"),
+    );
+    s.push(
         Setting::toggle(crate::scrub_prices::HINT_NUM, crate::scrub_prices::HINT, "world", "Scrub Hint Text", false)
             .tip("Shuffled scrubs name the item they really sell. Off, they call it a Mystery Item. The price they say is always the price they take."),
     );

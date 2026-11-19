@@ -26,13 +26,14 @@ pub struct Ctx<'a> {
 
 pub type Stage = fn(&mut Romfs, &Ctx, &mut Vec<Out>) -> Res<()>;
 
-pub const STAGES: [(&str, Stage); 22] = [
+pub const STAGES: [(&str, Stage); 23] = [
     ("boss heart chests", boss_hearts),
     ("songs", songs),
     ("song models", song_models),
     ("hints", hints),
     ("dungeon item text", dungeon_text),
     ("scrub hint text", scrub_hints),
+    ("fairy price text", fairy_text),
     ("silver rupee text", silver_text),
     ("pouch", pouch),
     ("bomb flowers", bomb_lift),
@@ -92,6 +93,10 @@ fn dungeon_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 
 fn scrub_hints(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     crate::scrub_prices::stage_text(rf, c.d, c.seed, c.p.rewards.scrub_hint, more)
+}
+
+fn fairy_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    crate::fairy_prices::stage_text(rf, c.p.rewards.fairy_prices, c.seed, more)
 }
 
 fn silver_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
