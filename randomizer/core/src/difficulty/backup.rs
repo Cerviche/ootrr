@@ -3,6 +3,7 @@ use std::collections::{BTreeMap as Map, BTreeSet as Set};
 use crate::ainb::build::Spec;
 use crate::ainb::{Ainb, Plug};
 use crate::byml::{Byml, Node};
+use crate::difficulty::fx;
 use crate::difficulty::hook::{self, both, Hook};
 use crate::error::{Error, Res};
 use crate::pickup_pack::sizes;
@@ -16,7 +17,7 @@ use crate::zs;
 pub use hook::{actor_of, flag, switch, ACTOR_INFO, GLOBAL, GRAPH, GRAPHS, MODULES, STALFOS_GRAPH};
 
 pub const LABEL: &str = "enemy backup";
-pub const ADDED: usize = 28;
+pub const ADDED: usize = 28 + fx::CUE_ADDED;
 pub const HOOK: Hook = Hook { label: LABEL, taken, build };
 pub const REQUEST: &str = "OneShotActorHolderTryRequestCreateActor";
 pub const WAKE: &str = "OneShotActorHolderTryCancelSleepActor";
@@ -220,7 +221,8 @@ pub fn build(a: &mut Ainb, tag: &str) -> Res<usize> {
     )?;
     let call: usize = a.add_node(&request_spec(&s("call"), key.clone()))?;
     let second: usize = a.add_node(&request_spec(&s("call second"), key))?;
-    let calls: usize = a.add_node(&both(&s("calls"), call, second))?;
+    let pair: usize = a.add_node(&both(&s("calls"), call, second))?;
+    let calls: usize = fx::with_flash(a, &s("call"), pair)?;
     let request: usize = a.add_node(&both(&s("request"), calls, latch))?;
     let wait: usize = a.add_node(&Spec::node(IDLE, &s("idle wait")))?;
     let timer: usize = a.add_node(
@@ -822,7 +824,10 @@ mod tests {
         assert_eq!((a.el_name(kids(timer)[0]), a.el_type(request)), (IDLE, PARALLEL));
         let calls: usize = kids(request)[0];
         assert_eq!((a.el_type(calls), a.el_name(kids(request)[1])), (PARALLEL, SETB));
-        assert_eq!((a.el_name(kids(calls)[0]), a.el_name(kids(calls)[1])), (REQUEST, REQUEST), "two tries: the holder's MaxActors decides whether one or two come");
+        let pair: usize = kids(calls)[0];
+        assert_eq!((a.el_type(pair), a.el_name(kids(calls)[1])), (PARALLEL, fx::EMIT), "the call flashes");
+        assert_eq!(a.in_str(kids(calls)[1], "XLinkKeyName"), Some(fx::KEY));
+        assert_eq!((a.el_name(kids(pair)[0]), a.el_name(kids(pair)[1])), (REQUEST, REQUEST), "two tries: the holder's MaxActors decides whether one or two come");
         let source = |i: usize| -> usize { a.input(1, a.input_ids(i, 1)[0]).unwrap().src as usize };
         let reads = |i: usize| -> String { a.el_name(source(i)).to_string() };
         assert_eq!((reads(guard), reads(unused), reads(gate), reads(alone), reads(battle)), (GETB.to_string(), GETB.to_string(), READY.to_string(), EMPTY.to_string(), FIGHT.to_string()));

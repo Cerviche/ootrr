@@ -12,6 +12,8 @@ pub mod ground;
 pub mod horde;
 pub mod fairy;
 pub mod flows;
+pub mod elink;
+pub mod fx;
 pub mod lottery;
 pub mod minibosses;
 pub mod minions;
@@ -414,6 +416,9 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have, seed: &str) -> Res<Vec<Out>> 
     if o.fairy_helps {
         step(rf, &mut outs, have, |rf, have| Ok(fairy::stage(rf, have, ACTOR_PACKS)?.1))?;
     }
+    if o.regen || o.fairy_helps {
+        step(rf, &mut outs, have, fx::link_stage)?;
+    }
     if o.backup {
         step(rf, &mut outs, have, |rf, have| Ok(backup::stage(rf, have, ACTOR_PACKS)?.1))?;
     }
@@ -780,9 +785,10 @@ mod tests {
         for g in hook::GRAPHS {
             assert_eq!(sarc::get(&shared, g).map(|e| &e.data), sarc::get(&vanilla, g).map(|e| &e.data), "{g} stays vanilla");
         }
+        let vanilla_emits = |n: &str| -> usize { crate::ainb::Ainb::parse(&sarc::get(&vanilla, n).unwrap().data).unwrap().find_els(fx::EMIT).len() };
         for name in ["AI/Enemy_Stalfos.utility.root.ainb", "AI/EnemyBase.utility.root.ainb"] {
             let caller: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&shared, name).unwrap().data).unwrap();
-            assert_eq!((caller.find_els(regen::HEAL).len(), caller.find_els(fairy::CLEAR).len(), caller.find_els(backup::REQUEST).len()), (2, 1, 2), "{name} carries regen, fairy and backup");
+            assert_eq!((caller.find_els(regen::HEAL).len(), caller.find_els(fairy::CLEAR).len(), caller.find_els(backup::REQUEST).len(), caller.find_els(fx::EMIT).len() - vanilla_emits(name)), (4, 1, 2, 7), "{name} carries regen, fairy and backup, each with its flash");
             assert!(crate::ainb::audit(&caller).is_empty());
         }
         assert_eq!(outs.iter().filter(|x| x.path == "Pack/Actor/Enemy_Stalfos.pack.zs").count(), 1);
