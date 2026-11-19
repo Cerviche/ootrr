@@ -2,7 +2,7 @@ use std::f32::consts::{FRAC_PI_2, PI};
 
 use crate::byml::{Byml, Node};
 use crate::difficulty::wake;
-use crate::difficulty::ambush::{actor, euler, fresh, list, text, vec3, Frame};
+use crate::difficulty::ambush::{actor, euler, fresh, list, Frame};
 use crate::error::Res;
 use crate::flow_locations::dict_id;
 use crate::placement::hash_of;
@@ -263,6 +263,7 @@ pub fn stage(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::difficulty::ambush::{text, vec3};
 
     fn around(y: &Byml, at: [f32; 3]) -> Vec<(String, f32)> {
         let acts: &[Node] = y.root.get("Actors").and_then(|a| a.as_arr()).unwrap_or(&[]);

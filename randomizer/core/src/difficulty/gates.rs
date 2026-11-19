@@ -1,7 +1,7 @@
 use crate::ainb::build::{Spec, QUERY};
 use crate::ainb::{audit, Ainb};
 use crate::byml::{Byml, Node};
-use crate::difficulty::encounters::{dead_hand_nodes, knight_node, HAND, KNIGHT, RING};
+use crate::difficulty::encounters::{dead_hand_nodes, knight_node, HAND, KNIGHT};
 use crate::difficulty::wake;
 use crate::difficulty::ambush::{actor, euler, floats, fresh, link, list, text, vec3};
 use crate::error::{Error as E, Res};
@@ -661,6 +661,7 @@ pub fn stage(rf: &mut Romfs, have: Have, gates: &[Gate]) -> Res<Vec<Out>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::difficulty::encounters::RING;
 
     const G: Gate = Gate { id: 9, name: "t", map: "T_Child", a: [0.0, 5.0, 0.0], b: [6.0, 6.0, 0.0], spot: [3.0, 5.0, 10.0], more: &[], also: &[], sink: 0.0, radius: RADIUS, new_kind: "Enemy_New", closed_forest_only: false };
 
