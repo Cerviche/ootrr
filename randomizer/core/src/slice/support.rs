@@ -90,6 +90,7 @@ pub struct Plan {
     pub lacs: Option<u8>,
     /// crate::rainbow_bridge: Some(n) when the bridge waits for n dungeon rewards.
     pub rainbow: Option<u8>,
+    pub short: bool,
 }
 
 pub use crate::slice::unsupported::not_yet;
@@ -267,6 +268,10 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
     let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
     let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
+    let short: bool = s.flag(crate::short_get::SETTING).unwrap_or_else(|e| {
+        bad.push(e.to_string());
+        false
+    });
     if lacs.is_some() && (!rewards.on || matches!(chests, Mode::Off | Mode::Overworld)) {
         bad.push(crate::lacs_key::NEEDS.to_string());
     }
@@ -361,11 +366,14 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if rainbow.is_some() {
         notes.push(crate::rainbow_bridge::NOTE.to_string());
     }
+    if short {
+        notes.push(crate::short_get::NOTE.to_string());
+    }
     if lacs.is_some() {
         notes.push(crate::lacs_key::NOTE.to_string());
         notes.push(crate::medal_gate::LACS_NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, story, endings })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, short, story, endings })
 }
 
 #[cfg(test)]
@@ -380,7 +388,8 @@ mod tests {
         assert_eq!(p.keys.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 11);
+        assert_eq!(p.notes.len(), 12);
+        assert!(p.short && p.notes.iter().any(|n| n == crate::short_get::NOTE));
         assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
         assert!(p.remake && p.hearts && p.rewards.extra);
         assert_eq!(p.world, crate::slice::pickups::Free::Pieces);
