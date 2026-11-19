@@ -276,7 +276,6 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
     let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
     let door: crate::door_gate::Opts = crate::door_gate::read(s, gates.door, &mut bad);
-    bad.extend(crate::door_gate::reach_check(door.need, rewards.dungeon_rewards && !rewards.dungeon_own, start.reward == Reward::Medal));
     let short: bool = s.flag(crate::short_get::SETTING).unwrap_or_else(|e| {
         bad.push(e.to_string());
         false

@@ -11,14 +11,13 @@ use crate::staging::{self, Out};
 use crate::start_defaults::Edit;
 
 pub const SETTING: &str = "door_of_time_condition";
-pub const REWARDS: &str = "door_of_time_rewards";
+pub const ESCAPE: &str = "door_of_time_escape";
 pub const SONG: &str = "door_of_time_song";
 pub const VANILLA: &str = "vanilla";
 pub const STONES: &str = "stones";
-pub const DUNGEONS: &str = "dungeons";
 pub const SONG_ONLY: &str = "song";
 pub const OPEN: &str = "open";
-pub const CHILD_REWARDS: u8 = 3;
+pub const MOAT_CHOICE: &str = "moat";
 
 pub const ESCAPE_EXP: &str = "DoorOfTime_IsAfter_Step2_1_Exp";
 pub const REQ_EXP: &str = "DoorOfTime_IsAfter_Srep2_1_1_Exp";
@@ -49,12 +48,12 @@ pub const PREFIX: &str = "OOTRRDoorGate";
 
 pub const ALTAR_NOTE: &str = "Door of Time: the altar in the Temple of Time answers the Song of Time until the door is open (Market_Child_TimeTempleDoor_OcarinaReacts is rewritten to the door's opened flag), and the opening scene checks the chosen requirement in place of Zelda's escape. Opening the door early moves the Door of Time quest to Step06 only once it is past Step04, so Zelda's escape, the Ocarina of Time and the Song of Time stay checks, the door's logic module keeps it open from its opened flag, and the Master Sword can be drawn without the quest.";
 pub const VANILLA_NOTE: &str = "Door of Time, Closed - Vanilla: the song opens the door once Dodongo's Cavern and Jabu-Jabu's Belly are cleared (Get_StoneOfFire_IsCompleted_Exp and Get_StoneOfWater_IsCompleted_Exp).";
-pub const NOTE: &str = "Door of Time, Closed - Classic or Dungeon Rewards: the song opens the door once the Stones or the set number of Stones and Medallions are held (DoorOfTime_IsAfter_Srep2_1_1_Exp). Zelda's escape waits for the same requirement in place of Dodongo's Cavern and Jabu-Jabu's Belly: clearing those two dungeons no longer moves the quest, and the escape area in Hyrule Field appears while DoorOfTime_IsAfter_Step2_1_Exp holds (Impa's send off played, the escape not played yet, the requirement met).";
+pub const NOTE: &str = "Door of Time, Closed - Classic: the song opens the door once the three Spiritual Stones are held (DoorOfTime_IsAfter_Srep2_1_1_Exp).";
+pub const ESCAPE_NOTE: &str = "Zelda's escape waits for the three Spiritual Stones in place of Dodongo's Cavern and Jabu-Jabu's Belly: clearing those two dungeons no longer moves the Door of Time quest, and the escape area in Hyrule Field appears while DoorOfTime_IsAfter_Step2_1_Exp holds (Impa's send off played, the escape not played yet, the Stones held).";
 pub const SONG_ONLY_NOTE: &str = "Door of Time, Closed - Song Only: the Song of Time opens the door with no other requirement.";
-pub const MOAT_NOTE: &str = "Door of Time, Open: the Ocarina of Time lies in the castle moat from the start (its logic module no longer waits for the Door of Time quest's Step04, and its map entry is present until HyruleField_DoorOfTime_GetOcarinaOfTime has played), so HF Ocarina of Time Item and Song from Ocarina of Time need neither the two dungeons nor Zelda's escape. Experimental and untested in the game.";
+pub const MOAT_NOTE: &str = "Door of Time, Open, Zelda's escape not needed: the Ocarina of Time lies in the castle moat from the start (its logic module no longer waits for the Door of Time quest's Step04, and its map entry is present until HyruleField_DoorOfTime_GetOcarinaOfTime has played), so HF Ocarina of Time Item and Song from Ocarina of Time need neither the two dungeons nor Zelda's escape.";
 pub const SONGLESS_NOTE: &str = "Door of Time: the door also opens by itself once Zelda's escape has played (the door's logic module reads the quest past Step03 in place of Step06). Experimental and untested in the game.";
 
-const COUNTS: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 const AREA_EL: &str = "ActorLogicAreaActor";
 const OCARINA_EL: &str = "ActorLogicOcarinaTime";
 const REQUEST: &str = "ActorLogicEventRequestActor";
@@ -82,7 +81,6 @@ pub enum Need {
     #[default]
     Vanilla,
     Stones,
-    Rewards(u8),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,11 +89,12 @@ pub struct Opts {
     pub song: bool,
     pub only: bool,
     pub open: bool,
+    pub moat: bool,
 }
 
 impl Default for Opts {
     fn default() -> Opts {
-        Opts { need: Need::Vanilla, song: true, only: false, open: false }
+        Opts { need: Need::Vanilla, song: true, only: false, open: false, moat: false }
     }
 }
 
@@ -120,8 +119,10 @@ impl Opts {
         let mut out: Vec<(&'static str, &'static str)> = match self.need {
             Need::Vanilla => Vec::new(),
             Need::Stones => vec![(SETTING, STONES)],
-            Need::Rewards(n) => vec![(SETTING, DUNGEONS), (REWARDS, COUNTS[usize::from(n).min(9)])],
         };
+        if self.moat {
+            out.push((ESCAPE, MOAT_CHOICE));
+        }
         if self.only {
             out.push((crate::open_world::DOOR, "sot"));
         } else if !self.song {
@@ -133,16 +134,21 @@ impl Opts {
     pub fn notes(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
         if self.open {
-            out.push(MOAT_NOTE.to_string());
-            return out;
+            if self.moat {
+                out.push(MOAT_NOTE.to_string());
+            }
+        } else {
+            out.push(ALTAR_NOTE.to_string());
+            let which: &str = match (self.need, self.only) {
+                (_, true) => SONG_ONLY_NOTE,
+                (Need::Vanilla, false) => VANILLA_NOTE,
+                (Need::Stones, false) => NOTE,
+            };
+            out.push(which.to_string());
         }
-        out.push(ALTAR_NOTE.to_string());
-        let which: &str = match (self.need, self.only) {
-            (_, true) => SONG_ONLY_NOTE,
-            (Need::Vanilla, false) => VANILLA_NOTE,
-            _ => NOTE,
-        };
-        out.push(which.to_string());
+        if self.escape() {
+            out.push(ESCAPE_NOTE.to_string());
+        }
         if !self.song {
             out.push(SONGLESS_NOTE.to_string());
         }
@@ -156,12 +162,14 @@ pub fn settings() -> Vec<Setting> {
             .tip("What it takes to open the Door of Time. With a Closed choice, play the Song of Time at the altar in the Temple of Time once the requirement is met.")
             .opt(VANILLA, "Closed - Vanilla", "Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.")
             .opt(STONES, "Closed - Classic", "Hold all three Spiritual Stones, as in the original game. Zelda's escape waits for the Stones too.")
-            .opt(DUNGEONS, "Closed - Dungeon Rewards", "Hold the set number of Stones and Medallions together. Zelda's escape waits for them too. Experimental, untested in the game.")
             .opt(SONG_ONLY, "Closed - Song Only", "Only the Song of Time is needed. Zelda's escape stays on Dodongo's Cavern and Jabu-Jabu's Belly.")
-            .opt(OPEN, "Open", "The Door of Time is open from the start. Zelda's escape and the Song of Time stay checks."),
-        Setting::number(110, REWARDS, "world", "Rewards for the Door of Time", 3, 0, 9)
-            .tip("How many Stones and Medallions together open the Door of Time. Any mix of the three Spiritual Stones and six Medallions counts. Above 3 needs Dungeon Rewards shuffled Anywhere, since a child can only reach the three child dungeon bosses (one more with a starting Medallion).")
-            .when(SETTING, DUNGEONS),
+            .opt(OPEN, "Open", "The Door of Time is open from the start."),
+        Setting::choice(110, ESCAPE, "world", "Zelda's Escape", MOAT_CHOICE)
+            .tip("With the Door of Time open: what it takes for Zelda's escape, which leads to the Ocarina of Time in the castle moat and the Song of Time.")
+            .opt(VANILLA, "Vanilla", "Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.")
+            .opt(STONES, "Classic", "Hold all three Spiritual Stones, as in the original game.")
+            .opt(MOAT_CHOICE, "Not Required", "The Ocarina of Time waits in the castle moat from the start, with the Song of Time after it. Zelda's escape still plays after Dodongo's Cavern and Jabu-Jabu's Belly but gives nothing.")
+            .when(SETTING, OPEN),
         Setting::toggle(111, SONG, "world", "Additionally requires Song of Time", true)
             .tip("On, the Song of Time must be played at the altar once the requirement is met. Off, the door also opens by itself once Zelda's escape has played. Off is experimental and untested in the game.")
             .when_not(SETTING, OPEN)
@@ -169,33 +177,27 @@ pub fn settings() -> Vec<Setting> {
     ]
 }
 
-pub fn read(s: &Settings, open: bool, bad: &mut Vec<String>) -> Opts {
-    let need: Need = match s.text(SETTING) {
-        Ok(VANILLA) | Ok(OPEN) | Ok(SONG_ONLY) => Need::Vanilla,
+fn need_of(s: &Settings, key: &str, bad: &mut Vec<String>) -> Need {
+    match s.text(key) {
         Ok(STONES) => Need::Stones,
-        Ok(DUNGEONS) => match s.int(REWARDS) {
-            Ok(n) if (0..=9).contains(&n) => Need::Rewards(n as u8),
-            Ok(n) => {
-                bad.push(format!("{REWARDS} is {n}, which is not between 0 and 9"));
-                Need::Vanilla
-            }
-            Err(e) => {
-                bad.push(e.to_string());
-                Need::Vanilla
-            }
-        },
+        Ok(VANILLA) | Ok(OPEN) | Ok(SONG_ONLY) | Ok(MOAT_CHOICE) => Need::Vanilla,
         Ok(v) => {
-            bad.push(format!("{SETTING} is {v}, which is not a known choice"));
+            bad.push(format!("{key} is {v}, which is not a known choice"));
             Need::Vanilla
         }
         Err(e) => {
             bad.push(e.to_string());
             Need::Vanilla
         }
-    };
+    }
+}
+
+pub fn read(s: &Settings, open: bool, bad: &mut Vec<String>) -> Opts {
+    let need: Need = need_of(s, if open { ESCAPE } else { SETTING }, bad);
+    let moat: bool = open && s.text(ESCAPE).is_ok_and(|v| v == MOAT_CHOICE);
     let only: bool = !open && s.text(SETTING).is_ok_and(|v| v == SONG_ONLY);
     let song: bool = open || only || crate::slice::support::toggle(s, SONG, bad);
-    Opts { need, song, only, open }
+    Opts { need, song, only, open, moat }
 }
 
 pub fn legacy(v: &mut crate::settings::state::Vals) {
@@ -209,7 +211,6 @@ fn held(n: Need) -> Option<Vec<(i32, String)>> {
     match n {
         Need::Vanilla => None,
         Need::Stones => crate::medal_gate::at_least(&crate::medal_gate::REWARD_ITEMS[..3], 3),
-        Need::Rewards(k) => crate::medal_gate::at_least(&crate::medal_gate::REWARD_ITEMS, usize::from(k).min(9)),
     }
 }
 
@@ -224,14 +225,6 @@ pub fn terms(n: Need) -> Vec<(i32, String)> {
         t.push((AND_OP, String::new()));
     }
     t
-}
-
-pub fn reach_check(n: Need, anywhere: bool, start_medal: bool) -> Option<String> {
-    let Need::Rewards(k) = n else { return None };
-    let cap: u8 = CHILD_REWARDS + u8::from(start_medal);
-    (!anywhere && k > cap).then(|| {
-        format!("{REWARDS} is {k}, but with Dungeon Rewards not shuffled Anywhere a child can only collect {cap} Stones and Medallions before the Door of Time opens. Lower the count to {cap} or shuffle Dungeon Rewards Anywhere.")
-    })
 }
 
 fn one(hits: Vec<usize>, what: &str) -> Res<usize> {
@@ -499,6 +492,9 @@ pub fn stage_flow(rf: &mut Romfs, o: &Opts) -> Res<Out> {
         crate::door_fix::patch_flow(&mut b)?;
         if o.open {
             patch_open(&mut b)?;
+            if o.escape() {
+                patch_check(&mut b)?;
+            }
         } else if o.escape() {
             patch_check(&mut b)?;
             patch_song(&mut b, &[REQ_EXP])?;
@@ -607,27 +603,8 @@ mod tests {
         assert!(holds(&t, &[FOREST, FIRE, WATER]));
         assert!(holds(&t, &[ESCAPED, FOREST, FIRE, WATER]));
         assert!(!holds(&t, &[SENT, FOREST, FIRE]));
-        let none: Vec<(i32, String)> = req_terms(Need::Rewards(0));
+        let none: Vec<(i32, String)> = req_terms(Need::Vanilla);
         assert!(holds(&none, &[]) && holds(&none, &[SENT]));
-    }
-
-    #[test]
-    fn rewards_a_child_cannot_reach_are_refused() {
-        assert!(reach_check(Need::Rewards(3), false, false).is_none());
-        assert!(reach_check(Need::Rewards(4), false, false).is_some());
-        assert!(reach_check(Need::Rewards(4), false, true).is_none());
-        assert!(reach_check(Need::Rewards(9), true, false).is_none());
-        assert!(reach_check(Need::Stones, false, false).is_none());
-    }
-
-    #[test]
-    fn dungeon_rewards_count_any_mix() {
-        let t: Vec<(i32, String)> = terms(Need::Rewards(2));
-        assert!(holds(&t, &[SENT, FOREST, LIGHT]));
-        assert!(!holds(&t, &[SENT, LIGHT]));
-        let none: Vec<(i32, String)> = terms(Need::Rewards(0));
-        assert!(holds(&none, &[SENT]));
-        assert!(!holds(&none, &[SENT, ESCAPED]));
     }
 
     #[test]
@@ -639,12 +616,19 @@ mod tests {
         assert!(d.exps() == vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string())])] && d.logic().is_empty() && d.notes() == vec![ALTAR_NOTE.to_string(), VANILLA_NOTE.to_string()]);
         s.set(SETTING, Value::s(STONES)).unwrap();
         assert_eq!(read(&s, false, &mut bad).need, Need::Stones);
-        s.set(SETTING, Value::s(DUNGEONS)).unwrap();
-        s.set(REWARDS, Value::Int(5)).unwrap();
         let o: Opts = read(&s, false, &mut bad);
-        assert_eq!(o.need, Need::Rewards(5));
-        assert_eq!(o.logic(), vec![(SETTING, DUNGEONS), (REWARDS, "5")]);
-        assert_eq!(o.exps(), vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string())]), Edit::Exp(ESCAPE_EXP.to_string(), terms(Need::Rewards(5))), Edit::Exp(REQ_EXP.to_string(), req_terms(Need::Rewards(5)))]);
+        assert_eq!(o.logic(), vec![(SETTING, STONES)]);
+        assert_eq!(o.exps(), vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string())]), Edit::Exp(ESCAPE_EXP.to_string(), terms(Need::Stones)), Edit::Exp(REQ_EXP.to_string(), req_terms(Need::Stones))]);
+        s.set(SETTING, Value::s(OPEN)).unwrap();
+        s.set(ESCAPE, Value::s(STONES)).unwrap();
+        let open: Opts = read(&s, true, &mut bad);
+        assert!(open.open && open.escape() && !open.moat);
+        assert_eq!(open.exps(), vec![Edit::Exp(ESCAPE_EXP.to_string(), terms(Need::Stones)), Edit::Exp(REQ_EXP.to_string(), req_terms(Need::Stones))]);
+        s.set(ESCAPE, Value::s(MOAT_CHOICE)).unwrap();
+        let moat: Opts = read(&s, true, &mut bad);
+        assert!(moat.moat && !moat.escape());
+        assert_eq!(moat.logic(), vec![(ESCAPE, MOAT_CHOICE)]);
+        s.set(SETTING, Value::s(STONES)).unwrap();
         s.set(SONG, Value::Bool(false)).unwrap();
         assert!(!read(&s, false, &mut bad).song);
         assert!(read(&s, false, &mut bad).logic().contains(&(crate::open_world::DOOR, "stones")));
@@ -661,7 +645,7 @@ mod tests {
         assert!(!s.flag(crate::open_world::DOOR).unwrap());
         let mut bad: Vec<String> = Vec::new();
         assert!(crate::open_world::Gates::read(&s, &mut bad).door);
-        assert_eq!(read(&s, true, &mut bad), Opts { open: true, ..Opts::default() });
+        assert_eq!(read(&s, true, &mut bad), Opts { open: true, moat: true, ..Opts::default() });
         assert!(bad.is_empty(), "{bad:?}");
     }
 
@@ -808,17 +792,17 @@ mod tests {
         assert!(step_check(&back, OPEN_STEP).is_ok());
         assert!(step_check(&back, crate::door_open::STEP).is_err());
         assert_eq!(stage_door(&mut rf, &Opts { song: false, ..Opts::default() }).unwrap().len(), 2);
-        assert_eq!(stage_door(&mut rf, &Opts { need: Need::Stones, song: false, only: false, open: false }).unwrap().len(), 2);
+        assert_eq!(stage_door(&mut rf, &Opts { need: Need::Stones, song: false, only: false, open: false, moat: false }).unwrap().len(), 2);
     }
 
     #[test]
     fn the_escape_formula_names_only_known_flags() {
         let Some(mut rf) = real() else { return };
         let mut more: Vec<Out> = Vec::new();
-        let edits: Vec<Edit> = [Need::Stones, Need::Rewards(9), Need::Rewards(0)].iter().map(|n| Edit::Exp(ESCAPE_EXP.to_string(), terms(*n))).collect();
+        let edits: Vec<Edit> = [Need::Stones, Need::Vanilla].iter().map(|n| Edit::Exp(ESCAPE_EXP.to_string(), terms(*n))).collect();
         for e in edits {
             crate::start_defaults::stage(&mut rf, &mut more, &[e]).unwrap();
         }
-        assert_eq!(more.len(), 3);
+        assert_eq!(more.len(), 2);
     }
 }
