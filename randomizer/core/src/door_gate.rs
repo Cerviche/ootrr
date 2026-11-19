@@ -57,6 +57,7 @@ const IS_EXP: &str = "EventQueryIsGameDataBoolExp";
 const HEAD_EXP: &str = "Get_StoneOfFire_IsCompleted_Exp";
 const STR: usize = 3;
 const BOOL: usize = 1;
+const OUT_BOOL: usize = 4;
 const AND_OP: i32 = 3;
 const OR_OP: i32 = 4;
 const NOT_OP: i32 = 5;
@@ -405,6 +406,10 @@ pub fn patch_opened(a: &mut Ainb) -> Res<()> {
     let e: u16 = u16::try_from(flag).map_err(|_| Error::Format("door gate: element index out of range"))?;
     a.multi[8 * j..8 * j + 2].copy_from_slice(&e.to_le_bytes());
     a.multi[8 * j + 2..8 * j + 4].copy_from_slice(&0u16.to_le_bytes());
+    let o: usize = a.params[flag].ioe[BOOL][2] as usize * OUT_BOOL;
+    let w: &mut [u8] = a.outs[BOOL].get_mut(o..o + 4).ok_or(Error::Format("door gate: the opened flag read has no output"))?;
+    let v: u32 = u32::from_le_bytes([w[0], w[1], w[2], w[3]]) | crate::ainb::build::LINKED;
+    w.copy_from_slice(&v.to_le_bytes());
     Ok(())
 }
 
