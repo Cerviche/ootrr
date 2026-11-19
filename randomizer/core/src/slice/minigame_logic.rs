@@ -14,7 +14,7 @@ pub(super) mod tests {
 
     const HBA: [&str; 2] = ["GF HBA 1000 Points", "GF HBA 1500 Points"];
 
-    const HBA_KIT: [(&str, u32); 5] = [("Gerudo Membership Card", 1), ("Epona", 1), ("Ocarina", 1), ("Eponas Song", 1), ("Bow", 1)];
+    const HBA_KIT: [(&str, u32); 4] = [("Gerudo Membership Card", 1), ("Ocarina", 1), ("Eponas Song", 1), ("Bow", 1)];
 
     pub(in crate::slice) fn open(w: &World, name: &str, have: &[(&str, u32)], age: Age) -> bool {
         let mut s: Search = Search::new(w);
@@ -53,7 +53,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn horseback_archery_needs_the_card_an_adult_on_epona_with_her_song_and_a_bow() {
+    fn horseback_archery_needs_only_the_card_her_song_and_a_bow_as_an_adult() {
         let d: Data = Data::load().unwrap();
         for w in worlds(&d) {
             for l in HBA {
@@ -66,6 +66,7 @@ pub(super) mod tests {
             }
         }
         for l in HBA {
+            assert!(!rule_text(l).contains("can_ride_epona"), "{l}");
             assert!(!rule_text(l).contains("at_day"), "{l}");
             assert!(!rule_text(l).contains("at_night"), "{l}");
         }
