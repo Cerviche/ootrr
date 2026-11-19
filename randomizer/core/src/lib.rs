@@ -30,6 +30,7 @@ pub mod entr;
 pub mod event_chests;
 pub mod fast;
 pub mod gerudo_card;
+pub mod malon_song;
 pub mod flow_locations;
 pub mod flow_extra;
 pub mod flow_sim;

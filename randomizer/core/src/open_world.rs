@@ -224,6 +224,7 @@ pub fn worked(rf: &mut Romfs, pk: &crate::modpack::Pack, o: &Opts) -> Res<Vec<Ou
     let mut outs: Vec<Out> = if o.edits_files() { stage(rf, o, &have)? } else { Vec::new() };
     outs.extend(darunia::stage(rf, &have)?);
     outs.extend(crate::gerudo_card::stage(rf, &have)?);
+    outs.push(crate::malon_song::stage(rf, &have)?);
     Ok(outs)
 }
 

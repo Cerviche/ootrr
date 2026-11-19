@@ -136,7 +136,11 @@ pub fn multi_node(a: &mut Ainb, name: &str, seed: &str, srcs: &[(usize, u16)]) -
 }
 
 pub fn card_node(a: &mut Ainb, seed: &str) -> Res<usize> {
-    let name: Vec<u8> = a.pool.add(CARD).to_le_bytes().to_vec();
+    bool_node(a, CARD, seed)
+}
+
+pub fn bool_node(a: &mut Ainb, flag: &str, seed: &str) -> Res<usize> {
+    let name: Vec<u8> = a.pool.add(flag).to_le_bytes().to_vec();
     let mut s: Spec = Spec::node(GET_BOOL, seed).constant(0, "GameDataArrayIndex", (-1i32).to_le_bytes().to_vec()).constant(3, "GameDataNameBool", name).out(BOOL, "Bool");
     s.role = QUERY;
     a.add_node(&s)
@@ -173,16 +177,16 @@ pub fn patch(a: &mut Ainb, tag: &str) -> Res<usize> {
                 x
             }
         };
-        rewire(a, *i, *g, *src, enable, gate)?;
+        rewire(a, *i, *g, *src, enable, gate, TRUE_OUT)?;
     }
     Ok(linked.len())
 }
 
-fn rewire(a: &mut Ainb, i: usize, g: usize, src: i16, name: u32, gate: usize) -> Res<()> {
+pub fn rewire(a: &mut Ainb, i: usize, g: usize, src: i16, name: u32, gate: usize, out: i16) -> Res<()> {
     let at: usize = g * BOOL_IN;
     let to: i16 = i16::try_from(gate).map_err(|_| Error::Format("gerudo card: element index too large"))?;
     i16_at(&mut a.ins[BOOL], at + 4, to);
-    i16_at(&mut a.ins[BOOL], at + 6, TRUE_OUT);
+    i16_at(&mut a.ins[BOOL], at + 6, out);
     let p = &mut a.params[i];
     let (n0, s0): (usize, usize) = (p.pl[0][0] as usize, p.pl[0][1] as usize);
     let hit: usize = (s0..s0 + n0)
@@ -216,7 +220,7 @@ pub fn open_area(a: &mut Ainb, instance: &str, tag: &str) -> Res<usize> {
     };
     let gate: usize = multi_node(a, OR, &format!("ootrr gerudo card {tag} member"), &[(src as usize, 0), (card, 0)])?;
     let create: u32 = a.pool.add(CREATE);
-    rewire(a, i, g, src, create, gate)?;
+    rewire(a, i, g, src, create, gate, TRUE_OUT)?;
     Ok(gate)
 }
 
