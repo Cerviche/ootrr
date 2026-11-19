@@ -134,9 +134,7 @@ fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     } else {
         more.extend(crate::door_gate::stage_door(rf, &c.p.door)?);
     }
-    if c.p.door.escape() {
-        crate::door_gate::stage_escape(rf, more, Some(c.work))?;
-    }
+    crate::door_gate::stage_escape(rf, more, Some(c.work), &c.p.door)?;
     Ok(())
 }
 

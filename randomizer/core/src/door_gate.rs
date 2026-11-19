@@ -51,7 +51,7 @@ pub const VANILLA_NOTE: &str = "Door of Time, Closed - Vanilla: the song opens t
 pub const NOTE: &str = "Door of Time, Closed - Classic: the song opens the door once the three Spiritual Stones are held (DoorOfTime_IsAfter_Srep2_1_1_Exp).";
 pub const ESCAPE_NOTE: &str = "Zelda's escape waits for the three Spiritual Stones in place of Dodongo's Cavern and Jabu-Jabu's Belly: clearing those two dungeons no longer moves the Door of Time quest, and the escape area in Hyrule Field appears while DoorOfTime_IsAfter_Step2_1_Exp holds (Impa's send off played, the escape not played yet, the Stones held).";
 pub const SONG_ONLY_NOTE: &str = "Door of Time, Closed - Song Only: the Song of Time opens the door with no other requirement.";
-pub const MOAT_NOTE: &str = "Door of Time, Open, Zelda's escape not needed: the Ocarina of Time lies in the castle moat from the start (its logic module no longer waits for the Door of Time quest's Step04, and its map entry is present until HyruleField_DoorOfTime_GetOcarinaOfTime has played), so HF Ocarina of Time Item and Song from Ocarina of Time need neither the two dungeons nor Zelda's escape.";
+pub const MOAT_NOTE: &str = "Door of Time, Open, Zelda's escape not needed: the Ocarina of Time lies in the castle moat from the start (its logic module no longer waits for the Door of Time quest's Step04, and its map entry is present until HyruleField_DoorOfTime_GetOcarinaOfTime has played), so HF Ocarina of Time Item and Song from Ocarina of Time need neither the two dungeons nor Zelda's escape. Zelda's escape never plays: its area in Hyrule Field is absent (its presence reads Get_StoneOfFire_IsAfter_Ready_Exp, always true, negated) and clearing Dodongo's Cavern and Jabu-Jabu's Belly no longer moves the Door of Time quest.";
 pub const SONGLESS_NOTE: &str = "Door of Time: the door also opens by itself once Zelda's escape has played (the door's logic module reads the quest past Step03 in place of Step06). Experimental and untested in the game.";
 
 const AREA_EL: &str = "ActorLogicAreaActor";
@@ -168,7 +168,7 @@ pub fn settings() -> Vec<Setting> {
             .tip("With the Door of Time open: what it takes for Zelda's escape, which leads to the Ocarina of Time in the castle moat and the Song of Time.")
             .opt(VANILLA, "Vanilla", "Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.")
             .opt(STONES, "Classic", "Hold all three Spiritual Stones, as in the original game.")
-            .opt(MOAT_CHOICE, "Not Required", "The Ocarina of Time waits in the castle moat from the start, with the Song of Time after it. Zelda's escape still plays after Dodongo's Cavern and Jabu-Jabu's Belly but gives nothing.")
+            .opt(MOAT_CHOICE, "Not Required", "Zelda's escape never plays. The Ocarina of Time waits in the castle moat from the start, with the Song of Time after it.")
             .when(SETTING, OPEN),
         Setting::toggle(111, SONG, "world", "Additionally requires Song of Time", true)
             .tip("On, the Song of Time must be played at the altar once the requirement is met. Off, the door also opens by itself once Zelda's escape has played. Off is experimental and untested in the game.")
@@ -274,7 +274,8 @@ pub struct Presence {
 }
 
 pub const ESCAPE_AREA: Presence = Presence { hash: AREA_HASH, gyaml: "Area", flag: ESCAPE_EXP, negate: false };
-pub const MOAT: Presence = Presence { hash: MOAT_HASH, gyaml: "Obj_Ocarina_Time_A_01", flag: PICKED, negate: true };
+pub const NO_ESCAPE: Presence = Presence { hash: AREA_HASH, gyaml: "Area", flag: crate::always::NAME, negate: true };
+pub const MOAT: Presence =Presence { hash: MOAT_HASH, gyaml: "Obj_Ocarina_Time_A_01", flag: PICKED, negate: true };
 
 pub fn patch_banc(y: &mut Byml, p: &Presence) -> Res<()> {
     let actors: &mut Vec<Node> = y.root.get_mut("Actors").and_then(|n| n.as_arr_mut()).ok_or(Error::Format("door gate: the child Hyrule Field map has no actors"))?;
@@ -492,7 +493,7 @@ pub fn stage_flow(rf: &mut Romfs, o: &Opts) -> Res<Out> {
         crate::door_fix::patch_flow(&mut b)?;
         if o.open {
             patch_open(&mut b)?;
-            if o.escape() {
+            if o.escape() || o.moat {
                 patch_check(&mut b)?;
             }
         } else if o.escape() {
@@ -528,9 +529,16 @@ fn stage_presence(rf: &mut Romfs, more: &mut Vec<Out>, from: Option<&PB>, p: &Pr
     Ok(())
 }
 
-pub fn stage_escape(rf: &mut Romfs, more: &mut Vec<Out>, from: Option<&PB>) -> Res<()> {
+pub fn stage_escape(rf: &mut Romfs, more: &mut Vec<Out>, from: Option<&PB>, o: &Opts) -> Res<()> {
+    let p: &Presence = if o.escape() {
+        &ESCAPE_AREA
+    } else if o.moat {
+        &NO_ESCAPE
+    } else {
+        return Ok(());
+    };
     more.push(crate::medal_gate::module(rf, MODULE, patch_module)?);
-    stage_presence(rf, more, from, &ESCAPE_AREA)
+    stage_presence(rf, more, from, p)
 }
 
 pub fn patch_moat(a: &mut Ainb) -> Res<()> {
@@ -694,6 +702,9 @@ mod tests {
         let area: &Node = acts.iter().find(|a| a.get("Hash") == Some(&Node::U64(AREA_HASH))).unwrap();
         assert_eq!(area.get("Presence").and_then(|p| p.get("FlagName")).and_then(|n| n.as_str()), Some(ESCAPE_EXP));
         assert!(banc_bytes(&y.write().unwrap(), &ESCAPE_AREA).is_err());
+        let never: Byml = Byml::parse(&banc_bytes(&raw, &NO_ESCAPE).unwrap()).unwrap();
+        let n: &Node = never.root.get("Actors").and_then(|n| n.as_arr()).unwrap().iter().find(|a| a.get("Hash") == Some(&Node::U64(AREA_HASH))).unwrap();
+        assert_eq!(n.get("Presence").and_then(|p| p.get("IsNegation")), Some(&Node::Bool(true)));
     }
 
     #[test]
