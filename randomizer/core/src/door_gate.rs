@@ -30,6 +30,7 @@ pub const OPEN_STEP: &str = "Step03";
 pub const SONG_CHECK: &str = "Event60";
 pub const SONG_CHECK_EXP: &str = "DoorOfTime_IsAfter_Step04_Exp";
 pub const OPENED: &str = "Market_Child_TimeTempleDoor_Opened";
+pub const REACTS: &str = "Market_Child_TimeTempleDoor_OcarinaReacts";
 pub const PREFIX: &str = "OOTRRDoorGate";
 pub const NOTE: &str = "The Door of Time opens when the Song of Time is played at the altar while the Door of Time requirement is met, and Zelda's escape from the castle waits for the same requirement in place of Dodongo's Cavern and Jabu-Jabu's Belly. The altar's song check reads the rewritten computed flag DoorOfTime_IsAfter_Srep2_1_1_Exp, the escape area in Hyrule Field appears while DoorOfTime_IsAfter_Step2_1_Exp holds (Impa's send off played, the escape not played yet, and the requirement met), clearing Dodongo's Cavern and Jabu-Jabu's Belly no longer moves the quest, and opening the door early leaves the escape, the Ocarina of Time and the Song of Time as checks. Experimental and untested in the game.";
 pub const SONGLESS_NOTE: &str = "The Door of Time opens once Zelda's escape has played, without the Song of Time. The door's logic module opens it once the Door of Time quest is past Step03 in place of Step06, and the Master Sword can be drawn without the quest. Experimental and untested in the game.";
@@ -95,10 +96,15 @@ impl Opts {
     }
 
     pub fn exps(&self) -> Vec<Edit> {
-        if !self.escape() {
-            return Vec::new();
+        let mut out: Vec<Edit> = Vec::new();
+        if !self.open {
+            out.push(Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string()), (NOT_OP, String::new())]));
         }
-        vec![Edit::Exp(ESCAPE_EXP.to_string(), terms(self.need)), Edit::Exp(REQ_EXP.to_string(), req_terms(self.need))]
+        if self.escape() {
+            out.push(Edit::Exp(ESCAPE_EXP.to_string(), terms(self.need)));
+            out.push(Edit::Exp(REQ_EXP.to_string(), req_terms(self.need)));
+        }
+        out
     }
 
     pub fn logic(&self) -> Vec<(&'static str, &'static str)> {
@@ -559,7 +565,7 @@ mod tests {
         let mut s: Settings = Settings::default();
         let d: Opts = read(&s, false, &mut bad);
         assert_eq!(d, Opts::default());
-        assert!(d.exps().is_empty() && d.logic().is_empty() && d.notes() == vec![VANILLA_NOTE.to_string()]);
+        assert!(d.exps() == vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string()), (NOT_OP, String::new())])] && d.logic().is_empty() && d.notes() == vec![VANILLA_NOTE.to_string()]);
         s.set(SETTING, Value::s(STONES)).unwrap();
         assert_eq!(read(&s, false, &mut bad).need, Need::Stones);
         s.set(SETTING, Value::s(DUNGEONS)).unwrap();
@@ -567,7 +573,7 @@ mod tests {
         let o: Opts = read(&s, false, &mut bad);
         assert_eq!(o.need, Need::Rewards(5));
         assert_eq!(o.logic(), vec![(SETTING, DUNGEONS), (REWARDS, "5")]);
-        assert_eq!(o.exps(), vec![Edit::Exp(ESCAPE_EXP.to_string(), terms(Need::Rewards(5))), Edit::Exp(REQ_EXP.to_string(), req_terms(Need::Rewards(5)))]);
+        assert_eq!(o.exps(), vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string()), (NOT_OP, String::new())]), Edit::Exp(ESCAPE_EXP.to_string(), terms(Need::Rewards(5))), Edit::Exp(REQ_EXP.to_string(), req_terms(Need::Rewards(5)))]);
         s.set(SONG, Value::Bool(false)).unwrap();
         assert!(!read(&s, false, &mut bad).song);
         assert!(read(&s, false, &mut bad).logic().contains(&(crate::open_world::DOOR, "stones")));
@@ -644,7 +650,7 @@ mod tests {
         let o: Opts = read(&s, false, &mut bad);
         assert!(o.only && o.song && !o.escape() && o.flow());
         assert_eq!(o.logic(), vec![(crate::open_world::DOOR, "sot")]);
-        assert!(o.exps().is_empty());
+        assert_eq!(o.exps().len(), 1);
         assert!(bad.is_empty(), "{bad:?}");
     }
 
