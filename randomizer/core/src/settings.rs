@@ -396,7 +396,7 @@ mod tests {
         assert_ne!(t, "OOTRR1-EYAQD32I");
         assert_eq!(Settings::decode(&t).unwrap().settings, d);
         let mut all: Settings = Settings::default();
-        for (k, v) in [("zora_fountain", Value::s("open")), ("jabu_open", Value::Bool(true)), ("open_door_of_time", Value::Bool(true)), ("early_beds", Value::Bool(true))] {
+        for (k, v) in [("zora_fountain", Value::s("open")), ("jabu_open", Value::Bool(true)), (crate::door_gate::SETTING, Value::s(crate::door_gate::OPEN)), ("early_beds", Value::Bool(true))] {
             all.set(k, v).unwrap();
         }
         let back: Settings = Settings::decode(&all.encode().unwrap()).unwrap().settings;

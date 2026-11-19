@@ -186,11 +186,17 @@ const GV_BRIDGE: View = View {
 };
 
 const DOOR_OF_TIME: View = View {
-    id: "open_door_of_time",
+    id: "door_of_time_condition",
     label: "Door of Time",
-    tip: "Closed - The Ocarina of Time, the Song of Time and all three Spiritual Stones are required to open the Door of Time.\n\nSong only - Play the Song of Time in front of the Door of Time to open it.\n\nOpen - The Door of Time is permanently open with no requirements.",
+    tip: "What it takes to open the Door of Time. The Closed choices set what starts Zelda's escape from the castle, which leads to the Ocarina of Time and the Song of Time. The Song of Time is then played at the door, unless Additionally Requires Song of Time is off.\n\nClosed - Vanilla - Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.\n\nClosed - Classic - Hold all three Spiritual Stones, as in the original game. Experimental, untested in the game.\n\nClosed - Dungeon Rewards - Hold the set number of Stones and Medallions together. Experimental, untested in the game.\n\nSong Only - Play the Song of Time in front of the Door of Time to open it.\n\nOpen - The Door of Time is permanently open with no requirements. Zelda's escape and the Song of Time stay checks.",
     kind: Kind::Pick,
-    opts: &[yes("Closed", "false"), missing("Song only"), yes("Open", "true")],
+    opts: &[
+        yes("Closed - Vanilla", "vanilla"),
+        yes("Closed - Classic", "stones"),
+        yes("Closed - Dungeon Rewards", "dungeons"),
+        missing("Song Only"),
+        yes("Open", "open"),
+    ],
 };
 
 const ZORAS_FOUNTAIN: View = View {
@@ -412,6 +418,9 @@ const AREA_ACCESS: PortSection = port(
                     Entry::View(&FOREST),
                     Entry::Plain("open_kakariko"),
                     Entry::View(&DOOR_OF_TIME),
+                    Entry::Plain("door_of_time_rewards"),
+                    Entry::Plain("door_of_time_song"),
+                    Entry::Hidden("open_door_of_time"),
                     Entry::View(&ZORAS_FOUNTAIN),
                     gray_pick(
                         "Sleeping Waterfall",
@@ -707,12 +716,6 @@ pub const MENU: &[Page] = &[
         label: "Item gets",
         heading: IN_DEV,
         sections: &[sec("Item gets", &["item_get_short"])],
-    },
-    Page {
-        id: "door_of_time",
-        label: "Door of Time",
-        heading: IN_DEV,
-        sections: &[sec("Door of Time", &["door_of_time_condition", "door_of_time_rewards", "door_of_time_song"])],
     },
 ];
 

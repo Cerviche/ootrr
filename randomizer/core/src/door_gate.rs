@@ -6,7 +6,7 @@ use crate::bfevfl::{Bf, Cont, Event, Flow, Kind, Val};
 use crate::byml::{Byml, Node};
 use crate::error::{Error, Res};
 use crate::romfs::Romfs;
-use crate::settings::{Setting, Settings};
+use crate::settings::{Setting, Settings, Value};
 use crate::staging::{self, Out};
 use crate::start_defaults::Edit;
 
@@ -15,6 +15,7 @@ pub const REWARDS: &str = "door_of_time_rewards";
 pub const SONG: &str = "door_of_time_song";
 pub const STONES: &str = "stones";
 pub const DUNGEONS: &str = "dungeons";
+pub const OPEN: &str = "open";
 pub const ESCAPE_EXP: &str = "DoorOfTime_IsAfter_Step2_1_Exp";
 pub const SENT: &str = "HavePlayedEvent.HyruleField_DoorOfTime_SendOff";
 pub const ESCAPED: &str = "HavePlayedEvent.HyruleField_DoorOfTime_Escape";
@@ -95,23 +96,24 @@ impl Opts {
 
 pub fn settings() -> Vec<Setting> {
     vec![
-        Setting::choice(109, SETTING, "world", "Door of Time requirement", "vanilla")
-            .tip("What starts Zelda's escape from the castle. The escape leads to the Ocarina of Time and the Song of Time, and the Door of Time opens after it.")
-            .opt("vanilla", "Vanilla", "Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.")
-            .opt(STONES, "Classic", "Hold all three Spiritual Stones, as in the original game. Experimental, untested in the game.")
-            .opt(DUNGEONS, "Dungeon Rewards", "Hold the set number of Stones and Medallions together. Experimental, untested in the game."),
+        Setting::choice(109, SETTING, "world", "Door of Time", "vanilla")
+            .tip("What it takes to open the Door of Time. The Closed choices set what starts Zelda's escape from the castle, which leads to the Ocarina of Time and the Song of Time.")
+            .opt("vanilla", "Closed - Vanilla", "Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.")
+            .opt(STONES, "Closed - Classic", "Hold all three Spiritual Stones, as in the original game. Experimental, untested in the game.")
+            .opt(DUNGEONS, "Closed - Dungeon Rewards", "Hold the set number of Stones and Medallions together. Experimental, untested in the game.")
+            .opt(OPEN, "Open", "The Door of Time is open from the start. Zelda's escape and the Song of Time stay checks."),
         Setting::number(110, REWARDS, "world", "Rewards for the Door of Time", 3, 0, 9)
             .tip("How many Stones and Medallions together start Zelda's escape. Any mix of the three Spiritual Stones and six Medallions counts.")
             .when(SETTING, DUNGEONS),
         Setting::toggle(111, SONG, "world", "Additionally requires Song of Time", true)
             .tip("On, the Song of Time must be played at the Door of Time after Zelda's escape, as usual. Off, the door opens as soon as Zelda's escape has played. Off is experimental and untested in the game.")
-            .when_off(crate::open_world::DOOR),
+            .when_not(SETTING, OPEN),
     ]
 }
 
 pub fn read(s: &Settings, open: bool, bad: &mut Vec<String>) -> Opts {
     let need: Need = match s.text(SETTING) {
-        Ok("vanilla") => Need::Vanilla,
+        Ok("vanilla") | Ok(OPEN) => Need::Vanilla,
         Ok(STONES) => Need::Stones,
         Ok(DUNGEONS) => match s.int(REWARDS) {
             Ok(n) if (0..=9).contains(&n) => Need::Rewards(n as u8),
@@ -135,6 +137,13 @@ pub fn read(s: &Settings, open: bool, bad: &mut Vec<String>) -> Opts {
     };
     let song: bool = open || crate::slice::support::toggle(s, SONG, bad);
     Opts { need, song }
+}
+
+pub fn legacy(v: &mut crate::settings::state::Vals) {
+    if v.get(crate::open_world::DOOR) == Some(&Value::Bool(true)) {
+        v.insert(crate::open_world::DOOR.to_string(), Value::Bool(false));
+        v.insert(SETTING.to_string(), Value::s(OPEN));
+    }
 }
 
 pub fn terms(n: Need) -> Vec<(i32, String)> {
@@ -288,7 +297,6 @@ pub fn stage_door(rf: &mut Romfs) -> Res<Vec<Out>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::Value;
     use std::collections::BTreeSet as BS;
 
     fn holds(t: &[(i32, String)], on: &[&str]) -> bool {
@@ -365,10 +373,16 @@ mod tests {
     }
 
     #[test]
-    fn the_settings_sit_on_their_in_dev_page() {
-        let p: &crate::settings::menu::Page = crate::settings::menu::MENU.iter().find(|p| p.id == "door_of_time").unwrap();
-        assert_eq!(p.heading, crate::settings::menu::IN_DEV);
-        assert_eq!(p.sections[0].ids, &[SETTING, REWARDS, SONG]);
+    fn an_old_open_door_becomes_the_open_choice() {
+        let mut s: Settings = Settings::default();
+        s.set(crate::open_world::DOOR, Value::Bool(true)).unwrap();
+        s.normalize();
+        assert_eq!(s.text(SETTING).unwrap(), OPEN);
+        assert!(!s.flag(crate::open_world::DOOR).unwrap());
+        let mut bad: Vec<String> = Vec::new();
+        assert!(crate::open_world::Gates::read(&s, &mut bad).door);
+        assert_eq!(read(&s, true, &mut bad), Opts::default());
+        assert!(bad.is_empty(), "{bad:?}");
     }
 
     fn real() -> Option<Romfs> {

@@ -354,7 +354,7 @@ impl Gates {
                 Forest::Closed
             }
         };
-        let door: bool = crate::slice::support::toggle(s, "open_door_of_time", bad);
+        let door: bool = crate::slice::support::toggle(s, "open_door_of_time", bad) || s.text(crate::door_gate::SETTING).is_ok_and(|v| v == crate::door_gate::OPEN);
         let kakariko: bool = match s.text("open_kakariko") {
             Ok("open") => true,
             Ok("zelda") => false,
