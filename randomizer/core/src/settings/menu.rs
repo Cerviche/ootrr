@@ -117,14 +117,6 @@ const PLANT_BEANS: View = View {
     opts: &[yes("Off", "false"), yes("On", "true")],
 };
 
-const EPONA: View = View {
-    id: "skip_epona_race",
-    label: "Skip Epona Race",
-    tip: "Epona can be summoned with Epona's Song without needing to race Ingo.",
-    kind: Kind::Check,
-    opts: &[yes("Don't Skip", "false"), yes("Skip", "true")],
-};
-
 const RAINBOW_BRIDGE: View = View {
     id: "bridge",
     label: "Rainbow Bridge",
@@ -354,7 +346,6 @@ const LOGIC: PortSection = port(
                     ),
                     gray_check("Full Wallets", "Start with a full wallet. All wallet upgrades come filled with rupees."),
                     Entry::View(&PLANT_BEANS),
-                    Entry::View(&EPONA),
                     Entry::Hidden("bombchus_in_logic"),
                 ],
             );

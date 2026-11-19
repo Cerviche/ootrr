@@ -5,10 +5,11 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// Setting numbers and ids that are gone. An old settings string or file that carries one
 /// still imports, with a warning that its value is ignored, and no setting may reuse them.
 /// 55 and 92 (remake only chests and pots) now follow Chests, Pots and Crates.
-pub const RETIRED: [(u16, &str); 8] = [
+pub const RETIRED: [(u16, &str); 9] = [
     (crate::difficulty::ENCOUNTERS_NUM, crate::difficulty::ENCOUNTERS),
     (55, "shuffle_remake_chests"),
     (63, "shop_deal_gear"),
+    (81, crate::open_world::EPONA),
     (92, "shuffle_remake_pots"),
     crate::shops::plan::OLD[0],
     crate::shops::plan::OLD[1],
@@ -633,10 +634,6 @@ pub fn build() -> Schema {
             .opt("off", "No effect", "The Bunny Hood is only a mask, as in the original game.")
             .opt("speed", "Faster running", "Link runs 1.5 times as fast while wearing the Bunny Hood.")
             .opt("jump", "Faster running and longer jumps", "Link also leaves the ground 1.5 times as fast when jumping, so jumps go further."),
-    );
-    s.push(
-        Setting::toggle(81, crate::open_world::EPONA, "world", "Skip Epona's race", false)
-            .tip("Learning Epona's Song is enough to own Epona, with no ranch visit and no race against Ingo. The first time adult Link plays the song where a horse can be ridden, Epona is registered as his horse and comes, and the Epona quest is marked complete. Experimental, untested in the game."),
     );
     s.push(
         Setting::toggle(82, crate::open_world::MASKS, "world", "Skip the mask trading quest", false)

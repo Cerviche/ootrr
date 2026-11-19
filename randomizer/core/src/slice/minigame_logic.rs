@@ -87,6 +87,17 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn riding_epona_needs_only_her_song_as_an_adult() {
+        let d: Data = Data::load().unwrap();
+        let hurdle: &str = "LLR Epona Hurdle Wonderitem 1";
+        for w in worlds(&d) {
+            assert!(open(&w, hurdle, &[("Ocarina", 1), ("Eponas Song", 1)], Age::Adult));
+            assert!(!open(&w, hurdle, &[("Ocarina", 1), ("Eponas Song", 1)], Age::Child));
+            assert!(!open(&w, hurdle, &[("Ocarina", 1)], Age::Adult));
+        }
+    }
+
+    #[test]
     fn the_lab_dive_needs_the_gold_scale() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();
