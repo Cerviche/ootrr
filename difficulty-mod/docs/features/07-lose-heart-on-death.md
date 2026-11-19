@@ -63,7 +63,7 @@ Saving while alive: `GameSystemActor.EventTriggerRequestAutoSave` is used 73 tim
 - v5a (`feature/heart-v5a`): heart logic = max life one heart lower down to three hearts, then `EventTriggerRequestAutoSave`.
 - v5b (`feature/heart-v5b`, same code, `KEEP` = Count): the Game Over flow stores "max life minus one heart" in `BossRetryNum` of Gerudo Fortress; the boot flow cuts max life down to it when it is larger. Nothing is saved; the loss lasts until you quit to the title.
 - Side effect: the max life action fills health, so Link returns with full health. If the heart logic does nothing, the 5 rupees still show that the after-reload step ran.
-- Tests: `playtest\heart\V5-TESTS.md`. Unit tests cover the wiring of both variants. `flow-loads` is clean.
+- Tests: `<playtest folder>\heart\V5-TESTS.md`. Unit tests cover the wiring of both variants. `flow-loads` is clean.
 
 ## Ranked designs
 1. Boot event after the reload, then autosave (v5a). Least state; needs the autosave to be accepted in the boot event (high chance, vanilla does it).
@@ -106,7 +106,7 @@ Link returns at the Deku Tree entrance with full new health each time.
 - A mid-run alt-tab menu was reported by the user; the first run was repeated with a driver that checks for non-play state and no unexpected state was seen.
 
 ## Final build, played
-`playtest\heart\final\ootrr.exe`, starting_hearts 6, two deaths: max life 24 -> 20 -> 16, rupees unchanged at 0. PASS. `give` lists 85 items (swords, shields, tunics, boots, quantities, upgrades, medallions, songs); there are no filled bottles: `give Bottle` gives an Empty Bottle, `Fairy` is ambiguous (Fairy Slingshot, Fairy Bow, Fairy Ocarina), `"Bottled Fairy"` does not exist, and the client has no `items` command.
+`<playtest folder>\heart\final\ootrr.exe`, starting_hearts 6, two deaths: max life 24 -> 20 -> 16, rupees unchanged at 0. PASS. `give` lists 85 items (swords, shields, tunics, boots, quantities, upgrades, medallions, songs); there are no filled bottles: `give Bottle` gives an Empty Bottle, `Fairy` is ambiguous (Fairy Slingshot, Fairy Bow, Fairy Ocarina), `"Bottled Fairy"` does not exist, and the client has no `items` command.
 
 ## Code review reading of the lost persistence (18 Nov, no game run)
 From `docs\code-review-2026-11-18.md`, open problem (c). The in-session design is sound (the stale counter is always either overwritten or already correct). The loss can only persist if the cut value reaches a real save, and the only test (`final-save`) quit straight after the respawn.

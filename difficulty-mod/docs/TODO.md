@@ -11,7 +11,8 @@ Nothing known at the moment. Enemies call for backup and the spawn combination w
 | What | State | What to do |
 |---|---|---|
 | Spawn enemies with L + R + D-pad | Works with scripted button presses, also with every other setting on (rc 13); did nothing on a real controller in rc 12 | Try it on a real controller. Does a kill free one of the 12 slots? |
-| Enemies call for backup | Reworked and seen by script (rc 13): each kind calls its own helper after 10 to 25 seconds | Review the pairings in enemy-table.md; play it |
+| Enemies call for backup | "Bring a friend" (rc 14): 20 callers seen working by script; 8 called nobody in an open field; 2 brought one helper, not two | Play it; check Stalchild, Skulltula, Wallmaster, Armos, Freezard in their homes |
+| More enemies slider (to 10x) | Loads and holds frame rate by script (rc 14) | Play it at 2x, 5x and 10x; try a room whose door waits for its enemies; die in a few maps and check the retry is safe |
 | Gohma's Stalfos and Keese | Created when the door shuts; the dungeon loads | Walk through the boss door: nothing before the door shuts, then they appear |
 | Zora's Domain ambush | Map loads, Skulltulas present | Walk the cave |
 | Dodongo guard on Death Mountain Trail | Stands at his spot | Fight him; the barrier should drop |
@@ -41,7 +42,7 @@ Gates 2, 9 and 12 were seen working and are released (gate 2 now has a Dodongo g
 
 ## Never seen in the game
 
-Enemy speed by hand (measured by script: most enemies ignore it, see enemy-speed.md), more enemies (the slider; a 10x rework is in progress), boss minibosses and minions beyond loading, enemies respawn sooner, Zora's Domain ambush, the ten Like Likes at Lake Hylia, fake pots.
+Enemy speed by hand (measured by script: most enemies ignore it, see enemy-speed.md), boss minibosses and minions beyond loading, enemies respawn sooner, Zora's Domain ambush, the ten Like Likes at Lake Hylia, fake pots.
 
 ## Ideas saved for later
 

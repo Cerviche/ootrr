@@ -34,7 +34,7 @@ We added two commands to our own Longshot source build. They are not in Longshot
 
 ### Enemy positions: `enemies` (our source build only)
 
-`longshot_ctl.py --json enemies` (or `enemies --no-scan`) lists every live enemy actor as JSON: `t_ms` (host clock, monotonic), `frame`, `link` [x,y,z], `life`, `max_life`, and `enemies`: `name`, `id` (the actor's address, stable per instance), `x`, `y`, `z`, `hp`, `max_hp`. The first call scans memory (a hitch); `--no-scan` re-reads the last scan's enemies and is fast enough to sample at 10 to 20 Hz. Speed is horizontal distance between two samples over the `t_ms` difference, in the units `status` uses per second. In Python, `lib.enemies()` and `lib.horizontal_speed(a, b)` (playtest `encounters\lib.py`) wrap it. `docs\enemy-speed.md` has a whole survey built on it (`playtest\speed\survey.py`).
+`longshot_ctl.py --json enemies` (or `enemies --no-scan`) lists every live enemy actor as JSON: `t_ms` (host clock, monotonic), `frame`, `link` [x,y,z], `life`, `max_life`, and `enemies`: `name`, `id` (the actor's address, stable per instance), `x`, `y`, `z`, `hp`, `max_hp`. The first call scans memory (a hitch); `--no-scan` re-reads the last scan's enemies and is fast enough to sample at 10 to 20 Hz. Speed is horizontal distance between two samples over the `t_ms` difference, in the units `status` uses per second. In Python, `lib.enemies()` and `lib.horizontal_speed(a, b)` (playtest `encounters\lib.py`) wrap it. `docs\enemy-speed.md` has a whole survey built on it (`<playtest folder>\speed\survey.py`).
 
 Run the game windowed (`HOS_FULLSCREEN=0`) so it can be watched beside other windows.
 

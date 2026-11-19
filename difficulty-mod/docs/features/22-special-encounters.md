@@ -52,7 +52,7 @@ The new actors use the repo's usual shape (`Gyaml`, `Hash`, `Phive.Placement.ID`
 - Unit tests in `encounters.rs`: a Dead Hand gets four hands, matching links and one group per list, unique hashes, byte round trip; hand positions and rotations match the vanilla ring; an Iron Knuckle adds one plain actor and touches no group; two places in one map share no hash; a map without the group lists is refused.
 - Game file test (`OOTRR_ROMFS`): each placement alone and all three together on the real maps. Each file gains exactly the expected actors, the old actors are untouched, `AiGroups` is unchanged, all hashes are unique, the Dead Hand sits more than 6.5 from the restart anchor and level with it, and nothing new is within 4 of an existing enemy or chest.
 - `difficulty` tests (113) and `settings` tests (107) pass. The everything-on game test passes with the new files, the build notes count is 21, and the settings string with the setting off is unchanged.
-- A real build in `playtest\encounters`: a mod generated and built with this setting on. The four map files hold the new actors (6 more in each Hyrule Field map: Dead Hand, 4 hands, knight; 5 more in each Death Mountain Trail map).
+- A real build in `<playtest folder>\encounters`: a mod generated and built with this setting on. The four map files hold the new actors (6 more in each Hyrule Field map: Dead Hand, 4 hands, knight; 5 more in each Death Mountain Trail map).
 - The game was not launched.
 
 ## In the game
@@ -104,7 +104,7 @@ How to test: `<playtest folder>\knight-roam\TESTS.md`.
 - Open questions: does the Dead Hand need the room's enemy counter to wake? Should the knight have a chair? Is a radius 3 hand ring right for the narrow caves?
 
 ## Seen in the game (first playtest, shadow game, windowed)
-Preset: `special_encounters`, 20 hearts, enemy_health 50, Din's Fire with `["magic_meter","dins_fire"]` (the other order is refused by the generator). Din's Fire is on the X slot; the bridge button is `ZR`. Magic is empty after about 4 casts and `give` cannot refill it (status shows no magic). Shots: `playtest\encounters\shots\`.
+Preset: `special_encounters`, 20 hearts, enemy_health 50, Din's Fire with `["magic_meter","dins_fire"]` (the other order is refused by the generator). Din's Fire is on the X slot; the bridge button is `ZR`. Magic is empty after about 4 casts and `give` cannot refill it (status shows no magic). Shots: `<playtest folder>\encounters\shots\`.
 
 | Place | Age | LOAD | PRESENT | REACTS | KILL | EXIT |
 |---|---|---|---|---|---|---|
@@ -118,8 +118,8 @@ Preset: `special_encounters`, 20 hearts, enemy_health 50, Din's Fire with `["mag
 Notes: no black screen in Hyrule Field or Death Mountain Trail, either age. The knight does nothing on proximity alone (a code change for that is being prepared). Hole 9 needs a retest with a better method (the earlier survey reached it by warp without the mod).
 
 ## Seen in the game (v2 build, wake on approach, 18 Nov)
-Same shadow game, windowed, 20 hearts, `enemy_health` default. Shots `playtest\encounters\shots2-*.png`, log `playtest\encounters
-esult.txt`, hole 9 samples `playtest\encounters2\hole9-log-a1.json`. Approach points are on the south-west side of the knight (the east side is off the map: Link fell and respawned in Kokiri Forest).
+Same shadow game, windowed, 20 hearts, `enemy_health` default. Shots `<playtest folder>\encounters\shots2-*.png`, log `<playtest folder>\encounters
+esult.txt`, hole 9 samples `<playtest folder>\encounters2\hole9-log-a1.json`. Approach points are on the south-west side of the knight (the east side is off the map: Link fell and respawned in Kokiri Forest).
 
 | Check | Age | Result |
 |---|---|---|
@@ -139,7 +139,7 @@ User, after entering hole 9 properly: the Dead Hand "could be moved back a bit t
 - Hole 9 (Hyrule Field): Link lands at the exit anchor (163.27, 136.12, 27.38). The cave runs 15 units from there to the chest at (152.2, 16.7), with the ReDeads near its far end, so the very end is taken. Dead Hand now at (155.72, 135.84, 20.09): 10.5 from the landing spot, 4.5 from the nearest ReDead, 4.9 from the chest. Nearest hand 7.5 from the landing spot (was about 5.9).
 - Hole 23 (Death Mountain Trail): landing at (-1.65, 59.05, -26.12). Dead Hand now at (-5.0, 58.17, -38.5), the far end of the room among the Baby Dodongos: 12.8 from the landing spot (was 8.8), 4.2 or more from every Dodongo. Nearest hand about 9.8 from the landing spot.
 - The ring and floor heights are unchanged. Both child and adult maps use the same numbers. The game test now also requires every hand to be at least 6 units from the landing anchor.
-- In the game: see `playtest\session-fixes\TESTS.md`.
+- In the game: see `<playtest folder>\session-fixes\TESTS.md`.
 
 
 ## Like Likes at Lake Hylia (feature/likelikes, 18 Nov, not played)
@@ -169,18 +169,18 @@ Ground heights come from objects standing on the same landmass (there is no coll
 | 9 | -292.7 | 131.5 | 547.7 | nearest ground object 6.6 away |
 | 10 | -231.7 | 131.0 | 580.8 | gossip stone on the island |
 
-`playtest\likelikes\placed.png` draws a numbered marker at each of these, transformed back onto your picture (all within a pixel or two of your dots, except 7, 16 pixels off). Water: child level is about 131, so the islands (130.9 to 131.5) are land at the normal level; as adult the lake level changes during the game and the spots stay land either way (not confirmed in the game).
+`<playtest folder>\likelikes\placed.png` draws a numbered marker at each of these, transformed back onto your picture (all within a pixel or two of your dots, except 7, 16 pixels off). Water: child level is about 131, so the islands (130.9 to 131.5) are land at the normal level; as adult the lake level changes during the game and the spots stay land either way (not confirmed in the game).
 
 ### Tests
 - Unit: a Like Like is one plain actor with no links and no groups; the Hyrule Field test map with every place has 17 actors with unique hashes.
 - Game files (`OOTRR_ROMFS`): each map gains exactly the expected Like Likes, old actors untouched, unique hashes, groups unchanged; every Like Like is at least 2 from any existing enemy, chest, scarecrow, gossip stone, sign, warp pad or Fire Arrow, and inside the lake area.
-- `difficulty` (124) and `settings` (107) pass. A release build is in `playtest\likelikes\ootrr.exe`. The game was not launched.
+- `difficulty` (124) and `settings` (107) pass. A release build is in `<playtest folder>\likelikes\ootrr.exe`. The game was not launched.
 
 ### Known risk
 Like Like is an enemy kind that Hyrule Field does not have. One earlier black screen (the Dodongo's Cavern edit) is suspected to come from a new kind in a map, but other new kinds (Dead Hand, Iron Knuckle) loaded fine in these same maps. Not isolated. If Hyrule Field goes black, drop rows from `PLACES`.
 
 ### In the game
-`playtest\likelikes\TESTS.md`: `teleport HyruleField_Child`, then `warp` to each spot (Lake Hylia has no teleport entry of its own). Look for a Like Like on the ground at each spot, not in the water.
+`<playtest folder>\likelikes\TESTS.md`: `teleport HyruleField_Child`, then `warp` to each spot (Lake Hylia has no teleport entry of its own). Look for a Like Like on the ground at each spot, not in the water.
 
 ## Dead Hand, round 2 (branch `feature/enc-r2`)
 User, after the move to (148.6, 136.41, 13.7): "deadhand still spawns right near the entrance."

@@ -92,53 +92,57 @@ A reference of every fighting enemy in the game files: hit points, damage, wheth
 
 **Current rules** (`backup.rs`, setting `enemy_backup`). An enemy that runs the shared enemy graph and is not on the never-call list can call for help once, only while it has a valid target (it is in a fight). A timer of 600 frames plus a random 0 to 900 frames (10 to 25 seconds at 60 frames a second) runs; when it ends one helper is woken 2.5 units to the caller's side. One helper at a time, one call per enemy for life (a latch is set, so it never calls again, even after the helper dies). The helper is a normal enemy actor created from a holder entry in the caller's pack, so it appears even in maps that never placed it, and it must not run the shared graph (so it cannot call in turn).
 
-**Who calls whom now** (fill in the last column):
+**Who calls whom: three options to choose from.** **Chosen on 19 Nov: option 3, as written** (built on `feature/backup-r3`, not yet seen in the game). Club Moblin falls back to its option 2 helper (one Guay), because the spear Moblin did not work when created. A called helper is marked when it is woken and never calls in turn.
 
-| Caller | Current helper | Helper appeared in the spawn test? | Your choice |
-|---|---|---|---|
-| Business Scrub | Keese | yes | |
-| Deku Scrub (shooting) | Keese | yes | |
-| Gibdo | Keese | yes | |
-| Gohma larva | Keese | yes | |
-| Poe (small) | Keese | yes | |
-| Poe sisters (Amy, Beth, Joelle) | Keese | yes | |
-| Poe, big (Hyrule) | Keese | yes | |
-| Skull Kid | Keese | yes | |
-| Spike (rolling) | Keese | yes | |
-| Stalchild (small and big) | Keese | yes | |
-| Stalfos | Keese | yes | |
-| Stalfos, weak | Keese | yes | |
-| Tailpasaran | Keese | yes | |
-| Tektite (red and blue) | Keese | yes | |
-| Wolfos | Keese | yes | |
-| Freezard | Ice Keese | yes (not in the failed list) | |
-| Wolfos, white | Ice Keese | yes (not in the failed list) | |
-| Bubble, blue | Fire Keese | NO (did not appear) | |
-| Bubble, green | Fire Keese | NO (did not appear) | |
-| Bubble, red | Fire Keese | NO (did not appear) | |
-| Bubble, white | Fire Keese | NO (did not appear) | |
-| Torch Slug | Fire Keese | NO (did not appear) | |
-| Dinolfos | Baby Dodongo | yes | |
-| Dodongo | Baby Dodongo | yes | |
-| Lizalfos | Baby Dodongo | yes | |
-| Moblin, club | Guay (crow) | yes | |
-| Moblin, spear | Guay (crow) | yes | |
-| Deku Baba | Skullwalltula | yes | |
-| Mad Scrub | Skullwalltula | yes | |
-| Skulltula | Skullwalltula | yes | |
-| Skulltula, gold | Skullwalltula | yes | |
-| Floormaster | Little Floormaster | yes | |
-| Like Like | Little Floormaster | yes | |
-| Wallmaster | Little Floormaster | yes | |
-| Amos (Armos statue) | Flying pot | yes | |
-| Bari (big jellyfish) | Shabom (bubble) | yes | |
-| Biri (small jellyfish) | Shabom (bubble) | yes | |
-| Octorok | Shabom (bubble) | yes | |
-| Shell Blade | Shabom (bubble) | yes | |
-| Stinger | Shabom (bubble) | yes | |
-| Tentacle (Jabu-Jabu) | Shabom (bubble) | yes | |
+- **Option 1: small fry by theme.** What the game does now, with one fix: Fire Keese did not appear when created away from home, so its callers get a plain Keese. Every helper has 1 or 2 health and can never call anyone. Safest; all helpers were seen appearing.
+- **Option 2: a smaller relative.** The helper is a weaker cousin of the caller where one exists (Stalchild for the skeleton family, Biri for the Bari, wall Skulltula for forest enemies), otherwise as option 1. Slightly harder. Stalchildren and Biri would be new as helpers: Stalchildren appeared when created; a Biri appeared but only drifted.
+- **Option 3: bring a friend.** The helper is the same kind or a peer, so every fight can double once. Much harder. Needs one code change first: a helper created this way must be barred from calling in turn (today only whole kinds are barred), and each new helper kind must be seen appearing. Rows marked with a doubt are named.
 
-**Never call** (the 17 prefixes in `OUT_OF_BOUNDS`) and why:
+| Caller | Option 1 | Option 2 | Option 3 | Changes you want |
+|---|---|---|---|---|
+| Stalfos | Keese | Stalchild | Stalfos, weak | |
+| Stalfos, weak | Keese | Stalchild | Stalchild, big | |
+| Stalchild (small and big) | Keese | Keese | Stalchild | |
+| Gibdo | Keese | Stalchild | ReDead | |
+| Wolfos | Keese | Keese | Wolfos | |
+| Wolfos, white | Ice Keese | Ice Keese | Wolfos | |
+| Freezard | Ice Keese | Ice Keese | Wolfos, white | |
+| Lizalfos | Baby Dodongo | Baby Dodongo | Lizalfos | |
+| Dinolfos | Baby Dodongo | Baby Dodongo | Lizalfos | |
+| Dodongo | Baby Dodongo | Baby Dodongo | Dodongo | |
+| Moblin, club | Guay | Guay | Moblin, spear (seen not working when created: needs a check) | |
+| Moblin, spear | Guay | Guay | Guay x2 | |
+| Tektite (red and blue) | Keese | Guay | Tektite, same colour | |
+| Deku Baba | Skullwalltula | Skullwalltula | Mad Scrub | |
+| Mad Scrub | Skullwalltula | Skullwalltula | Deku Baba | |
+| Business Scrub | Keese | Skullwalltula | Mad Scrub | |
+| Deku Scrub (shooting) | Keese | Skullwalltula | Mad Scrub | |
+| Skull Kid | Keese | Skullwalltula | Stalchild | |
+| Skulltula | Skullwalltula | Skullwalltula | Skulltula | |
+| Skulltula, gold | Skullwalltula | nobody | nobody | |
+| Gohma larva | Keese | Skullwalltula | Gohma larva | |
+| Floormaster | Little Floormaster | Little Floormaster | Wallmaster | |
+| Wallmaster | Little Floormaster | Little Floormaster | Floormaster | |
+| Like Like | Little Floormaster | Little Floormaster | Like Like | |
+| Poe (small) | Keese | Keese | Poe (small) | |
+| Poe sisters (Amy, Beth, Joelle) | Keese | nobody (scripted room) | nobody | |
+| Poe, big (Hyrule) | Keese | Keese | Poe (small) | |
+| Amos (Armos statue) | Flying pot | Flying pot | Amos | |
+| Spike (rolling) | Keese | Flying pot | Keese | |
+| Tailpasaran | Keese | Keese | Tailpasaran | |
+| Bubble, blue / green / white | Keese (was Fire Keese, which did not appear) | Keese | Bubble, same colour (blue did not appear: use green) | |
+| Bubble, red | Keese (was Fire Keese) | Fire Keese in the Fire Temple and Dodongo's Cavern, Keese elsewhere | Bubble, red | |
+| Torch Slug | Keese (was Fire Keese) | Fire Keese in the Fire Temple and Dodongo's Cavern, Keese elsewhere | Torch Slug | |
+| Octorok | Shabom | Shabom | Octorok | |
+| Shell Blade | Shabom | Shabom | Stinger | |
+| Stinger | Shabom | Shabom | Stinger | |
+| Bari (big jellyfish) | Shabom | Biri | Biri x2 | |
+| Biri (small jellyfish) | Shabom | Shabom | Biri | |
+| Tentacle (Jabu-Jabu) | Shabom | Shabom | Biri | |
+
+Measured on 19 Nov with the current rules (option 1 before the Fire Keese fix): a Stalfos called one Keese and a Lizalfos one Baby Dodongo, each once, 16 to 25 seconds after appearing; Keese and a ReDead called nobody.
+
+**Never call** (the 17 prefixes in `OUT_OF_BOUNDS`, plus gold Skulltula and the Poe sisters in `CALLS_NOBODY` under option 3) and why. Under option 3 a helper may be a calling kind; it is the created actor that is barred, not the kind:
 
 | Who | Why |
 |---|---|

@@ -81,7 +81,7 @@ Arrival points found in the map data: player start positions (`StartPos`, every 
 - The map cap of 240 and the cluster cap still apply on top.
 
 ### Safety budget
-- `MAP_CAP` = 240 enemies in one map (vanilla's busiest maps: adult Hyrule Field 79, Fire Temple 78, Spirit Temple 76). About three times the busiest vanilla map. One const; lower it to test.
+- `MAP_CAP` = 240 enemies in one map (lowered to 160 after the first game test, raised back after the second) (vanilla's busiest maps: adult Hyrule Field 79, Fire Temple 78, Spirit Temple 76). About three times the busiest vanilla map. One const; lower it to test.
 - `CLUSTER_CAP` = 12 enemies within 15 units of any enemy (vanilla's densest: 14 in Ganon's Castle, 12 in the Spirit Temple). Applied both ways: a new enemy may not push any neighbour's count over 12.
 - `NEW_KINDS_CAP` = 8 kinds new to one map (vanilla has up to 23 kinds in one map).
 - Dodongo black screen: the suspect edit was a plain `Enemy_Lizalfos` (a kind the cavern never uses, with no partner) in `_Static`, near the boss with the boss room's index. The horde never uses plain Lizalfos, never places in boss or miniboss rooms (and keeps 40 units from bosses), and takes the room index from the nearest actor. New kinds still go into maps that never had them, which loaded fine for the Like Likes, Dead Hand and Iron Knuckle.
@@ -103,7 +103,7 @@ Boss rooms and dream world stages; `Market_Child` (town and minigames), `HyruleC
 | Dodongo's Cavern | 43 | 71 | 77 | 104 | 135 |
 | Fire Temple | 78 | 104 | 121 | 149 | 151 |
 
-2x is vanilla plus the copies. Above 2x the copies are made first and the horde fills to the same target, so the totals do not depend on them. Hyrule Field reaches the cap at 5x (adult) and 10x (child). 39 maps are edited at 10x, 2,010 added enemies in all: 3,652 before the two rules, 2,699 with capacity alone, 2,010 with the safe zones too (they removed 689). Of the 172 areas that hold vanilla enemies, 9 reach the full 10x and 136 are held lower by their capacity (the rest by the map or cluster cap or by running out of places). Per-area vanilla, capacity, limit and counts at 3x, 5x and 10x are in `playtest\horde\counts.csv`.
+2x is vanilla plus the copies. Above 2x the copies are made first and the horde fills to the same target, so the totals do not depend on them. Hyrule Field reaches the cap at 5x (adult) and 10x (child). 39 maps are edited at 10x, 2,010 added enemies in all: 3,652 before the two rules, 2,699 with capacity alone, 2,010 with the safe zones too (they removed 689). Of the 172 areas that hold vanilla enemies, 9 reach the full 10x and 136 are held lower by their capacity (the rest by the map or cluster cap or by running out of places). Per-area vanilla, capacity, limit and counts at 3x, 5x and 10x are in `<playtest folder>\horde\counts.csv`.
 
 ## How it was tested
 - Unit: navmesh reader on hand-made meshes (height, slope, room, two floors, patches, tile offsets); class table sanity; target grows with the slider and stops at the cap; group and miniboss limits; map names.
@@ -111,7 +111,7 @@ Boss rooms and dream world stages; `Market_Child` (town and minigames), `HyruleC
 - Safe zones, at 3x, 5x and 10x on every edited map: no added enemy within 15 of any arrival point; within 30 at most 2, all of the slow kinds, with an open arc of 120 degrees or more.
 - Capacity: every area's count equals its vanilla plus its added enemies and stays at or under its limit; the limit never exceeds vanilla x multiplier or the capacity; some small dungeon room ends under 5x its vanilla count and some area reaches 8x or more.
 - With every difficulty setting on at 10x (`difficulty.rs`): no file staged twice, the wake pack once, more than 1,000 actors added, no actor id used twice except where vanilla already does.
-- `cargo test -p ootrr-core difficulty` 181 passed, `settings` 106 passed; `python tools\audit.py randomizer` FAIL 0, no new WARN. Release build copied to `playtest\horde\ootrr.exe`.
+- `cargo test -p ootrr-core difficulty` 181 passed, `settings` 106 passed; `python tools\audit.py randomizer` FAIL 0, no new WARN. Release build copied to `<playtest folder>\horde\ootrr.exe`.
 
 ## NOT TESTED in the game: everything
 Nothing was run in the game. Unknown: whether 240 enemies in Hyrule Field load and run at a usable frame rate; whether new kinds load in every map (Like Likes, Dead Hand and Iron Knuckle did in Hyrule Field); whether dungeon room indices from the nearest actor are right; whether enemies stay on the ground they were given (especially Tektites and Wolfos at the edge of a ledge); whether fliers outdoors behave; whether doors that open on "all enemies beaten" still open; whether Guays copied from the night-only child-field ones appear by day (they carry the night key); whether the silver knights wake.
@@ -123,3 +123,38 @@ Script: `<playtest folder>\horde\PLAN.md` (order by risk, pass criteria, what to
 - The old choice values (Half again, Double) in a settings string from an earlier build read as out of range and fall back to 1x with a warning. Default settings string unchanged.
 - Added enemies have no save flag: they are back when the area loads again.
 - Out of reach ledges: the in-bounds rule needs actors nearby, so roofs and cliff tops with props on them can still get an enemy. The test plan watches for it.
+
+
+## First game test (19 Nov, `<playtest folder>\horde\RESULTS.md`) and the fix round
+Seen: 37 of 38 maps loaded at 10x, no crash, Dodongo's Cavern fine (174 live). Problems and what changed:
+- **Freezards fell through the floor** (5 of 10 in the Ice Cavern, 1 of 2 in the Forest Temple): Freezard is no longer placed.
+- **Child Haunted Wasteland** is black even without the mod: dropped from the edit list.
+- **Frame rate**: 60 with no mod and at 5x; 28 at 10x in child Hyrule Field and Dodongo's Cavern. 5x held 60 with up to about 75 live enemies within 60 units of Link (Dodongo's Cavern) and 205 planned in child Hyrule Field. New caps: `MAP_CAP` 160 per map, and `ACTIVE_CAP` 80 enemies (vanilla and added together) within `ACTIVE_RADIUS` 60 units of any enemy, checked both ways like the cluster cap.
+- **Slow maps with few live enemies** (both Desert Colossus maps 18 and 23 fps, adult Gerudo Valley 17, child Hyrule Field 28) are the maps with the most added Guays (14, 9, 16, 32); fast maps had 0 to 3. The Guays are copies of the night-only field Guays, so by day they are loaded but never seen. Hypothesis, not proved: hidden Guays (or their flock logic) cost frame time. Guays are no longer added (vanilla ones stay).
+- **Kinds that never appear when created in the field** (speed survey: blue Bubble, Gibdo, silver Iron Knuckle, fire Keese, big Poe): blue Bubble, Gibdo, fire Keese and big Poe were never in the horde pool (the 2x copies still copy Gibdos and fire Keese in their own home maps, as before). The silver Iron Knuckle stays: special encounters places the same kind, `Enemy_IronKnuckle_Silver`, the same way (a map entry with the wake key), and that knight was seen working in Hyrule Field; only knights created at run time fail to appear. A test now fails if any of these kinds, or a Freezard or Guay, is placed.
+- **Planned enemies missing** (Gerudo Valley 0 of 106, Water Temple 1 of 11, adult Hyrule Field 10 of 48, adult Lost Woods 14 of 118, Fire Temple 17 of 75; child Kokiri Forest all): cause not found from the data. Ruled out by comparing the maps: the added entries are built the same way everywhere (same template per kind, same keys, fresh unique ids checked against every map file); both groups include `_Static` and `_Dynamic` edits (Kokiri Dynamic arrived, adult Gerudo Valley Dynamic did not; Shadow and Spirit Temple Static arrived, Fire Temple Static did not); the navigation mesh lines up with the props in every one of these maps (Gerudo Valley child 14 of 18 grass, rocks and pots on the mesh, adult 19 of 23); the same kinds arrive in Kokiri Forest and go missing in Gerudo Valley; every map has a precomputed culling folder and a per-map scene parameter file, Kokiri included. Hypotheses and the checks are in `<playtest folder>\horde\PLAN.md`.
+
+Totals now (seed text "game"): 10x adds 1,580 enemies over 39 maps (was 2,010). Child and adult Hyrule Field 160 from 5x; child Kokiri Forest 26; Dodongo's Cavern 121; Fire Temple 127. Of 172 areas with vanilla enemies, 7 reach the full 10x and 136 are held lower by their capacity.
+
+
+## Second game test (19 Nov) and the final round
+What the game showed, in plain words:
+- **The "missing enemies" were the test tool's fault**, not the mod: with a wider scan the added enemies are there (adult Gerudo Valley 72 of 72, Fire Temple 50 of 49, adult Hyrule Field 81 of 84, child Hyrule Field 89 of 111).
+- **The low frame rates came from a second copy of the game running.** Alone, 10x holds 59 to 60 frames a second everywhere measured (Dodongo's Cavern with 103 live enemies, both Hyrule Fields, Desert Colossus, Gerudo Valley).
+- Nothing fell in the Shadow Temple, Spirit Temple or Zora's Fountain.
+- Safe arrival zone passed in child Hyrule Field (nearest enemy 58.8 units, no damage in 5 s) and in Dodongo's Cavern (first test).
+
+Changes in this round:
+- Caps back up: `MAP_CAP` 240 per map, `ACTIVE_CAP` 120 enemies within 60 units.
+- Guays are placed again as fliers (outdoors only). They fly by day and by night in the game, so the frame-rate theory against them was wrong. Freezards stay out (they fell through the floor).
+- **Exits:** enemies had been planned on the Gerudo Valley exits to the lake, (71.2, 41.6, 273.7) adult and (76.5, 41.2, 257.9) child. That area holds only Lake Hylia trees (scenery that belongs to the next area); no trigger actor is near it in the valley's files. Two fixes: scene-change areas (`AbilityChangeAreaForSceneChange`) now count as arrival points (nothing within 15, the 30-unit rule around them), and "in bounds" now needs a non-scenery actor (objects, enemies, NPCs, anchors, areas; not models, trees, effects, sounds, animals) within 30 units, so ground with only scenery on it is no longer used. A test checks that no Gerudo Valley enemy is within 15 of those two points, and every map is checked against every arrival and scene-change point.
+- **Why Dodongo's Cavern had about +100 live against 78 planned:** above 2x the 2x copies are made first (28 in the cavern) and were not in the CSV. `placements-10x.csv` now lists them too (class `Copy`), and the horde rows are planned the way the build does it, after the copies.
+- **Tektites, Like Likes and Octoroks matched their planned spots only 2 to 34 percent** (Wolfos, Poe, Stalfos 88 to 100): no placement fault found in the data. Their heights come from the same mesh as the others (vanilla Tektites and Like Likes sit at median 0.1 and 0.0 above it); Octoroks go at the height of a vanilla Octorok. Tektites hop, Like Likes crawl toward Link and Octoroks swim and dive, so they leave their spot. Treated as movement, not a fault.
+
+Totals at 10x now (seed text "game", copies included): 1,802 added over 39 maps (221 copies, 1,581 placed). Child Hyrule Field 240, adult Hyrule Field 240, Dodongo's Cavern 153, Fire Temple 175, child Kokiri Forest 23, adult Gerudo Valley 73.
+
+## Still not tested in the game
+- Doors that open when a room's enemies are beaten, with added enemies alive.
+- Safe arrival zones in Kokiri Forest and a second dungeon through a real entrance and a death.
+- Playing it by hand: whether 10x is fun or impossible, minibosses fighting, the Iron Knuckle waking.
+- The raised caps (240 and 120) themselves: the 60 fps result was measured with 160 and 80.

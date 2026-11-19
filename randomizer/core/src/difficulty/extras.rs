@@ -20,6 +20,7 @@ pub const ROOM: &str = "DefaultDungeonRoomIndex";
 pub const KEYS: &[&str] = &["Dynamic", "Gyaml", "Hash", "Phive", "Rotate", "SRTHash", "Translate"];
 pub const TIED: &[&str] = &["Event", "GameData", "Drop__"];
 pub const OWN: u32 = 2;
+pub const FULL: i64 = 100;
 pub const NEAR: f32 = 1.0;
 pub const FAR: f32 = 1.5;
 pub const MID: f32 = 0.5;
@@ -139,7 +140,7 @@ pub fn spot(at: [f32; 3], up: f32, mid: Option<(f32, f32)>, rng: &mut Rng) -> [f
     [at[0] + far * ang.cos(), at[1] + up, at[2] + far * ang.sin()]
 }
 
-fn fresh(seen: &mut Map<u64, u32>, rng: &mut Rng) -> u64 {
+pub fn fresh(seen: &mut Map<u64, u32>, rng: &mut Rng) -> u64 {
     loop {
         let h: u64 = rng.next_u64();
         if h > u32::MAX as u64 && !seen.contains_key(&h) {

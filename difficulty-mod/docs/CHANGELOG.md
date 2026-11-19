@@ -2,6 +2,25 @@
 
 One entry per release candidate (rc), newest first. Each rc is one commit on the `difficulty` branch. "Played" means seen in the running game, by hand or by a script through Longshot's control bridge (see [TESTING.md](TESTING.md)). Feature details are in [features/](features/).
 
+## rc 14
+
+Results come from scripted runs in the game (19 Nov). Nothing in this entry has been played by hand yet.
+
+- **Merged upstream 0.7.3.**
+- **More enemies is now a slider from 1x (off) to 10x.** The value is a ceiling, not a target: each area gets as many extra enemies as sensibly fit, up to that multiple. Up to 2x adds more of an area's own enemies; above that come kinds that suit the ground (flyers over open ground, Octoroks in water, wall and ceiling kinds in dungeons, Leevers only on sand) and, from about 5x, kinds that never live there and the odd miniboss (Stalfos, Dinolfos pairs, an Iron Knuckle, White Wolfos) on flat open ground. Spots come from the game's own navigation data, with a slope limit per kind. See [features/10](features/10-more-enemies.md).
+  - Safe zones: nothing is added near any place Link can arrive (entrances, exits, hole exits, warp pads, restart points), and only a couple of slow enemies in a wider ring, always leaving a way out.
+  - Limits: 240 enemies per map, 120 within 60 units. At 10x that is about 1,800 added enemies over 39 maps; 9 of 172 areas reach the full 10x.
+  - Seen: 37 of 38 edited maps load at 10x (the 38th is black without the mod too and is no longer edited). Kokiri Forest, both Hyrule Fields, Dodongo's Cavern and the Fire Temple hold 58 to 60 frames a second at 10x. Dying and retrying in Hyrule Field and Dodongo's Cavern: no damage in the first five seconds.
+  - Seen going wrong: Freezards fell through floors, so they are not placed. In 30 seconds at 10x one Tektite fell and a few enemies dropped off the list.
+  - Not tested: rooms whose door opens when the enemies are beaten; safe zones in Kokiri Forest and other dungeons; how it plays.
+- **Enemies call for backup: "bring a friend".** The helper is now the same kind as the caller or a peer (a Stalfos calls a Stalfos, a Wolfos a Wolfos, a Deku Baba a Mad Scrub), once, 10 to 25 seconds into the fight, and a called helper never calls. The table is in [enemy-table.md](enemy-table.md), option 3.
+  - Seen (32 callers spawned in Hyrule Field, no crash): working for Stalfos, Wolfos, Lizalfos, Dodongo, club Moblin, both Tektites, Deku Baba, Mad Scrub, Gohma larva, Floormaster, Like Like, Poe, green and red Bubble, Torch Slug, Octorok, Shell Blade. Keese and ReDeads call nobody. No helper called in turn.
+  - Seen short: the spear Moblin and the Bari brought one helper, not two.
+  - Nothing came in 75 seconds for Stalchild, Freezard, Skulltula, Wallmaster, Armos, Spike, Tailpasaran, Biri. Several of these do not fight normally when dropped in an open field, so this may be the test and not the feature.
+  - Not tested: weak Stalfos, Gibdo, white Bubble, the water and Jabu-Jabu kinds.
+- **Everything on together** (more enemies at 5x): Kokiri Forest, Hyrule Field, Dodongo's Cavern and the Deku Tree load, and three minutes in Hyrule Field ran without a crash at 46 to 56 frames a second.
+- Testing tools: the `enemies` command now scans the whole heap (it missed most enemies before, which looked like a mod fault); frame rates are only measured with one copy of the game running.
+
 ## rc 13
 
 Results come from scripted runs in the game (19 Nov) unless they say otherwise.

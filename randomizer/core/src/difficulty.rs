@@ -9,6 +9,8 @@ pub mod drops;
 pub mod dupes;
 pub mod encounters;
 pub mod extras;
+pub mod ground;
+pub mod horde;
 pub mod fairy;
 pub mod flows;
 pub mod lottery;
@@ -89,8 +91,8 @@ pub const SPEED_RANGE: (i64, i64) = (75, 200);
 pub const STAT_STEP: i64 = 25;
 pub const SPEED_STEP: i64 = 5;
 pub const ACTOR_PACKS: &str = "Pack/Actor";
-pub const MORE_OFF: &str = "off";
-pub const MORE_LEVELS: &[(&str, &str, i64)] = &[(MORE_OFF, "Off", 0), ("half", "Half again", 50), ("double", "Double", 100)];
+pub const MORE_RANGE: (i64, i64) = (100, 1000);
+pub const MORE_STEP: i64 = 50;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Opts {
@@ -201,7 +203,10 @@ impl Opts {
             out.push("A bottle is not filled with something that another of your bottles already holds. This covers catching things with a bottle, shop shelves, Deku Scrub sellers, cows, Talon and the potion shops. A refused catch may still use up what you swung at. Bottle contents from chests and other shuffled items are not covered. Experimental, untested in the game.".to_string());
         }
         if self.extra > 0 {
-            out.push(format!("About {} in 100 of the ordinary enemies that no door, chest, counter or event is tied to have one extra copy standing next to them. Experimental, untested in the game.", self.extra));
+            out.push(format!("About {} in 100 of the ordinary enemies that no door, chest, counter or event is tied to have one extra copy standing next to them. Experimental, untested in the game.", self.extra.min(extras::FULL)));
+        }
+        if self.extra > horde::FROM {
+            out.push(format!("More enemies at {}x: each area is filled toward that many times its usual number of enemies (at most {} in one map), on walkable ground read from the game's navigation mesh, with fliers, water enemies and, from 5x, kinds that never live there, groups and the odd miniboss. Experimental, untested in the game.", (self.extra + 100) as f32 / 100.0, horde::MAP_CAP));
         }
         if self.respawn {
             out.push("Most ordinary enemies come back when you leave their room or area and return, not only when you leave the whole dungeon or region. Bosses, minibosses, Gold Skulltulas, Poes, Deku Scrubs and a few enemies that share their data with a boss are unchanged. Experimental, untested in the game.".to_string());
@@ -273,6 +278,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let health: i64 = num(HEALTH, STAT_RANGE);
     let damage: i64 = num(DAMAGE, STAT_RANGE);
     let speed: i64 = num(SPEED, SPEED_RANGE);
+    let extra: i64 = num(MORE, MORE_RANGE) - NORMAL;
     let mut flag = |id: &str| -> bool {
         s.flag(id).unwrap_or_else(|e| {
             bad.push(e.to_string());
@@ -280,16 +286,6 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
         })
     };
     let o: Opts = Opts { health, damage, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS), bean_pitch: flag(BEAN_PITCH), zora_ambush: flag(ZORA_AMBUSH), fairy_helps: flag(FAIRY_HELPS), backup: flag(BACKUP), gates: flag(GATES), encounters: flag(ENCOUNTERS), cucco: flag(CUCCO), spawn_combo: flag(SPAWN_COMBO), forest_open: false, shops: false, mido_gone: false, entrances: false };
-    let extra: i64 = match s.text(MORE) {
-        Ok(t) => MORE_LEVELS.iter().find(|l| l.0 == t).map(|l| l.2).unwrap_or_else(|| {
-            bad.push(format!("{MORE} is {t}, which is not a known level"));
-            0
-        }),
-        Err(e) => {
-            bad.push(e.to_string());
-            0
-        }
-    };
     let forest_open: bool = chosen(s.text(FOREST), bad).map(|t| t == "open").unwrap_or(true);
     let entrances: bool = chosen(s.text(ENTRANCES), bad).map(|t| t != "off").unwrap_or(true);
     let shops: bool = chosen(s.text(crate::shops::plan::SETTING), bad).map(|t| t != "off").unwrap_or(false);
@@ -465,7 +461,7 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have, seed: &str) -> Res<Vec<Out>> 
         }
     }
     if o.extra > 0 {
-        step(rf, &mut outs, have, |rf, have| extras::stage(rf, have, seed, o.extra))?;
+        step(rf, &mut outs, have, |rf, have| extras::stage(rf, have, seed, o.extra.min(extras::FULL)))?;
     }
     if o.minibosses {
         for s in &minibosses::SPOTS {
@@ -491,6 +487,9 @@ pub fn stage(rf: &mut Romfs, o: &Opts, have: Have, seed: &str) -> Res<Vec<Out>> 
     let gl: Vec<gates::Gate> = o.gate_list();
     if !gl.is_empty() {
         step(rf, &mut outs, have, |rf, have| gates::stage(rf, have, &gl))?;
+    }
+    if o.extra > horde::FROM {
+        step(rf, &mut outs, have, |rf, have| horde::stage(rf, have, seed, o.extra, o.encounters))?;
     }
     Ok(outs)
 }
@@ -525,7 +524,7 @@ mod tests {
         let mut s: Settings = Settings::default();
         s.set(HEALTH, Value::Int(100)).unwrap();
         s.set(NO_HEARTS, Value::Bool(false)).unwrap();
-        s.set(MORE, Value::s(MORE_OFF)).unwrap();
+        s.set(MORE, Value::Int(100)).unwrap();
         s.set(RESPAWN, Value::Bool(false)).unwrap();
         s.set(MINIBOSSES, Value::Bool(false)).unwrap();
         s.set(REGEN, Value::Bool(false)).unwrap();
@@ -588,7 +587,7 @@ mod tests {
         for id in [NO_HEARTS, NO_FAIRIES, NO_AMMO, LOSE_HEART, NO_BOTTLES, NO_TARGET, NO_DUPES, RESPAWN, MINIBOSSES, REGEN, MINIONS, BEAN_PITCH, ZORA_AMBUSH, FAIRY_HELPS, BACKUP, GATES, ENCOUNTERS, CUCCO, SPAWN_COMBO] {
             s.set(id, Value::Bool(true)).unwrap();
         }
-        s.set(MORE, Value::s("half")).unwrap();
+        s.set(MORE, Value::Int(150)).unwrap();
         let back: Settings = Settings::decode(&s.encode().unwrap()).unwrap().settings;
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&back, &mut bad);
@@ -599,7 +598,7 @@ mod tests {
         assert_eq!(o.notes().iter().collect::<std::collections::BTreeSet<&String>>().len(), o.notes().len());
         assert!(o.notes().iter().any(|n| n.contains("About 50 in 100")));
         assert!(Opts { extra: 100, ..Opts::default() }.any() && !Opts { extra: 100, ..Opts::default() }.packs());
-        assert!(s.set(MORE, Value::s("triple")).is_err() || s.clone().finish().is_err());
+        assert!(s.set(MORE, Value::Int(1050)).is_err() || s.clone().finish().is_err());
         assert!(o.notes().iter().any(|n| n.contains("Queen Gohma (Stalfos)") && n.contains("untested in the game")));
         assert!(o.notes().iter().any(|n| n == minions::NOTE));
         let fun: Opts = Opts { bean_pitch: true, ..Opts::default() };
@@ -791,7 +790,7 @@ mod tests {
             assert_eq!(count(&now), count(&base) + 1 + signalled, "{} carries the miniboss and the signalled minions", s.file);
             assert_eq!(has(&now, s.mini), has(&base, s.mini) + 1);
         }
-        assert!(sarc::get(&es, backup::NEW).is_some());
+        assert!(sarc::get(&es, backup::HELPERS[backup::helper_of("Enemy_Stalfos")].1).is_some());
         let shared: Vec<Entry> = sarc::parse(&rf.zs.decompress(&at(regen::GLOBAL).z).unwrap()).unwrap();
         let vanilla: Vec<Entry> = sarc::parse(&rf.read_zs(regen::GLOBAL).unwrap()).unwrap();
         for g in hook::GRAPHS {
@@ -799,7 +798,7 @@ mod tests {
         }
         for name in ["AI/Enemy_Stalfos.utility.root.ainb", "AI/EnemyBase.utility.root.ainb"] {
             let caller: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&shared, name).unwrap().data).unwrap();
-            assert_eq!((caller.find_els(regen::HEAL).len(), caller.find_els(fairy::CLEAR).len(), caller.find_els(backup::REQUEST).len()), (2, 1, 1), "{name} carries regen, fairy and backup");
+            assert_eq!((caller.find_els(regen::HEAL).len(), caller.find_els(fairy::CLEAR).len(), caller.find_els(backup::REQUEST).len()), (2, 1, 2), "{name} carries regen, fairy and backup");
             assert!(crate::ainb::audit(&caller).is_empty());
         }
         assert_eq!(outs.iter().filter(|x| x.path == "Pack/Actor/Enemy_Stalfos.pack.zs").count(), 1);
@@ -1217,10 +1216,47 @@ mod tests {
         assert_eq!(max_life(&es, life), Some(Node::I32(a * 2)));
         let global: Vec<Entry> = sarc::parse(&rf.zs.decompress(&outs.iter().find(|x| x.path == backup::GLOBAL).unwrap().z).unwrap()).unwrap();
         let graph: crate::ainb::Ainb = crate::ainb::Ainb::parse(&sarc::get(&global, "AI/Enemy_Stalfos.utility.root.ainb").unwrap().data).unwrap();
-        assert_eq!(graph.find_els(backup::REQUEST).len(), 1);
+        assert_eq!(graph.find_els(backup::REQUEST).len(), 2);
         assert!(sarc::get(&es, backup::STALFOS_GRAPH).map(|e| &e.data) == sarc::get(&was, backup::STALFOS_GRAPH).map(|e| &e.data), "the module itself is vanilla");
-        assert!(sarc::get(&es, backup::NEW).is_some() && sarc::get(&was, backup::NEW).is_none());
-        assert_eq!(backup::holder_of(&es, "Enemy_Stalfos").unwrap().as_deref(), Some(backup::NEW));
+        assert!(sarc::get(&es, backup::HELPERS[backup::helper_of("Enemy_Stalfos")].1).is_some() && sarc::get(&was, backup::HELPERS[backup::helper_of("Enemy_Stalfos")].1).is_none());
+        assert_eq!(backup::holder_of(&es, "Enemy_Stalfos").unwrap().as_deref(), Some(backup::HELPERS[backup::helper_of("Enemy_Stalfos")].1));
         assert!(!outs.iter().any(|x| x.path.contains("Player_")), "the player packs are left alone");
+    }
+
+    #[test]
+    fn the_horde_keeps_every_actor_id_unique_with_every_other_setting_on() {
+        let Some(root) = dump() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let o: Opts = Opts { no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 900, respawn: true, minibosses: true, regen: true, minions: true, bean_pitch: true, zora_ambush: true, fairy_helps: true, backup: true, gates: true, encounters: true, cucco: true, spawn_combo: true, ..Opts::default() };
+        let outs: Vec<Out> = stage(&mut rf, &o, &none, "seed").unwrap();
+        let paths: std::collections::BTreeSet<&str> = outs.iter().map(|x| x.path.as_str()).collect();
+        assert_eq!(paths.len(), outs.len(), "no file is staged twice");
+        assert_eq!(outs.iter().filter(|x| x.path == wake::PACK).count(), 1);
+        let ids = |rf: &mut Romfs, mine: bool| -> (std::collections::HashMap<u64, usize>, usize) {
+            let mut m: std::collections::HashMap<u64, usize> = std::collections::HashMap::new();
+            let mut n: usize = 0;
+            for f in extras::files(rf).unwrap() {
+                let y: Byml = match outs.iter().find(|x| x.path == f).filter(|_| mine) {
+                    Some(x) => Byml::parse(&rf.zs.decompress(&x.z).unwrap()).unwrap(),
+                    None => rf.read_byml(&f).unwrap(),
+                };
+                for a in y.root.get("Actors").and_then(|l| l.as_arr()).unwrap_or(&[]) {
+                    if let Some(h) = crate::placement::hash_of(a) {
+                        *m.entry(h).or_insert(0) += 1;
+                        n += 1;
+                    }
+                }
+            }
+            (m, n)
+        };
+        let (was, before): (std::collections::HashMap<u64, usize>, usize) = ids(&mut rf, false);
+        let (now, after): (std::collections::HashMap<u64, usize>, usize) = ids(&mut rf, true);
+        assert!(after > before + 1000, "{before} then {after}");
+        for (h, n) in &now {
+            assert!(*n == 1 || was.get(h) == Some(n), "id {h} is used {n} times");
+        }
     }
 }

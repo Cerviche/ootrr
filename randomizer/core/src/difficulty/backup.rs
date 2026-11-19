@@ -16,7 +16,7 @@ use crate::zs;
 pub use hook::{actor_of, flag, switch, ACTOR_INFO, GLOBAL, GRAPH, GRAPHS, MODULES, STALFOS_GRAPH};
 
 pub const LABEL: &str = "enemy backup";
-pub const ADDED: usize = 23;
+pub const ADDED: usize = 28;
 pub const HOOK: Hook = Hook { label: LABEL, taken, build };
 pub const REQUEST: &str = "OneShotActorHolderTryRequestCreateActor";
 pub const WAKE: &str = "OneShotActorHolderTryCancelSleepActor";
@@ -36,16 +36,38 @@ pub const USED: &str = "OotrrBackupUsed";
 pub const TABLE: &str = "Component/Blackboard/BlackboardParamTable/EnemyCommon.engine__component__BlackboardParamTable.bgyml";
 pub const BOOLS: &str = "BlackboardParamBoolArray";
 pub const CALLERS: &str = "Enemy_";
-pub const HELPERS: [(&str, &str); 9] = [
-    ("Enemy_Keese", "Component/ActorHolderParam/OotrrBackup.game__component__ActorHolderParam.bgyml"),
-    ("Enemy_Keese_Ice", "Component/ActorHolderParam/OotrrBackupIce.game__component__ActorHolderParam.bgyml"),
-    ("Enemy_Keese_Fire", "Component/ActorHolderParam/OotrrBackupFire.game__component__ActorHolderParam.bgyml"),
-    ("Enemy_BabyDodongo", "Component/ActorHolderParam/OotrrBackupDodongo.game__component__ActorHolderParam.bgyml"),
-    ("Enemy_Guay", "Component/ActorHolderParam/OotrrBackupGuay.game__component__ActorHolderParam.bgyml"),
-    ("Enemy_Skullwalltula", "Component/ActorHolderParam/OotrrBackupSpider.game__component__ActorHolderParam.bgyml"),
-    ("Enemy_Floormaster_Little", "Component/ActorHolderParam/OotrrBackupFloor.game__component__ActorHolderParam.bgyml"),
-    ("Enemy_FlyingPot", "Component/ActorHolderParam/OotrrBackupPot.game__component__ActorHolderParam.bgyml"),
-    ("Enemy_Shabom", "Component/ActorHolderParam/OotrrBackupBubble.game__component__ActorHolderParam.bgyml"),
+pub const HELPERS: [(&str, &str, i32); 31] = [
+    ("Enemy_Keese", "Component/ActorHolderParam/OotrrBackup.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Stalfos_Weak", "Component/ActorHolderParam/OotrrBackupStalfosWeak.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Stalchild_Big", "Component/ActorHolderParam/OotrrBackupStalchildBig.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Stalchild", "Component/ActorHolderParam/OotrrBackupStalchild.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_ReDead", "Component/ActorHolderParam/OotrrBackupReDead.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Wolfos", "Component/ActorHolderParam/OotrrBackupWolfos.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Wolfos_White", "Component/ActorHolderParam/OotrrBackupWolfosWhite.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Lizalfos", "Component/ActorHolderParam/OotrrBackupLizalfos.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Dodongo", "Component/ActorHolderParam/OotrrBackupDodongo.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Guay", "Component/ActorHolderParam/OotrrBackupGuay.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Guay", "Component/ActorHolderParam/OotrrBackupGuay2.game__component__ActorHolderParam.bgyml", 2),
+    ("Enemy_Tektite_Red", "Component/ActorHolderParam/OotrrBackupTektiteRed.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Tektite_Blue", "Component/ActorHolderParam/OotrrBackupTektiteBlue.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Scrub_Mad", "Component/ActorHolderParam/OotrrBackupScrub.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Dekubaba", "Component/ActorHolderParam/OotrrBackupDekubaba.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Skulltula", "Component/ActorHolderParam/OotrrBackupSkulltula.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Gohma_Larva", "Component/ActorHolderParam/OotrrBackupGohmaLarva.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Wallmaster", "Component/ActorHolderParam/OotrrBackupWallmaster.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Floormaster", "Component/ActorHolderParam/OotrrBackupFloormaster.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_LikeLike", "Component/ActorHolderParam/OotrrBackupLikeLike.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Poe", "Component/ActorHolderParam/OotrrBackupPoe.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Amos", "Component/ActorHolderParam/OotrrBackupAmos.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Tailpasaran", "Component/ActorHolderParam/OotrrBackupTailpasaran.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Bubble_Green", "Component/ActorHolderParam/OotrrBackupBubbleGreen.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Bubble_White", "Component/ActorHolderParam/OotrrBackupBubbleWhite.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Bubble_Red", "Component/ActorHolderParam/OotrrBackupBubbleRed.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_TorchSlug", "Component/ActorHolderParam/OotrrBackupTorchSlug.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Octorok", "Component/ActorHolderParam/OotrrBackupOctorok.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Stinger", "Component/ActorHolderParam/OotrrBackupStinger.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Biri", "Component/ActorHolderParam/OotrrBackupBiri.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Biri", "Component/ActorHolderParam/OotrrBackupBiri2.game__component__ActorHolderParam.bgyml", 2),
 ];
 pub const HELPER: &str = HELPERS[0].0;
 pub const OUT_OF_BOUNDS: &[&str] = &[
@@ -67,39 +89,59 @@ pub const OUT_OF_BOUNDS: &[&str] = &[
     "Enemy_FlyingPot",
     "Enemy_Shabom",
 ];
+pub const CALLS_NOBODY: &[&str] = &["Enemy_Skulltula_Gold", "Enemy_Poe_Amy", "Enemy_Poe_Beth", "Enemy_Poe_Joelle", "Enemy_Poe_SistersBase", "Enemy_Poe_Flat", "Enemy_Poe_Sharp"];
 pub const WHO_CALLS_WHOM: &[(&str, usize)] = &[
-    ("Enemy_Wolfos_White", 1),
-    ("Enemy_Freezard", 1),
-    ("Enemy_TorchSlug", 2),
-    ("Enemy_Bubble", 2),
-    ("Enemy_Lizalfos", 3),
-    ("Enemy_Dinolfos", 3),
-    ("Enemy_Dodongo", 3),
-    ("Enemy_Moblin", 4),
-    ("Enemy_Skulltula", 5),
-    ("Enemy_Dekubaba", 5),
-    ("Enemy_Scrub_Mad", 5),
-    ("Enemy_Floormaster", 6),
-    ("Enemy_Wallmaster", 6),
-    ("Enemy_LikeLike", 6),
-    ("Enemy_Amos", 7),
-    ("Enemy_Beamos", 7),
-    ("Enemy_Octorok", 8),
-    ("Enemy_Bari", 8),
-    ("Enemy_Biri", 8),
-    ("Enemy_Stinger", 8),
-    ("Enemy_ShellBlade", 8),
-    ("Enemy_Tentacle", 8),
+    ("Enemy_Stalfos_Weak", 2),
+    ("Enemy_Stalfos", 1),
+    ("Enemy_Stalchild", 3),
+    ("Enemy_Gibdo", 4),
+    ("Enemy_Wolfos", 5),
+    ("Enemy_Freezard", 6),
+    ("Enemy_Lizalfos", 7),
+    ("Enemy_Dinolfos", 7),
+    ("Enemy_Dodongo", 8),
+    ("Enemy_Moblin_Club", 9),
+    ("Enemy_Moblin", 10),
+    ("Enemy_Tektite_Red", 11),
+    ("Enemy_Tektite_Blue", 12),
+    ("Enemy_Dekubaba", 13),
+    ("Enemy_Scrub_Mad", 14),
+    ("Enemy_Scrub_Business", 13),
+    ("Enemy_Scrub_Deku", 13),
+    ("Enemy_SkullKid", 3),
+    ("Enemy_Skulltula", 15),
+    ("Enemy_Gohma_Larva", 16),
+    ("Enemy_Floormaster", 17),
+    ("Enemy_Wallmaster", 18),
+    ("Enemy_LikeLike", 19),
+    ("Enemy_Poe", 20),
+    ("Enemy_Amos", 21),
+    ("Enemy_Spike", 0),
+    ("Enemy_Tailpasaran", 22),
+    ("Enemy_Bubble_Blue", 23),
+    ("Enemy_Bubble_Green", 23),
+    ("Enemy_Bubble_White", 24),
+    ("Enemy_Bubble_Red", 25),
+    ("Enemy_TorchSlug", 26),
+    ("Enemy_Octorok", 27),
+    ("Enemy_ShellBlade", 28),
+    ("Enemy_Stinger", 28),
+    ("Enemy_Bari", 30),
+    ("Enemy_Biri", 29),
+    ("Enemy_Tentacle", 29),
 ];
+pub const FELL_BACK: &[&str] = &[];
 pub const FRAMES: f32 = 600.0;
 pub const RANDOM_FRAMES: f32 = 900.0;
 pub const SIDE: f32 = 2.5;
-pub const MAX: i32 = 1;
+pub const MAX: i32 = 2;
 pub const HEAP_EXTRA: i32 = 0x10000;
 pub const ACTOR_DIR: &str = "Actor/";
 pub const ACTOR_EXT: &str = ".engine__actor__ActorParam.bgyml";
 pub const HOLDER_DIR: &str = "Component/ActorHolderParam/";
 pub const NEW: &str = HELPERS[0].1;
+pub const MAKE: &str = "QueryGenericMakeOverwriteParam";
+pub const MARK: &str = "QueryBlackboardOverwriteParamAddBool";
 pub const PEER: (&str, &str) = ("Pack/Actor/Enemy_Bari.pack.zs", "Component/ActorHolderParam/Enemy_Bari.game__component__ActorHolderParam.bgyml");
 pub const PARTS: &str = "Components";
 pub const SLOT: &str = "ActorHolderRef";
@@ -123,14 +165,15 @@ pub fn flag_query<'a>(seed: &'a str, key: Vec<u8>) -> Spec<'a> {
 pub fn feed(a: &mut Ainb, from: usize, to: usize, out: &str) -> Res<()> {
     let name: u32 = a.pool.add(out);
     let reader: &mut crate::ainb::Param = a.params.get_mut(to).ok_or(Error::Format("enemy backup: no such reader"))?;
-    let n: u8 = reader.pl[0][0];
-    if n != 1 || reader.plugs.len() != 1 || reader.plugs[0].a as usize != from {
-        return Err(Error::Format("enemy backup: the reader does not have one data link"));
+    let n: usize = reader.pl[0][0] as usize;
+    let at_reader: Vec<usize> = (0..n.min(reader.plugs.len())).filter(|j| reader.plugs[*j].a as usize == from).collect();
+    if at_reader.len() != 1 || n > reader.plugs.len() {
+        return Err(Error::Format("enemy backup: the reader does not have one data link from the source"));
     }
-    reader.plugs.clear();
-    reader.pl[0][0] = 0;
+    reader.plugs.remove(at_reader[0]);
+    reader.pl[0][0] -= 1;
     for g in reader.pl.iter_mut().skip(1) {
-        g[1] -= n;
+        g[1] -= 1;
     }
     let source: &mut crate::ainb::Param = a.params.get_mut(from).ok_or(Error::Format("enemy backup: no such source"))?;
     let at: usize = source.pl[0][0] as usize;
@@ -146,6 +189,14 @@ fn taken(a: &Ainb) -> bool {
     !a.find_els(REQUEST).is_empty()
 }
 
+pub fn mark<'a>(seed: &'a str, key: Vec<u8>, v: bool, from: usize) -> Spec<'a> {
+    Spec::query(MARK, seed).prop(3, "Key", key).constant(1, "Bool", flag(v)).linked_ptr("OverwriteParam", OVER, from).out_ptr("OverwriteParam", OVER)
+}
+
+pub fn request_spec(seed: &str, key: Vec<u8>) -> Spec<'_> {
+    Spec::node(REQUEST, seed).prop(1, "ExecuteEveryFrame", flag(false)).prop(1, "IsForeachActor", flag(false)).idle(0, "Index", vec![0; 4]).constant(3, "Key", key)
+}
+
 pub fn build(a: &mut Ainb, tag: &str) -> Res<usize> {
     let s = |n: &str| -> String { format!("{tag} {n}") };
     let key: Vec<u8> = a.pool.add(KEY).to_le_bytes().to_vec();
@@ -157,6 +208,13 @@ pub fn build(a: &mut Ainb, tag: &str) -> Res<usize> {
     feed(a, place, split, "Mat34F")?;
     let lift: usize = a.add_node(&Spec::query(LIFT, &s("lift")).linked(4, "InputA", split, 0).constant(4, "InputB", vec3(SIDE, 0.0, 0.0)).out(4, "Result"))?;
     feed(a, split, lift, "Translation")?;
+    let eligible_key: Vec<u8> = a.pool.add(ELIGIBLE).to_le_bytes().to_vec();
+    let used_key: Vec<u8> = a.pool.add(USED).to_le_bytes().to_vec();
+    let make: usize = a.add_node(&Spec::query(MAKE, &s("make")).out_ptr("OverwriteParam", OVER))?;
+    let mark_eligible: usize = a.add_node(&mark(&s("mark eligible"), eligible_key.clone(), false, make))?;
+    feed(a, make, mark_eligible, "OverwriteParam")?;
+    let mark_used: usize = a.add_node(&mark(&s("mark used"), used_key.clone(), true, mark_eligible))?;
+    feed(a, mark_eligible, mark_used, "OverwriteParam")?;
     let wake: usize = a.add_node(
         &Spec::node(WAKE, &s("wake"))
             .prop(1, "ExecuteEveryFrame", flag(true))
@@ -165,12 +223,11 @@ pub fn build(a: &mut Ainb, tag: &str) -> Res<usize> {
             .constant(3, "Key", key.clone())
             .linked(4, "Pos", lift, 0)
             .idle(4, "Scale", vec3(1.0, 1.0, 1.0))
-            .idle_ptr("OverwriteParam", OVER)
+            .linked_ptr("OverwriteParam", OVER, mark_used)
             .idle_ptr("Rot", MAT33),
     )?;
     feed(a, lift, wake, "Result")?;
-    let eligible_key: Vec<u8> = a.pool.add(ELIGIBLE).to_le_bytes().to_vec();
-    let used_key: Vec<u8> = a.pool.add(USED).to_le_bytes().to_vec();
+    feed(a, mark_used, wake, "OverwriteParam")?;
     let eligible: usize = a.add_node(&flag_query(&s("eligible"), eligible_key))?;
     let used: usize = a.add_node(&flag_query(&s("used"), used_key.clone()))?;
     let latch: usize = a.add_node(
@@ -181,8 +238,10 @@ pub fn build(a: &mut Ainb, tag: &str) -> Res<usize> {
             .prop(3, "BlackboardKey", used_key)
             .constant(1, "Bool", flag(true)),
     )?;
-    let call: usize = a.add_node(&Spec::node(REQUEST, &s("call")).prop(1, "ExecuteEveryFrame", flag(false)).prop(1, "IsForeachActor", flag(false)).idle(0, "Index", vec![0; 4]).constant(3, "Key", key))?;
-    let request: usize = a.add_node(&both(&s("request"), call, latch))?;
+    let call: usize = a.add_node(&request_spec(&s("call"), key.clone()))?;
+    let second: usize = a.add_node(&request_spec(&s("call second"), key))?;
+    let calls: usize = a.add_node(&both(&s("calls"), call, second))?;
+    let request: usize = a.add_node(&both(&s("request"), calls, latch))?;
     let wait: usize = a.add_node(&Spec::node(IDLE, &s("idle wait")))?;
     let timer: usize = a.add_node(
         &Spec::node(TIMER, &s("timer"))
@@ -241,17 +300,17 @@ pub fn holder_of(es: &[Entry], actor: &str) -> Res<Option<String>> {
     Ok(None)
 }
 
-pub fn entry(helper: &str) -> Node {
+pub fn entry(helper: &str, max: i32) -> Node {
     Node::Map(vec![
         ("Actor".to_string(), Node::Str(format!("Work/Actor/{helper}.engine__actor__ActorParam.gyml"))),
         ("IsCreateFirstWithHolder".to_string(), Node::Bool(false)),
         ("IsEnableWaitCreateAndIgnition".to_string(), Node::Bool(false)),
-        ("MaxActors".to_string(), Node::I32(MAX)),
+        ("MaxActors".to_string(), Node::I32(max)),
     ])
 }
 
-pub fn holder_file(helper: &str) -> Res<Vec<u8>> {
-    let y: Byml = Byml { root: Node::Map(vec![(HELD.to_string(), Node::Map(vec![(KEY.to_string(), entry(helper))]))]), version: VERSION, big: false };
+pub fn holder_file(helper: &str, max: i32) -> Res<Vec<u8>> {
+    let y: Byml = Byml { root: Node::Map(vec![(HELD.to_string(), Node::Map(vec![(KEY.to_string(), entry(helper, max))]))]), version: VERSION, big: false };
     y.write()
 }
 
@@ -276,12 +335,12 @@ pub fn add_ref(raw: &[u8], file: &str) -> Res<Vec<u8>> {
     put(raw, PARTS, SLOT, Node::Str(format!("?{file}")))
 }
 
-pub fn add_key(raw: &[u8], helper: &str) -> Res<Vec<u8>> {
-    put(raw, HELD, KEY, entry(helper))
+pub fn add_key(raw: &[u8], helper: &str, max: i32) -> Res<Vec<u8>> {
+    put(raw, HELD, KEY, entry(helper, max))
 }
 
 pub fn excluded(actor: &str) -> bool {
-    OUT_OF_BOUNDS.iter().any(|p| actor.starts_with(p))
+    OUT_OF_BOUNDS.iter().chain(CALLS_NOBODY).any(|p| actor.starts_with(p))
 }
 
 pub fn helper_of(actor: &str) -> usize {
@@ -391,7 +450,7 @@ pub fn patch_entries(es: &mut Vec<Entry>, plan: &Plan, actor: &str) -> Res<Set<S
             fresh.insert(*h);
             add_ref(&e.data, HELPERS[*h].1)?
         } else if let Some(h) = plan.held.get(&e.name) {
-            add_key(&e.data, HELPERS[*h].0)?
+            add_key(&e.data, HELPERS[*h].0, HELPERS[*h].2)?
         } else if e.name == TABLE {
             add_flags(&e.data)?
         } else {
@@ -401,11 +460,11 @@ pub fn patch_entries(es: &mut Vec<Entry>, plan: &Plan, actor: &str) -> Res<Set<S
         hit.insert(e.name.clone());
     }
     for h in fresh {
-        let (helper, file): (&str, &str) = HELPERS[h];
+        let (helper, file, max): (&str, &str, i32) = HELPERS[h];
         if sarc::get(es, file).is_some() {
             return Err(Error::Format("enemy backup: the pack already has a backup holder"));
         }
-        sarc::set(es, file, holder_file(helper)?);
+        sarc::set(es, file, holder_file(helper, max)?);
         hit.insert(file.to_string());
     }
     Ok(hit)
@@ -465,8 +524,8 @@ pub fn stage(rf: &mut Romfs, have: Have, dir: &str) -> Res<(Plan, Vec<Out>)> {
 pub fn size(rf: &mut Romfs, t: &mut Rst) -> Res<()> {
     let es: Vec<Entry> = sarc::parse(&rf.read_zs(PEER.0)?)?;
     let peer: &Entry = sarc::get(&es, PEER.1).ok_or(Error::Msg(format!("enemy backup: {} has no {}", PEER.0, PEER.1)))?;
-    for (helper, file) in HELPERS {
-        let n: u32 = sizes::file_size(t, &[(peer.name.clone(), peer.data.len())], file, holder_file(helper)?.len())?;
+    for (helper, file, max) in HELPERS {
+        let n: u32 = sizes::file_size(t, &[(peer.name.clone(), peer.data.len())], file, holder_file(helper, max)?.len())?;
         t.set_size(file, n)?;
     }
     Ok(())
@@ -537,11 +596,11 @@ mod tests {
         let Some(Node::Map(m)) = a.root.get(PARTS) else { panic!() };
         assert_eq!(m.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), vec!["ASRef", SLOT, "LifeRef"]);
         let fresh: Byml = Byml::parse(&sarc::get(&es, NEW).unwrap().data).unwrap();
-        assert_eq!(fresh.root.get(HELD).and_then(|h| h.get(KEY)), Some(&entry(HELPER)));
+        assert_eq!(fresh.root.get(HELD).and_then(|h| h.get(KEY)), Some(&entry(HELPER, 1)));
         let d: Byml = Byml::parse(&sarc::get(&es, D).unwrap().data).unwrap();
         let Some(Node::Map(h)) = d.root.get(HELD) else { panic!() };
         assert_eq!(h.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), vec![KEY, "Weapon"]);
-        assert_eq!(h[0].1, entry(HELPER));
+        assert_eq!(h[0].1, entry(HELPER, 1));
         assert!(patch_entries(&mut es, &plan, "Enemy_A").is_err(), "a patched pack is not patched twice");
         let mut other: Vec<Entry> = vec![file("Life/a.bgyml", vec![("MaxLife", Node::I32(1))])];
         assert!(patch_entries(&mut other, &plan, "Enemy_A").unwrap().is_empty());
@@ -550,13 +609,16 @@ mod tests {
 
     #[test]
     fn the_called_actor_is_made_on_demand_and_one_at_a_time() {
-        let e: Node = entry(HELPER);
+        let e: Node = entry(HELPER, 1);
         assert_eq!(e.get("Actor").and_then(Node::as_str), Some("Work/Actor/Enemy_Keese.engine__actor__ActorParam.gyml"));
         assert_eq!(e.get("IsCreateFirstWithHolder"), Some(&Node::Bool(false)));
         assert_eq!(e.get("MaxActors"), Some(&Node::I32(1)));
-        assert_eq!(holder_file(HELPER).unwrap(), holder_file(HELPER).unwrap());
-        assert_eq!(entry(HELPERS[7].0).get("Actor").and_then(Node::as_str), Some("Work/Actor/Enemy_FlyingPot.engine__actor__ActorParam.gyml"));
-        assert!(HELPERS.iter().all(|h| h.1.starts_with(HOLDER_DIR)));
+        assert_eq!(holder_file(HELPER, 1).unwrap(), holder_file(HELPER, 1).unwrap());
+        assert_eq!(entry(HELPERS[10].0, HELPERS[10].2).get("MaxActors"), Some(&Node::I32(2)));
+        assert!(HELPERS.iter().all(|h| h.1.starts_with(HOLDER_DIR) && h.1.ends_with(".game__component__ActorHolderParam.bgyml")));
+        assert!(HELPERS.iter().all(|h| (1..=MAX).contains(&h.2)), "no caller can ever have more than {MAX} helpers alive");
+        let files: Set<&str> = HELPERS.iter().map(|h| h.1).collect();
+        assert_eq!(files.len(), HELPERS.len());
         assert!(NEW.starts_with(HOLDER_DIR));
     }
 
@@ -571,12 +633,62 @@ mod tests {
         for a in ["Enemy_Leever", "Enemy_Leever_Big", "Enemy_Leever_Fixed", "Enemy_ReDead", "Enemy_ReDead_ClimaxOnly", "Enemy_Peahat", "Enemy_Peahat_Larva", "Enemy_Keese_Truth", "Enemy_Guay_Flock", "Enemy_Floormaster_Little_Truth"] {
             assert!(excluded(a), "{a} can never call");
         }
-        assert!(HELPERS.iter().all(|h| excluded(h.0)), "no helper kind is ever a caller");
-        assert!(HELPERS.iter().all(|h| helper_of(h.0) == 0 || excluded(h.0)));
-        let expect: [(&str, usize); 16] = [("Enemy_Stalchild", 0), ("Enemy_Stalfos_ForChild", 0), ("Enemy_Gibdo", 0), ("Enemy_Lizalfos", 3), ("Enemy_Dodongo", 3), ("Enemy_Wolfos", 0), ("Enemy_Wolfos_White", 1), ("Enemy_Freezard_Fixed", 1), ("Enemy_TorchSlug", 2), ("Enemy_Moblin_Club", 4), ("Enemy_Tektite_Red", 0), ("Enemy_Dekubaba_Withered", 5), ("Enemy_Wallmaster", 6), ("Enemy_Amos", 7), ("Enemy_Biri", 8), ("Enemy_Poe", 0)];
-        for (a, h) in expect {
-            assert_eq!(helper_of(a), h, "{a}");
+        for a in ["Enemy_Skulltula_Gold", "Enemy_Poe_Amy", "Enemy_Poe_Beth", "Enemy_Poe_Joelle", "Enemy_ReDead_AlwaysRespawn"] {
+            assert!(excluded(a), "{a} calls nobody");
         }
+        let option_3: [(&str, &str, i32); 44] = [
+            ("Enemy_Stalfos", "Enemy_Stalfos_Weak", 1),
+            ("Enemy_Stalfos_ForChild", "Enemy_Stalfos_Weak", 1),
+            ("Enemy_Stalfos_Weak", "Enemy_Stalchild_Big", 1),
+            ("Enemy_Stalchild", "Enemy_Stalchild", 1),
+            ("Enemy_Stalchild_Big", "Enemy_Stalchild", 1),
+            ("Enemy_Gibdo", "Enemy_ReDead", 1),
+            ("Enemy_Wolfos", "Enemy_Wolfos", 1),
+            ("Enemy_Wolfos_White", "Enemy_Wolfos", 1),
+            ("Enemy_Freezard", "Enemy_Wolfos_White", 1),
+            ("Enemy_Freezard_Fixed", "Enemy_Wolfos_White", 1),
+            ("Enemy_Lizalfos", "Enemy_Lizalfos", 1),
+            ("Enemy_Dinolfos", "Enemy_Lizalfos", 1),
+            ("Enemy_Dodongo", "Enemy_Dodongo", 1),
+            ("Enemy_Moblin_Club", "Enemy_Guay", 1),
+            ("Enemy_Moblin", "Enemy_Guay", 2),
+            ("Enemy_Tektite_Red", "Enemy_Tektite_Red", 1),
+            ("Enemy_Tektite_Blue", "Enemy_Tektite_Blue", 1),
+            ("Enemy_Dekubaba", "Enemy_Scrub_Mad", 1),
+            ("Enemy_Dekubaba_Withered", "Enemy_Scrub_Mad", 1),
+            ("Enemy_Scrub_Mad", "Enemy_Dekubaba", 1),
+            ("Enemy_Scrub_Business", "Enemy_Scrub_Mad", 1),
+            ("Enemy_Scrub_Deku", "Enemy_Scrub_Mad", 1),
+            ("Enemy_SkullKid", "Enemy_Stalchild", 1),
+            ("Enemy_Skulltula", "Enemy_Skulltula", 1),
+            ("Enemy_Gohma_Larva", "Enemy_Gohma_Larva", 1),
+            ("Enemy_Floormaster", "Enemy_Wallmaster", 1),
+            ("Enemy_Wallmaster", "Enemy_Floormaster", 1),
+            ("Enemy_LikeLike", "Enemy_LikeLike", 1),
+            ("Enemy_Poe", "Enemy_Poe", 1),
+            ("Enemy_Poe_Big", "Enemy_Poe", 1),
+            ("Enemy_Poe_Hyrule", "Enemy_Poe", 1),
+            ("Enemy_Amos", "Enemy_Amos", 1),
+            ("Enemy_Spike", "Enemy_Keese", 1),
+            ("Enemy_Tailpasaran", "Enemy_Tailpasaran", 1),
+            ("Enemy_Bubble_Blue", "Enemy_Bubble_Green", 1),
+            ("Enemy_Bubble_Green", "Enemy_Bubble_Green", 1),
+            ("Enemy_Bubble_White", "Enemy_Bubble_White", 1),
+            ("Enemy_Bubble_Red", "Enemy_Bubble_Red", 1),
+            ("Enemy_TorchSlug", "Enemy_TorchSlug", 1),
+            ("Enemy_Octorok", "Enemy_Octorok", 1),
+            ("Enemy_ShellBlade", "Enemy_Stinger", 1),
+            ("Enemy_Stinger", "Enemy_Stinger", 1),
+            ("Enemy_Bari", "Enemy_Biri", 2),
+            ("Enemy_Biri", "Enemy_Biri", 1),
+        ];
+        for (a, helper, n) in option_3 {
+            assert!(!excluded(a), "{a} calls");
+            let h: (&str, &str, i32) = HELPERS[helper_of(a)];
+            assert_eq!((h.0, h.2), (helper, n), "{a}");
+        }
+        assert_eq!(HELPERS[helper_of("Enemy_Tentacle_Red")].0, "Enemy_Biri");
+        assert_eq!(helper_of("Enemy_Unlisted"), 0);
         let mut m: Map<String, usize> = Map::new();
         settle(&mut m, "f".to_string(), 2);
         settle(&mut m, "f".to_string(), 2);
@@ -722,7 +834,9 @@ mod tests {
         assert_eq!((a.el_name(kids(unused)[0]), a.el_name(timer)), (IDLE, TIMER));
         let request: usize = kids(timer)[1];
         assert_eq!((a.el_name(kids(timer)[0]), a.el_type(request)), (IDLE, PARALLEL));
-        assert_eq!((a.el_name(kids(request)[0]), a.el_name(kids(request)[1])), (REQUEST, SETB));
+        let calls: usize = kids(request)[0];
+        assert_eq!((a.el_type(calls), a.el_name(kids(request)[1])), (PARALLEL, SETB));
+        assert_eq!((a.el_name(kids(calls)[0]), a.el_name(kids(calls)[1])), (REQUEST, REQUEST), "two tries: the holder's MaxActors decides whether one or two come");
         let source = |i: usize| -> usize { a.input(1, a.input_ids(i, 1)[0]).unwrap().src as usize };
         let reads = |i: usize| -> String { a.el_name(source(i)).to_string() };
         assert_eq!((reads(guard), reads(unused), reads(gate), reads(alone), reads(battle)), (GETB.to_string(), GETB.to_string(), READY.to_string(), EMPTY.to_string(), FIGHT.to_string()));
@@ -730,6 +844,16 @@ mod tests {
         for n in [READY, EMPTY, WAKE, REQUEST] {
             assert_eq!(a.in_str(one(&a, n), "Key"), Some(KEY), "{n}");
         }
+        let ptr_from = |i: usize| -> usize { a.input(5, a.input_ids(i, 5)[0]).unwrap().src as usize };
+        let wake: usize = one(&a, WAKE);
+        let used_mark: usize = ptr_from(wake);
+        let eligible_mark: usize = ptr_from(used_mark);
+        assert_eq!((a.el_name(used_mark), a.el_name(eligible_mark), a.el_name(ptr_from(eligible_mark))), (MARK, MARK, MAKE), "the helper is woken with the overwrite marks");
+        assert_eq!((a.prop_str(used_mark, "Key"), a.prop_str(eligible_mark, "Key")), (Some(USED), Some(ELIGIBLE)));
+        let marked: String = lines(&a, used_mark).join("
+") + &lines(&a, eligible_mark).join("
+");
+        assert!(marked.contains("in bool Bool = true flags 0x800000") && marked.contains("in bool Bool = false flags 0x800000"), "{marked}");
         let shown: String = show(&a);
         for line in ["prop bool ExecuteOnce = true", "prop bool IsIgnoreNotExistsError = true", "in bool Bool = true flags 0x800000", "prop bool IsLoop = false", "prop f32 CountFrames = 600", "prop f32 RandomAddCountFrames = 900", "in vec3 InputB = (2.5, 0, 0) flags 0x800000", "\"NotFinish\"", "\"Finish\""] {
             assert!(shown.contains(line), "{line} is missing from\n{shown}");
@@ -761,13 +885,30 @@ mod tests {
             assert_eq!(plugs(&mine, g), plugs(&amos, get));
             assert_eq!(classes(&mine, g), classes(&amos, get));
         }
-        for n in [READY, EMPTY, REQUEST, PLACE] {
+        for n in [READY, EMPTY, PLACE] {
             assert_eq!(shape(&mine, one(&mine, n)), shape(&lure, one(&lure, n)), "{n}");
             assert_eq!(plugs(&mine, one(&mine, n)), plugs(&lure, one(&lure, n)), "{n}");
             assert_eq!(classes(&mine, one(&mine, n)), classes(&lure, one(&lure, n)), "{n}");
         }
+        let leever: Ainb = graph(&mut rf, "Pack/Actor/Enemy_Leever_Big.pack.zs", "AI/Leever_Big.action.Run.module.ainb");
+        let spawned: usize = leever.find_els(MARK).into_iter().find(|i| leever.prop_str(*i, "Key") == Some("IsSpawnFromLeeverBig")).unwrap();
+        let theirs_wake: usize = leever.params[spawned].plugs[0].a as usize;
+        assert_eq!(leever.el_name(theirs_wake), WAKE, "the game wakes the Leevers a big Leever made with a mark saying who made them");
+        assert_eq!(fields(&mine, one(&mine, WAKE)), fields(&leever, theirs_wake));
+        let wired = |x: &Ainb, i: usize| -> Vec<String> { shape(x, i).into_iter().filter(|l| l.contains("OverwriteParam")).collect() };
+        assert_eq!(wired(&mine, one(&mine, WAKE)), wired(&leever, theirs_wake));
+        assert_eq!(classes(&mine, one(&mine, WAKE)), classes(&leever, theirs_wake));
+        for m in mine.find_els(MARK) {
+            assert_eq!(fields(&mine, m), fields(&leever, spawned));
+            assert_eq!(plugs(&mine, m), plugs(&leever, spawned));
+            assert_eq!(classes(&mine, m), classes(&leever, spawned));
+        }
+        let made: usize = leever.find_els(MAKE)[0];
+        assert_eq!(shape(&mine, one(&mine, MAKE)), shape(&leever, made));
+        assert_eq!(plugs(&mine, one(&mine, MAKE)), plugs(&leever, made));
+        assert_eq!(classes(&mine, one(&mine, MAKE)), classes(&leever, made));
         let dodongo: Ainb = graph(&mut rf, "Pack/Actor/Enemy_Dodongo.pack.zs", "AI/Enemy_Dodongo.utility.root.ainb");
-        for n in [WAKE, SPLIT] {
+        for n in [SPLIT] {
             assert_eq!(shape(&mine, one(&mine, n)), shape(&dodongo, one(&dodongo, n)), "{n}");
             assert_eq!(plugs(&mine, one(&mine, n)), plugs(&dodongo, one(&dodongo, n)), "{n}");
             assert_eq!(classes(&mine, one(&mine, n)), classes(&dodongo, one(&dodongo, n)), "{n}");
@@ -783,6 +924,11 @@ mod tests {
         assert_eq!(shape(&mine, ours), shape(&twin, theirs));
         let glass: Ainb = graph(&mut rf, GLOBAL, "AI/EnemyCommon.common.enableglasstruth.module.ainb");
         let sw: usize = (0..glass.els.len()).find(|i| glass.el_type(*i) == SWITCH).unwrap();
+        for r in mine.find_els(REQUEST) {
+            assert_eq!(shape(&mine, r), shape(&lure, one(&lure, REQUEST)));
+            assert_eq!(plugs(&mine, r), plugs(&lure, one(&lure, REQUEST)));
+            assert_eq!(classes(&mine, r), classes(&lure, one(&lure, REQUEST)));
+        }
         let switches: Vec<usize> = (base.els.len()..mine.els.len()).filter(|i| mine.el_type(*i) == SWITCH).collect();
         assert_eq!(switches.len(), 5);
         for i in switches {
@@ -866,17 +1012,21 @@ mod tests {
             }
         }
         assert!(plan.held.keys().all(|h| h.starts_with("Component/ActorHolderParam/Enemy_")), "{:?}", plan.held);
+        let mut fell: Set<String> = Set::new();
         for a in plan.callers() {
             let es: &Vec<Entry> = packs.get(a).unwrap_or_else(|| panic!("the pack of {a} was not staged"));
             let h: String = holder_of(es, a).unwrap().unwrap_or_else(|| panic!("{a} has no holder"));
             let y: Byml = Byml::parse(&sarc::get(es, &h).unwrap_or_else(|| panic!("{a} lacks {h}")).data).unwrap();
             let want: usize = plan.held.get(&h).or(plan.bare.get(&actor_file(a))).copied().unwrap_or_else(|| panic!("{a} has no helper"));
-            assert_eq!(y.root.get(HELD).and_then(|m| m.get(KEY)), Some(&entry(HELPERS[want].0)), "{a} through {h}");
-            assert_eq!(want, helper_of(a), "{a} gets its own group helper: no holder is shared across groups");
+            assert_eq!(y.root.get(HELD).and_then(|m| m.get(KEY)), Some(&entry(HELPERS[want].0, HELPERS[want].2)), "{a} through {h}");
+            if want != helper_of(a) {
+                fell.insert(a.to_string());
+            }
             let flags: Byml = Byml::parse(&sarc::get(es, TABLE).unwrap_or_else(|| panic!("{a} has no common blackboard")).data).unwrap();
             let rows: &[Node] = flags.root.get(BOOLS).and_then(Node::as_arr).unwrap();
             assert_eq!(&rows[rows.len() - 2..], &[state_row(ELIGIBLE, true), state_row(USED, false)], "{a}");
         }
+        assert_eq!(fell, FELL_BACK.iter().map(|a| a.to_string()).collect::<Set<String>>(), "callers whose holder is shared with another group fall back to the Keese");
         assert!(plan.off.len() >= 30, "{:?}", plan.off);
         for a in &plan.off {
             assert!(excluded(a) && !plan.callers().any(|c| c == a), "{a}");
@@ -884,12 +1034,15 @@ mod tests {
         for a in ["Enemy_Octorok", "Enemy_Bari", "Enemy_Biri", "Enemy_Stinger", "Enemy_Freezard", "Enemy_Gibdo", "Enemy_Wallmaster", "Enemy_Floormaster", "Enemy_Stalchild", "Enemy_Stalfos", "Enemy_Lizalfos", "Enemy_Wolfos", "Enemy_Moblin", "Enemy_Skulltula", "Enemy_Dekubaba", "Enemy_Scrub_Mad", "Enemy_Amos", "Enemy_TorchSlug", "Enemy_Tektite_Blue"] {
             assert!(plan.callers().any(|c| c == a), "{a} is a caller");
         }
-        for a in ["Enemy_ReDead", "Enemy_ReDead_AlwaysRespawn", "Enemy_Leever", "Enemy_Peahat", "Enemy_Keese", "Enemy_Keese_Ice", "Enemy_Keese_Fire", "Enemy_BabyDodongo", "Enemy_Guay", "Enemy_Skullwalltula", "Enemy_Floormaster_Little", "Enemy_FlyingPot", "Enemy_Shabom"] {
+        for a in ["Enemy_ReDead", "Enemy_ReDead_AlwaysRespawn", "Enemy_Leever", "Enemy_Peahat", "Enemy_Keese", "Enemy_Keese_Ice", "Enemy_Keese_Fire", "Enemy_BabyDodongo", "Enemy_Guay", "Enemy_Skullwalltula", "Enemy_Floormaster_Little", "Enemy_FlyingPot", "Enemy_Shabom", "Enemy_Skulltula_Gold", "Enemy_Poe_Amy", "Enemy_Poe_Beth", "Enemy_Poe_Joelle"] {
             assert!(!plan.callers().any(|c| c == a), "{a} never calls");
         }
-        for (helper, _) in HELPERS {
-            assert!(!plan.callers().any(|c| c == helper), "{helper} is never a caller");
+        for (helper, _, _) in HELPERS {
             assert!(rf.read(&format!("Pack/Actor/{helper}.pack.zs")).is_ok(), "{helper} has a pack");
+            assert!(plan.who.contains(helper), "{helper} runs the shared graph, so the mark it is woken with is read by its own guard");
+            let es: &Vec<Entry> = packs.get(helper).unwrap_or_else(|| panic!("the pack of {helper} was not staged"));
+            let k: Map<String, bool> = keys_of(es, helper);
+            assert_eq!((k.get(ELIGIBLE), k.get(USED)), (Some(&false), Some(&false)), "{helper} has both marked keys as plain keys of its own blackboard");
         }
         let peer: Byml = Byml::parse(&sarc::get(&sarc::parse(&rf.read_zs(PEER.0).unwrap()).unwrap(), PEER.1).unwrap().data).unwrap();
         assert_eq!((peer.version, peer.big), (VERSION, false));
@@ -927,8 +1080,8 @@ mod tests {
         assert!(t.get(caller) > before, "the size table entry of {caller} grew");
         assert!(t.get(stalfos) > param);
         size(&mut rf, &mut t).unwrap();
-        for (helper, file) in HELPERS {
-            assert!(t.get(file).is_some_and(|n| n as usize > holder_file(helper).unwrap().len()), "{file}");
+        for (helper, file, max) in HELPERS {
+            assert!(t.get(file).is_some_and(|n| n as usize > holder_file(helper, max).unwrap().len()), "{file}");
         }
         println!("{} actors, {} callers, {} off, {} bare, {} held, {} files", plan.who.len(), plan.callers().count(), plan.off.len(), plan.bare.len(), plan.held.len(), outs.len());
     }

@@ -79,7 +79,7 @@ User, with the gate v2 build: the web is visible and blocks, a bomb destroys it,
 - Webs: still the Deku Tree wall web and its part. A bomb or fire can still destroy the web, but the wall stays, so the way stays shut until both guards are dead. A bombed web leaves an invisible wall.
 - Not built: a private bomb-proof web. It needs a new actor class (pack, actor info rows, tag table, size table, edited AI and life data) and a wrong entry would crash Kokiri Forest on load with no way to check here. The air wall does the blocking. The purple glow is still not done.
 - Test: `the_wall_covers_the_webs_and_the_guards_and_uses_a_class_the_static_map_already_holds`.
-- In the game: see `playtest\session-fixes\TESTS.md`.
+- In the game: see `<playtest folder>\session-fixes\TESTS.md`.
 
 
 ## Redesign v4 (branch `feature/gates-v3`, never played)
@@ -98,7 +98,7 @@ Area, sensor and AND nodes (built field by field as in `ForestTemple_Level_Room_
 The barrier rises only with the player in the guard's box. Flagged: gate 4 (the guard stands beyond the wall for a player walking east; from the west the barrier rises behind you); gate 2 (climbable wall beside the barrier, where Link was wedged in v3: check it); gates 9 and 10 (two doors of one small room: both barriers rise, the player is shut in until the guards die, as in the game's fight locks and as marked). Gate 8 (no guard, same wall as 9) is dropped. Gate 6 stays closed-forest only: with an open forest a child may have no weapon.
 
 ### Tests
-`cargo test -p ootrr-core difficulty` and `settings` pass: geometry, facing whatever the mark order, trigger box, hands inside the box, guard selection, graph audit with the area, sensor and AND nodes, create wired to the AND, finish wired to the guard, determinism, and the game-file test over every gate map. In the game: `playtest\gates-v4\TESTS.md`.
+`cargo test -p ootrr-core difficulty` and `settings` pass: geometry, facing whatever the mark order, trigger box, hands inside the box, guard selection, graph audit with the area, sensor and AND nodes, create wired to the AND, finish wired to the guard, determinism, and the game-file test over every gate map. In the game: `<playtest folder>\gates-v4\TESTS.md`.
 
 ## v5 (branch `feature/gates-v3`, after the user's hands-on of v4, not played)
 v4 in the game: gate 3 worked exactly as designed (nothing until near, barrier rose, dropped when the Lizalfos died). Faults found, in the user's words: "the guard spawns immediately but the gate only appears when i get nearby. the guard should spawn when the gate comes up"; at gate 5 the barrier rose with no Lizalfos present and killing the nearby Tektites did not open it; at gate 1 an extra Mad Scrub sat exactly on top of one of the game's two.

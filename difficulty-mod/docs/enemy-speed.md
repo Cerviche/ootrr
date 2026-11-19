@@ -4,7 +4,7 @@ Measured 2026-11-19 with the local Longshot build (origin/main 10fab15 plus our 
 
 ## How it works
 
-- **Two test mods**, same preset apart from `enemy_speed` (100 and 200): `skip_intro`, `skip_cutscenes` "all", `faster_chests`, `open_forest` "open", `starting_hearts` 20. Presets: `playtest\speed\p100.json`, `p200.json`; build with `playtest\speed\mk.sh 100|200` from Git Bash. Only one mod is in the shadow game's `mods` folder at a time (`playtest\speed\game`, a shadow of the Longshot source build; saves in `playtest\speed\userv2_*`).
+- **Two test mods**, same preset apart from `enemy_speed` (100 and 200): `skip_intro`, `skip_cutscenes` "all", `faster_chests`, `open_forest` "open", `starting_hearts` 20. Presets: `<playtest folder>\speed\p100.json`, `p200.json`; build with `<playtest folder>\speed\mk.sh 100|200` from Git Bash. Only one mod is in the shadow game's `mods` folder at a time (`<playtest folder>\speed\game`, a shadow of the Longshot source build; saves in `<playtest folder>\speed\userv2_*`).
 - **Positions come from the new bridge command `enemies`** (our Longshot source build only; see `docs\TESTING.md`): every live enemy actor with name, id (the actor's address), x y z, hp, max hp, the host clock `t_ms` taken when the game read them, and Link's position. The survey keeps one bridge connection and asks about 10 times a second (`scan` false after the first call).
 - **Scenario per trial**: teleport into Hyrule Field (`HyruleField_Child`; this reloads the map and drops the previous enemy), `warp 123.68 159.5 159.04`, `health 20`, `spawn Enemy_NAME` 8 units in front of Link (a spawn 15 units away once fell through the floor), Link stands still (no input), sample for 10 s, `health 20` again every 3 s so he survives. Three trials per enemy per multiplier, 43 enemies. Every step is captioned on the game window from the first second.
 - **Speed** is the horizontal distance (x and z only) between two samples at least 0.5 s apart divided by their `t_ms` difference, in the game's position units per second. "Typical" = median of the windows that moved at least 2 u/s; "peak" = the largest window. Ratio = typical at 2x over typical at 1x (medians over the trials). "Approached" = the enemy ended at least 3 units closer to Link than it started.
@@ -14,7 +14,7 @@ Measured 2026-11-19 with the local Longshot build (origin/main 10fab15 plus our 
 
 ## Rerun
 
-Build the two mods (`mk.sh 100`, `mk.sh 200`), keep only the one under test in `playtest\speed\game\mods` (the other goes to `mods_hold`), check that no `longshot.exe` is running, then from Git Bash in `playtest\speed`:
+Build the two mods (`mk.sh 100`, `mk.sh 200`), keep only the one under test in `<playtest folder>\speed\game\mods` (the other goes to `mods_hold`), check that no `longshot.exe` is running, then from Git Bash in `<playtest folder>\speed`:
 
 ```
 python -I survey.py run 100 --dur 10
@@ -23,7 +23,7 @@ python -I survey.py run 200 --dist 3 --trials 2 --enemies Keese,Biri     (option
 python -I survey.py report
 ```
 
-`report` writes `docs\enemy-speed.csv` and `playtest\speed\table.md`. Results are appended to `playtest\speed\samples.jsonl`; finished trials are skipped on a rerun. `docs\enemy-speed.csv` holds every raw sample (multiplier, enemy, trial, time in s, x, y, z, hp, max hp, Link x and z, frame; the spawn-distance of a trial is not in it: rows with 2 trials per enemy are the 3-unit close pass).
+`report` writes `docs\enemy-speed.csv` and `<playtest folder>\speed\table.md`. Results are appended to `<playtest folder>\speed\samples.jsonl`; finished trials are skipped on a rerun. `docs\enemy-speed.csv` holds every raw sample (multiplier, enemy, trial, time in s, x, y, z, hp, max hp, Link x and z, frame; the spawn-distance of a trial is not in it: rows with 2 trials per enemy are the 3-unit close pass).
 
 ## Results (units per second; median over the trials, range of the typical figure in brackets)
 
