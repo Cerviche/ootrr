@@ -188,7 +188,7 @@ const GV_BRIDGE: View = View {
 const DOOR_OF_TIME: View = View {
     id: "door_of_time_condition",
     label: "Door of Time",
-    tip: "What it takes to open the Door of Time. With a Closed choice, play the Song of Time at the altar once its requirement is met. The requirement also starts Zelda's escape from the castle, which leads to the Ocarina of Time and the Song of Time checks.\n\nClosed - Vanilla - Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.\n\nClosed - Classic - Hold all three Spiritual Stones, as in the original game. Experimental, untested in the game.\n\nClosed - Dungeon Rewards - Hold the set number of Stones and Medallions together. Experimental, untested in the game.\n\nClosed - Song Only - Play the Song of Time in front of the Door of Time to open it.\n\nOpen - The Door of Time is permanently open with no requirements. Zelda's escape and the Song of Time stay checks.",
+    tip: "What it takes to open the Door of Time. With a Closed choice, walk up to the altar in the Temple of Time and play the Song of Time once the requirement is met.\n\nClosed - Vanilla - Clear Dodongo's Cavern and Jabu-Jabu's Belly (the remake's own rule).\n\nClosed - Classic - Hold all three Spiritual Stones.\n\nClosed - Dungeon Rewards - Hold the set number of Stones and Medallions, in any mix. Above 3 needs Dungeon Rewards shuffled Anywhere. Experimental, untested in the game.\n\nClosed - Song Only - No other requirement: just the Song of Time and an Ocarina.\n\nOpen - The Door of Time is already open.",
     kind: Kind::Pick,
     opts: &[
         yes("Closed - Vanilla", "vanilla"),

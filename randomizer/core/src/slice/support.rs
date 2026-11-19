@@ -276,6 +276,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
     let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
     let door: crate::door_gate::Opts = crate::door_gate::read(s, gates.door, &mut bad);
+    bad.extend(crate::door_gate::reach_check(door.need, rewards.dungeon_rewards && !rewards.dungeon_own, start.reward == Reward::Medal));
     let short: bool = s.flag(crate::short_get::SETTING).unwrap_or_else(|e| {
         bad.push(e.to_string());
         false
@@ -398,7 +399,7 @@ mod tests {
         assert_eq!(p.keys.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 13);
+        assert_eq!(p.notes.len(), 14);
         assert!(p.short && p.notes.iter().any(|n| n == crate::short_get::NOTE));
         assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
         assert!(p.remake && p.hearts && p.rewards.extra);

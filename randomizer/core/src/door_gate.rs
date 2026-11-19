@@ -13,49 +13,55 @@ use crate::start_defaults::Edit;
 pub const SETTING: &str = "door_of_time_condition";
 pub const REWARDS: &str = "door_of_time_rewards";
 pub const SONG: &str = "door_of_time_song";
+pub const VANILLA: &str = "vanilla";
 pub const STONES: &str = "stones";
 pub const DUNGEONS: &str = "dungeons";
-pub const OPEN: &str = "open";
 pub const SONG_ONLY: &str = "song";
+pub const OPEN: &str = "open";
+pub const CHILD_REWARDS: u8 = 3;
+
 pub const ESCAPE_EXP: &str = "DoorOfTime_IsAfter_Step2_1_Exp";
 pub const REQ_EXP: &str = "DoorOfTime_IsAfter_Srep2_1_1_Exp";
+pub const REACTS: &str = "Market_Child_TimeTempleDoor_OcarinaReacts";
+pub const FIRE_EXP: &str = "Get_StoneOfFire_IsCompleted_Exp";
+pub const WATER_EXP: &str = "Get_StoneOfWater_IsCompleted_Exp";
+pub const SONG_CHECK_EXP: &str = "DoorOfTime_IsAfter_Step04_Exp";
 pub const SENT: &str = "HavePlayedEvent.HyruleField_DoorOfTime_SendOff";
 pub const ESCAPED: &str = "HavePlayedEvent.HyruleField_DoorOfTime_Escape";
+pub const OPENED: &str = "Market_Child_TimeTempleDoor_Opened";
+
 pub const MODULE: &str = "Logic/HyruleField_Child_Prefab_0ce5.logic.module.ainb";
 pub const AREA: &str = "Area_054e";
 pub const AREA_FILE: &str = "Banc/HyruleField/HyruleField_Child_Static.bcett.byml.zs";
 pub const AREA_HASH: u64 = 5374506228817442823;
+pub const RIVER_MODULE: &str = "Logic/HyruleField_Child_Prefab_32f7.logic.module.ainb";
+pub const RIVER_REQUEST: &str = "EventRequestActor_b3d3";
+pub const RIVER_WALL: &str = "FldObj_AirWall_Player_GenerateNavMesh_066c";
 pub const ESCAPE_STEP: &str = "Step03";
 pub const OPEN_STEP: &str = "Step03";
 pub const SONG_CHECK: &str = "Event60";
-pub const SONG_CHECK_EXP: &str = "DoorOfTime_IsAfter_Step04_Exp";
-pub const OPENED: &str = "Market_Child_TimeTempleDoor_Opened";
-pub const REACTS: &str = "Market_Child_TimeTempleDoor_OcarinaReacts";
 pub const PREFIX: &str = "OOTRRDoorGate";
-pub const NOTE: &str = "The Door of Time opens when the Song of Time is played at the altar while the Door of Time requirement is met, and Zelda's escape from the castle waits for the same requirement in place of Dodongo's Cavern and Jabu-Jabu's Belly. The altar's song check reads the rewritten computed flag DoorOfTime_IsAfter_Srep2_1_1_Exp, the escape area in Hyrule Field appears while DoorOfTime_IsAfter_Step2_1_Exp holds (Impa's send off played, the escape not played yet, and the requirement met), clearing Dodongo's Cavern and Jabu-Jabu's Belly no longer moves the quest, and opening the door early leaves the escape, the Ocarina of Time and the Song of Time as checks. Experimental and untested in the game.";
-pub const SONGLESS_NOTE: &str = "The Door of Time opens once Zelda's escape has played, without the Song of Time. The door's logic module opens it once the Door of Time quest is past Step03 in place of Step06, and the Master Sword can be drawn without the quest. Experimental and untested in the game.";
-pub const VANILLA_NOTE: &str = "The Door of Time opens when the Song of Time is played at the altar once Dodongo's Cavern and Jabu-Jabu's Belly are cleared, without waiting for Zelda's escape. The altar's song check reads the two dungeons' quests (Get_StoneOfFire_IsCompleted_Exp and Get_StoneOfWater_IsCompleted_Exp), and opening the door early leaves the escape, the Ocarina of Time and the Song of Time as checks.";
-pub const FIRE_EXP: &str = "Get_StoneOfFire_IsCompleted_Exp";
-pub const WATER_EXP: &str = "Get_StoneOfWater_IsCompleted_Exp";
-pub const SONG_ONLY_NOTE: &str = "The Door of Time opens when the Song of Time is played at the altar, with no other requirement. The opening scene no longer waits for Zelda's escape and only moves the Door of Time quest to Step06 when the quest is already past Step04, so Zelda's escape, the Ocarina of Time and the Song of Time stay checks. The door's logic module keeps it open from its opened flag, and the Master Sword can be drawn without the quest. Experimental and untested in the game.";
+
+pub const ALTAR_NOTE: &str = "Door of Time: the altar in the Temple of Time answers the Song of Time until the door is open (Market_Child_TimeTempleDoor_OcarinaReacts is rewritten to the door's opened flag), and the opening scene checks the chosen requirement in place of Zelda's escape. Opening the door early moves the Door of Time quest to Step06 only once it is past Step04, so Zelda's escape, the Ocarina of Time and the Song of Time stay checks, the door's logic module keeps it open from its opened flag, and the Master Sword can be drawn without the quest.";
+pub const VANILLA_NOTE: &str = "Door of Time, Closed - Vanilla: the song opens the door once Dodongo's Cavern and Jabu-Jabu's Belly are cleared (Get_StoneOfFire_IsCompleted_Exp and Get_StoneOfWater_IsCompleted_Exp).";
+pub const NOTE: &str = "Door of Time, Closed - Classic or Dungeon Rewards: the song opens the door once the Stones or the set number of Stones and Medallions are held (DoorOfTime_IsAfter_Srep2_1_1_Exp). Zelda's escape waits for the same requirement in place of Dodongo's Cavern and Jabu-Jabu's Belly: clearing those two dungeons no longer moves the quest, and the escape area in Hyrule Field appears while DoorOfTime_IsAfter_Step2_1_Exp holds (Impa's send off played, the escape not played yet, the requirement met).";
+pub const SONG_ONLY_NOTE: &str = "Door of Time, Closed - Song Only: the Song of Time opens the door with no other requirement.";
+pub const SONGLESS_NOTE: &str = "Door of Time: the door also opens by itself once Zelda's escape has played (the door's logic module reads the quest past Step03 in place of Step06). Experimental and untested in the game.";
+
 const COUNTS: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 const AREA_EL: &str = "ActorLogicAreaActor";
+const REQUEST: &str = "ActorLogicEventRequestActor";
+const SIMPLE: &str = "ActorLogicSimpleActor";
+const PROXY: &str = "ActorLogicEventProxyRequestActor";
+const FLAG_GET: &str = "HoldGameDataGetBoolSimple";
+const FLAG_IN: &str = "GameDataNameBool";
 const CREATE: &str = "Logic_Create";
 const STEP_IN: &str = "ChallengeStepName";
 const CHALLENGE_IN: &str = "ChallengeName";
 const WAIT_ACTOR: &str = "EventSystemActor";
 const WAIT: &str = "EventWait";
-pub const RIVER_MODULE: &str = "Logic/HyruleField_Child_Prefab_32f7.logic.module.ainb";
-pub const RIVER_REQUEST: &str = "EventRequestActor_b3d3";
-pub const RIVER_WALL: &str = "FldObj_AirWall_Player_GenerateNavMesh_066c";
-const REQUEST: &str = "ActorLogicEventRequestActor";
-const SIMPLE: &str = "ActorLogicSimpleActor";
-const FLAG_GET: &str = "HoldGameDataGetBoolSimple";
-const FLAG_IN: &str = "GameDataNameBool";
-const PROXY: &str = "ActorLogicEventProxyRequestActor";
 const HOLDER: &str = "GameDataActor";
 const IS_EXP: &str = "EventQueryIsGameDataBoolExp";
-const HEAD_EXP: &str = "Get_StoneOfFire_IsCompleted_Exp";
 const STR: usize = 3;
 const BOOL: usize = 1;
 const OUT_BOOL: usize = 4;
@@ -123,15 +129,16 @@ impl Opts {
 
     pub fn notes(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
-        if self.escape() {
-            out.push(NOTE.to_string());
+        if self.open {
+            return out;
         }
-        if !self.open && !self.escape() && !self.only {
-            out.push(VANILLA_NOTE.to_string());
-        }
-        if self.only {
-            out.push(SONG_ONLY_NOTE.to_string());
-        }
+        out.push(ALTAR_NOTE.to_string());
+        let which: &str = match (self.need, self.only) {
+            (_, true) => SONG_ONLY_NOTE,
+            (Need::Vanilla, false) => VANILLA_NOTE,
+            _ => NOTE,
+        };
+        out.push(which.to_string());
         if !self.song {
             out.push(SONGLESS_NOTE.to_string());
         }
@@ -141,15 +148,15 @@ impl Opts {
 
 pub fn settings() -> Vec<Setting> {
     vec![
-        Setting::choice(109, SETTING, "world", "Door of Time", "vanilla")
-            .tip("What it takes to open the Door of Time. With a Closed choice, play the Song of Time at the altar once its requirement is met. The requirement also starts Zelda's escape from the castle, which leads to the Ocarina of Time and the Song of Time checks.")
-            .opt("vanilla", "Closed - Vanilla", "Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.")
-            .opt(STONES, "Closed - Classic", "Hold all three Spiritual Stones, as in the original game. Experimental, untested in the game.")
-            .opt(DUNGEONS, "Closed - Dungeon Rewards", "Hold the set number of Stones and Medallions together. Experimental, untested in the game.")
-            .opt(SONG_ONLY, "Closed - Song Only", "Play the Song of Time at the altar in the Temple of Time to open the door, with no other requirement. Experimental, untested in the game.")
+        Setting::choice(109, SETTING, "world", "Door of Time", VANILLA)
+            .tip("What it takes to open the Door of Time. With a Closed choice, play the Song of Time at the altar in the Temple of Time once the requirement is met.")
+            .opt(VANILLA, "Closed - Vanilla", "Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.")
+            .opt(STONES, "Closed - Classic", "Hold all three Spiritual Stones, as in the original game. Zelda's escape waits for the Stones too.")
+            .opt(DUNGEONS, "Closed - Dungeon Rewards", "Hold the set number of Stones and Medallions together. Zelda's escape waits for them too. Experimental, untested in the game.")
+            .opt(SONG_ONLY, "Closed - Song Only", "Only the Song of Time is needed. Zelda's escape stays on Dodongo's Cavern and Jabu-Jabu's Belly.")
             .opt(OPEN, "Open", "The Door of Time is open from the start. Zelda's escape and the Song of Time stay checks."),
         Setting::number(110, REWARDS, "world", "Rewards for the Door of Time", 3, 0, 9)
-            .tip("How many Stones and Medallions together start Zelda's escape. Any mix of the three Spiritual Stones and six Medallions counts.")
+            .tip("How many Stones and Medallions together open the Door of Time. Any mix of the three Spiritual Stones and six Medallions counts. Above 3 needs Dungeon Rewards shuffled Anywhere, since a child can only reach the three child dungeon bosses (one more with a starting Medallion).")
             .when(SETTING, DUNGEONS),
         Setting::toggle(111, SONG, "world", "Additionally requires Song of Time", true)
             .tip("On, the Song of Time must be played at the altar once the requirement is met. Off, the door also opens by itself once Zelda's escape has played. Off is experimental and untested in the game.")
@@ -160,7 +167,7 @@ pub fn settings() -> Vec<Setting> {
 
 pub fn read(s: &Settings, open: bool, bad: &mut Vec<String>) -> Opts {
     let need: Need = match s.text(SETTING) {
-        Ok("vanilla") | Ok(OPEN) | Ok(SONG_ONLY) => Need::Vanilla,
+        Ok(VANILLA) | Ok(OPEN) | Ok(SONG_ONLY) => Need::Vanilla,
         Ok(STONES) => Need::Stones,
         Ok(DUNGEONS) => match s.int(REWARDS) {
             Ok(n) if (0..=9).contains(&n) => Need::Rewards(n as u8),
@@ -194,27 +201,33 @@ pub fn legacy(v: &mut crate::settings::state::Vals) {
     }
 }
 
-pub fn req_terms(n: Need) -> Vec<(i32, String)> {
-    let held: Option<Vec<(i32, String)>> = match n {
+fn held(n: Need) -> Option<Vec<(i32, String)>> {
+    match n {
         Need::Vanilla => None,
         Need::Stones => crate::medal_gate::at_least(&crate::medal_gate::REWARD_ITEMS[..3], 3),
         Need::Rewards(k) => crate::medal_gate::at_least(&crate::medal_gate::REWARD_ITEMS, usize::from(k).min(9)),
-    };
-    held.unwrap_or_else(|| vec![(0, SENT.to_string()), (0, SENT.to_string()), (NOT_OP, String::new()), (OR_OP, String::new())])
+    }
+}
+
+pub fn req_terms(n: Need) -> Vec<(i32, String)> {
+    held(n).unwrap_or_else(|| vec![(0, SENT.to_string()), (0, SENT.to_string()), (NOT_OP, String::new()), (OR_OP, String::new())])
 }
 
 pub fn terms(n: Need) -> Vec<(i32, String)> {
     let mut t: Vec<(i32, String)> = vec![(0, SENT.to_string()), (0, ESCAPED.to_string()), (NOT_OP, String::new()), (AND_OP, String::new())];
-    let held: Option<Vec<(i32, String)>> = match n {
-        Need::Vanilla => None,
-        Need::Stones => crate::medal_gate::at_least(&crate::medal_gate::REWARD_ITEMS[..3], 3),
-        Need::Rewards(k) => crate::medal_gate::at_least(&crate::medal_gate::REWARD_ITEMS, usize::from(k).min(9)),
-    };
-    if let Some(h) = held {
+    if let Some(h) = held(n) {
         t.extend(h);
         t.push((AND_OP, String::new()));
     }
     t
+}
+
+pub fn reach_check(n: Need, anywhere: bool, start_medal: bool) -> Option<String> {
+    let Need::Rewards(k) = n else { return None };
+    let cap: u8 = CHILD_REWARDS + u8::from(start_medal);
+    (!anywhere && k > cap).then(|| {
+        format!("{REWARDS} is {k}, but with Dungeon Rewards not shuffled Anywhere a child can only collect {cap} Stones and Medallions before the Door of Time opens. Lower the count to {cap} or shuffle Dungeon Rewards Anywhere.")
+    })
 }
 
 fn one(hits: Vec<usize>, what: &str) -> Res<usize> {
@@ -291,7 +304,7 @@ pub fn patch_check(b: &mut Bf) -> Res<usize> {
     }
     let head: usize = f.events.iter().position(|e| e.name == crate::door_fix::FIRE_HEAD).ok_or(Error::Format("door gate: the DoorOfTime flow has no stone count head"))?;
     let ok: bool = matches!(&f.events[head].kind, Kind::Switch { .. })
-        && f.events[head].kind.params().and_then(|p| p.get("GameDataName")) == Some(&Val::Str(HEAD_EXP.to_string()));
+        && f.events[head].kind.params().and_then(|p| p.get("GameDataName")) == Some(&Val::Str(FIRE_EXP.to_string()));
     if !ok {
         return Err(Error::Format("door gate: the stone count head is not the Fire Stone switch"));
     }
@@ -550,6 +563,15 @@ mod tests {
     }
 
     #[test]
+    fn rewards_a_child_cannot_reach_are_refused() {
+        assert!(reach_check(Need::Rewards(3), false, false).is_none());
+        assert!(reach_check(Need::Rewards(4), false, false).is_some());
+        assert!(reach_check(Need::Rewards(4), false, true).is_none());
+        assert!(reach_check(Need::Rewards(9), true, false).is_none());
+        assert!(reach_check(Need::Stones, false, false).is_none());
+    }
+
+    #[test]
     fn dungeon_rewards_count_any_mix() {
         let t: Vec<(i32, String)> = terms(Need::Rewards(2));
         assert!(holds(&t, &[SENT, FOREST, LIGHT]));
@@ -565,7 +587,7 @@ mod tests {
         let mut s: Settings = Settings::default();
         let d: Opts = read(&s, false, &mut bad);
         assert_eq!(d, Opts::default());
-        assert!(d.exps() == vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string())])] && d.logic().is_empty() && d.notes() == vec![VANILLA_NOTE.to_string()]);
+        assert!(d.exps() == vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string())])] && d.logic().is_empty() && d.notes() == vec![ALTAR_NOTE.to_string(), VANILLA_NOTE.to_string()]);
         s.set(SETTING, Value::s(STONES)).unwrap();
         assert_eq!(read(&s, false, &mut bad).need, Need::Stones);
         s.set(SETTING, Value::s(DUNGEONS)).unwrap();
