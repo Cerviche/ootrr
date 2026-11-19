@@ -23,6 +23,7 @@ pub mod container;
 pub mod cow_clone;
 pub mod deku_bridge;
 pub mod difficulty;
+pub mod bombchu_open;
 pub mod door_fix;
 pub mod door_gate;
 pub mod door_open;
