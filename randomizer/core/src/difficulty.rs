@@ -209,7 +209,7 @@ impl Opts {
             out.push("Most ordinary enemies come back when you leave their room or area and return. Bosses, minibosses, Gold Skulltulas, Poes and Deku Scrubs stay beaten. Experimental, untested in the game.".to_string());
         }
         if self.minibosses {
-            out.push(format!("A strong enemy fights alongside these bosses and leaves when the boss is beaten: {}. Experimental, not yet played through a boss fight.", minibosses::covered()));
+            out.push(format!("A strong enemy joins these boss fights when the boss appears and leaves when the boss is beaten: {}. Played with Gohma and Phantom Ganon; the other bosses are untested.", minibosses::covered()));
         }
         if self.minions {
             out.push(minions::NOTE.to_string());
@@ -584,7 +584,7 @@ mod tests {
         assert!(o.notes().iter().any(|n| n.contains("About 50 in 100")));
         assert!(Opts { extra: 100, ..Opts::default() }.any() && !Opts { extra: 100, ..Opts::default() }.packs());
         assert!(s.set(MORE, Value::Int(1050)).is_err() || s.clone().finish().is_err());
-        assert!(o.notes().iter().any(|n| n.contains("Queen Gohma (Stalfos)") && n.contains("Phantom Ganon (weak Stalfos)") && n.contains("Experimental")));
+        assert!(o.notes().iter().any(|n| n.contains("Queen Gohma (Stalfos)") && n.contains("Phantom Ganon (weak Stalfos)") && n.contains("Played with")));
         assert!(o.notes().iter().any(|n| n == minions::NOTE));
         assert!(o.notes().iter().any(|n| n == ambush::NOTE));
         assert!(o.notes()[0].contains("2.5 times"));
@@ -971,11 +971,14 @@ mod tests {
             assert_eq!(g.write().unwrap(), pair[1].z);
             assert!(crate::ainb::audit(&g).is_empty());
             let n: usize = old.els.len();
-            assert_eq!(g.els.len(), n + 1);
+            let st: &minibosses::Start = s.start.as_ref().unwrap();
+            let fresh: usize = if minibosses::reader(&old, st).is_some() { 0 } else { 1 };
+            assert_eq!(g.els.len(), n + 1 + fresh, "{}: one node for the miniboss and at most one reader of the introduction", s.boss);
             let plain = |e: &[u8; crate::ainb::EL]| -> Vec<u8> { e.iter().enumerate().map(|(j, v)| if (0x14..0x18).contains(&j) { 0 } else { *v }).collect() };
             assert!(g.els[..n].iter().zip(old.els.iter()).all(|(x, y)| plain(x) == plain(y)), "{}: the nodes of the game are untouched", pair[1].path);
             assert_eq!(&g.params[..n], &old.params[..], "{}: the inputs of the game are untouched", pair[1].path);
-            let id: &str = g.prop_str(n, minibosses::NAME).unwrap();
+            let k: usize = (n..g.els.len()).find(|&i| g.el_name(i) == minibosses::NODE).unwrap();
+            let id: &str = g.prop_str(k, minibosses::NAME).unwrap();
             let groups: Vec<Node> = now.root.get("AiGroups").and_then(|x| x.as_arr()).unwrap().to_vec();
             let named = |r: &Node| r.get("Id").and_then(|v| v.as_str()) == Some(id) && r.get("Reference") == Some(&Node::U64(h));
             let home: Vec<&Node> = groups.iter().filter(|x| x.get("References").and_then(|r| r.as_arr()).is_some_and(|r| r.iter().any(named))).collect();
@@ -983,17 +986,14 @@ mod tests {
             assert_eq!(minibosses::logic_file(home[0].get("Logic").and_then(|v| v.as_str()).unwrap()).unwrap(), pair[1].path);
             let hn: usize = (0..n).find(|&i| g.prop_str(i, minibosses::NAME).is_some_and(|x| x.starts_with(minibosses::HEART))).unwrap();
             let made: crate::ainb::Input = g.input(1, g.find_in(hn, 1, minibosses::CREATE).unwrap()).unwrap();
-            let gone: crate::ainb::Input = g.input(1, g.find_in(n, 1, minibosses::DELETE).unwrap()).unwrap();
+            let gone: crate::ainb::Input = g.input(1, g.find_in(k, 1, minibosses::DELETE).unwrap()).unwrap();
             assert!(made.src >= 0 && (gone.src, gone.plug) == (made.src, made.plug), "{}: the miniboss leaves on the flag that brings the heart container", s.boss);
-            let born: crate::ainb::Input = g.input(1, g.find_in(n, 1, minibosses::CREATE).unwrap()).unwrap();
-            match &s.start {
-                Some(st) => {
-                    assert_eq!(g.el_name(born.src as usize), st.module, "{}: the miniboss is created by the start of the fight", s.boss);
-                    assert_eq!(minibosses::signal(&g, st).unwrap(), (born.src as usize, born.plug));
-                    assert_eq!(born.flags & minibosses::UNSET, 0);
-                }
-                None => assert_eq!((born.src, born.val), (-1, 1u32.to_le_bytes().to_vec()), "{}: no start signal is known, the miniboss is there from the start", s.boss),
-            }
+            let born: crate::ainb::Input = g.input(1, g.find_in(k, 1, minibosses::CREATE).unwrap()).unwrap();
+            let r: usize = minibosses::reader(&g, st).unwrap();
+            assert_eq!((born.src, born.plug), (r as i16, 0), "{}: the miniboss is created when the introduction has played", s.boss);
+            assert_eq!(born.flags & minibosses::UNSET, 0);
+            assert_eq!(g.in_str(r, minibosses::FLAG_NAME), Some(st.flag().as_str()));
+            assert!(plays(&mut rf, st), "{}: {} plays {}", s.boss, st.flow, st.intro);
             let twin: Vec<u8> = {
                 let mut t: Ainb = old.clone();
                 minibosses::wire_with(&mut t, Some(g.prop_str(hn, minibosses::NAME).unwrap()), id, s.start.as_ref()).unwrap();
@@ -1007,6 +1007,12 @@ mod tests {
 
     fn list(y: &Byml) -> &[Node] {
         y.root.get("Actors").and_then(|a| a.as_arr()).unwrap_or(&[])
+    }
+
+    fn plays(rf: &mut Romfs, st: &minibosses::Start) -> bool {
+        let b: crate::bfevfl::Bf = crate::bfevfl::Bf::parse(&rf.read_zs(&format!("Event/EventFlow/{}.bfevfl.zs", st.flow)).unwrap()).unwrap();
+        let shown: String = format!("{b:?}");
+        shown.contains(&format!("{:?}", st.intro)) && shown.contains("EventTransition")
     }
 
     #[test]
@@ -1046,12 +1052,18 @@ mod tests {
                     assert!(rf.read(&format!("Pack/Actor/{}.pack.zs", r.foes[i])).is_ok());
                 }
                 let groups: Vec<Node> = now.root.get("AiGroups").and_then(|g| g.as_arr()).unwrap().to_vec();
-                let logic: &Out = outs.iter().find(|x| x.path.starts_with("Logic/")).unwrap();
+                let logic: &Out = &outs[outs.iter().position(|x| x.path == r.fixed).unwrap() + 1];
+                assert!(logic.path.starts_with("Logic/"));
                 let g: Ainb = Ainb::parse(&logic.z).unwrap();
                 assert!(crate::ainb::audit(&g).is_empty());
-                let (module, plug): (usize, i16) = minibosses::signal(&g, st).unwrap();
-                let first: usize = Ainb::parse(&rf.read(&logic.path).unwrap()).unwrap().els.len();
-                assert_eq!(g.els.len(), first + r.foes.len());
+                let old: Ainb = Ainb::parse(&rf.read(&logic.path).unwrap()).unwrap();
+                let first: usize = old.els.len();
+                let fresh: usize = if minibosses::reader(&old, st).is_some() { 0 } else { 1 };
+                assert_eq!(g.els.len(), first + r.foes.len() + fresh);
+                let reader: usize = minibosses::reader(&g, st).unwrap();
+                assert!(plays(&mut rf, st), "{}: {} plays {}", r.boss, st.flow, st.intro);
+                let hn: usize = (0..first).find(|&i| g.prop_str(i, minibosses::NAME).is_some_and(|x| x.starts_with(minibosses::HEART))).unwrap();
+                let end: crate::ainb::Input = g.input(1, g.find_in(hn, 1, minibosses::CREATE).unwrap()).unwrap();
                 for (i, a) in list(&now)[n..].iter().enumerate() {
                     let h: u64 = hash_of(a).unwrap();
                     let home: Vec<&Node> = groups.iter().filter(|x| x.get("References").and_then(|r| r.as_arr()).is_some_and(|rs| rs.iter().any(|q| q.get("Reference") == Some(&Node::U64(h))))).collect();
@@ -1059,10 +1071,10 @@ mod tests {
                     let id: String = home[0].get("References").and_then(|r| r.as_arr()).unwrap().iter().find(|q| q.get("Reference") == Some(&Node::U64(h))).and_then(|q| q.get("Id")).and_then(|v| v.as_str()).unwrap().to_string();
                     let at: usize = (first..g.els.len()).find(|&e| g.prop_str(e, minibosses::NAME) == Some(id.as_str())).unwrap();
                     let born: crate::ainb::Input = g.input(1, g.find_in(at, 1, minibosses::CREATE).unwrap()).unwrap();
-                    assert_eq!((born.src, born.plug), (module as i16, plug), "{}: minion {i} is created by the start signal and not at load", r.boss);
+                    assert_eq!((born.src, born.plug), (reader as i16, 0), "{}: minion {i} is created when the introduction has played and not at load", r.boss);
                     assert_eq!(born.flags & minibosses::UNSET, 0);
                     let gone: crate::ainb::Input = g.input(1, g.find_in(at, 1, minibosses::DELETE).unwrap()).unwrap();
-                    assert_eq!(gone.src, -1);
+                    assert_eq!((gone.src, gone.plug), (end.src, end.plug), "{}: minion {i} leaves when the boss is beaten", r.boss);
                 }
                 continue;
             }
@@ -1101,6 +1113,42 @@ mod tests {
         assert_eq!(both.iter().filter(|x| x.path == minions::DODONGO_PACK).count(), 1);
         let es: Vec<Entry> = sarc::parse(&rf.zs.decompress(&both.iter().find(|x| x.path == minions::DODONGO_PACK).unwrap().z).unwrap()).unwrap();
         assert_eq!(rolls(&es), vec![2, 3, 4]);
+    }
+
+    #[test]
+    fn the_boss_room_graphs_that_get_the_adds_are_used_by_no_other_map() {
+        let Some(root) = dump() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let o: Opts = Opts { minibosses: true, minions: true, ..Opts::default() };
+        let outs: Vec<Out> = stage(&mut rf, &o, &none, "seed").unwrap();
+        let graphs: Vec<String> = outs.iter().filter(|x| x.path.starts_with("Logic/")).map(|x| x.path.trim_start_matches("Logic/").trim_end_matches('b').to_string()).collect();
+        assert_eq!(graphs.len(), minions::ROOMS.iter().filter(|r| r.start.is_some()).count());
+        let mut users: Vec<(String, String)> = Vec::new();
+        for d in std::fs::read_dir(root.join("Banc")).unwrap() {
+            let d: std::path::PathBuf = d.unwrap().path();
+            for f in std::fs::read_dir(&d).unwrap() {
+                let f: std::path::PathBuf = f.unwrap().path();
+                let n: String = f.file_name().unwrap().to_string_lossy().to_string();
+                if !n.ends_with(".bcett.byml.zs") {
+                    continue;
+                }
+                let rel: String = format!("Banc/{}/{n}", d.file_name().unwrap().to_string_lossy());
+                let raw: Vec<u8> = rf.read_zs(&rel).unwrap();
+                for g in &graphs {
+                    if raw.windows(g.len()).any(|w| w == g.as_bytes()) {
+                        users.push((g.clone(), rel.clone()));
+                    }
+                }
+            }
+        }
+        for g in &graphs {
+            let maps: Vec<&str> = users.iter().filter(|(x, _)| x == g).map(|(_, m)| m.as_str()).collect();
+            assert_eq!(maps.len(), 1, "{g} is used by {maps:?}");
+            assert!(maps[0].ends_with("_Static.bcett.byml.zs"), "{g} is used by {maps:?}");
+        }
     }
 
     fn out(path: &str, z: &[u8], old: usize, new: usize) -> Out {

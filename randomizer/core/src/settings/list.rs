@@ -228,9 +228,9 @@ fn difficulty() -> Vec<Setting> {
         Setting::toggle(d::RESPAWN_NUM, d::RESPAWN, "difficulty", "Enemies respawn sooner", false)
             .tip("Beaten enemies come back when you leave the room or area and return, not only after leaving the dungeon or region. Bosses and minibosses stay beaten. Experimental, untested in the game."),
         Setting::toggle(d::MINIBOSSES_NUM, d::MINIBOSSES, "difficulty", "Bosses spawn minibosses", false)
-            .tip("A Stalfos or a Dinolfos fights alongside Gohma, Barinade, Phantom Ganon and Twinrova, and leaves when the boss is beaten. Experimental, not yet played through a boss fight."),
+            .tip("A Stalfos or a Dinolfos joins the fight with Gohma, Barinade, Phantom Ganon and Twinrova. It appears when the fight starts and leaves when the boss is beaten. Played with Gohma and Phantom Ganon; the other bosses are untested."),
         Setting::toggle(d::MINIONS_NUM, d::MINIONS, "difficulty", "Bosses spawn minions", false)
-            .tip("Bosses bring a few Keese or Biri, and King Dodongo calls more Baby Dodongos. Ganondorf and Ganon are unchanged. Experimental, not yet played through a boss fight."),
+            .tip("Bosses bring a few Keese or Biri, and King Dodongo calls more Baby Dodongos. They appear when the fight starts (Bongo Bongo's are there from the start) and leave when the boss is beaten. Ganondorf and Ganon are unchanged. Played with Gohma and Phantom Ganon; the other bosses are untested."),
         Setting::toggle(d::GATES_NUM, d::GATES, "difficulty", "Enemies block the way", false)
             .tip("At ten narrow spots a barrier blocks the way until you beat its guards. It comes back when the area reloads. As a child they only appear once you have the Kokiri Sword. Off with shuffled entrances."),
         Setting::toggle(d::CUCCO_NUM, d::CUCCO, "difficulty", "Cuccos take revenge at once", false)
