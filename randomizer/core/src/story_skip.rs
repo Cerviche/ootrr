@@ -1452,6 +1452,13 @@ pub struct SongTrigger {
     pub calls: &'static [(&'static str, &'static str)],
 }
 
+pub const MALON_GIVEN: &str = "HavePlayedEvent.Test_Npc_Hylia_049_Adult_D_N";
+pub const GIVEN_MARKS: [(&str, &str); 1] = [("Song from Malon", MALON_GIVEN)];
+
+pub fn given_mark(loc: &str) -> Option<&'static str> {
+    GIVEN_MARKS.iter().find(|m| m.0 == loc).map(|m| m.1)
+}
+
 pub const SONG_TRIGGERS: [SongTrigger; 11] = [
     SongTrigger { loc: "Song from Impa", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Zelda", also: &[], calls: &[] },
     SongTrigger { loc: "Song from Malon", flow: "SubEvent_GetEponaSong", cut: &[], give: "Dm_MelodyGet_Epona", also: &[], calls: &[] },
@@ -1540,6 +1547,9 @@ pub fn patch_song_trigger(b: &mut Bf, t: &SongTrigger, writes: &[Write], gives: 
             then = item_get(f, &format!("{SONG_PREFIX}{}_{i}_{k}", t.give), g, then, &names)?;
         }
         let mut kinds: Vec<Kind> = Vec::new();
+        if let Some(m) = given_mark(t.loc) {
+            kinds.push(set_bool(f, m, true)?);
+        }
         // The item gets grant whatever the checks hold, so the scene's own song grant (Bolero's
         // scene sets IsGet.Item_Melody_FireBolero outright) would give the vanilla song twice
         // over a shuffled check.
