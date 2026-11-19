@@ -52,21 +52,36 @@ pub(super) mod tests {
         assert!(!open(&slow, tour, &[("Zelda Met", 1)], Age::Adult));
     }
 
+    fn race(d: &Data, skipped: bool) -> World {
+        world_with(d, &[("skip_epona_race", if skipped { "1" } else { "0" })]).unwrap()
+    }
+
+    fn won(kit: &[(&'static str, u32)]) -> Vec<(&'static str, u32)> {
+        let mut v: Vec<(&str, u32)> = kit.to_vec();
+        v.push(("Epona", 1));
+        v
+    }
+
     #[test]
-    fn horseback_archery_needs_only_the_card_her_song_and_a_bow_as_an_adult() {
+    fn horseback_archery_needs_only_the_card_her_song_and_a_bow_when_the_race_is_skipped() {
         let d: Data = Data::load().unwrap();
+        let w: World = race(&d, true);
+        for l in HBA {
+            assert!(open(&w, l, &HBA_KIT, Age::Adult), "{l}");
+            assert!(!open(&w, l, &HBA_KIT, Age::Child), "{l}");
+            for (gone, _) in HBA_KIT {
+                let rest: Vec<(&str, u32)> = HBA_KIT.iter().copied().filter(|(n, _)| *n != gone).collect();
+                assert!(!open(&w, l, &rest, Age::Adult), "{l} without {gone}");
+            }
+        }
         for w in worlds(&d) {
             for l in HBA {
-                assert!(open(&w, l, &HBA_KIT, Age::Adult), "{l}");
-                assert!(!open(&w, l, &HBA_KIT, Age::Child), "{l}");
-                for (gone, _) in HBA_KIT {
-                    let rest: Vec<(&str, u32)> = HBA_KIT.iter().copied().filter(|(n, _)| *n != gone).collect();
-                    assert!(!open(&w, l, &rest, Age::Adult), "{l} without {gone}");
-                }
+                assert!(!open(&w, l, &HBA_KIT, Age::Adult), "{l} needs Epona from the race");
+                assert!(open(&w, l, &won(&HBA_KIT), Age::Adult), "{l}");
             }
         }
         for l in HBA {
-            assert!(!rule_text(l).contains("can_ride_epona"), "{l}");
+            assert!(rule_text(l).contains("can_ride_epona"), "{l}");
             assert!(!rule_text(l).contains("at_day"), "{l}");
             assert!(!rule_text(l).contains("at_night"), "{l}");
         }
@@ -87,14 +102,17 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn riding_epona_needs_only_her_song_as_an_adult() {
+    fn riding_epona_needs_her_song_and_either_the_skip_or_the_race() {
         let d: Data = Data::load().unwrap();
         let hurdle: &str = "LLR Epona Hurdle Wonderitem 1";
-        for w in worlds(&d) {
-            assert!(open(&w, hurdle, &[("Ocarina", 1), ("Eponas Song", 1)], Age::Adult));
-            assert!(!open(&w, hurdle, &[("Ocarina", 1), ("Eponas Song", 1)], Age::Child));
-            assert!(!open(&w, hurdle, &[("Ocarina", 1)], Age::Adult));
-        }
+        let song: [(&str, u32); 2] = [("Ocarina", 1), ("Eponas Song", 1)];
+        let on: World = race(&d, true);
+        assert!(open(&on, hurdle, &song, Age::Adult));
+        assert!(!open(&on, hurdle, &song, Age::Child));
+        assert!(!open(&on, hurdle, &[("Ocarina", 1)], Age::Adult));
+        let off: World = race(&d, false);
+        assert!(!open(&off, hurdle, &song, Age::Adult));
+        assert!(open(&off, hurdle, &won(&song), Age::Adult));
     }
 
     #[test]
@@ -115,7 +133,7 @@ pub(super) mod tests {
         let d: Data = Data::load().unwrap();
         let w: World = world_with(&d, &[("time_always_passes", "0"), ("ensure_tod_access", "1")]).unwrap();
         for l in HBA {
-            assert!(open(&w, l, &HBA_KIT, Age::Adult), "{l}");
+            assert!(open(&w, l, &won(&HBA_KIT), Age::Adult), "{l}");
         }
         assert!(open(&w, EPONA, &[("Ocarina", 1), ("Eponas Song", 1)], Age::Adult));
     }

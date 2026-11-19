@@ -131,6 +131,9 @@ impl Opts {
         if self.bridge {
             out.push((BRIDGE, "1"));
         }
+        if self.epona {
+            out.push((EPONA, "1"));
+        }
         if let Some(v) = self.fortress.value() {
             out.push((FORTRESS, v));
         }
@@ -209,7 +212,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let jabu: bool = flag(JABU);
     let time: bool = flag(TIME);
     let beds: bool = time && flag(BEDS);
-    let epona: bool = true;
+    let epona: bool = flag(EPONA);
     let masks: bool = flag(MASKS);
     let beans: bool = flag(BEANS);
     let bridge: bool = flag(BRIDGE);
@@ -387,16 +390,16 @@ mod tests {
     }
 
     #[test]
-    fn only_the_clock_and_the_epona_song_are_on_by_default() {
+    fn only_the_clock_and_the_epona_race_skip_are_on_by_default() {
         let (o, bad) = opts(&[]);
         assert!(bad.is_empty());
         assert_eq!(o, Opts { time: true, epona: true, ..Opts::default() });
         assert!(o.edits_files());
-        assert!(o.logic().is_empty());
+        assert_eq!(o.logic(), vec![(EPONA, "1")]);
         assert_eq!(o.defaults(), vec![(TIME, "true")]);
-        let (off, _) = opts(&[(TIME, Value::Bool(false))]);
-        assert_eq!(off, Opts { epona: true, ..Opts::default() });
-        assert!(off.defaults().is_empty() && off.notes().unwrap() == vec![skips::EPONA_NOTE.to_string()]);
+        let (off, _) = opts(&[(TIME, Value::Bool(false)), (EPONA, Value::Bool(false))]);
+        assert_eq!(off, Opts::default());
+        assert!(!off.any() && off.defaults().is_empty() && off.notes().unwrap().is_empty());
         assert_eq!(off.logic(), vec![(TIME, "0")]);
     }
 
@@ -406,7 +409,7 @@ mod tests {
         assert!(bad.is_empty());
         assert_eq!(o.navi, Some("closed_deku"));
         assert_eq!(o.defaults(), vec![(TIME, "true"), (FOREST, "closed_deku")]);
-        assert!(o.logic().is_empty());
+        assert_eq!(o.logic(), vec![(EPONA, "1")]);
         assert!(o.notes().unwrap().iter().any(|n| n.contains("Navi's monster lesson")));
         let (open, _) = opts(&[(FOREST, Value::s("open"))]);
         assert_eq!(open.navi, Some("open"));
@@ -416,14 +419,14 @@ mod tests {
 
     #[test]
     fn each_setting_becomes_its_logic_value_its_new_game_defaults_and_a_note() {
-        let (o, bad) = opts(&[(ZORA, Value::s("open")), (JABU, Value::Bool(true)), (DOOR, Value::Bool(true)), (BEDS, Value::Bool(true))]);
+        let (o, bad) = opts(&[(ZORA, Value::s("open")), (JABU, Value::Bool(true)), (DOOR, Value::Bool(true)), (BEDS, Value::Bool(true)), (EPONA, Value::Bool(false))]);
         assert!(bad.is_empty());
-        assert_eq!(o, Opts { zora: true, jabu: true, time: true, beds: true, epona: true, ..Opts::default() });
+        assert_eq!(o, Opts { zora: true, jabu: true, time: true, beds: true, ..Opts::default() });
         assert_eq!(o.logic(), vec![(ZORA, "open"), (JABU, "1")]);
         assert_eq!(o.defaults(), vec![(ZORA, "open"), (JABU, "true"), (TIME, "true")]);
         let n: Vec<String> = o.notes().unwrap();
-        assert_eq!(n.len(), 7);
-        for t in ["King Zora starts moved", "Jabu Jabu opens", "Beds offer", "Epona's Song is enough to own Epona"] {
+        assert_eq!(n.len(), 6);
+        for t in ["King Zora starts moved", "Jabu Jabu opens", "Beds offer"] {
             assert!(n.iter().any(|x| x.contains(t)), "{t}");
         }
         let (b, _) = opts(&[(BEDS, Value::Bool(true)), (TIME, Value::Bool(false))]);
@@ -617,20 +620,20 @@ mod tests {
 
     #[test]
     fn the_quest_skips_read_their_settings_and_become_logic_defaults_and_notes() {
-        let (o, bad) = opts(&[(MASKS, Value::Bool(true)), (BEANS, Value::Bool(true)), (BRIDGE, Value::Bool(true)), (TIME, Value::Bool(false))]);
+        let (o, bad) = opts(&[(EPONA, Value::Bool(true)), (MASKS, Value::Bool(true)), (BEANS, Value::Bool(true)), (BRIDGE, Value::Bool(true)), (TIME, Value::Bool(false))]);
         assert!(bad.is_empty());
         assert_eq!(o, Opts { epona: true, masks: true, beans: true, bridge: true, ..Opts::default() });
         assert!(o.edits_files());
-        assert_eq!(o.logic(), vec![(TIME, "0"), ("complete_mask_quest", "1"), (BEANS, "1"), (BRIDGE, "1")]);
+        assert_eq!(o.logic(), vec![(TIME, "0"), ("complete_mask_quest", "1"), (BEANS, "1"), (BRIDGE, "1"), (EPONA, "1")]);
         assert_eq!(o.defaults(), vec![(MASKS, "true"), (BEANS, "true")]);
         let n: Vec<String> = o.notes().unwrap();
         for t in ["Epona's Song is enough to own Epona", "Happy Mask Shop quest starts complete", "bean patch starts planted", "Gerudo Valley bridge is repaired"] {
             assert!(n.iter().any(|x| x.contains(t)), "{t}");
         }
-        let (plain, _) = opts(&[(TIME, Value::Bool(false))]);
-        assert!(plain.epona && plain.edits_files() && !plain.defaults().iter().any(|(k, _)| *k == EPONA));
-        let mut old: Settings = Settings::default();
-        assert!(old.set(EPONA, Value::Bool(false)).is_err(), "the Epona race toggle is retired");
+        let (state_only, _) = opts(&[(MASKS, Value::Bool(true)), (EPONA, Value::Bool(false))]);
+        assert!(!state_only.edits_files());
+        let (race, _) = opts(&[(EPONA, Value::Bool(true))]);
+        assert!(race.edits_files() && !race.defaults().iter().any(|(k, _)| *k == EPONA));
     }
 
     #[test]
@@ -677,7 +680,7 @@ mod tests {
     fn every_combination_generates_beatable_seeds_and_the_plan_says_what_it_does() {
         let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
         let combos: [&[(&str, Value)]; 6] = [
-            &[(MASKS, Value::Bool(true)), (BEANS, Value::Bool(true)), (BRIDGE, Value::Bool(true)), ("open_forest", Value::s("open")), ("open_kakariko", Value::s("open"))],
+            &[(EPONA, Value::Bool(true)), (MASKS, Value::Bool(true)), (BEANS, Value::Bool(true)), (BRIDGE, Value::Bool(true)), ("open_forest", Value::s("open")), ("open_kakariko", Value::s("open"))],
             &[(DOOR, Value::Bool(true))],
             &[(ZORA, Value::s("open")), (JABU, Value::Bool(true))],
             &[(JABU, Value::Bool(true)), (TIME, Value::Bool(true)), (BEDS, Value::Bool(true))],
@@ -757,7 +760,7 @@ mod tests {
         };
         let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
         let mut s: Settings = Settings::default();
-        for k in [MASKS, BEANS, BRIDGE] {
+        for k in [EPONA, MASKS, BEANS, BRIDGE] {
             s.set(k, Value::Bool(true)).unwrap();
         }
         s.set(crate::flow_extra::MERCHANTS_SETTING, Value::s("beans")).unwrap();

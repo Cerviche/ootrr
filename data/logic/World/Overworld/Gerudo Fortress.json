@@ -9,9 +9,9 @@
         "locations": {
             "GF Hideout Hole Chest": "is_adult",
             "GF HBA 1000 Points": "
-                is_adult and Gerudo_Membership_Card and can_play(Eponas_Song) and Bow",
+                Gerudo_Membership_Card and can_ride_epona and Bow",
             "GF HBA 1500 Points": "
-                is_adult and Gerudo_Membership_Card and can_play(Eponas_Song) and Bow",
+                Gerudo_Membership_Card and can_ride_epona and Bow",
             "GF Sign Wonderitem Near Entrance": "can_use(Hookshot)",
             "GF Sign Wonderitem Near HBA": "Gerudo_Membership_Card and can_use(Hookshot)",
             "GF Crate 1": "can_break_crate",
