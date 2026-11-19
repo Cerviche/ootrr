@@ -31,6 +31,7 @@ Placed minions sit in a ring 5 to 8 m around the arena centre, 1.5 to 4 m up. Th
 Skipped: Ganondorf and Ganon (a soft-lock there costs the whole seed).
 
 ## How it was tested
+- rc 13 (19 Nov, script): the Deku Tree loads with the mod. The three Keese are in the actor list from map load at (20.0, 50.5, 62.8), (15.7, 50.5, 70.3), (24.3, 50.5, 70.3). Door walk NOT TESTED.
 - 20 difficulty tests including a game-file test.
 - A real build: all 7 maps hold the minions, Dodongo's values are 2/3/4, `flow-loads` is clean.
 
@@ -46,3 +47,9 @@ Never played. To test:
 - Keese do not normally exist in the Deku Tree or Forest Temple, so those rely on the game loading the actor on demand.
 - A plain Keese placed in mid-air has no vanilla example (vanilla ones hang from a surface); Fire Keese in mid-air do.
 - Lesson: check whether the boss already has a spawn mechanism in its own parameters before placing anything.
+
+## Seen in the game, 19 Nov, and the change (feature/boss-adds)
+- First time seen, in Gohma's room (with "Bosses spawn minibosses" on). The user: "the keeze and stalfos are in the room, but can we defer spawning them 'till after the fight starts?" The Keese were placed in the dynamic map and were flying around before Gohma's introduction.
+- Change for Gohma: the three Keese are no longer placed in the dynamic map. They are added to the static map in the same logic group as the boss and the room graph gets one node per Keese whose create input is the module output `End_TrapEvent` (the end of the door-shutting scene, as Gohma's introduction starts; see feature 11 for why this is the closest signal). They are not deleted when the boss dies, as before. Because the signal does not fire again once the boss is beaten, they should not come back on a later visit.
+- Other rooms (Barinade, Phantom Ganon, Volvagia, Morpha, Bongo Bongo, Twinrova): unchanged. Their room graphs expose no fight-started signal (see feature 11), so the minions are still placed in the dynamic map.
+- Testing the Gohma room: walk through the boss door. Warping into the room skips the door scene, so the Keese never appear.

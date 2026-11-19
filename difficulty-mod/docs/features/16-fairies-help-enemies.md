@@ -49,3 +49,11 @@ The user saw enemies tinted red with regen, fairy and backup on (screenshot of a
 
 ## Review fix: nodes live in the caller graphs (branch `feature/review-fixes`)
 Same change as in 09: the poll switch is now an extra child of the Parallel that holds the damage colour module call in each caller graph, and the module graphs stay as the game has them. A caller counts as already patched when it reads or clears `MiniGame_Diving_Test` (vanilla callers use the same game data nodes for other flags). Test: the all-8-combinations test described in 09. In the game: see `playtest\review-fixes\TESTS.md`.
+
+## Fairy circling the enemy (19 Nov, investigated, nothing built)
+You, after seeing the heal work: "can we get it to play the fairy spinning around the character animation on all enemies that they're healing, too?"
+Searched every AI graph in the game (loose files and those inside actor packs) for effect nodes:
+- The circling fairy on Link is made by the player's own nodes (`EventPlayerOutBottleFairy`, `EventTriggerPlayerUseFairy`, `OneShotPlayerUseFairy`) and the `Dm_SY_OutBottleFairy` event, all tied to the player actor.
+- The only generic effect nodes (`EventNodeEffectEmitOneShot`, `OneShotGenericEmitEventEffectInputActor`) live in the `EventEffectEmitter` actor's event graph and run only inside an event flow, which an enemy graph cannot start.
+- Enemy graphs have only effect nodes made for one actor (Peahat, Wallmaster and similar), plus `OneShotEnemyHandleCreateEffectAndFadeIn`, the spawn fade-in, which is not a heal effect.
+- No node plays a named effect at an arbitrary actor from an enemy graph, so no data-only route exists. Nothing was built. The remaining routes need a code patch or the control bridge, which the project rules forbid.

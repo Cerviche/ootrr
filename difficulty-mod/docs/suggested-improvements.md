@@ -113,3 +113,15 @@ Options, cheapest first:
 ## From the Opus fixes (19 Nov)
 - Call for backup: the helper comes after about 12 s of fighting, not 25 (the timer counts 60 frames a second). Question for the user: keep 12 s or set 25 (`FRAMES` 1500, one line)?
 - Spawn combo: after 12 alive enemies nothing more appears; whether killing one frees its slot is not yet seen. Test on a real pad with the Longshot L+R+D-pad shortcut off.
+
+## From the horde rework (More enemies 1x to 10x, 19 Nov, not played)
+- **Cap.** Hyrule Field reaches the 240 cap at 5x, so 5x and 10x look the same there. After the load test, raise `horde::MAP_CAP` (one const) if 240 runs well, or make the cap scale with a map's walkable area. Question for you: is a busier Hyrule Field worth the risk?
+- **Water.** The navigation mesh has no water, so water enemies only spread 3 to 15 units from vanilla Octoroks. A reader for the collision files (`Phive/StaticCompoundBody`, water material) would find all water and its depth, and allow Shell Blades and Stingers underwater.
+- **Ceilings.** Not in the mesh either: dungeons are treated as roofed and fliers kept 2.5 up. The same collision reader would give real ceiling heights for Skulltulas and Keese.
+- **Guays by day.** The horde copies the vanilla field Guays, which carry the night-only key. Should horde Guays fly by day (drop the key)?
+- **Minibosses at the start.** None in child Kokiri Forest (no sword yet). Should other early maps (Hyrule Field as child, Deku Tree) also be spared at 5x and 7x?
+- **Lizalfos.** Plain Lizalfos are left out because of the Dodongo black screen; Dinolfos pairs stand in. Once the black screen is explained they could come back.
+- **Skipped maps.** Towns (Zora's Domain, Goron City, child Market), Hyrule Castle, Gerudo Fortress, Gerudo Training Ground, the collapsing castle. Any you want included?
+- **Old settings strings.** A string from an earlier build with More enemies at Half again or Double reads as 1x with a warning (the setting changed from a choice to a slider).
+- **Ledges.** The in-bounds rule (actors nearby) still lets an enemy onto a roof or cliff top that has props. If the game test finds some, a reachability check from the map's arrival points over the mesh would remove them.
+

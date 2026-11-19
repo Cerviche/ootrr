@@ -20,6 +20,8 @@ While alive, enemies slowly recover health, never above their maximum. I left th
 - Size table entries grow for the graphs and packs.
 
 ## How it was tested
+- rc 13 (19 Nov, merged build, script, `playtest
+c13\RESULTS.md`): a hit Stalfos regained +1 hp 15.2 s and 15.0 s after the hit, then every 4.9 and 5.4 s. The source of the hits was not identified (19 sword swings did no damage).
 - 22 difficulty tests, including checks that each added node has the same shape as a game-authored node of the same kind.
 - A real build with health at 2x and regen on; the built graph has 11 nodes in both places.
 - Found and worked around a bug: the repo misreads the compression dictionary of the global AI pack.
@@ -54,3 +56,11 @@ The code review (finding 1) read the red tint as the wrapper: each feature made 
 - Built: the module graphs (`EnemyCommon...reactiondamagecolor` and the Stalfos one) are no longer edited, in any combination. Regen adds its looping timer as one more child of the Parallel that holds the module call, in every caller graph (`difficulty/hook.rs` is the one shared helper, all three features use it). Nodes are the same as before minus the old wrapper. Heap growth is unchanged.
 - Test: `the_vanilla_damage_color_module_is_untouched_in_every_combination_of_the_three` builds all 8 on/off combinations of regen, fairy and backup and checks that both module graphs are byte-identical and the call itself is untouched.
 - In the game: with regen, fairy and backup on, are enemies normal-coloured before and after being hit; does regen still heal. See `playtest\review-fixes\TESTS.md`.
+
+## Wait before healing (branch `feature/regen-wait`, code only)
+The user fought two Stalfos with regen on: "they're recovering health so fast I can't kill them!" Decision: "10 seconds wait, 1 hp every 5 seconds". An enemy starts healing only after 10 seconds without being hit, then heals 1 point every 5 seconds until full. A new hit restarts the 10 seconds.
+- Hit signal: `QueryLifeIsExternalDamaged` (the life component's "damaged from outside" flag), no keys, no blackboard. Vanilla precedent: the Stalfos root graph (`AI/Enemy_Stalfos.utility.root.ainb`, element 5 and the Switch 38 that reads it) sits in the same kind of per-frame Parallel we host in; `EnemyCommon.common.ragdolldie.module` and Freezard, Wolfos and Bubble graphs use it the same way. The nodes are copied from those; a test compares their shapes.
+- Wait: a Switch on the hit query. True runs an idle node. False runs a 600-frame non-looping `SelectorGenericFrameCounter` (60 frames a second). When a hit flips the Switch, the counter is left and starts from zero when it is entered again. Precedent for a counter under a Switch branch: `AI/Kokko.utility.root.ainb` (Switch 106, False to counter 60).
+- Heal: the old looping 300-frame timer (`HEAL_EVERY`, 5 s) is the counter's Finish child, so it runs only after the wait and restarts with it. Its Finish runs the old guarded heal (has life, not dead, add 1). The first heal comes 15 s after the last hit (10 s wait, then one 5 s period), then every 5 s.
+- Nodes added per hosted call: 14 (was 9). No keys are read or written, so the placement-key and blackboard problems of the backup feature do not apply; a test checks the count of Blackboard nodes in the patched caller is unchanged.
+- Not verified in the game: that the flag is true on the frame an enemy takes a hit (the Stalfos graph reacts to it, so it should be), and that the Switch re-enters the counter from zero. To check: debug overlay enemy health on a Stalfos; hit it, 10 s of no change, then +1 per 5 s (first at about 15 s); hit again at 8 s and the wait restarts.

@@ -53,9 +53,11 @@ pub const ZORA_GUARD: &str = "Enemy_Lizalfos";
 pub const WOODS_GUARD: &str = "Enemy_Wolfos";
 pub const SKELETON_GUARD: &str = "Enemy_Stalfos";
 pub const SCRUB_GUARD: &str = "Enemy_Scrub_Mad";
-pub const TEKTITE_GUARD: &str = "Enemy_Tektite_Red";
-pub const INSET: f32 = 1.0;
+pub const DODONGO_GUARD: &str = "Enemy_Dodongo";
+pub const BARRIER_HALF: f32 = 1.0;
+pub const INSET: f32 = 2.5 + BARRIER_HALF;
 pub const LEAST: f32 = 2.0;
+pub const SMALLEST: f32 = 0.5;
 pub const MARKET_GUARD: &str = HAND;
 pub const FIELD_GUARD: &str = KNIGHT;
 
@@ -75,10 +77,10 @@ pub struct Gate {
     pub closed_forest_only: bool,
 }
 
-pub const HELD: [u8; 6] = [1, 2, 7, 9, 11, 12];
+pub const HELD: [u8; 1] = [7];
 pub const GATES: [Gate; 11] = [
     Gate { id: 1, name: "the passage out of the Sacred Forest Meadow's scrub lane", map: "SacredForestMeadow_Child", a: [-8.13, 114.46, -82.57], b: [-5.03, 114.47, -82.57], spot: [-6.4, 104.81, -53.4], more: &[], also: &[], sink: 0.0, radius: RADIUS, new_kind: SCRUB_GUARD, closed_forest_only: false },
-    Gate { id: 2, name: "the Death Mountain Trail below the Dodongo's Cavern path", map: "DeathMountainTrail_Child", a: [-52.85, 106.91, -2.46], b: [-47.86, 106.93, -0.56], spot: [-54.67, 105.8, 6.39], more: &[], also: &[], sink: 0.0, radius: RADIUS, new_kind: TEKTITE_GUARD, closed_forest_only: false },
+    Gate { id: 2, name: "the Death Mountain Trail below the Dodongo's Cavern path", map: "DeathMountainTrail_Child", a: [-52.85, 106.91, -2.46], b: [-47.86, 106.93, -0.56], spot: [-54.67, 105.8, 6.39], more: &[], also: &[], sink: 0.0, radius: RADIUS, new_kind: DODONGO_GUARD, closed_forest_only: false },
     Gate { id: 3, name: "Zora's River before the Bean Seller", map: "ZoraRiver_Child", a: [-60.62, 100.11, -8.67], b: [-64.0, 99.85, -7.09], spot: [-64.05, 99.71, -14.09], more: &[], also: &[], sink: 0.0, radius: RADIUS, new_kind: ZORA_GUARD, closed_forest_only: false },
     Gate { id: 4, name: "Zora's River, the second narrows", map: "ZoraRiver_Child", a: [-25.79, 107.46, -23.17], b: [-23.86, 107.72, -26.27], spot: [-18.84, 106.01, -18.5], more: &[], also: &[], sink: 0.0, radius: RADIUS, new_kind: ZORA_GUARD, closed_forest_only: false },
     Gate { id: 5, name: "Zora's River, the upper narrows", map: "ZoraRiver_Child", a: [61.43, 108.87, -21.08], b: [60.85, 108.64, -14.65], spot: [34.73, 106.31, -24.81], more: &[[29.84, 106.68, -20.6]], also: &[], sink: 0.0, radius: RADIUS, new_kind: ZORA_GUARD, closed_forest_only: false },
@@ -185,29 +187,57 @@ pub fn wall_side(a: [f32; 3], b: [f32; 3], spot: [f32; 3]) -> ([f32; 2], f32) {
     (n, d)
 }
 
-pub fn area_half(g: &Gate) -> [f32; 2] {
+pub fn clear(g: &Gate, c: [f32; 2], h: [f32; 2]) -> bool {
+    walls(g).iter().all(|(a, b)| {
+        let (n, _): ([f32; 2], f32) = wall_side(*a, *b, g.spot);
+        n[0] * (c[0] - a[0]) + n[1] * (c[1] - a[2]) - n[0].abs() * h[0] - n[1].abs() * h[1] >= INSET - 1e-3
+    })
+}
+
+pub fn area_box(g: &Gate) -> ([f32; 2], [f32; 2]) {
+    let (c, h): ([f32; 2], [f32; 2]) = area_fit(g, LEAST);
+    if clear(g, c, h) {
+        (c, h)
+    } else {
+        area_fit(g, SMALLEST)
+    }
+}
+
+pub fn area_fit(g: &Gate, least: f32) -> ([f32; 2], [f32; 2]) {
+    let mut c: [f32; 2] = [g.spot[0], g.spot[2]];
     let mut h: [f32; 2] = [g.radius, g.radius];
-    for (a, b) in walls(g) {
-        let (n, d): ([f32; 2], f32) = wall_side(a, b, g.spot);
-        let room: f32 = d - INSET;
-        let (first, second): (usize, usize) = if n[0].abs() >= n[1].abs() { (0, 1) } else { (1, 0) };
-        if n[first].abs() * h[first] + n[second].abs() * h[second] > room {
-            h[first] = ((room - n[second].abs() * h[second]) / n[first].abs()).clamp(LEAST, h[first]);
-        }
-        if n[first].abs() * h[first] + n[second].abs() * h[second] > room {
-            h[second] = ((room - n[first].abs() * h[first]) / n[second].abs().max(1e-3)).clamp(LEAST, h[second]);
+    for _ in 0..3 {
+        for (a, b) in walls(g) {
+            let (n, _): ([f32; 2], f32) = wall_side(a, b, g.spot);
+            let (first, second): (usize, usize) = if n[0].abs() >= n[1].abs() { (0, 1) } else { (1, 0) };
+            let room: f32 = n[0] * (c[0] - a[0]) + n[1] * (c[1] - a[2]) - INSET;
+            if n[first].abs() * h[first] + n[second].abs() * h[second] > room {
+                h[first] = ((room - n[second].abs() * h[second]) / n[first].abs()).clamp(least, h[first]);
+            }
+            if n[first].abs() * h[first] + n[second].abs() * h[second] > room {
+                h[second] = ((room - n[first].abs() * h[first]) / n[second].abs().max(1e-3)).clamp(least, h[second]);
+            }
+            let short: f32 = n[0].abs() * h[0] + n[1].abs() * h[1] - room;
+            if short > 0.0 {
+                c = [c[0] + n[0] * short, c[1] + n[1] * short];
+            }
         }
     }
-    h
+    (c, h)
+}
+
+pub fn area_half(g: &Gate) -> [f32; 2] {
+    area_box(g).1
 }
 
 pub fn area_at(g: &Gate) -> [f32; 3] {
-    [g.spot[0], g.spot[1] - 1.0, g.spot[2]]
+    let c: [f32; 2] = area_box(g).0;
+    [c[0], g.spot[1] - 1.0, c[1]]
 }
 
 pub fn area_size(g: &Gate) -> [f32; 3] {
     let h: [f32; 2] = area_half(g);
-    [2.0 * h[0], HEIGHT, 2.0 * h[1]]
+    [h[0], HEIGHT, h[1]]
 }
 
 pub fn approach(g: &Gate, back: f32) -> [f32; 3] {
@@ -695,22 +725,23 @@ mod tests {
     fn the_trigger_box_lies_wholly_on_the_guard_side_of_every_wall() {
         for g in GATES.iter() {
             let h: [f32; 2] = area_half(g);
-            assert!(h[0] >= LEAST && h[1] >= LEAST && h[0] <= g.radius && h[1] <= g.radius, "gate {}", g.id);
+            let ctr: [f32; 2] = area_box(g).0;
+            assert!(h[0] >= SMALLEST && h[1] >= SMALLEST && h[0] <= g.radius && h[1] <= g.radius, "gate {}", g.id);
             for (a, b) in walls(g) {
                 let (n, d): ([f32; 2], f32) = wall_side(a, b, g.spot);
-                assert!(d > INSET + LEAST, "gate {}", g.id);
+                assert!(d > 0.0, "gate {}", g.id);
                 for sx in [-1.0f32, 1.0] {
                     for sz in [-1.0f32, 1.0] {
-                        let c: [f32; 2] = [g.spot[0] + sx * h[0], g.spot[2] + sz * h[1]];
+                        let c: [f32; 2] = [ctr[0] + sx * h[0], ctr[1] + sz * h[1]];
                         let side: f32 = n[0] * (c[0] - a[0]) + n[1] * (c[1] - a[2]);
-                        assert!(side >= INSET - 1e-3, "gate {} corner {sx} {sz}", g.id);
+                        assert!(side >= 2.5 + BARRIER_HALF - 1e-3, "gate {} corner {sx} {sz}", g.id);
                     }
                 }
             }
         }
         let far: Gate = Gate { a: [0.0, 5.0, 0.0], b: [6.0, 5.0, 0.0], spot: [3.0, 5.0, 4.0], ..G };
         assert!(area_half(&far)[1] <= 3.0 + 1e-3);
-        assert_eq!(area_half(&G), [RADIUS, 9.0]);
+        assert_eq!(area_half(&G), [RADIUS, 6.5]);
     }
 
     #[test]
@@ -734,7 +765,7 @@ mod tests {
     }
 
     #[test]
-    fn the_scrub_and_tektite_gates_make_their_own_guard_and_leave_the_vanilla_ones_alone() {
+    fn the_scrub_and_dodongo_gates_make_their_own_guard_and_leave_the_vanilla_ones_alone() {
         for id in [1u8, 2] {
             let g: &Gate = GATES.iter().find(|g| g.id == id).unwrap();
             assert!(makes(g));
@@ -747,7 +778,7 @@ mod tests {
         }
         assert_eq!(GATES.iter().filter(|g| !makes(g)).map(|g| g.id).collect::<Vec<u8>>(), vec![6]);
         assert_eq!(GATES[0].new_kind, SCRUB_GUARD);
-        assert_eq!(GATES[1].new_kind, TEKTITE_GUARD);
+        assert_eq!(GATES[1].new_kind, DODONGO_GUARD);
     }
 
     #[test]

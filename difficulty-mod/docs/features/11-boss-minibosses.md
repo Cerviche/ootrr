@@ -29,6 +29,7 @@ Two files per boss:
 Skipped: Volvagia, Morpha and Bongo Bongo (no safe floor), Ganondorf and Ganon (scripted), and the boss rush copies.
 
 ## How it was tested
+- rc 13 (19 Nov, script): the Deku Tree loads with the mod (no black screen). Right after arriving the actor list holds the Stalfos at (16.5, 47.2, 74.0), hp 18, before any door scene; whether it is visible or active then was not seen. The door walk is NOT TESTED (capture playbook).
 - 21 difficulty tests including a game-file test per boss room.
 - A real build: all five maps and graphs carry the edit alongside the boss heart edit, the graph audit is clean, `flow-loads` is clean.
 
@@ -75,3 +76,10 @@ From `docs\code-review-2026-11-18.md`, open problem (b). Not tested; nothing was
 - The spot. It was about 34 units from the boss's own position, against 5 to 9 units for the four spots that work, so it may lie outside the boss room whose index it carries.
 - Experiment: variant D above (a Keese at the same spot) separates the two. If D loads, the kind is the cause; if D is black, the spot or appending to this file is. Also copy the full vanilla entry of the Spirit Temple's plain Lizalfos and compare its keys with ours (variant C).
 - Simplest way out: use a kind that already loads with a bare entry (Stalfos or Dinolfos) at a spot checked against the room.
+
+## Seen in the game, 19 Nov, and the change (feature/boss-adds)
+- First time seen: with this and "Bosses spawn minions" on, in Gohma's room. The user: "the keeze and stalfos are in the room, but can we defer spawning them 'till after the fight starts?" The Stalfos was placed in the map, so it stood in the room and could attack before Gohma's introduction had played.
+- Change: the miniboss is now created on a signal and is not placed at load. Per room:
+  - **Gohma:** the room graph runs the boss through a module node (`Enemy_DungeonBoss_Gohma_Prefab_b75b`). That module has one output, `End_TrapEvent`, the end of the scene where the door shuts behind Link. Gohma's own introduction starts right after it (the boss waits for the same door flag, then plays its appear event). The Stalfos node's create input is now wired to `End_TrapEvent`. The node still leaves on the flag that brings the heart container. This is the closest signal the room graph offers: it is not "after the introduction", it is as the introduction starts. The game pauses and hides actors that are not in a scene during the boss introduction (not seen), so the Stalfos should first move when the fight starts.
+  - **Barinade, Phantom Ganon, Twinrova:** left as they were. Their prefab modules have no output at all, and the flags their room graphs read (`Barrinade_doorFlag`, `ForestTemple_SageOfForest_BossAppearance`, `SageOfSpirit_BossIn`) are set at the start of the appearance scene or when the player walks in, so they are no better than creating it at load. The only fight-started signal found is the boss's own `IsBattle` output inside the prefab, and wiring to it would mean editing a graph that the dream world copy of the fight shares. Not done without a way to test it.
+- Testing the Gohma room: walk through the boss door. Warping into the room skips the door scene, so the signal never fires and the Stalfos never appears.

@@ -54,7 +54,7 @@ fn reward_goal(s: Setting) -> Setting {
 
 fn bridge() -> Vec<Setting> {
     let b: Setting = reward_goal(
-        Setting::choice(24, "bridge", "goal", "Rainbow Bridge", "medallions")
+        Setting::choice(24, "bridge", "goal", "Rainbow Bridge", "vanilla")
             .tag(Tag::Core)
             .tip("What it takes to make the Rainbow Bridge to Ganon's Castle appear.")
             .opt("open", "Always open", "The bridge is there from the start.")
@@ -85,7 +85,8 @@ fn ganon_key() -> Vec<Setting> {
     let k: Setting = reward_goal(key_places(
         Setting::choice(18, "shuffle_ganon_bosskey", "keys", "Ganon's Boss Key", "dungeon")
             .tag(Tag::Core)
-            .tip("Where Ganon's Castle Boss Key is, or what earns it."),
+            .tip("Where Ganon's Castle Boss Key is, or what earns it.")
+            .opt(crate::lacs_key::VALUE, "LACS - Dungeon Rewards", "Zelda gives the key in the Light Arrows Cutscene, which plays once you hold a set number of Stones and Medallions together. The Light Arrows are shuffled into the item pool. Experimental, untested in the game."),
     ));
     vec![
         k,
@@ -200,9 +201,9 @@ fn difficulty() -> Vec<Setting> {
             .multiplier(d::SPEED_STEP, d::NORMAL)
             .tip("How fast enemies move and how often they attack, from three quarters (0.75x) to twice (2x) the usual speed. Enemies that only move through their animations, such as Octoroks and Skulltulas, keep their pace. The settings string stores this as a percentage. Experimental, untested in the game."),
         Setting::toggle(d::REGEN_NUM, d::REGEN, "difficulty", "Enemies regen health", false)
-            .tip("Enemies and bosses that are still alive slowly win back health, one point about every five seconds, never above their usual health. A Stalfos has 18 points, so a hurt one is whole again after a minute and a half. Enemies with one or two points of health hardly notice. Experimental, untested in the game."),
+            .tip("Enemies and bosses that are still alive win back health when they are left alone. An enemy that has gone 10 seconds without being hit starts to heal, one point every 5 seconds, never above its usual health. Any new hit starts the 10 seconds again. A Stalfos has 18 points, so a hurt one is whole again a minute and a half after it was last hit. Enemies with one or two points of health hardly notice. Experimental, untested in the game."),
         Setting::toggle(d::BACKUP_NUM, d::BACKUP, "difficulty", "Enemies call for backup", false)
-            .tip("Take too long over an enemy and it calls for help, once. An ordinary enemy that has had Link as its target for about 12 seconds without a break calls one helper to its side, and never calls again for as long as it lives, even when the helper is gone. The helper is a Peahat larva, except for enemies native to Jabu-Jabu's Belly (a Shabom) and to the Ice Cavern and the Shadow and Spirit Temples (a flying pot). The helpers never call anything themselves. Bosses, minibosses, Iron Knuckles, Dead Hand, Dark Link and Phantom Ganon never call. A called helper does not count for doors that open when a room is cleared. Experimental, untested in the game."),
+            .tip("Take too long over an enemy and it calls for help, once. An ordinary enemy that has had Link as its target for a random 10 to 25 seconds without a break calls one helper, which appears about two steps to its side at its own height, and never calls again for as long as it lives, even when the helper is gone. Each enemy rolls its own delay, so several enemies do not all call in the same second. Who calls whom: skeletons (Stalchild, Stalfos), Gibdo, Wolfos and Tektites call a Keese; White Wolfos and Freezards an ice Keese; Torch Slugs and bubbles a fire Keese; Lizalfos, Dinolfos and Dodongos a Baby Dodongo; Moblins a Guay; Skulltulas, Deku Babas and Mad Scrubs a Skullwalltula; Floormasters, Wallmasters and Like Likes a small Floormaster; Armos a flying pot; Octoroks and the Jabu-Jabu creatures a Shabom; anything else a Keese. A helper whose kind the current area has not loaded may simply not appear. Small fry never call: Keese, Baby Dodongos, Guay, Skullwalltulas, small Floormasters, flying pots, Shabom, ReDeads, Leevers and Peahats. Bosses, minibosses, Iron Knuckles, Dead Hand, Dark Link and Phantom Ganon never call either. A called helper does not count for doors that open when a room is cleared. Experimental, untested in the game."),
         Setting::toggle(d::NO_HEARTS_NUM, d::NO_HEARTS, "difficulty", "No heart drops", false)
             .tip("Enemies, pots, grass and other random drops never give recovery hearts. Hearts that are placed as shuffled items are still there. Experimental, untested in the game."),
         Setting::toggle(d::NO_FAIRIES_NUM, d::NO_FAIRIES, "difficulty", "No gossip fairies", false)
@@ -225,9 +226,9 @@ fn difficulty() -> Vec<Setting> {
         Setting::toggle(d::RESPAWN_NUM, d::RESPAWN, "difficulty", "Enemies respawn sooner", false)
             .tip("Most ordinary enemies you beat are no longer remembered as beaten, so they should be back when you leave their room or area and return. Without this they only come back after you leave the whole dungeon or region. Bosses, minibosses, Gold Skulltulas, Poes, Deku Scrubs and a few enemies that share their data with a boss are unchanged. Doors and chests that a cleared room already gave you should stay, but that is not confirmed. Experimental, untested in the game."),
         Setting::toggle(d::MINIBOSSES_NUM, d::MINIBOSSES, "difficulty", "Bosses spawn minibosses", false)
-            .tip("A strong enemy waits in the boss room and fights alongside the boss. It is there when you enter and leaves when the boss is beaten, so it never blocks the heart container or the way out. Covers Queen Gohma (Stalfos), Barinade (Stalfos), Phantom Ganon (Stalfos) and Twinrova (Dinolfos). King Dodongo is unchanged because his dungeon would not load with a miniboss added. Volvagia, Morpha, Bongo Bongo, Ganondorf and Ganon are unchanged because their arenas have no safe ground for it, and so are the dream world boss fights. Experimental, untested in the game."),
+            .tip("A strong enemy waits in the boss room and fights alongside the boss. It leaves when the boss is beaten, so it never blocks the heart container or the way out. In Gohma's room it is not there until the door has shut behind you, as the boss introduction starts; in the other rooms it is there when you enter. Covers Queen Gohma (Stalfos), Barinade (Stalfos), Phantom Ganon (Stalfos) and Twinrova (Dinolfos). King Dodongo is unchanged because his dungeon would not load with a miniboss added. Volvagia, Morpha, Bongo Bongo, Ganondorf and Ganon are unchanged because their arenas have no safe ground for it, and so are the dream world boss fights. Experimental, untested in the game."),
         Setting::toggle(d::MINIONS_NUM, d::MINIONS, "difficulty", "Bosses spawn minions", false)
-            .tip("Dungeon bosses have a few weak enemies with them. Three Keese fly around the rooms of Gohma, Phantom Ganon, Morpha and Bongo Bongo, three Fire Keese around Volvagia, two Fire Keese and two Ice Keese around Twinrova and three Biri float around Barinade. King Dodongo calls Baby Dodongos from the start of his fight and calls more of them later on. The Keese and Biri are in the boss room whenever you are, also after the boss is beaten. Ganondorf, Ganon and the dream world boss stages are unchanged. Experimental, untested in the game."),
+            .tip("Dungeon bosses have a few weak enemies with them. Three Keese fly around the rooms of Gohma, Phantom Ganon, Morpha and Bongo Bongo, three Fire Keese around Volvagia, two Fire Keese and two Ice Keese around Twinrova and three Biri float around Barinade. King Dodongo calls Baby Dodongos from the start of his fight and calls more of them later on. The Keese in Gohma's room are not there until the door has shut behind you, as the boss introduction starts, and the others are in the boss room whenever you are. They stay after the boss is beaten. Ganondorf, Ganon and the dream world boss stages are unchanged. Experimental, untested in the game."),
         Setting::toggle(d::BEAN_PITCH_NUM, d::BEAN_PITCH, "difficulty", "Bean Seller's sales pitch", false)
             .tip("Just for fun. One talk in five, the Bean Seller by Zora's River says \"Chomp Chomp... would you like some Difficulty Mods?\" before he carries on with his usual talk and his beans. Nothing else changes, and the line is in English in every language. Experimental, untested in the game."),
         Setting::toggle(d::ZORA_AMBUSH_NUM, d::ZORA_AMBUSH, "difficulty", "Zora's Domain ambush", false)
@@ -235,7 +236,7 @@ fn difficulty() -> Vec<Setting> {
         Setting::toggle(d::GATES_NUM, d::GATES, "difficulty", "Enemies block the way", false)
             .tip("At a few choke points an invisible wall stands in the way while the enemies guarding it are alive, and goes away when they are beaten. If they are too hard, retreat and come back stronger. Nothing is saved: when the area loads again and the enemies are back, so is the wall. The enemies stand in the wall, so they can be hit from both sides and nobody is shut in. Only the two Deku Babas on the path from Kokiri Forest to the Deku Tree for now. It is skipped with an open forest or shuffled entrances, where it could add a requirement the seed does not expect. Experimental, untested in the game."),
         Setting::toggle(d::ENCOUNTERS_NUM, d::ENCOUNTERS, "difficulty", "More enemies: special encounters", false)
-            .tip("Hand placed extra enemies in a few spots, separate from the More enemies choice. A Dead Hand waits in two hidden holes: the dark hole in east Hyrule Field with the chest and the ReDead, and the foggy hole at the foot of the Death Mountain trail with the Baby Dodongos. An Iron Knuckle stands in the open fields of Hyrule Field between Kakariko, Lon Lon Ranch and the Kokiri Forest. Ten Like Likes wait around Lake Hylia: on the grassy corner and the shore north of the lake, on the island where the two rope bridges meet, on the small islands, on the big central island and on the west shore strip. They are in every version of the map (child and adult) and come back when the area is loaded again. Also, one time in 100 a Skulltula (the kind that stands on the ground) or a small crawling hand appears from cut grass, and a Poe or a small crawling hand from a broken pot, instead of the usual drop, and about one in ten of the plain pots in the world (not those that hold a key, a fairy or a chosen item, and not in the first room of a dungeon) is a flying pot in disguise. Experimental, untested in the game."),
+            .tip("Hand placed extra enemies in a few spots, separate from the More enemies choice. A Dead Hand waits in two hidden holes: the dark hole in east Hyrule Field with the chest and the ReDead, and the foggy hole at the foot of the Death Mountain trail with the Baby Dodongos. An Iron Knuckle stands in the open fields of Hyrule Field between Kakariko, Lon Lon Ranch and the Kokiri Forest. Ten Like Likes wait around Lake Hylia: on the grassy corner and the shore north of the lake, on the island where the two rope bridges meet, on the small islands, on the big central island and on the west shore strip. They are in every version of the map (child and adult) and come back when the area is loaded again. Child Hyrule Field also gets heaps more Guays, flocks of four over the open grass. Also, one time in 100 a Skulltula (the kind that stands on the ground) or a small crawling hand appears from cut grass, and a Poe or a small crawling hand from a broken pot, instead of the usual drop, and about one in ten of the plain pots in the world (not those that hold a key, a fairy or a chosen item, and not in the first room of a dungeon) is a flying pot in disguise. Experimental, untested in the game."),
         Setting::toggle(d::CUCCO_NUM, d::CUCCO, "difficulty", "Cuccos take revenge at once", false)
             .tip("Hurting a Cucco, even with a single light hit, makes the whole flock of Cuccos come after you. Normally the game wants a few hits before they get angry. Picking a Cucco up, carrying it and throwing it do not count as hurting it. The Cuccos you catch for Anju in Kakariko Village and the ones the game has you find keep their normal temper, so those quests are not made harder. Experimental, untested in the game."),
         Setting::toggle(d::SPAWN_COMBO_NUM, d::SPAWN_COMBO, "difficulty", "Spawn enemies with L + R + D-pad", false)
@@ -400,6 +401,7 @@ pub fn build() -> Schema {
     );
     s.extend(ganon_key());
     s.extend(bridge());
+    s.extend(crate::medal_gate::settings());
     s.push(
         Setting::toggle(30, "trials_random", "goal", "Random Ganon's Trials", false)
             .tip("Pick the number of trials to clear at random."),
@@ -432,7 +434,7 @@ pub fn build() -> Schema {
     s.push(
         Setting::choice(38, "shuffle_rewards", "shuffle", "Story and NPC rewards", "supported")
             .wire_as(Value::s("off"))
-            .tip("Whether the items that NPCs, minigames, Great Fairies and story scenes hand out are shuffled. This is on by default. The Spiritual Stones and Medallions from the bosses and Rauru stay in place unless Stones and Medallions is also on. Songs have their own setting.")
+            .tip("Whether the items that NPCs, minigames, Great Fairies and story scenes hand out are shuffled. This is on by default. The Spiritual Stones and Medallions from the bosses and Rauru stay in place unless Dungeon Rewards is also set. Songs have their own setting.")
             .opt("off", "Vanilla", "These rewards keep their original items.")
             .opt("supported", "Supported rewards", "The rewards whose event the tool can edit."),
     );
@@ -444,8 +446,13 @@ pub fn build() -> Schema {
             .when("shuffle_rewards", "supported"),
     );
     s.push(
-        Setting::toggle(74, "shuffle_dungeon_rewards", "shuffle", "Stones and Medallions", false)
-            .tip("Also shuffle the three Spiritual Stones and six Medallions that the bosses and Rauru hand out. When this is off, every boss and Rauru give their usual Stone or Medallion, and no Stone or Medallion turns up anywhere else.")
+        // Was a toggle: the choice order keeps old strings reading off as vanilla and on as anywhere.
+        Setting::choice(74, "shuffle_dungeon_rewards", "shuffle", "Dungeon Rewards", "vanilla")
+            .disabled_as(Value::s("vanilla"))
+            .tip("Where the three Spiritual Stones and six Medallions that the bosses and Rauru hand out can be found.")
+            .opt("vanilla", "Vanilla", "Every boss and Rauru give their usual Stone or Medallion.")
+            .opt("anywhere", "Anywhere", "The Stones and Medallions can be anywhere, and the bosses and Rauru can give any item.")
+            .opt("dungeons", "End of dungeons", "The Stones and Medallions are shuffled among the bosses and Rauru only: each of them gives one random Stone or Medallion.")
             .when("shuffle_rewards", "supported"),
     );
     s.push(
@@ -532,7 +539,7 @@ pub fn build() -> Schema {
     s.push(
         Setting::toggle(39, "shuffle_boss_hearts", "shuffle", "Boss Heart Containers", true)
             .wire_as(Value::Bool(false))
-            .tip("Whether the Heart Containers that bosses leave behind join the item pool. Each one becomes a chest that holds a random item."),
+            .tip("Whether the Heart Containers that bosses leave behind join the item pool. The random item appears where the heart would, after the boss falls."),
     );
     s.push(
         Setting::choice(40, "shuffle_songs", "shuffle", "Songs", "off")
@@ -540,6 +547,11 @@ pub fn build() -> Schema {
             .opt("off", "Vanilla", "Every song comes from its usual teacher.")
             .opt("own", "Song locations", "The songs are shuffled among the places that teach songs.")
             .opt("anywhere", "Anywhere", "Songs can appear anywhere, also in pots, crates, freestanding spots and at Gold Skulltulas when those are shuffled, and song locations can hold any item."),
+    );
+    s.push(
+        Setting::toggle(104, crate::song_models::SETTING, "shuffle", "Harp colour by song", true)
+            .tip("A song found as an item shows Sheik's harp in the colour of that song on the ocarina menu, so you can tell the songs apart before you pick one up. Experimental, untested in the game.")
+            .when("shuffle_songs", "anywhere"),
     );
     s.push(
         Setting::toggle(41, "gossip_hints", "world", "Gossip stone hints", false)

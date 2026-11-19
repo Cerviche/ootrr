@@ -1,13 +1,17 @@
 use std::collections::BTreeSet as Set;
 use std::f32::consts::{PI, TAU};
 
+use crate::ainb::Ainb;
 use crate::byml::{Byml, Node};
+use crate::difficulty::minibosses::{self, Start, GOHMA_START};
+use crate::flow_locations::dict_id;
 use crate::error::{Error, Res};
 use crate::murmur::murmur3_32;
 use crate::placement::hash_of;
 use crate::qol::{edit_zs, Have};
 use crate::romfs::Romfs;
-use crate::staging::Out;
+use crate::staging::{Out, BANC_DICT};
+use crate::zs;
 
 pub const KEESE: &str = "Enemy_Keese";
 pub const FIRE: &str = "Enemy_Keese_Fire";
@@ -24,7 +28,7 @@ pub const DODONGO_PARAM: &str = "GameParameter/DungeonBossDodongoParam/Enemy_Dun
 pub const STAGES: &str = "SpawnBabyDodongoParams";
 pub const AFTER_ROLL: &str = "RollingAfterSpawnNum";
 pub const FIRST_BABIES: i32 = 2;
-pub const NOTE: &str = "Bosses have a few weak enemies with them. Keese fly around the rooms of Gohma, Phantom Ganon, Morpha and Bongo Bongo, Fire Keese around Volvagia, Fire and Ice Keese around Twinrova and Biri around Barinade. King Dodongo calls Baby Dodongos from the start of his fight and calls more of them. The Keese and Biri are there whenever you are in the boss room, also after the boss is beaten. Ganondorf, Ganon and the dream world boss stages are unchanged. Experimental, untested in the game.";
+pub const NOTE: &str = "Bosses have a few weak enemies with them. Keese fly around the rooms of Gohma, Phantom Ganon, Morpha and Bongo Bongo, Fire Keese around Volvagia, Fire and Ice Keese around Twinrova and Biri around Barinade. King Dodongo calls Baby Dodongos from the start of his fight and calls more of them. The Keese in Gohma's room appear when the door has shut behind you, as the boss introduction starts, and the others are there whenever you are in the boss room. They stay after the boss is beaten. Ganondorf, Ganon and the dream world boss stages are unchanged. Experimental, untested in the game.";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Room {
@@ -35,6 +39,7 @@ pub struct Room {
     pub mid: [f32; 3],
     pub ring: f32,
     pub foes: &'static [&'static str],
+    pub start: Option<Start>,
 }
 
 pub const ROOMS: [Room; 7] = [
@@ -46,6 +51,7 @@ pub const ROOMS: [Room; 7] = [
         mid: [20.0, 50.5, 67.8],
         ring: 5.0,
         foes: &[KEESE, KEESE, KEESE],
+        start: Some(GOHMA_START),
     },
     Room {
         boss: "Enemy_DungeonBoss_Barinade",
@@ -55,6 +61,7 @@ pub const ROOMS: [Room; 7] = [
         mid: [42.3, 103.5, -112.1],
         ring: 8.0,
         foes: &[BIRI, BIRI, BIRI],
+        start: None,
     },
     Room {
         boss: "Enemy_DungeonBoss_PhantomGanon",
@@ -64,6 +71,7 @@ pub const ROOMS: [Room; 7] = [
         mid: [0.0, 78.2, -62.5],
         ring: 5.0,
         foes: &[KEESE, KEESE, KEESE],
+        start: None,
     },
     Room {
         boss: "Enemy_DungeonBoss_Volvagia",
@@ -73,6 +81,7 @@ pub const ROOMS: [Room; 7] = [
         mid: [-80.2, 106.0, 0.0],
         ring: 6.0,
         foes: &[FIRE, FIRE, FIRE],
+        start: None,
     },
     Room {
         boss: "Enemy_DungeonBoss_Morpha",
@@ -82,6 +91,7 @@ pub const ROOMS: [Room; 7] = [
         mid: [-4.5, 133.5, -91.8],
         ring: 6.0,
         foes: &[KEESE, KEESE, KEESE],
+        start: None,
     },
     Room {
         boss: "Enemy_DungeonBoss_BongoBongo",
@@ -91,6 +101,7 @@ pub const ROOMS: [Room; 7] = [
         mid: [-138.3, -8.0, 30.1],
         ring: 5.0,
         foes: &[KEESE, KEESE, KEESE],
+        start: None,
     },
     Room {
         boss: "Enemy_DungeonBoss_Twinrova",
@@ -100,6 +111,7 @@ pub const ROOMS: [Room; 7] = [
         mid: [0.0, 146.0, -157.9],
         ring: 6.0,
         foes: &[FIRE, ICE, FIRE, ICE],
+        start: None,
     },
 ];
 
@@ -205,11 +217,51 @@ fn pack_of(g: &str) -> String {
     format!("Pack/Actor/{g}.pack.zs")
 }
 
+fn source(rf: &mut Romfs, have: Have, p: &str) -> Res<Vec<u8>> {
+    match have(p) {
+        Some(b) => Ok(b),
+        None => rf.read(p),
+    }
+}
+
+pub fn signalled(rf: &mut Romfs, have: Have, r: &Room, start: &Start) -> Res<Vec<Out>> {
+    let z: Vec<u8> = source(rf, have, r.fixed)?;
+    let dict: u32 = dict_id(&z).unwrap_or(BANC_DICT);
+    let mut raw: Vec<u8> = rf.zs.decompress(&z)?;
+    let mut y: Byml = Byml::parse(&raw)?;
+    room_of(&y, r)?;
+    let old: usize = raw.len();
+    let dz: Vec<u8> = source(rf, have, r.free)?;
+    raw.extend(rf.zs.decompress(&dz)?);
+    let at: Vec<([f32; 3], f32)> = spots(r);
+    let mut plans: Vec<minibosses::Plan> = Vec::new();
+    for (i, g) in r.foes.iter().enumerate() {
+        let seed: String = format!("ootrr/minion/{}/{i}", r.boss);
+        let (p, a): ([f32; 3], f32) = at[i];
+        let make = |hash: u64, room: i32| -> Node { foe(g, hash, room, p, a) };
+        plans.push(minibosses::attach(&mut y, &raw, r.boss, r.fixed, g, &seed, &make)?);
+    }
+    let bytes: Vec<u8> = y.write()?;
+    let banc: Out = Out { path: r.fixed.to_string(), old, new: bytes.len(), z: zs::compress_raw(&bytes, Some(dict))? };
+    let logic: String = plans[0].logic.clone();
+    let was: Vec<u8> = source(rf, have, &logic)?;
+    let mut a: Ainb = Ainb::parse(&was)?;
+    for p in &plans {
+        minibosses::wire_with(&mut a, None, &p.id, Some(start))?;
+    }
+    let g: Vec<u8> = a.write()?;
+    Ok(vec![banc, Out { path: logic, old: was.len(), new: g.len(), z: g }])
+}
+
 pub fn stage(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
     let mut outs: Vec<Out> = Vec::new();
     for r in ROOMS.iter() {
         for g in r.foes {
             rf.read(&pack_of(g)).map_err(|_| Error::Msg(format!("the game has no {g}, the game files differ")))?;
+        }
+        if let Some(start) = &r.start {
+            outs.extend(signalled(rf, have, r, start)?);
+            continue;
         }
         let z: Vec<u8> = match have(r.fixed) {
             Some(b) => b,
@@ -302,6 +354,14 @@ mod tests {
             assert!((3..=4).contains(&r.foes.len()));
             assert!(r.fixed.ends_with("_Static.bcett.byml.zs") && r.free == r.fixed.replace("_Static", "_Dynamic"));
         }
+    }
+
+    #[test]
+    fn only_gohmas_minions_wait_for_a_start_signal() {
+        for r in ROOMS.iter() {
+            assert_eq!(r.start.is_some(), r.boss.ends_with("Gohma"), "{}", r.boss);
+        }
+        assert_eq!(ROOMS[0].start, Some(GOHMA_START));
     }
 
     #[test]

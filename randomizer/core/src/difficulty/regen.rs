@@ -15,12 +15,14 @@ pub const TIMER: &str = "SelectorGenericFrameCounter";
 pub const HAS_LIFE: &str = "QueryLifeHasComponent";
 pub const IS_DEAD: &str = "QueryDeathIsDead";
 pub const IDLE: &str = "ExecuteGenericDummyAction";
-pub const FRAMES: f32 = 150.0;
+pub const HIT: &str = "QueryLifeIsExternalDamaged";
+pub const HEAL_EVERY: f32 = 300.0;
+pub const WAIT_FRAMES: f32 = 600.0;
 pub const AMOUNT: i32 = 1;
 pub const ADD: i32 = 0;
 pub const HEAP_EXTRA: i32 = 0x4000;
 pub const LABEL: &str = "enemy regen";
-pub const ADDED: usize = 9;
+pub const ADDED: usize = 14;
 
 pub const HOOK: Hook = Hook { label: LABEL, taken, build };
 
@@ -43,19 +45,26 @@ pub fn build(a: &mut Ainb, tag: &str) -> Res<usize> {
     let bare: usize = a.add_node(&Spec::node(IDLE, &s("idle no life")))?;
     let gate: usize = a.add_node(&switch(&s("gate"), has, alive, bare))?;
     let wait: usize = a.add_node(&Spec::node(IDLE, &s("idle wait")))?;
-    a.add_node(
-        &Spec::node(TIMER, &s("timer"))
-            .prop(1, "IsCountUpdateOnReset", flag(false))
-            .prop(1, "IsLoop", flag(true))
-            .prop(1, "NoChangeWhenChildIsBusy", flag(false))
-            .prop(1, "SelectChildOnEnterOnly", flag(false))
-            .prop(2, "CountFrames", FRAMES.to_le_bytes().to_vec())
-            .prop(2, "RandomAddCountFrames", 0f32.to_le_bytes().to_vec())
-            .spare(2, "CurrentFrame")
-            .spare(2, "FinishFrame")
-            .kid(wait, "NotFinish")
-            .kid(gate, "Finish"),
-    )
+    let every: usize = a.add_node(&counter(&s("heal timer"), HEAL_EVERY, true, wait, gate))?;
+    let pending: usize = a.add_node(&Spec::node(IDLE, &s("idle pending")))?;
+    let quiet: usize = a.add_node(&counter(&s("quiet timer"), WAIT_FRAMES, false, pending, every))?;
+    let hit: usize = a.add_node(&Spec::query(HIT, &s("hit")).out(1, "Bool"))?;
+    let struck: usize = a.add_node(&Spec::node(IDLE, &s("idle hit")))?;
+    a.add_node(&switch(&s("recently hit"), hit, struck, quiet))
+}
+
+fn counter<'a>(seed: &'a str, frames: f32, looped: bool, not_finished: usize, finished: usize) -> Spec<'a> {
+    Spec::node(TIMER, seed)
+        .prop(1, "IsCountUpdateOnReset", flag(false))
+        .prop(1, "IsLoop", flag(looped))
+        .prop(1, "NoChangeWhenChildIsBusy", flag(false))
+        .prop(1, "SelectChildOnEnterOnly", flag(false))
+        .prop(2, "CountFrames", frames.to_le_bytes().to_vec())
+        .prop(2, "RandomAddCountFrames", 0f32.to_le_bytes().to_vec())
+        .spare(2, "CurrentFrame")
+        .spare(2, "FinishFrame")
+        .kid(not_finished, "NotFinish")
+        .kid(finished, "Finish")
 }
 
 pub fn stage(rf: &mut Romfs, have: Have, dir: &str) -> Res<(Set<String>, Vec<Out>)> {
@@ -113,13 +122,20 @@ mod tests {
         let kids: Vec<usize> = a.params[parent].group(2).iter().map(|g| g.a as usize).collect();
         let before: Vec<usize> = old.params[parent].group(2).iter().map(|g| g.a as usize).collect();
         assert_eq!(&kids[..before.len()], &before[..], "the old children keep their places");
-        assert_eq!((kids.len(), a.el_name(kids[kids.len() - 1])), (before.len() + 1, TIMER));
+        assert_eq!((kids.len(), a.el_type(kids[kids.len() - 1])), (before.len() + 1, SWITCH));
         let heal: usize = a.find_els(HEAL)[0];
         assert_eq!((a.in_s32(heal, "SetType"), a.in_s32(heal, "SetValue")), (Some(ADD), Some(AMOUNT)));
         let shown: String = show(&a);
-        for line in ["prop bool IsLoop = true", "prop f32 CountFrames = 150", "out f32 CurrentFrame flags 0x0", "out bool IsDead flags 0x2", "out s32 DeathReason flags 0x0", "\"NotFinish\"", "\"Finish\""] {
+        for line in ["prop bool IsLoop = true", "prop f32 CountFrames = 300", "prop f32 CountFrames = 600", "prop bool IsLoop = false", "\"True\"", "\"False\"", "out f32 CurrentFrame flags 0x0", "out bool IsDead flags 0x2", "out s32 DeathReason flags 0x0", "\"NotFinish\"", "\"Finish\""] {
             assert!(shown.contains(line), "{line} is missing from\n{shown}");
         }
+        assert_eq!(shown.matches("Blackboard").count(), show(&old).matches("Blackboard").count(), "regen reads and writes no key");
+        let hit: usize = a.find_els(HIT)[0];
+        let quiet: usize = a.find_els(TIMER).into_iter().find(|i| a.parent_of(*i).is_ok_and(|p| a.el_type(p.0) == SWITCH)).unwrap();
+        let (gate, _): (usize, usize) = a.parent_of(quiet).unwrap();
+        assert_eq!(a.parent_of(gate).unwrap().0, parent);
+        assert_eq!(a.params[gate].group(2).len(), 2);
+        assert!(shown.contains(&format!("in bool Input = false from {hit}.0")), "the hit query feeds the switch");
         assert!(hook::patch_graph(&out, &HOOK).is_err(), "a patched graph is not patched twice");
         let module: &Entry = sarc::get(&es, GRAPH).unwrap();
         assert_eq!(hook::patch_graph(&module.data, &HOOK).unwrap(), None, "the module itself has no call to host in");
@@ -150,13 +166,19 @@ mod tests {
         let boss: Vec<Entry> = sarc::parse(&rf.read_zs("Pack/Actor/Enemy_DungeonBoss_Twinrova.pack.zs").unwrap()).unwrap();
         let twin: Ainb = Ainb::parse(&sarc::get(&boss, "AI/Enemy_DungeonBoss_Twinrova.utility.root.ainb").unwrap().data).unwrap();
         let theirs: usize = twin.find_els(TIMER).into_iter().find(|i| shape(&twin, *i).iter().any(|l| l.contains("IsLoop"))).unwrap();
-        let ours: usize = mine.find_els(TIMER).into_iter().find(|i| shape(&mine, *i).iter().any(|l| l.contains("IsLoop"))).unwrap();
-        assert_eq!(shape(&mine, ours), shape(&twin, theirs));
+        for t in mine.find_els(TIMER) {
+            assert_eq!(shape(&mine, t), shape(&twin, theirs));
+        }
+        assert_eq!(mine.find_els(TIMER).len(), 2);
+        let stalfos: Ainb = Ainb::parse(&sarc::get(&es, "AI/Enemy_Stalfos.utility.root.ainb").unwrap().data).unwrap();
+        assert_eq!(shape(&mine, mine.find_els(HIT)[0]), shape(&stalfos, stalfos.find_els(HIT)[0]));
         let glass: Ainb = Ainb::parse(&sarc::get(&es, "AI/EnemyCommon.common.enableglasstruth.module.ainb").unwrap().data).unwrap();
         assert_eq!(shape(&mine, mine.find_els(IS_DEAD)[0]), shape(&glass, glass.find_els(IS_DEAD)[0]));
         let sw: usize = (0..glass.els.len()).find(|i| glass.el_type(*i) == SWITCH).unwrap();
         let my_sw: usize = (base.els.len()..mine.els.len()).find(|i| mine.el_type(*i) == SWITCH).unwrap();
         assert_eq!(shape(&mine, my_sw), shape(&glass, sw));
+        let st_sw: usize = (0..stalfos.els.len()).find(|i| stalfos.el_type(*i) == SWITCH && stalfos.params[*i].plugs[0].extra.len() == 8).unwrap();
+        assert_eq!(shape(&mine, my_sw), shape(&stalfos, st_sw));
         assert_eq!(mine.params[my_sw].pl, glass.params[sw].pl);
         assert_eq!(mine.params[my_sw].plugs[0].extra.len(), glass.params[sw].plugs[0].extra.len());
         let npc: Ainb = Ainb::parse(&sarc::get(&es, "AI/SimpleNpc.ExecuteInterruptReaction.module.ainb").unwrap().data).unwrap();

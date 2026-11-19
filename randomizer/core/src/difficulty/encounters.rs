@@ -15,17 +15,20 @@ pub const HAND: &str = "Enemy_DeadHand";
 pub const FINGERS: &str = "Enemy_DeadHand_Hand";
 pub const KNIGHT: &str = "Enemy_IronKnuckle_Silver";
 pub const LIKE: &str = "Enemy_LikeLike";
+pub const GUAY: &str = "Enemy_Guay_Fixed";
+pub const NIGHT: &str = "Enemy_Guay_Nocturnal";
 pub const SEED: &str = "ootrr special encounters";
 pub const GROUPS: [&str; 2] = ["FarDeleteGroups", "SimultaneousGroups"];
 pub const RING: f32 = 3.0;
 pub const APPEAR: f32 = 3.5;
-pub const NOTE: &str = "Special encounters: a Dead Hand waits in the dark hole in east Hyrule Field (next to the ReDead and the chest) and in the foggy hole at the foot of the Death Mountain trail (with the Baby Dodongos), and an Iron Knuckle (it gets up when you come within about 9 units) stands in the open fields of Hyrule Field between Kakariko, Lon Lon Ranch and the Kokiri Forest. Ten Like Likes wait around Lake Hylia: the grassy corner and the shore north of the lake, the island where the two rope bridges meet, the small islands, the big central island and the west shore strip. They are in the child and the adult map and come back when the area is loaded again. Experimental, untested in the game.";
+pub const NOTE: &str = "Special encounters: a Dead Hand waits in the dark hole in east Hyrule Field (next to the ReDead and the chest) and in the foggy hole at the foot of the Death Mountain trail (with the Baby Dodongos), and an Iron Knuckle (it gets up when you come within about 9 units) stands in the open fields of Hyrule Field between Kakariko, Lon Lon Ranch and the Kokiri Forest. Nine Like Likes wait around Lake Hylia: the grassy corner and the shore north of the lake, the island where the two rope bridges meet, the small islands, the big central island and the west shore strip. They are in the child and the adult map and come back when the area is loaded again. Child Hyrule Field also gets 24 more Guays in six loose flocks over the open grass, a few units above the ground, out at night like the Guays already there. Experimental, untested in the game.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum What {
     DeadHand,
     IronKnuckle,
     LikeLike,
+    Guay,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -38,12 +41,11 @@ pub struct Place {
     pub turn: f32,
 }
 
-pub const PLACES: [Place; 13] = [
+pub const PLACES: [Place; 36] = [
     Place { name: "dead_hand_hyrule_field_hole", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::DeadHand, at: [148.6, 136.41, 13.7], turn: 0.7887344 },
     Place { name: "dead_hand_death_mountain_hole", dir: "DeathMountainTrail", maps: &["DeathMountainTrail_Child", "DeathMountainTrail_Adult"], what: What::DeadHand, at: [-5.0, 58.17, -38.5], turn: 0.2617994 },
     Place { name: "iron_knuckle_hyrule_field", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::IronKnuckle, at: [134.0, 157.7, 168.5], turn: 0.0 },
     Place { name: "like_like_lake_hylia_north_west_corner", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-202.4, 133.5, 403.7], turn: 0.0 },
-    Place { name: "like_like_lake_hylia_north_shore_east", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-148.5, 137.5, 411.7], turn: 0.0 },
     Place { name: "like_like_lake_hylia_north_east_shore", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-87.3, 133.5, 416.6], turn: 0.0 },
     Place { name: "like_like_lake_hylia_bridge_island", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-206.3, 130.9, 452.85], turn: 0.0 },
     Place { name: "like_like_lake_hylia_west_island", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-294.2, 131.3, 482.7], turn: 0.0 },
@@ -52,6 +54,30 @@ pub const PLACES: [Place; 13] = [
     Place { name: "like_like_lake_hylia_islet_south_west", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-214.3, 131.3, 530.7], turn: 0.0 },
     Place { name: "like_like_lake_hylia_west_shore_strip", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-292.7, 131.5, 547.7], turn: 0.0 },
     Place { name: "like_like_lake_hylia_south_island", dir: "HyruleField", maps: &["HyruleField_Child", "HyruleField_Adult"], what: What::LikeLike, at: [-231.7, 131.0, 580.8], turn: 0.0 },
+    Place { name: "guay_hyrule_field_west_edge_south_1", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-104.0, 153.3, 57.0], turn: 0.4 },
+    Place { name: "guay_hyrule_field_west_edge_south_2", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-97.0, 154.1, 56.0], turn: 2.1 },
+    Place { name: "guay_hyrule_field_west_edge_south_3", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-96.0, 152.9, 63.0], turn: 3.7 },
+    Place { name: "guay_hyrule_field_west_edge_south_4", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-103.0, 154.5, 64.0], turn: 5.2 },
+    Place { name: "guay_hyrule_field_east_south_1", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [88.0, 153.5, 67.0], turn: 0.4 },
+    Place { name: "guay_hyrule_field_east_south_2", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [95.0, 154.3, 66.0], turn: 2.1 },
+    Place { name: "guay_hyrule_field_east_south_3", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [96.0, 153.1, 73.0], turn: 3.7 },
+    Place { name: "guay_hyrule_field_east_south_4", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [89.0, 154.7, 74.0], turn: 5.2 },
+    Place { name: "guay_hyrule_field_ranch_south_1", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-104.0, 150.6, 312.0], turn: 0.4 },
+    Place { name: "guay_hyrule_field_ranch_south_2", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-97.0, 151.4, 311.0], turn: 2.1 },
+    Place { name: "guay_hyrule_field_ranch_south_3", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-96.0, 150.2, 318.0], turn: 3.7 },
+    Place { name: "guay_hyrule_field_ranch_south_4", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-103.0, 151.8, 319.0], turn: 5.2 },
+    Place { name: "guay_hyrule_field_middle_south_1", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [36.0, 150.0, 319.0], turn: 0.4 },
+    Place { name: "guay_hyrule_field_middle_south_2", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [43.0, 150.8, 318.0], turn: 2.1 },
+    Place { name: "guay_hyrule_field_middle_south_3", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [44.0, 149.6, 325.0], turn: 3.7 },
+    Place { name: "guay_hyrule_field_middle_south_4", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [37.0, 151.2, 326.0], turn: 5.2 },
+    Place { name: "guay_hyrule_field_far_west_1", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-244.0, 142.0, 293.0], turn: 0.4 },
+    Place { name: "guay_hyrule_field_far_west_2", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-237.0, 142.8, 292.0], turn: 2.1 },
+    Place { name: "guay_hyrule_field_far_west_3", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-236.0, 141.6, 299.0], turn: 3.7 },
+    Place { name: "guay_hyrule_field_far_west_4", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [-243.0, 143.2, 300.0], turn: 5.2 },
+    Place { name: "guay_hyrule_field_east_middle_1", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [136.0, 158.5, 132.0], turn: 0.4 },
+    Place { name: "guay_hyrule_field_east_middle_2", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [143.0, 159.3, 131.0], turn: 2.1 },
+    Place { name: "guay_hyrule_field_east_middle_3", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [144.0, 158.1, 138.0], turn: 3.7 },
+    Place { name: "guay_hyrule_field_east_middle_4", dir: "HyruleField", maps: &["HyruleField_Child"], what: What::Guay, at: [137.0, 159.7, 139.0], turn: 5.2 },
 ];
 
 pub fn file(dir: &str, map: &str, kind: &str) -> String {
@@ -165,11 +191,21 @@ pub fn like_like(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usiz
     Ok(1)
 }
 
+pub fn guay(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usize> {
+    let mut taken: Vec<u64> = Vec::new();
+    let id: u64 = next(raws, &mut taken, &format!("{SEED} {map} {}", p.name));
+    let mut g: Node = actor(GUAY, id, p.at, euler(0.0, p.turn));
+    g.set("Dynamic", Node::Map(vec![(NIGHT.to_string(), Node::Bool(true))]));
+    list(y, "Actors")?.push(g);
+    Ok(1)
+}
+
 pub fn place(y: &mut Byml, p: &Place, raws: &[&[u8]], map: &str) -> Res<usize> {
     match p.what {
         What::DeadHand => dead_hand(y, p, raws, map),
         What::IronKnuckle => iron_knuckle(y, p, raws, map),
         What::LikeLike => like_like(y, p, raws, map),
+        What::Guay => guay(y, p, raws, map),
     }
 }
 
@@ -337,11 +373,11 @@ mod tests {
     fn a_like_like_is_one_plain_actor_with_no_drops_and_no_links() {
         let mut y: Byml = map();
         let likes: Vec<Place> = PLACES.iter().filter(|p| p.what == What::LikeLike).copied().collect();
-        assert_eq!(likes.len(), 10);
+        assert_eq!(likes.len(), 9);
         for p in &likes {
             assert_eq!(place(&mut y, p, &[], "Test").unwrap(), 1);
         }
-        assert_eq!(count(&y, LIKE), 10);
+        assert_eq!(count(&y, LIKE), 9);
         let mut seen: Vec<[f32; 3]> = Vec::new();
         for a in actors(&y).iter().filter(|a| text(a, "Gyaml") == LIKE) {
             assert!(a.get("Links").is_none() && a.get("Name").is_none());
@@ -356,6 +392,44 @@ mod tests {
     }
 
     #[test]
+    fn the_guays_are_plain_night_flyers_in_the_child_map_only() {
+        let guays: Vec<Place> = PLACES.iter().filter(|p| p.what == What::Guay).copied().collect();
+        assert_eq!(guays.len(), 24);
+        assert!(guays.iter().all(|p| p.maps == ["HyruleField_Child"] && p.dir == "HyruleField"));
+        let mut child: Byml = map();
+        let mut adult: Byml = map();
+        for p in PLACES.iter().filter(|p| p.dir == "HyruleField") {
+            for (m, y) in [("HyruleField_Child", &mut child), ("HyruleField_Adult", &mut adult)] {
+                if p.maps.contains(&m) {
+                    place(y, p, &[], m).unwrap();
+                }
+            }
+        }
+        assert_eq!(count(&child, GUAY), 24);
+        assert_eq!(count(&adult, GUAY), 0);
+        let mut seen: Vec<[f32; 3]> = Vec::new();
+        let mut ids: Vec<u64> = Vec::new();
+        for a in actors(&child).iter().filter(|a| text(a, "Gyaml") == GUAY) {
+            assert!(a.get("Links").is_none() && a.get("Name").is_none());
+            assert_eq!(a.get("Dynamic").and_then(|d| d.get(NIGHT)), Some(&Node::Bool(true)));
+            let t: [f32; 3] = vec3(a, "Translate").unwrap();
+            assert!(!seen.contains(&t));
+            seen.push(t);
+            ids.extend(hash_of(a));
+        }
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), 24);
+        let knight: [f32; 3] = PLACES[2].at;
+        for t in &seen {
+            assert!(((t[0] - knight[0]).powi(2) + (t[2] - knight[2]).powi(2)).sqrt() > 20.0);
+        }
+        for g in GROUPS {
+            assert_eq!(child.root.get(g).unwrap().as_arr().unwrap().len(), 2);
+        }
+    }
+
+    #[test]
     fn two_places_in_one_map_do_not_share_a_hash_and_a_broken_map_is_refused() {
         let mut y: Byml = map();
         for p in PLACES.iter().filter(|p| p.dir == "HyruleField") {
@@ -365,7 +439,7 @@ mod tests {
         let n: usize = hs.len();
         hs.sort();
         hs.dedup();
-        assert_eq!((n, hs.len()), (17, 17));
+        assert_eq!((n, hs.len()), (40, 40));
         let mut bad: Byml = map();
         bad.root.remove("FarDeleteGroups");
         assert!(dead_hand(&mut bad, &PLACES[0], &[], "Test").is_err());
@@ -416,12 +490,14 @@ mod tests {
                 let hands: usize = here.iter().filter(|p| p.what == What::DeadHand).count();
                 let knights: usize = here.iter().filter(|p| p.what == What::IronKnuckle).count();
                 let likes: usize = here.iter().filter(|p| p.what == What::LikeLike).count();
+                let guays: usize = here.iter().filter(|p| p.what == What::Guay).count();
                 assert!(o.new > o.old);
                 assert_eq!(count(&now, HAND), count(&was, HAND) + hands, "{}", o.path);
                 assert_eq!(count(&now, FINGERS), count(&was, FINGERS) + 4 * hands, "{}", o.path);
                 assert_eq!(count(&now, KNIGHT), count(&was, KNIGHT) + knights, "{}", o.path);
                 assert_eq!(count(&now, LIKE), count(&was, LIKE) + likes, "{}", o.path);
-                assert_eq!(actors(&now).len(), actors(&was).len() + 5 * hands + knights + likes);
+                assert_eq!(count(&now, GUAY), count(&was, GUAY) + guays, "{}", o.path);
+                assert_eq!(actors(&now).len(), actors(&was).len() + 5 * hands + knights + likes + guays);
                 assert_eq!(&actors(&now)[..actors(&was).len()], actors(&was), "the actors that were there are untouched");
                 let mut hs: Vec<u64> = actors(&now).iter().filter_map(hash_of).collect();
                 let n: usize = hs.len();
@@ -443,6 +519,14 @@ mod tests {
                                 assert!(*d > 4.0, "{} sits {d} from {g}", text(a, "Gyaml"));
                             }
                         }
+                    }
+                    if text(a, "Gyaml") == GUAY {
+                        for (g, d) in &near {
+                            if g.starts_with("Enemy_") || g.starts_with("Obj_TBox") || g.starts_with("Obj_GossipStone") || g.starts_with("Obj_GuidePost") || g.starts_with("Obj_Scarecrow") {
+                                assert!(*d >= 4.0, "a Guay sits {d} from {g}");
+                            }
+                        }
+                        assert!(o.path.contains("HyruleField_Child"), "Guays are only in the child map");
                     }
                     if text(a, "Gyaml") == LIKE {
                         for (g, d) in &near {

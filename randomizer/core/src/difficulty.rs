@@ -173,7 +173,7 @@ impl Opts {
             out.push("Enemies and bosses that are still alive win back one point of health about every five seconds, up to their usual health. Experimental, untested in the game.".to_string());
         }
         if self.backup {
-            out.push("An ordinary enemy that has had Link as its target for about 25 seconds without a break calls one helper to its side, once in its life. The helper is a Peahat larva, except for enemies native to Jabu-Jabu's Belly (a Shabom) and to the Ice Cavern and the Shadow and Spirit Temples (a flying pot). Helpers never call anything themselves. Bosses, minibosses, Iron Knuckles, Dead Hand, Dark Link and Phantom Ganon never call. Experimental, untested in the game.".to_string());
+            out.push("An ordinary enemy that has had Link as its target for about 25 seconds without a break calls one helper to its side, once in its life. The helper is a Leever (the small creature that pops out of the desert sand), except for enemies native to Jabu-Jabu's Belly (a Shabom) and to the Ice Cavern and the Shadow and Spirit Temples (a flying pot). Helpers never call anything themselves. Bosses, minibosses, Iron Knuckles, Dead Hand, Dark Link, Phantom Ganon and Leevers never call. Experimental, untested in the game.".to_string());
         }
         if self.no_hearts {
             out.push("Enemies, pots, grass and other random drops never give recovery hearts, also when your health is low. Where the game would hand out a heart because you need one, a green rupee drops. Experimental, untested in the game.".to_string());
@@ -208,7 +208,7 @@ impl Opts {
         }
         if self.minibosses {
             out.push(format!(
-                "A strong enemy waits in the boss room of these bosses and leaves when the boss is beaten: {}. The other bosses and the dream world fights are unchanged. Experimental, untested in the game.",
+                "A strong enemy waits in the boss room of these bosses and leaves when the boss is beaten, in Gohma's room it appears as the boss introduction starts: {}. The other bosses and the dream world fights are unchanged. Experimental, untested in the game.",
                 minibosses::covered()
             ));
         }
@@ -778,7 +778,8 @@ mod tests {
                 Some(x) => Byml::parse(&rf.zs.decompress(&x.z).unwrap()).unwrap(),
                 None => rf.read_byml(r.free).unwrap(),
             };
-            assert_eq!(count(&now), count(&base) + r.foes.len(), "{} carries the extra enemies and the minions", r.free);
+            let here: usize = if r.start.is_some() { 0 } else { r.foes.len() };
+            assert_eq!(count(&now), count(&base) + here, "{} carries the extra enemies and the minions", r.free);
         }
         for s in minibosses::SPOTS.iter() {
             let now: Byml = Byml::parse(&rf.zs.decompress(&at(s.file).z).unwrap()).unwrap();
@@ -786,7 +787,8 @@ mod tests {
                 Some(x) => Byml::parse(&rf.zs.decompress(&x.z).unwrap()).unwrap(),
                 None => rf.read_byml(s.file).unwrap(),
             };
-            assert_eq!(count(&now), count(&base) + 1, "{} carries the miniboss", s.file);
+            let signalled: usize = minions::ROOMS.iter().filter(|r| r.fixed == s.file && r.start.is_some()).map(|r| r.foes.len()).sum();
+            assert_eq!(count(&now), count(&base) + 1 + signalled, "{} carries the miniboss and the signalled minions", s.file);
             assert_eq!(has(&now, s.mini), has(&base, s.mini) + 1);
         }
         assert!(sarc::get(&es, backup::NEW).is_some());
@@ -1000,9 +1002,18 @@ mod tests {
             let made: crate::ainb::Input = g.input(1, g.find_in(hn, 1, minibosses::CREATE).unwrap()).unwrap();
             let gone: crate::ainb::Input = g.input(1, g.find_in(n, 1, minibosses::DELETE).unwrap()).unwrap();
             assert!(made.src >= 0 && (gone.src, gone.plug) == (made.src, made.plug), "{}: the miniboss leaves on the flag that brings the heart container", s.boss);
+            let born: crate::ainb::Input = g.input(1, g.find_in(n, 1, minibosses::CREATE).unwrap()).unwrap();
+            match &s.start {
+                Some(st) => {
+                    assert_eq!(g.el_name(born.src as usize), st.module, "{}: the miniboss is created by the start of the fight", s.boss);
+                    assert_eq!(minibosses::signal(&g, st).unwrap(), (born.src as usize, born.plug));
+                    assert_eq!(born.flags & minibosses::UNSET, 0);
+                }
+                None => assert_eq!((born.src, born.val), (-1, 1u32.to_le_bytes().to_vec()), "{}: no start signal is known, the miniboss is there from the start", s.boss),
+            }
             let twin: Vec<u8> = {
                 let mut t: Ainb = old.clone();
-                minibosses::wire(&mut t, g.prop_str(hn, minibosses::NAME).unwrap(), id).unwrap();
+                minibosses::wire_with(&mut t, Some(g.prop_str(hn, minibosses::NAME).unwrap()), id, s.start.as_ref()).unwrap();
                 t.write().unwrap()
             };
             assert_eq!(twin, pair[1].z);
@@ -1027,10 +1038,51 @@ mod tests {
         let o: Opts = Opts { minions: true, ..Opts::default() };
         assert!(o.any() && !o.packs());
         let outs: Vec<Out> = stage(&mut rf, &o, &none, "seed").unwrap();
-        assert_eq!(outs.len(), minions::ROOMS.len() + 1);
+        let signalled: usize = minions::ROOMS.iter().filter(|r| r.start.is_some()).count();
+        assert!(signalled >= 1);
+        assert_eq!(outs.len(), minions::ROOMS.len() + signalled + 1);
         let paths: Set<&str> = outs.iter().map(|x| x.path.as_str()).collect();
         assert_eq!(paths.len(), outs.len());
         for r in minions::ROOMS.iter() {
+            if let Some(st) = &r.start {
+                use crate::ainb::Ainb;
+                assert!(!outs.iter().any(|x| x.path == r.free), "{}: the minions are not placed in the dynamic map", r.boss);
+                let x: &Out = outs.iter().find(|x| x.path == r.fixed).unwrap();
+                let was: Byml = rf.read_byml(r.fixed).unwrap();
+                let now: Byml = Byml::parse(&rf.zs.decompress(&x.z).unwrap()).unwrap();
+                let n: usize = list(&was).len();
+                assert_eq!(list(&now).len(), n + r.foes.len());
+                assert_eq!(&list(&now)[..n], list(&was));
+                let room: i32 = minions::room_of(&was, r).unwrap();
+                let dyn_map: Byml = rf.read_byml(r.free).unwrap();
+                let ids: Set<u64> = list(&now).iter().chain(list(&dyn_map).iter()).filter_map(hash_of).collect();
+                assert_eq!(ids.len(), list(&now).len() + list(&dyn_map).len(), "a hash is used twice for {}", r.boss);
+                for (i, a) in list(&now)[n..].iter().enumerate() {
+                    assert_eq!(a.get("Gyaml").and_then(|g| g.as_str()), Some(r.foes[i]));
+                    assert_eq!(a.get("Dynamic").and_then(|d| d.get(minions::ROOM)), Some(&Node::I32(room)));
+                    assert!(rf.read(&format!("Pack/Actor/{}.pack.zs", r.foes[i])).is_ok());
+                }
+                let groups: Vec<Node> = now.root.get("AiGroups").and_then(|g| g.as_arr()).unwrap().to_vec();
+                let logic: &Out = outs.iter().find(|x| x.path.starts_with("Logic/")).unwrap();
+                let g: Ainb = Ainb::parse(&logic.z).unwrap();
+                assert!(crate::ainb::audit(&g).is_empty());
+                let (module, plug): (usize, i16) = minibosses::signal(&g, st).unwrap();
+                let first: usize = Ainb::parse(&rf.read(&logic.path).unwrap()).unwrap().els.len();
+                assert_eq!(g.els.len(), first + r.foes.len());
+                for (i, a) in list(&now)[n..].iter().enumerate() {
+                    let h: u64 = hash_of(a).unwrap();
+                    let home: Vec<&Node> = groups.iter().filter(|x| x.get("References").and_then(|r| r.as_arr()).is_some_and(|rs| rs.iter().any(|q| q.get("Reference") == Some(&Node::U64(h))))).collect();
+                    assert_eq!(home.len(), 1, "{}: each minion is in the group of the room graph", r.boss);
+                    let id: String = home[0].get("References").and_then(|r| r.as_arr()).unwrap().iter().find(|q| q.get("Reference") == Some(&Node::U64(h))).and_then(|q| q.get("Id")).and_then(|v| v.as_str()).unwrap().to_string();
+                    let at: usize = (first..g.els.len()).find(|&e| g.prop_str(e, minibosses::NAME) == Some(id.as_str())).unwrap();
+                    let born: crate::ainb::Input = g.input(1, g.find_in(at, 1, minibosses::CREATE).unwrap()).unwrap();
+                    assert_eq!((born.src, born.plug), (module as i16, plug), "{}: minion {i} is created by the start signal and not at load", r.boss);
+                    assert_eq!(born.flags & minibosses::UNSET, 0);
+                    let gone: crate::ainb::Input = g.input(1, g.find_in(at, 1, minibosses::DELETE).unwrap()).unwrap();
+                    assert_eq!(gone.src, -1);
+                }
+                continue;
+            }
             let x: &Out = outs.iter().find(|x| x.path == r.free).unwrap();
             let was: Byml = rf.read_byml(r.free).unwrap();
             let now: Byml = Byml::parse(&rf.zs.decompress(&x.z).unwrap()).unwrap();

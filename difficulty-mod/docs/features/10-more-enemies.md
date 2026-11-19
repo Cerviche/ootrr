@@ -1,40 +1,125 @@
-# More enemies
+# More enemies (slider, 1x to 10x)
 
-Setting `more_enemies` (number 119), choice: Off, Half again, Double. Code: `crates/core/src/difficulty/extras.rs`. Built by a sub-agent on `feature/more-enemies` (`d1c7b84`).
+Setting `more_enemies` (number 119), now a slider like enemy health: 1x (off, default) to 10x in steps of 0.5x; the settings string stores a percentage (100 to 1000). Code: `crates/core/src/difficulty/extras.rs` (copies, up to 2x), `difficulty/ground.rs` (navigation mesh reader), `difficulty/horde.rs` (everything above 2x). Branch `feature/horde` from `playtest/next`, worktree `wt\horde`. Exe: `<playtest folder>\horde\ootrr.exe`. Built by an Opus agent on 19 Nov with no game run.
 
 ## Request
-"more enemies (spawn extras)"
+- First: "more enemies (spawn extras)".
+- 19 Nov: "figure out some way using the map data, and automated agent testing, to identify good locations to add extra enemies. then go totally overboard. I want the 'extra enemies' slider to go from 1x to 10x. when at 5x, I want enemies that usually would never be in an area to be in an area. look where I put those likelikes in lake hylia as a reference. that, plus flying enemies, plus water enemies, plus minibosses, etc. figure out what works and make use of it. if anyone's crazy enough to play on 10x it should feel like playing hyrule warriors."
+- Then: "from 1.5x to 10x, and add whatever enemies are 'fun' to add. doesn't have to only add out-of-region enemies at 5x. so far in my testing the main thing I noted was that many enemies only 'work' on flat-ground likelikes are fine so long as it's not too steep. but some enemies are just no good on slopes at all. so figure that out and place enemies accordingly."
 
 ## Interpretation
-Extra copies of enemies that are already placed in a map, standing near the originals. The agent made it a three-way choice.
+- The number is "about this many times the usual enemies in each area". 1x changes nothing; 1.5x and 2x keep the old Half again and Double behaviour exactly (same copies, byte for byte).
+- Above 2x, new enemies are placed on real walkable ground read from the game's own navigation mesh, with each enemy kind limited to the ground it can handle.
+- Rising with the value: more of the area's own kinds near where they already live, then fliers and Octoroks (3x), then any suitable kind, groups, and minibosses (5x and up). At 10x: groups everywhere, capped for safety.
 
-## Investigation
-- Enemies are entries in the map files (`Banc/...bcett.byml.zs`). 1,503 `Enemy_*` actors are placed.
-- The main risk is soft-locks: a room that opens when its enemies die. The agent searched all 1,824 logic graphs and found rooms count specific linked enemies (through `Obj_EnemyCounter_*` and enemy groups), never "everything in the room".
-- So a copy that nothing links to is never counted.
+## How it works
 
-## Implementation
-An enemy gets a copy only if all of these hold:
-- its type is on a list of 21 ordinary enemies (Keese, Octorok, Tektite, ReDead, Dodongo, Like Like, Deku Baba and so on);
-- nothing anywhere refers to it;
-- it has no links, rails, name or event ties;
-- it is not in the boss rush maps.
+### Up to 2x (unchanged)
+`extras.rs`: copies of plain enemies (21 kinds, nothing linked to them) 1 to 1.5 units away. 1.5x copies about half of them, 2x all of them. Above 2x this step still runs at full (every plain enemy copied), then the horde step fills the rest.
 
-The copy is appended to the same map with fresh ids, 1.0 to 1.5 m away at the same height. Placement is seeded from the seed text, so the same seed gives the same copies. It runs before the boss features so their additions are not doubled.
+### Ground method: the navigation mesh (not an approximation)
+Every map has a Havok navigation mesh: `Phive/NavMesh/<Map>.Nin_Ounce_NVN2.bphnm.zs` (78 files), or for Hyrule Field 256 tiles in `Phive/StitchedNavMesh/<Map>/X<i>_Z<j>...`. `ground.rs` reads the tag file inside (sections, type names, type layouts, item table), finds the `hkaiNavMesh` object and its faces, edges and vertices. Stitched tiles are 250 units wide in local coordinates; world = local + ((i - 8) x 250 + 125, 0, (j - 8) x 250 + 125) (fitted against Tektites and grass: 201 of 293 test points land on the mesh with this offset, 9 to 28 with the others). Empty filler tiles (one face at height 0) are dropped.
+
+What it answers for a point:
+- **Walkable floor and its height** (several floors at one x, z are kept apart).
+- **Slope**: the face's own tilt, and the worst rise over a ring of 8 points at a class-dependent radius (also fails if any ring point is off the mesh, so edges and drops count as steep).
+- **Room**: horizontal distance to the nearest open mesh edge (wall or drop) within 3 units of height, up to 12.
+- **Connected patch** (faces joined through their edges) and its area.
+
+How good it is: every placed vanilla ground enemy sits on the mesh within half a unit (Deku Babas, Like Likes, Stalfos, Wolfos, Iron Knuckles, Dodongos, Tektites: median offset 0.0). The mesh is the game's own "where an enemy may walk", so it already excludes walls, deep water and lava. It does not know ceilings or water depth.
+
+Things the mesh alone gets wrong, and the extra rules:
+- Some maps have huge flat planes under or around the world. **In bounds** = the face is no larger than 20,000 square units, its patch is at least 150 in area, at least 3 non-scenery actors of the map stand on that patch, and some actor of the map (grass, rock, pot, enemy, NPC...) is within 24 units horizontally and 12 vertically of the spot. Actors at the map origin are ignored (managers sit there).
+- **Water**: the mesh has no water. Water spots are 3 to 15 units from a vanilla Octorok, at the Octorok's height, where there is no floor within 3 units up or down. So Octoroks spread through Lake Hylia (child), Zora's River and Fountain, Gerudo Valley; depth is not known.
+- **Ceilings**: not in the mesh. Dungeons (maps whose actors carry a dungeon room index) count as roofed; Skulltulas and Wallmasters only go there, and fliers are kept 2.5 above the floor indoors.
+- **Sand**: by map: Haunted Wasteland and Desert Colossus.
+
+### Spots to keep clear (radius in units)
+Entrances and arrival points (`DestinationAnchor`, `StartPos`, `ChangeBancBeforehandAnchor` 8; scene-change areas and dungeon entrance events 10; map entrance icons 8), event and cutscene triggers 6, NPCs 10, shop items 8, chests 4, signs 3, gossip stones 4, doors 5, warps 6, house interiors 6, the fishing pond 15, horses 10, fairy fountains 5, enemy counters 4, Gold Skulltulas 3, bosses 40, minibosses 25. Every added enemy is also at least 2.5 from any other enemy (1.3 within its own group).
+
+### The class table (`horde::KINDS`)
+| Class | Ground rule (max slope, ring radius, room) | Kinds (fun weight) |
+|---|---|---|
+| Miniboss | 8 degrees, 3, 4 | Stalfos (3), Dinolfos in pairs (3), silver Iron Knuckle (2, gets the wake-on-approach edit), white Wolfos (2) |
+| Flat only | 10 degrees, 2, 2.5 | Wolfos (3), Floormaster (2), Dodongo (2), Freezard (1), Armos (1) |
+| Gentle slope | 20 degrees, 1.5, 2 | Like Like (3), ReDead (1), Baby Dodongo (2), Torch Slug (1), Deku Baba (2) |
+| Any ground | 32 degrees, 1, 1 | red Tektite (3), blue Tektite (2), Skullwalltula (1) |
+| Flies | any floor below, room 3 | Keese 3.5 up (3), ice Keese (1), Guay 6 up (2, outdoors only), Poe (2), green and red Bubble (1), Shabom (1), Biri (1) |
+| Water | see water above | Octorok (2) |
+| Ceiling | dungeons only, 20 degrees | Skulltula 4.5 up (2), Wallmaster 4 up (2) |
+| Sand | sand maps only, 32 degrees | Leever (3) |
+| Never placed | | bosses and every `MiddleBoss_` (Gerudo fighter, Dark Link, Flare Dancer, Big Octo, dungeon Lizalfos, Nabooru's knight, Poe Meg); plain Lizalfos (the Dodongo black screen); Dead Hand (needs hands and links); did not appear when spawned away from home: Gibdo, blue Bubble, Fire Keese, big Poe; the spear Moblin (does not work); scrubs, Gold Skulltulas, Peahats (larva hurts enemies), Gohma eggs and larvae, Jabu tentacles, Anubis, Beamos, floor tiles, tricky doors, flying pots (the surprises feature owns them), white and black Iron Knuckles (linked pair), Spike, Stinger, Shell Blade, Bari, Tailpasaran, Stalchild, little Floormaster, Skull Kid, big Leever, Poe sisters and field Poes |
+
+Heights above the floor come from the vanilla placements read against the mesh (Guay median 7.2, Skulltula 7.3, Wallmaster 4.9; ground kinds 0.0). Slopes follow your notes: Like Likes on gentle slopes are fine, the one by the lab was too steep, so Gentle stops at 20 degrees; enemies with the most ground machinery (Stalfos, Iron Knuckle, Dinolfos, Wolfos) are flat only.
+
+### The plan for one map
+1. Count the map's vanilla fighting enemies N (both files; not scrubs, Gold Skulltulas, bosses, museum or decoy entries).
+2. Target = round(N x multiplier), or, from 3x, open flat area / 150 x (multiplier - 2) / 8 if that is more (so empty areas like Kakariko still get some), at most `MAP_CAP` = 240. What is already there (vanilla, the 2x copies, other features' additions) counts toward it.
+3. Pool of kinds: kinds already in the map (weight x3) at every value; from 3x Keese, Guays and Octoroks anywhere they fit; from 5x every kind in the table that fits the map. At most 8 kinds new to one map (`NEW_KINDS_CAP`). Minibosses from 5x, at most (multiplier - 4) per map, never in child Kokiri Forest (no sword yet) or the Water Temple.
+4. Place: pick a kind by weight; 60 % of the time a home kind goes 4 to 14 units from one of its own, otherwise a random spot on in-bounds walkable ground (area weighted). Check the class's ground rule, the clear spots, spacing and the cluster cap. From 5x a group of up to 1 + (multiplier - 3) / 2 (2 at 5x, 3 at 7x, 4 at 10x) forms 1.6 to 3.6 units around it, same room, same checks.
+5. In dungeons each enemy gets the room index of the nearest actor within 25 units and 6 of height; no index means no enemy; rooms holding a boss or miniboss are skipped.
+6. New actors: a copy of a plain vanilla instance of that kind from anywhere in the game (only basic keys; keys tied to events, game data, drop items or the room are removed), or a bare entry with no drop table if none exists. Fresh 64-bit ids, checked against every map file after all other difficulty steps (the horde step runs last). Appended to the map file that holds most of its vanilla enemies.
+
+Deterministic: per map, from the seed text, the map name and the value.
+
+### Safe arrival zones (your rule of 19 Nov)
+"When you die and respawn you shouldn't get stuck in a loop where you get killed immediately on spawn." Every place Link can arrive gets a safe zone:
+- **Within 15 units (`SAFE_CLEAR`): no added enemy at all.**
+- **Within 30 units (`SAFE_WIDE`): at most 2 added enemies, and only slow kinds that neither fly nor shoot** (Like Like, Deku Baba, Armos, Torch Slug, Skullwalltula, Floormaster). No minibosses, Octoroks, Bubbles, Guays or Keese there.
+- **Never ringed:** the added enemies within 30 units always leave an open arc of at least 120 degrees to run through (`SAFE_ARC`).
+- Distances are horizontal, for enemies within 12 units of height of the point (`SAFE_BAND`). Vanilla enemies are left where the game put them.
+- The rule wins over the multiplier: a small room near an entrance simply gets fewer enemies.
+
+Arrival points found in the map data: player start positions (`StartPos`, every map entrance, dungeon entrances and the start of each dungeon area), load-zone arrival anchors (`ChangeBancBeforehandAnchor`), field and dungeon entrance events and their walk-out points (`FieldAndDungeonEntranceEventRequestActor`, `DestinationAnchor` named `FieldDungeonEntranceGo`), map entrance markers (`MapIconEntranceAnchor`), warp pads (`Obj_WarpPoint_A_01`), restart points (`DestinationAnchor` named `SwapRestartPosAnchor`), hole entrances and exits (`HidingHole_HoleEntrance`, `HoleExit`, `FieldEntranceGo`, `FieldExitGo`), event player positions (`PlayerPos`), `ReturnHome` and the storm-hole safe position. Not found as data: the point Link is put back at after a fall into the void (the game picks the last ground he stood on at run time), warp-song arrival spots and the owl's drop points (if they are among the unnamed `DestinationAnchor`s they are not recognised; those unnamed anchors, 906, are mostly camera and event targets and are not treated as arrivals).
+
+### Capacity: the multiplier is a ceiling (your rule of 19 Nov)
+"Every room with an enemy doesn't literally need 10x as many enemies. Just the max amount that makes sense, up to a max of 10x."
+- Each area is a dungeon room, or outdoors a connected piece of walkable mesh (Hyrule Field's mesh comes in 250-unit tiles, so there an area is at most a tile).
+- Usable floor = in-bounds walkable faces of the area, minus faces whose middle is within 15 units of an arrival point.
+- Ground capacity = usable floor no steeper than 20 degrees / 30 square units (`GROUND_AREA`). Air capacity = all usable floor / 60 (`AIR_AREA`), for fliers only. Water: 6 Octoroks per vanilla Octorok in the map (`WATER_PER_ANCHOR`).
+- An area's limit = the smaller of (its vanilla enemies x the multiplier; for an area with none, its floor / 150 x (multiplier - 2) / 8) and (ground + air capacity). Vanilla enemies count toward it and are never removed.
+- The map cap of 240 and the cluster cap still apply on top.
+
+### Safety budget
+- `MAP_CAP` = 240 enemies in one map (vanilla's busiest maps: adult Hyrule Field 79, Fire Temple 78, Spirit Temple 76). About three times the busiest vanilla map. One const; lower it to test.
+- `CLUSTER_CAP` = 12 enemies within 15 units of any enemy (vanilla's densest: 14 in Ganon's Castle, 12 in the Spirit Temple). Applied both ways: a new enemy may not push any neighbour's count over 12.
+- `NEW_KINDS_CAP` = 8 kinds new to one map (vanilla has up to 23 kinds in one map).
+- Dodongo black screen: the suspect edit was a plain `Enemy_Lizalfos` (a kind the cavern never uses, with no partner) in `_Static`, near the boss with the boss room's index. The horde never uses plain Lizalfos, never places in boss or miniboss rooms (and keeps 40 units from bosses), and takes the room index from the nearest actor. New kinds still go into maps that never had them, which loaded fine for the Like Likes, Dead Hand and Iron Knuckle.
+
+### Rooms that open when enemies are beaten
+Earlier reading of all 1,824 logic graphs (the 2x feature) found rooms count specific linked enemies (enemy counters and enemy groups), never everything in a room. Added enemies have no links, so they should not block doors. Not seen in the game; the test plan checks two such rooms first. Gerudo Training Ground (timed rooms) is skipped to be safe.
+
+### Skipped maps
+Boss rooms and dream world stages; `Market_Child` (town and minigames), `HyruleCastle` (stealth), `GerudoFortress_Adult` (guards catch you, archery), all `ZoraDomain` and `GoronCity` maps (towns), `CrumblingGanonCastle` (timed escape), `SageRoom`, `GerudoTrainingGround`, `FinalBattleField`, `Demo_` cutscene maps. Shops and houses are inside the overworld maps and are kept clear by the NPC, shop and interior radii.
+
+## Numbers (seed text "game"; vanilla, then totals)
+| Map | Vanilla | 2x | 3x | 5x | 10x |
+|---|---|---|---|---|---|
+| Hyrule Field, child (with Lake Hylia) | 49 | 55 | 131 | 205 | 240 |
+| Hyrule Field, adult | 76 | 111 | 197 | 240 | 240 |
+| Lake Hylia part (child, west of x -100, south of z 380) | 5 Octoroks | 5 | | | 26 (12 Octoroks, Like Likes, Deku Babas, Guays, Bubbles) |
+| Kokiri Forest, child | 5 | 5 | 9 | 15 | 33 |
+| Kokiri Forest, adult | 22 | 22 | 48 | 62 | 73 |
+| Dodongo's Cavern | 43 | 71 | 77 | 104 | 135 |
+| Fire Temple | 78 | 104 | 121 | 149 | 151 |
+
+2x is vanilla plus the copies. Above 2x the copies are made first and the horde fills to the same target, so the totals do not depend on them. Hyrule Field reaches the cap at 5x (adult) and 10x (child). 39 maps are edited at 10x, 2,010 added enemies in all: 3,652 before the two rules, 2,699 with capacity alone, 2,010 with the safe zones too (they removed 689). Of the 172 areas that hold vanilla enemies, 9 reach the full 10x and 136 are held lower by their capacity (the rest by the map or cluster cap or by running out of places). Per-area vanilla, capacity, limit and counts at 3x, 5x and 10x are in `playtest\horde\counts.csv`.
 
 ## How it was tested
-- 19 difficulty tests, including one against your game files: originals untouched, copy ids unique, distance limit, same result every run.
-- Real builds, Double against Off: identical item placements; exactly 23 map files and the size table differ.
-- "Double" adds 221 enemies. See `<builds>\rc-4\entity-maps\` for where.
+- Unit: navmesh reader on hand-made meshes (height, slope, room, two floors, patches, tile offsets); class table sanity; target grows with the slider and stops at the cap; group and miniboss limits; map names.
+- Game files (`OOTRR_ROMFS`): every navmesh file parses (except the template one); vanilla Deku Babas, Tektites and Dodongos stand on their maps' meshes. For 1x and 2x the horde plans nothing. At 3x, 5x and 10x: counts never fall as the slider rises (six maps printed), Hyrule Field and Dodongo's Cavern more than double at 10x, child Kokiri Forest gets more than 20; every ground spot is on the mesh within 0.05, on a face and a ring no steeper than its class allows; every water spot has no floor within 3; minibosses only from 5x and not in the excluded maps; Leevers only on sand maps; no 15-unit cluster of more than 12 added enemies; the same seed gives the same plan and another seed a different one. Staged at 10x: old actors untouched and in order, added entries have no links, no name, no drop item, each id used exactly once; the Iron Knuckle wake edit is added once (not when special encounters already add it).
+- Safe zones, at 3x, 5x and 10x on every edited map: no added enemy within 15 of any arrival point; within 30 at most 2, all of the slow kinds, with an open arc of 120 degrees or more.
+- Capacity: every area's count equals its vanilla plus its added enemies and stays at or under its limit; the limit never exceeds vanilla x multiplier or the capacity; some small dungeon room ends under 5x its vanilla count and some area reaches 8x or more.
+- With every difficulty setting on at 10x (`difficulty.rs`): no file staged twice, the wake pack once, more than 1,000 actors added, no actor id used twice except where vanilla already does.
+- `cargo test -p ootrr-core difficulty` 181 passed, `settings` 106 passed; `python tools\audit.py randomizer` FAIL 0, no new WARN. Release build copied to `playtest\horde\ootrr.exe`.
 
-## In the game
-Never played. To test:
-- Turn on Double alone. Go to Hyrule Field as adult (35 added), Dodongo's Cavern (28) or Fire Temple (26).
-- Pass: clearly more enemies than usual, and every door that opens on "defeat all enemies" still opens.
-- Look for copies stuck in walls, floating, or over pits; they are placed without collision data. Use the entity maps to know where to look.
-- Reload a room after killing a copy: it will probably be back, because copies have no save flag.
+## NOT TESTED in the game: everything
+Nothing was run in the game. Unknown: whether 240 enemies in Hyrule Field load and run at a usable frame rate; whether new kinds load in every map (Like Likes, Dead Hand and Iron Knuckle did in Hyrule Field); whether dungeon room indices from the nearest actor are right; whether enemies stay on the ground they were given (especially Tektites and Wolfos at the edge of a ledge); whether fliers outdoors behave; whether doors that open on "all enemies beaten" still open; whether Guays copied from the night-only child-field ones appear by day (they carry the night key); whether the silver knights wake.
+
+## How to test it in the game
+Script: `<playtest folder>\horde\PLAN.md` (order by risk, pass criteria, what to read through the control bridge). Compare against `placements-10x.csv`. By hand: set More enemies to 10x, start a seed, walk out of Link's house: Keese, Guays and Tektites around the village; go to Hyrule Field and Lake Hylia.
 
 ## Notes
-- Skipped on purpose: bosses, minibosses, Gold Skulltulas, Deku Scrubs, anything in an enemy group (555 enemies), and solid or wall-mounted enemies (Armos, Beamos, Skulltulas).
-- Up to 35 extra actors in one map is untested for memory.
-- With the object map site or parsed collision, placement could be checked and improved.
+- The old choice values (Half again, Double) in a settings string from an earlier build read as out of range and fall back to 1x with a warning. Default settings string unchanged.
+- Added enemies have no save flag: they are back when the area loads again.
+- Out of reach ledges: the in-bounds rule needs actors nearby, so roofs and cliff tops with props on them can still get an enemy. The test plan watches for it.

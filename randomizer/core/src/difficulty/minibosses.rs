@@ -26,6 +26,14 @@ pub const READ: u32 = 0x8000_0000;
 pub const SEED: &str = "ootrr boss miniboss";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Start {
+    pub module: &'static str,
+    pub out: &'static str,
+}
+
+pub const GOHMA_START: Start = Start { module: "Enemy_DungeonBoss_Gohma_Prefab_b75b.logic.module", out: "End_TrapEvent" };
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Spot {
     pub boss: &'static str,
     pub file: &'static str,
@@ -33,6 +41,7 @@ pub struct Spot {
     pub mini: &'static str,
     pub label: &'static str,
     pub at: [f32; 3],
+    pub start: Option<Start>,
 }
 
 pub const SPOTS: [Spot; 4] = [
@@ -43,6 +52,7 @@ pub const SPOTS: [Spot; 4] = [
         mini: "Enemy_Stalfos_ForChild",
         label: "Stalfos",
         at: [16.5, 47.25, 74.0],
+        start: Some(GOHMA_START),
     },
     Spot {
         boss: "Barinade",
@@ -51,6 +61,7 @@ pub const SPOTS: [Spot; 4] = [
         mini: "Enemy_Stalfos_ForChild",
         label: "Stalfos",
         at: [51.5, 102.25, -112.1],
+        start: None,
     },
     Spot {
         boss: "Phantom Ganon",
@@ -59,6 +70,7 @@ pub const SPOTS: [Spot; 4] = [
         mini: "Enemy_Stalfos_Weak",
         label: "Stalfos",
         at: [5.5, 74.95, -62.5],
+        start: None,
     },
     Spot {
         boss: "Twinrova",
@@ -67,6 +79,7 @@ pub const SPOTS: [Spot; 4] = [
         mini: "Enemy_Dinolfos",
         label: "Dinolfos",
         at: [6.0, 142.4, -157.9],
+        start: None,
     },
 ];
 
@@ -133,17 +146,22 @@ pub fn actor(s: &Spot, hash: u64, room: i32) -> Node {
 }
 
 pub fn place(y: &mut Byml, raw: &[u8], s: &Spot) -> Res<Plan> {
+    let seed: String = format!("{SEED} {} {}", s.actor, s.mini);
+    attach(y, raw, s.actor, s.file, s.mini, &seed, &|hash: u64, room: i32| actor(s, hash, room))
+}
+
+pub fn attach(y: &mut Byml, raw: &[u8], boss_kind: &str, file: &str, kind: &str, seed: &str, make: &dyn Fn(u64, i32) -> Node) -> Res<Plan> {
     let list: &[Node] = y.root.get("Actors").and_then(|a| a.as_arr()).ok_or(E::Format("boss minibosses: the map has no actor list"))?;
-    let boss: &Node = list.iter().find(|a| text(a, "Gyaml") == s.actor).ok_or_else(|| E::Msg(format!("{} is not in {}, the game files differ", s.actor, s.file)))?;
+    let boss: &Node = list.iter().find(|a| text(a, "Gyaml") == boss_kind).ok_or_else(|| E::Msg(format!("{boss_kind} is not in {file}, the game files differ")))?;
     let bh: u64 = hash_of(boss).ok_or(E::Format("boss minibosses: the boss has no hash"))?;
     let room: i32 = match boss.get("Dynamic").and_then(|d| d.get(ROOM)) {
         Some(Node::I32(v)) => *v,
-        _ => return Err(E::Msg(format!("{} has no dungeon room, the game files differ", s.actor))),
+        _ => return Err(E::Msg(format!("{boss_kind} has no dungeon room, the game files differ"))),
     };
     let groups: &[Node] = y.root.get("AiGroups").and_then(|g| g.as_arr()).unwrap_or(&[]);
     let own: Vec<usize> = (0..groups.len()).filter(|&i| !text(&groups[i], "Logic").is_empty() && refs(&groups[i]).iter().any(|r| refers(r, bh))).collect();
     let [gi] = own.as_slice() else {
-        return Err(E::Msg(format!("{} is steered by {} room graphs and not one, the game files differ", s.actor, own.len())));
+        return Err(E::Msg(format!("{boss_kind} is steered by {} room graphs and not one, the game files differ", own.len())));
     };
     let module: String = text(&groups[*gi], "Logic").to_string();
     if groups.iter().filter(|g| text(g, "Logic") == module).count() != 1 {
@@ -151,17 +169,16 @@ pub fn place(y: &mut Byml, raw: &[u8], s: &Spot) -> Res<Plan> {
     }
     let hearts: Vec<&str> = refs(&groups[*gi]).iter().map(|r| text(r, "Id")).filter(|i| i.starts_with(HEART)).collect();
     let [heart] = hearts.as_slice() else {
-        return Err(E::Msg(format!("the room of {} has {} heart containers and not one, the game files differ", s.actor, hearts.len())));
+        return Err(E::Msg(format!("the room of {boss_kind} has {} heart containers and not one, the game files differ", hearts.len())));
     };
     let heart: String = heart.to_string();
-    let seed: String = format!("{SEED} {} {}", s.actor, s.mini);
     let mut n: u32 = murmur3_32(seed.as_bytes(), 0) & 0xffff;
-    let mut id: String = format!("{}_{n:04x}", s.mini);
+    let mut id: String = format!("{kind}_{n:04x}");
     while refs(&groups[*gi]).iter().any(|r| text(r, "Id") == id) {
         n = (n + 1) & 0xffff;
-        id = format!("{}_{n:04x}", s.mini);
+        id = format!("{kind}_{n:04x}");
     }
-    let hash: u64 = fresh(raw, &seed);
+    let hash: u64 = fresh(raw, seed);
     let logic: String = logic_file(&module)?;
     let mut r: Node = Node::Map(Vec::new());
     r.set("Id", Node::Str(id.clone()));
@@ -170,7 +187,7 @@ pub fn place(y: &mut Byml, raw: &[u8], s: &Spot) -> Res<Plan> {
     let gs: &mut Vec<Node> = y.root.get_mut("AiGroups").and_then(|g| g.as_arr_mut()).ok_or(E::Format("boss minibosses: the map has no logic groups"))?;
     gs[*gi].get_mut("References").and_then(|r| r.as_arr_mut()).ok_or(E::Format("boss minibosses: the room graph has no references"))?.push(r);
     let acts: &mut Vec<Node> = y.root.get_mut("Actors").and_then(|a| a.as_arr_mut()).ok_or(E::Format("boss minibosses: the map has no actor list"))?;
-    acts.push(actor(s, hash, room));
+    acts.push(make(hash, room));
     Ok(Plan { logic, heart, id, hash })
 }
 
@@ -186,34 +203,74 @@ fn unset(a: &mut Ainb, i: usize, name: &str) -> Res<()> {
 }
 
 pub fn wire(a: &mut Ainb, heart: &str, id: &str) -> Res<usize> {
-    let hs: Vec<usize> = named(a, heart);
-    let [h] = hs.as_slice() else {
-        return Err(E::Msg(format!("the room graph has {} nodes for {heart} and not one, the game files differ", hs.len())));
+    wire_with(a, Some(heart), id, None)
+}
+
+pub fn signal(a: &Ainb, s: &Start) -> Res<(usize, i16)> {
+    let ms: Vec<usize> = a.find_els(s.module);
+    let [m] = ms.as_slice() else {
+        return Err(E::Msg(format!("the room graph has {} nodes of {} and not one, the game files differ", ms.len(), s.module)));
     };
-    if a.el_name(*h) != NODE {
-        return Err(E::Msg(format!("{heart} is not a plain actor node, the game files differ")));
+    let (b, n): (usize, usize) = (a.params[*m].ioe[BOOL][2] as usize, a.params[*m].ioe[BOOL][3] as usize);
+    for k in b..b + n {
+        let e: &[u8] = a.outs[BOOL].get(k * OUT..k * OUT + 4).ok_or(E::Format("boss minibosses: output out of range"))?;
+        let w: u32 = u32::from_le_bytes([e[0], e[1], e[2], e[3]]);
+        if a.s(w & 0x3fff_ffff) == s.out {
+            return Ok((*m, (k - b) as i16));
+        }
     }
+    Err(E::Msg(format!("{} has no output {}, the game files differ", s.module, s.out)))
+}
+
+pub fn wire_with(a: &mut Ainb, heart: Option<&str>, id: &str, start: Option<&Start>) -> Res<usize> {
     if !named(a, id).is_empty() {
         return Err(E::Msg(format!("the room graph already has a node for {id}")));
     }
-    let g: usize = a.find_in(*h, BOOL, CREATE).ok_or_else(|| E::Msg(format!("{heart} has no create input, the game files differ")))?;
-    let x: Input = a.input(BOOL, g).ok_or(E::Format("boss minibosses: input out of range"))?;
-    if x.src < 0 {
-        return Err(E::Msg(format!("{heart} does not wait for the boss, so nothing says when the fight is over")));
-    }
+    let gone: Option<Input> = match heart {
+        Some(heart) => {
+            let hs: Vec<usize> = named(a, heart);
+            let [h] = hs.as_slice() else {
+                return Err(E::Msg(format!("the room graph has {} nodes for {heart} and not one, the game files differ", hs.len())));
+            };
+            if a.el_name(*h) != NODE {
+                return Err(E::Msg(format!("{heart} is not a plain actor node, the game files differ")));
+            }
+            let g: usize = a.find_in(*h, BOOL, CREATE).ok_or_else(|| E::Msg(format!("{heart} has no create input, the game files differ")))?;
+            let x: Input = a.input(BOOL, g).ok_or(E::Format("boss minibosses: input out of range"))?;
+            if x.src < 0 {
+                return Err(E::Msg(format!("{heart} does not wait for the boss, so nothing says when the fight is over")));
+            }
+            Some(x)
+        }
+        None => None,
+    };
+    let from: Option<(usize, i16)> = match start {
+        Some(s) => Some(signal(a, s)?),
+        None => None,
+    };
     let name: Vec<u8> = a.pool.add(id).to_le_bytes().to_vec();
     let seed: String = format!("{SEED} {id}");
-    let mut sp: Spec = Spec::node(NODE, &seed)
-        .prop(STR, NAME, name)
-        .constant(BOOL, CREATE, 1u32.to_le_bytes().to_vec())
-        .linked(BOOL, DELETE, x.src as usize, x.plug)
-        .constant(BOOL, RESPAWN, 0u32.to_le_bytes().to_vec())
-        .out(BOOL, "Dead")
-        .out(BOOL, "Logic_Alive");
+    let zero: Vec<u8> = 0u32.to_le_bytes().to_vec();
+    let mut sp: Spec = Spec::node(NODE, &seed).prop(STR, NAME, name);
+    sp = match from {
+        Some((m, plug)) => sp.linked(BOOL, CREATE, m, plug),
+        None => sp.constant(BOOL, CREATE, 1u32.to_le_bytes().to_vec()),
+    };
+    sp = match &gone {
+        Some(x) => sp.linked(BOOL, DELETE, x.src as usize, x.plug),
+        None => sp.idle(BOOL, DELETE, zero.clone()),
+    };
+    sp = match from {
+        Some(_) => sp.idle(BOOL, RESPAWN, zero),
+        None => sp.constant(BOOL, RESPAWN, zero),
+    };
+    sp = sp.out(BOOL, "Dead").out(BOOL, "Logic_Alive");
     sp.role = QUERY;
     let i: usize = a.add_node(&sp)?;
-    unset(a, i, CREATE)?;
-    unset(a, i, RESPAWN)?;
+    if from.is_none() {
+        unset(a, i, CREATE)?;
+        unset(a, i, RESPAWN)?;
+    }
     let (b, n): (usize, usize) = (a.params[i].ioe[BOOL][2] as usize, a.params[i].ioe[BOOL][3] as usize);
     for k in b..b + n {
         let e: &mut [u8] = a.outs[BOOL].get_mut(k * OUT..k * OUT + 4).ok_or(E::Format("boss minibosses: output out of range"))?;
@@ -243,7 +300,7 @@ pub fn one(rf: &mut Romfs, have: Have, s: &Spot) -> Res<[Out; 2]> {
         None => rf.read(&p.logic)?,
     };
     let mut a: Ainb = Ainb::parse(&was)?;
-    wire(&mut a, &p.heart, &p.id)?;
+    wire_with(&mut a, Some(&p.heart), &p.id, s.start.as_ref())?;
     let g: Vec<u8> = a.write()?;
     Ok([banc, Out { path: p.logic, old: was.len(), new: g.len(), z: g }])
 }
@@ -254,7 +311,7 @@ mod tests {
     use crate::ainb::tests::{node, synth};
 
     fn spot() -> Spot {
-        Spot { boss: "Boss", file: "Banc/A/A_Static.bcett.byml.zs", actor: "Enemy_DungeonBoss_X", mini: "Enemy_Stalfos", label: "Stalfos", at: [1.0, 2.0, 3.0] }
+        Spot { boss: "Boss", file: "Banc/A/A_Static.bcett.byml.zs", actor: "Enemy_DungeonBoss_X", mini: "Enemy_Stalfos", label: "Stalfos", at: [1.0, 2.0, 3.0], start: None }
     }
 
     fn rf(id: &str, h: u64) -> Node {
@@ -367,6 +424,67 @@ mod tests {
         assert!(audit(&c).is_empty());
         assert!(wire(&mut a, "Obj_Heart_Container_c072", "Enemy_Stalfos_00aa").is_err());
         assert!(wire(&mut a, "Obj_Heart_Container_ffff", "Enemy_Stalfos_00ab").is_err());
+    }
+
+    const MODULE: Start = Start { module: "Boss_Prefab_1234.logic.module", out: "End_TrapEvent" };
+
+    fn graph_with_module() -> (Ainb, usize, usize) {
+        let (mut a, _flag, heart): (Ainb, usize, usize) = graph();
+        name_it(&mut a, heart, "Obj_Heart_Container_c072");
+        let m: usize = a.add_node(&Spec::query(MODULE.module, "t#3").out(BOOL, MODULE.out).out(BOOL, "Other")).unwrap();
+        (a, heart, m)
+    }
+
+    #[test]
+    fn a_new_node_with_a_start_signal_is_not_created_at_load() {
+        let (mut a, heart, m): (Ainb, usize, usize) = graph_with_module();
+        assert_eq!(signal(&a, &MODULE).unwrap(), (m, 0));
+        let h: Input = a.input(BOOL, a.find_in(heart, BOOL, CREATE).unwrap()).unwrap();
+        let i: usize = wire_with(&mut a, Some("Obj_Heart_Container_c072"), "Enemy_Stalfos_00aa", Some(&MODULE)).unwrap();
+        let c: Ainb = Ainb::parse(&a.write().unwrap()).unwrap();
+        let made: Input = c.input(BOOL, c.find_in(i, BOOL, CREATE).unwrap()).unwrap();
+        assert_eq!((made.src, made.plug), (m as i16, 0));
+        assert_eq!(made.flags & UNSET, 0);
+        let gone: Input = c.input(BOOL, c.find_in(i, BOOL, DELETE).unwrap()).unwrap();
+        assert_eq!((gone.src, gone.plug), (h.src, h.plug));
+        assert!(audit(&c).is_empty());
+    }
+
+    #[test]
+    fn minions_have_a_start_signal_and_never_a_delete() {
+        let (mut a, _heart, m): (Ainb, usize, usize) = graph_with_module();
+        let i: usize = wire_with(&mut a, None, "Enemy_Keese_00aa", Some(&MODULE)).unwrap();
+        let j: usize = wire_with(&mut a, None, "Enemy_Keese_00ab", Some(&MODULE)).unwrap();
+        let c: Ainb = Ainb::parse(&a.write().unwrap()).unwrap();
+        for k in [i, j] {
+            let made: Input = c.input(BOOL, c.find_in(k, BOOL, CREATE).unwrap()).unwrap();
+            assert_eq!((made.src, made.plug), (m as i16, 0));
+            let gone: Input = c.input(BOOL, c.find_in(k, BOOL, DELETE).unwrap()).unwrap();
+            assert_eq!((gone.src, gone.flags, gone.val), (-1, UNSET, vec![0; 4]));
+            let again: Input = c.input(BOOL, c.find_in(k, BOOL, RESPAWN).unwrap()).unwrap();
+            assert_eq!((again.src, again.flags, again.val), (-1, UNSET, vec![0; 4]));
+        }
+        assert!(audit(&c).is_empty());
+        assert!(wire_with(&mut a, None, "Enemy_Keese_00ab", Some(&MODULE)).is_err());
+    }
+
+    #[test]
+    fn a_missing_start_signal_is_refused() {
+        let (mut a, _heart, _m): (Ainb, usize, usize) = graph_with_module();
+        let none: Start = Start { module: "Boss_Prefab_1234.logic.module", out: "Nope" };
+        let other: Start = Start { module: "Other.logic.module", out: "End_TrapEvent" };
+        let n: usize = a.els.len();
+        assert!(signal(&a, &none).is_err() && signal(&a, &other).is_err());
+        assert!(wire_with(&mut a, None, "Enemy_Keese_00aa", Some(&none)).is_err());
+        assert_eq!(a.els.len(), n);
+    }
+
+    #[test]
+    fn only_gohma_has_a_start_signal() {
+        for s in &SPOTS {
+            assert_eq!(s.start.is_some(), s.actor.ends_with("Gohma"), "{}", s.boss);
+        }
+        assert_eq!(GOHMA_START.out, "End_TrapEvent");
     }
 
     #[test]

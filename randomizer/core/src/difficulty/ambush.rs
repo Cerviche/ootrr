@@ -2,6 +2,7 @@ use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use crate::ainb::Ainb;
 use crate::byml::{Byml, Node};
+use crate::difficulty::gates::{id_for, wire, Mode, Plan, GRAPH as SOURCE};
 use crate::error::{Error as E, Res};
 use crate::flow_locations::dict_id;
 use crate::murmur::murmur3_32;
@@ -16,15 +17,15 @@ pub const BASE: &str = "Land_HidingHole_Base_D_01";
 pub const WALL: &str = "Enemy_Skullwalltula";
 pub const HANG: &str = "Enemy_Skulltula";
 pub const AREA: &str = "Area";
-pub const LOGIC: &str = "Logic/Module/ForestTemple_Level_Room_01_Prefab/ForestTemple_Level_Room_01_Prefab_c0f3.logic.module.ain";
-pub const GRAPH: &str = "Logic/ForestTemple_Level_Room_01_Prefab_c0f3.logic.module.ainb";
-pub const HANG_ID: &str = "Enemy_Skulltula_27d5";
-pub const AREA_ID: &str = "Area_b05f";
-pub const NAME: &str = "InstanceName";
 pub const FREE: &str = "Enemy_Skulltula_IsFreeRotationLimit";
 pub const GROUPS: [&str; 2] = ["FarDeleteGroups", "SimultaneousGroups"];
 pub const SEED: &str = "ootrr zora ambush";
 pub const SLACK: f32 = 0.01;
+pub const PREFIX: &str = "Ambush_Nook_";
+pub const FLOOR: f32 = -16.0;
+pub const BACK: f32 = 1.5;
+pub const DEEP: f32 = 2.0;
+pub const HIGH: f32 = 6.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Nook {
@@ -33,15 +34,33 @@ pub struct Nook {
     pub face: f32,
     pub hang: [f32; 3],
     pub out: f32,
-    pub area: [f32; 3],
-    pub size: [f32; 3],
+    pub wide: f32,
 }
 
 pub const NOOKS: [Nook; 3] = [
-    Nook { name: "a", wall: [-8.484, -12.167, -6.613], face: 1.402, hang: [-4.39, -11.7, -4.48], out: -2.2864, area: [-7.5, -16.0, -7.18], size: [6.0, 6.0, 3.25] },
-    Nook { name: "b", wall: [-1.255, -11.485, 11.855], face: 3.1875, hang: [-0.6, -11.7, 7.0], out: 0.0, area: [-0.6, -16.0, 11.0], size: [6.0, 6.0, 3.0] },
-    Nook { name: "c", wall: [14.29, -12.36, -6.18], face: -1.125, hang: [5.64, -11.7, -3.29], out: 2.0071, area: [11.78, -16.0, -5.49], size: [9.0, 6.0, 7.0] },
+    Nook { name: "a", wall: [-8.484, -12.167, -6.613], face: 1.402, hang: [-3.515, -11.7, -3.587], out: -2.2864, wide: 6.0 },
+    Nook { name: "b", wall: [-1.255, -11.485, 11.855], face: 3.1875, hang: [-0.493, -11.7, 5.755], out: 0.0, wide: 6.0 },
+    Nook { name: "c", wall: [14.29, -12.36, -6.18], face: -1.125, hang: [4.56, -11.7, -2.66], out: 2.0071, wide: 9.0 },
 ];
+
+impl Nook {
+    pub fn area(&self) -> [f32; 3] {
+        let (s, c): (f32, f32) = self.out.sin_cos();
+        [self.wall[0] - s * BACK, FLOOR, self.wall[2] - c * BACK]
+    }
+
+    pub fn size(&self) -> [f32; 3] {
+        [self.wide, HIGH, DEEP]
+    }
+
+    pub fn plan(&self) -> Plan {
+        let hang: String = id_for(HANG, &format!("{SEED} {} hang", self.name), &[]);
+        let area: String = id_for(AREA, &format!("{SEED} {} area", self.name), &[hang.clone()]);
+        let tag: u32 = murmur3_32(format!("{SEED} {} module", self.name).as_bytes(), 0) & 0xffff;
+        let name: String = format!("{PREFIX}{}_{tag:04x}", self.name);
+        Plan { module: format!("Logic/Module/{PREFIX}{}/{name}.logic.module.ain", self.name), graph: format!("Logic/{name}.logic.module.ainb"), guards: vec![hang], modes: vec![Mode::Trigger], hands: Vec::new(), area, counters: Vec::new() }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Frame {
@@ -163,10 +182,11 @@ pub fn place(y: &mut Byml, f: &Frame, raws: &[&[u8]], map: &str) -> Res<usize> {
         let hang: u64 = fresh(raws, &format!("{seed} hang"));
         let area: u64 = fresh(raws, &format!("{seed} area"));
         let group: u64 = fresh(raws, &format!("{seed} group"));
+        let plan: Plan = k.plan();
         let mut h: Node = actor(HANG, hang, f.point(k.hang), euler(0.0, f.turn(k.out)));
         h.set("Dynamic", Node::Map(vec![(FREE.to_string(), Node::Bool(true))]));
-        let mut s: Node = actor(AREA, area, f.point(k.area), euler(0.0, f.turn(k.out)));
-        s.set("Scale", floats(k.size));
+        let mut s: Node = actor(AREA, area, f.point(k.area()), euler(0.0, f.turn(k.out)));
+        s.set("Scale", floats(k.size()));
         let acts: &mut Vec<Node> = list(y, "Actors")?;
         acts.push(actor(WALL, wall, f.point(k.wall), euler(FRAC_PI_2, f.turn(k.face))));
         acts.push(h);
@@ -174,8 +194,8 @@ pub fn place(y: &mut Byml, f: &Frame, raws: &[&[u8]], map: &str) -> Res<usize> {
         n += 3;
         let mut g: Node = Node::Map(Vec::new());
         g.set("Hash", Node::U64(group));
-        g.set("Logic", Node::Str(LOGIC.to_string()));
-        g.set("References", Node::Arr(vec![link(HANG_ID, hang), link(AREA_ID, area)]));
+        g.set("Logic", Node::Str(plan.module.clone()));
+        g.set("References", Node::Arr(vec![link(&plan.guards[0], hang), link(&plan.area, area)]));
         let gs: &mut Vec<Node> = list(y, "AiGroups")?;
         let i: usize = gs.iter().position(|x| hash_of(x).is_some_and(|v| v > group)).unwrap_or(gs.len());
         gs.insert(i, g);
@@ -186,15 +206,12 @@ pub fn place(y: &mut Byml, f: &Frame, raws: &[&[u8]], map: &str) -> Res<usize> {
     Ok(n)
 }
 
-pub fn graph_ok(raw: &[u8]) -> Res<()> {
-    let a: Ainb = Ainb::parse(raw)?;
-    for id in [HANG_ID, AREA_ID] {
-        let n: usize = (0..a.els.len()).filter(|&i| a.prop_str(i, NAME) == Some(id)).count();
-        if n != 1 {
-            return Err(E::Msg(format!("zora ambush: {GRAPH} has {n} nodes named {id} and not one, the game files differ")));
-        }
-    }
-    Ok(())
+pub fn graph(raw: &[u8], k: &Nook) -> Res<Out> {
+    let p: Plan = k.plan();
+    let mut a: Ainb = Ainb::parse(raw)?;
+    wire(&mut a, &p)?;
+    let g: Vec<u8> = a.write()?;
+    Ok(Out { path: p.graph, old: 0, new: g.len(), z: g })
 }
 
 fn source(rf: &Romfs, have: Have, p: &str) -> Res<Vec<u8>> {
@@ -222,8 +239,11 @@ fn one(rf: &mut Romfs, have: Have, map: &str) -> Res<Out> {
 }
 
 pub fn stage(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
-    graph_ok(&source(rf, have, GRAPH)?)?;
+    let was: Vec<u8> = source(rf, have, SOURCE)?;
     let mut outs: Vec<Out> = Vec::new();
+    for k in &NOOKS {
+        outs.push(graph(&was, k)?);
+    }
     for map in MAPS {
         outs.push(one(rf, have, map)?);
     }
@@ -301,14 +321,17 @@ mod tests {
         let hang: &Node = acts.iter().find(|a| text(a, "Gyaml") == HANG).unwrap();
         assert_eq!(hang.get("Dynamic").and_then(|d| d.get(FREE)), Some(&Node::Bool(true)));
         let area: &Node = acts.iter().find(|a| text(a, "Gyaml") == AREA).unwrap();
-        assert_eq!(vec3(area, "Scale"), Some(NOOKS[0].size));
+        assert_eq!(vec3(area, "Scale"), Some(NOOKS[0].size()));
         let gs: &[Node] = y.root.get("AiGroups").unwrap().as_arr().unwrap();
         assert_eq!(gs.len(), 4);
         assert!(gs.windows(2).all(|w| hash_of(&w[0]) < hash_of(&w[1])), "the groups stay sorted");
         for g in &gs[..3] {
-            assert_eq!(text(g, "Logic"), LOGIC);
+            assert!(text(g, "Logic").starts_with(&format!("Logic/Module/{PREFIX}")));
             let rs: &[Node] = g.get("References").unwrap().as_arr().unwrap();
-            assert_eq!(rs.iter().map(|r| text(r, "Id")).collect::<Vec<&str>>(), vec![HANG_ID, AREA_ID]);
+            let ids: Vec<&str> = rs.iter().map(|r| text(r, "Id")).collect();
+            assert!(ids[0].starts_with(HANG) && ids[1].starts_with(AREA));
+            let plan: Plan = NOOKS.iter().map(|k| k.plan()).find(|p| p.module == text(g, "Logic")).unwrap();
+            assert_eq!(ids, vec![plan.guards[0].as_str(), plan.area.as_str()]);
             let own = |r: &Node, name: &str| acts.iter().any(|a| text(a, "Gyaml") == name && a.get("Hash") == r.get("Reference"));
             assert!(own(&rs[0], HANG) && own(&rs[1], AREA));
         }
@@ -342,6 +365,47 @@ mod tests {
         assert_ne!(fresh(&[], "y"), h);
     }
 
+    fn radial(k: &Nook, p: [f32; 3]) -> f32 {
+        let (s, c): (f32, f32) = k.out.sin_cos();
+        p[0] * s + p[2] * c
+    }
+
+    #[test]
+    fn the_droppers_sit_a_little_nearer_the_middle_than_they_did() {
+        let was: [[f32; 3]; 3] = [[-4.39, -11.7, -4.48], [-0.6, -11.7, 7.0], [5.64, -11.7, -3.29]];
+        for (k, old) in NOOKS.iter().zip(was) {
+            let from = |p: [f32; 3]| (p[0] * p[0] + p[2] * p[2]).sqrt();
+            let moved: f32 = from(old) - from(k.hang);
+            assert!((1.0..1.5).contains(&moved), "{} moved {moved}", k.name);
+            assert_eq!(k.hang[1], old[1]);
+            assert!((k.hang[0] * old[2] - k.hang[2] * old[0]).abs() < 0.05, "{} moved sideways", k.name);
+        }
+    }
+
+    #[test]
+    fn each_trigger_box_lies_at_the_far_end_past_every_dropper() {
+        for k in &NOOKS {
+            let a: [f32; 3] = k.area();
+            let near: f32 = radial(k, a) - k.size()[2];
+            for d in &NOOKS {
+                assert!(near > radial(k, d.hang) + 1.0, "{} box starts at {near}, dropper {} at {}", k.name, d.name, radial(k, d.hang));
+            }
+            assert!(radial(k, k.wall) - radial(k, a) < k.size()[2], "{} box does not reach the wall spider", k.name);
+            assert!(radial(k, k.wall) - near < 4.0, "{} box is not at the back", k.name);
+        }
+    }
+
+    #[test]
+    fn the_nooks_get_private_graphs_with_the_gate_construct() {
+        let names: Vec<Plan> = NOOKS.iter().map(|k| k.plan()).collect();
+        for (i, p) in names.iter().enumerate() {
+            assert!(p.graph.starts_with(&format!("Logic/{PREFIX}")) && p.graph.ends_with(".logic.module.ainb"));
+            assert_eq!((p.guards.len(), p.hands.len(), p.counters.len()), (1, 0, 0));
+            assert!(names.iter().enumerate().all(|(j, q)| i == j || (q.graph != p.graph && q.module != p.module)));
+        }
+        assert_eq!(names[0], NOOKS[0].plan());
+    }
+
     fn dump() -> Option<std::path::PathBuf> {
         let p: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from)?;
         if p.is_dir() { Some(p) } else { None }
@@ -362,8 +426,10 @@ mod tests {
             return;
         };
         let mut rf: Romfs = Romfs::open(&root).unwrap();
-        let outs: Vec<Out> = stage(&mut rf, &none).unwrap();
+        let all: Vec<Out> = stage(&mut rf, &none).unwrap();
+        let (graphs, outs): (Vec<Out>, Vec<Out>) = all.into_iter().partition(|o| o.path.ends_with(".ainb"));
         assert_eq!(outs.iter().map(|o| o.path.clone()).collect::<Vec<String>>(), MAPS.iter().map(|m| file(m, "Static")).collect::<Vec<String>>());
+        assert_eq!(graphs.iter().map(|o| o.path.clone()).collect::<Vec<String>>(), NOOKS.iter().map(|k| k.plan().graph).collect::<Vec<String>>());
         for o in &outs {
             let was: Byml = rf.read_byml(&o.path).unwrap();
             let now: Byml = Byml::parse(&rf.zs.decompress(&o.z).unwrap()).unwrap();
@@ -381,17 +447,26 @@ mod tests {
             assert_eq!(hs.len(), n, "no hash is used twice in {}", o.path);
             let gs: &[Node] = now.root.get("AiGroups").unwrap().as_arr().unwrap();
             assert!(gs.windows(2).all(|w| hash_of(&w[0]) < hash_of(&w[1])));
-            assert_eq!(gs.iter().filter(|g| text(g, "Logic") == LOGIC).count(), 3);
+            assert_eq!(gs.iter().filter(|g| text(g, "Logic").starts_with(&format!("Logic/Module/{PREFIX}"))).count(), 3);
             let mid: &Node = new.iter().find(|a| text(a, "Gyaml") == "DestinationAnchor" && text(a, "Name") == "HidingHole_FieldExitGo").unwrap();
             let c: [f32; 3] = vec3(mid, "Translate").unwrap();
             for a in &new[old.len()..] {
                 let t: [f32; 3] = vec3(a, "Translate").unwrap();
                 let far: f32 = ((t[0] - c[0]).powi(2) + (t[2] - c[2]).powi(2)).sqrt();
-                assert!((5.0..17.0).contains(&far), "{} sits {far} from the middle of the hole", text(a, "Gyaml"));
+                assert!((4.5..17.0).contains(&far), "{} sits {far} from the middle of the hole", text(a, "Gyaml"));
                 assert!((-1.0..5.0).contains(&(t[1] - c[1])), "{} sits {} above the floor", text(a, "Gyaml"), t[1] - c[1]);
             }
-            let hang: &Node = new[old.len()..].iter().filter(|a| text(a, "Gyaml") == HANG).nth(1).unwrap();
-            assert!(close(vec3(hang, "Translate").unwrap(), [12.46, 63.63, -23.63], 0.05));
+            let dist = |a: &Node| -> f32 {
+                let t: [f32; 3] = vec3(a, "Translate").unwrap();
+                ((t[0] - c[0]).powi(2) + (t[2] - c[2]).powi(2)).sqrt()
+            };
+            let drops: f32 = new[old.len()..].iter().filter(|a| text(a, "Gyaml") == HANG).map(dist).fold(0.0, f32::max);
+            let boxes: Vec<&Node> = new[old.len()..].iter().filter(|a| text(a, "Gyaml") == AREA).collect();
+            assert_eq!(boxes.len(), 3);
+            for b in boxes {
+                let near: f32 = dist(b) - vec3(b, "Scale").unwrap()[2];
+                assert!(near > drops, "a trigger box sits at {} from the entrance", dist(b));
+            }
         }
     }
 }

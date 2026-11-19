@@ -140,3 +140,22 @@ From the code review of 18 Nov (`docs\code-review-2026-11-18.md`, findings 2 and
 3. `closed_deku` with an open Kakariko gate can remove Mido (still present, not changed by v4).
    - `active` takes only `forest_open` and `entrances`. The Kakariko gate setting says an open gate "takes Mido away", and that is allowed together with `closed_deku`. If the guards' `Presence` flag is still true in that story state, the gate stands where the game itself would let the child through.
    - Fix: also skip gate 6 when any setting removes Mido, or prove from the map files that the guards' `Presence` flag is off in that state and write that here.
+
+## Round 3 (19 Nov): the trigger starts well past the wall
+
+Seen on 19 Nov: gate 12 worked perfectly and is now shipped (`HELD` is `[1, 2, 7, 9, 11]`). Gate 11 raised its barrier while the player was still outside it, at the south entrance, and the game's own respawn point after a death is on that line.
+
+- Rule from the user, every gate: the player must be at least 2 units past the wall on the guard's side before the barrier rises and the guard is created.
+- Margin now `INSET` = 2.5 + `BARRIER_HALF` (1.0, a conservative half-depth of the barrier piece) = 3.5, measured along the wall's normal toward the guard, to every corner of the trigger box. The box is shrunk (floor half-width 2); if that is not enough its centre is moved away from the wall; if two walls leave no room (gate 9) the floor drops to 0.5. A test checks all gates.
+- Gate 11 evidence: the box was 20 x 20 round a mark 19.6 units from the wall, yet it fired at the wall. 32.58 + 20 = 52.58 matches the respawn z of 52.6, so the game very likely reads the area `Scale` as half-extents, not full size. The `Scale` written is now the computed half-width (so the real box is the same or smaller than computed, whichever reading is true). If triggers feel too small, double it.
+- Nothing persists after a death or Try Again: the map reloads and the barrier pieces and created guards come only from the graph's `Logic_Create` when the trigger fires; no flag or save entry is written for them. Gate 6 adopts the game's own Deku Babas (their own presence flags are the game's) and its barrier is created the same way, so the same holds.
+- Gate 13's lowered barrier and the same-side rule are unchanged.
+- Not verified in the game.
+
+## Round 4 (19 Nov)
+
+Gates 2 (Death Mountain Trail) and 9 (the small Lost Woods room, one guard, two gates) were seen working and ship. `HELD` is now `[7]`: only gate 7 (Lost Woods east passage) is held, not tried. Gate 2's guard changed from a created Red Tektite to a created `Enemy_Dodongo` (the fire-breathing one, not `Enemy_BabyDodongo`) at the same guard position on the ground; the new-guard kind is `DODONGO_GUARD`. The actor pack exists and the game creates it in other maps without room logic. The Dodongo version itself is not played yet.
+
+## rc 13 scripted check (19 Nov)
+- Gate 2 (Death Mountain Trail): the map loads with the mod; after a warp to (-54.67, 106.0, 10.4) on the guard's side an `Enemy_Dodongo` (hp 6) stood at (-54.4, 106.4, 3.2) and moved under 1 unit in 25 s. Barrier and fight not observed. Details: `playtest
+c13\RESULTS.md`.

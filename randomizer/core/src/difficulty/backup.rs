@@ -36,23 +36,70 @@ pub const USED: &str = "OotrrBackupUsed";
 pub const TABLE: &str = "Component/Blackboard/BlackboardParamTable/EnemyCommon.engine__component__BlackboardParamTable.bgyml";
 pub const BOOLS: &str = "BlackboardParamBoolArray";
 pub const CALLERS: &str = "Enemy_";
-pub const HELPER: &str = "Enemy_Peahat_Larva_Independent";
-pub const HELPERS: [(&str, &str); 3] = [
-    (HELPER, NEW),
-    ("Enemy_Shabom", "Component/ActorHolderParam/OotrrBackupBubble.game__component__ActorHolderParam.bgyml"),
+pub const HELPERS: [(&str, &str); 9] = [
+    ("Enemy_Keese", "Component/ActorHolderParam/OotrrBackup.game__component__ActorHolderParam.bgyml"),
+    ("Enemy_Keese_Ice", "Component/ActorHolderParam/OotrrBackupIce.game__component__ActorHolderParam.bgyml"),
+    ("Enemy_Keese_Fire", "Component/ActorHolderParam/OotrrBackupFire.game__component__ActorHolderParam.bgyml"),
+    ("Enemy_BabyDodongo", "Component/ActorHolderParam/OotrrBackupDodongo.game__component__ActorHolderParam.bgyml"),
+    ("Enemy_Guay", "Component/ActorHolderParam/OotrrBackupGuay.game__component__ActorHolderParam.bgyml"),
+    ("Enemy_Skullwalltula", "Component/ActorHolderParam/OotrrBackupSpider.game__component__ActorHolderParam.bgyml"),
+    ("Enemy_Floormaster_Little", "Component/ActorHolderParam/OotrrBackupFloor.game__component__ActorHolderParam.bgyml"),
     ("Enemy_FlyingPot", "Component/ActorHolderParam/OotrrBackupPot.game__component__ActorHolderParam.bgyml"),
+    ("Enemy_Shabom", "Component/ActorHolderParam/OotrrBackupBubble.game__component__ActorHolderParam.bgyml"),
 ];
-pub const OUT_OF_BOUNDS: [&str; 8] = ["Enemy_DungeonBoss_", "Enemy_MiddleBoss_", "Enemy_IronKnuckle_", "Enemy_DeadHand", "Enemy_PhantomGanon", "Enemy_GhostPicturePerformer_", "Enemy_Guay_Boss", "Enemy_KotakeKoumeBattleManager"];
-pub const BUBBLE_CALLERS: [&str; 8] = ["Enemy_Bari", "Enemy_Biri", "Enemy_Stinger", "Enemy_Stinger_UnderWater", "Enemy_ShellBlade", "Enemy_Tentacle_Blue", "Enemy_Tentacle_Green", "Enemy_Tentacle_Red"];
-pub const POT_CALLERS: [&str; 11] = ["Enemy_Freezard", "Enemy_Freezard_Fixed", "Enemy_Gibdo", "Enemy_ReDead", "Enemy_ReDead_AlwaysRespawn", "Enemy_ReDead_ClimaxOnly", "Enemy_Wallmaster", "Enemy_LikeLike", "Enemy_Floormaster", "Enemy_Floormaster_Little", "Enemy_Floormaster_Truth"];
-pub const FRAMES: f32 = 750.0;
-pub const RISE: f32 = 1.5;
+pub const HELPER: &str = HELPERS[0].0;
+pub const OUT_OF_BOUNDS: &[&str] = &[
+    "Enemy_DungeonBoss_",
+    "Enemy_MiddleBoss_",
+    "Enemy_IronKnuckle_",
+    "Enemy_DeadHand",
+    "Enemy_PhantomGanon",
+    "Enemy_GhostPicturePerformer_",
+    "Enemy_KotakeKoumeBattleManager",
+    "Enemy_ReDead",
+    "Enemy_Leever",
+    "Enemy_Peahat",
+    "Enemy_Keese",
+    "Enemy_BabyDodongo",
+    "Enemy_Guay",
+    "Enemy_Skullwalltula",
+    "Enemy_Floormaster_Little",
+    "Enemy_FlyingPot",
+    "Enemy_Shabom",
+];
+pub const WHO_CALLS_WHOM: &[(&str, usize)] = &[
+    ("Enemy_Wolfos_White", 1),
+    ("Enemy_Freezard", 1),
+    ("Enemy_TorchSlug", 2),
+    ("Enemy_Bubble", 2),
+    ("Enemy_Lizalfos", 3),
+    ("Enemy_Dinolfos", 3),
+    ("Enemy_Dodongo", 3),
+    ("Enemy_Moblin", 4),
+    ("Enemy_Skulltula", 5),
+    ("Enemy_Dekubaba", 5),
+    ("Enemy_Scrub_Mad", 5),
+    ("Enemy_Floormaster", 6),
+    ("Enemy_Wallmaster", 6),
+    ("Enemy_LikeLike", 6),
+    ("Enemy_Amos", 7),
+    ("Enemy_Beamos", 7),
+    ("Enemy_Octorok", 8),
+    ("Enemy_Bari", 8),
+    ("Enemy_Biri", 8),
+    ("Enemy_Stinger", 8),
+    ("Enemy_ShellBlade", 8),
+    ("Enemy_Tentacle", 8),
+];
+pub const FRAMES: f32 = 600.0;
+pub const RANDOM_FRAMES: f32 = 900.0;
+pub const SIDE: f32 = 2.5;
 pub const MAX: i32 = 1;
 pub const HEAP_EXTRA: i32 = 0x10000;
 pub const ACTOR_DIR: &str = "Actor/";
 pub const ACTOR_EXT: &str = ".engine__actor__ActorParam.bgyml";
 pub const HOLDER_DIR: &str = "Component/ActorHolderParam/";
-pub const NEW: &str = "Component/ActorHolderParam/OotrrBackup.game__component__ActorHolderParam.bgyml";
+pub const NEW: &str = HELPERS[0].1;
 pub const PEER: (&str, &str) = ("Pack/Actor/Enemy_Bari.pack.zs", "Component/ActorHolderParam/Enemy_Bari.game__component__ActorHolderParam.bgyml");
 pub const PARTS: &str = "Components";
 pub const SLOT: &str = "ActorHolderRef";
@@ -108,7 +155,7 @@ pub fn build(a: &mut Ainb, tag: &str) -> Res<usize> {
     let place: usize = a.add_node(&Spec::query(PLACE, &s("place")).out_ptr("Mat34F", MAT34))?;
     let split: usize = a.add_node(&Spec::query(SPLIT, &s("split")).linked_ptr("Matrix34f", MAT34, place).out(4, "Translation").spare_ptr("Rotation", MAT33))?;
     feed(a, place, split, "Mat34F")?;
-    let lift: usize = a.add_node(&Spec::query(LIFT, &s("lift")).linked(4, "InputA", split, 0).constant(4, "InputB", vec3(0.0, RISE, 0.0)).out(4, "Result"))?;
+    let lift: usize = a.add_node(&Spec::query(LIFT, &s("lift")).linked(4, "InputA", split, 0).constant(4, "InputB", vec3(SIDE, 0.0, 0.0)).out(4, "Result"))?;
     feed(a, split, lift, "Translation")?;
     let wake: usize = a.add_node(
         &Spec::node(WAKE, &s("wake"))
@@ -144,7 +191,7 @@ pub fn build(a: &mut Ainb, tag: &str) -> Res<usize> {
             .prop(1, "NoChangeWhenChildIsBusy", flag(false))
             .prop(1, "SelectChildOnEnterOnly", flag(false))
             .prop(2, "CountFrames", FRAMES.to_le_bytes().to_vec())
-            .prop(2, "RandomAddCountFrames", 0f32.to_le_bytes().to_vec())
+            .prop(2, "RandomAddCountFrames", RANDOM_FRAMES.to_le_bytes().to_vec())
             .spare(2, "CurrentFrame")
             .spare(2, "FinishFrame")
             .kid(wait, "NotFinish")
@@ -238,13 +285,7 @@ pub fn excluded(actor: &str) -> bool {
 }
 
 pub fn helper_of(actor: &str) -> usize {
-    if BUBBLE_CALLERS.contains(&actor) {
-        1
-    } else if POT_CALLERS.contains(&actor) {
-        2
-    } else {
-        0
-    }
+    WHO_CALLS_WHOM.iter().find(|r| actor.starts_with(r.0)).map_or(0, |r| r.1)
 }
 
 pub fn flag_row(key: &str, start: bool) -> Node {
@@ -510,11 +551,11 @@ mod tests {
     #[test]
     fn the_called_actor_is_made_on_demand_and_one_at_a_time() {
         let e: Node = entry(HELPER);
-        assert_eq!(e.get("Actor").and_then(Node::as_str), Some("Work/Actor/Enemy_Peahat_Larva_Independent.engine__actor__ActorParam.gyml"));
+        assert_eq!(e.get("Actor").and_then(Node::as_str), Some("Work/Actor/Enemy_Keese.engine__actor__ActorParam.gyml"));
         assert_eq!(e.get("IsCreateFirstWithHolder"), Some(&Node::Bool(false)));
         assert_eq!(e.get("MaxActors"), Some(&Node::I32(1)));
         assert_eq!(holder_file(HELPER).unwrap(), holder_file(HELPER).unwrap());
-        assert_eq!(entry(HELPERS[2].0).get("Actor").and_then(Node::as_str), Some("Work/Actor/Enemy_FlyingPot.engine__actor__ActorParam.gyml"));
+        assert_eq!(entry(HELPERS[7].0).get("Actor").and_then(Node::as_str), Some("Work/Actor/Enemy_FlyingPot.engine__actor__ActorParam.gyml"));
         assert!(HELPERS.iter().all(|h| h.1.starts_with(HOLDER_DIR)));
         assert!(NEW.starts_with(HOLDER_DIR));
     }
@@ -524,16 +565,24 @@ mod tests {
         for a in ["Enemy_DungeonBoss_Gohma", "Enemy_MiddleBoss_DarkLink", "Enemy_IronKnuckle_Black", "Enemy_DeadHand", "Enemy_DeadHand_Hand", "Enemy_PhantomGanonHorse", "Enemy_GhostPicturePerformer_PhantomGanon", "Enemy_Guay_Boss"] {
             assert!(excluded(a), "{a}");
         }
-        for a in ["Enemy_Stalfos", "Enemy_Keese", "Enemy_Dodongo", "Enemy_Guay"] {
+        for a in ["Enemy_Stalfos", "Enemy_Skulltula", "Enemy_Dodongo", "Enemy_Octorok"] {
             assert!(!excluded(a), "{a}");
         }
-        assert_eq!((helper_of("Enemy_Keese"), helper_of("Enemy_Octorok"), helper_of("Enemy_Biri"), helper_of("Enemy_Freezard"), helper_of("Enemy_Stalfos")), (0, 0, 1, 2, 0));
+        for a in ["Enemy_Leever", "Enemy_Leever_Big", "Enemy_Leever_Fixed", "Enemy_ReDead", "Enemy_ReDead_ClimaxOnly", "Enemy_Peahat", "Enemy_Peahat_Larva", "Enemy_Keese_Truth", "Enemy_Guay_Flock", "Enemy_Floormaster_Little_Truth"] {
+            assert!(excluded(a), "{a} can never call");
+        }
+        assert!(HELPERS.iter().all(|h| excluded(h.0)), "no helper kind is ever a caller");
+        assert!(HELPERS.iter().all(|h| helper_of(h.0) == 0 || excluded(h.0)));
+        let expect: [(&str, usize); 16] = [("Enemy_Stalchild", 0), ("Enemy_Stalfos_ForChild", 0), ("Enemy_Gibdo", 0), ("Enemy_Lizalfos", 3), ("Enemy_Dodongo", 3), ("Enemy_Wolfos", 0), ("Enemy_Wolfos_White", 1), ("Enemy_Freezard_Fixed", 1), ("Enemy_TorchSlug", 2), ("Enemy_Moblin_Club", 4), ("Enemy_Tektite_Red", 0), ("Enemy_Dekubaba_Withered", 5), ("Enemy_Wallmaster", 6), ("Enemy_Amos", 7), ("Enemy_Biri", 8), ("Enemy_Poe", 0)];
+        for (a, h) in expect {
+            assert_eq!(helper_of(a), h, "{a}");
+        }
         let mut m: Map<String, usize> = Map::new();
         settle(&mut m, "f".to_string(), 2);
         settle(&mut m, "f".to_string(), 2);
         assert_eq!(m["f"], 2);
         settle(&mut m, "f".to_string(), 1);
-        assert_eq!(m["f"], 0, "a holder shared by callers that want different helpers falls back to the larva");
+        assert_eq!(m["f"], 0, "a holder shared by callers that want different helpers falls back to the Keese");
         let mut es: Vec<Entry> = pack();
         let mut plan: Plan = Plan::default();
         plan.note(&es, "Enemy_MiddleBoss_X").unwrap();
@@ -558,7 +607,7 @@ mod tests {
         plan.live.insert("AI/EnemyBase.utility.root.ainb".to_string());
         assert!(plan.hosts("AI/EnemyBase.utility.root.ainb", "AI.Global.Product.111"));
         assert!(!plan.hosts("AI/Enemy_IronKnuckle.utility.root.ainb", "AI.Global.Product.111"));
-        assert!(plan.hosts("AI/Enemy_Keese.utility.root.ainb", "Enemy_Keese"));
+        assert!(plan.hosts("AI/Enemy_Stalfos.utility.root.ainb", "Enemy_Stalfos"));
         assert!(!plan.hosts("AI/Enemy_DungeonBoss_Gohma.utility.root.ainb", "Enemy_DungeonBoss_Gohma"));
         assert!(!plan.hosts("AI/Npc_X.utility.root.ainb", "Npc_X"));
     }
@@ -682,7 +731,7 @@ mod tests {
             assert_eq!(a.in_str(one(&a, n), "Key"), Some(KEY), "{n}");
         }
         let shown: String = show(&a);
-        for line in ["prop bool ExecuteOnce = true", "prop bool IsIgnoreNotExistsError = true", "in bool Bool = true flags 0x800000", "prop bool IsLoop = false", "prop f32 CountFrames = 750", "in vec3 InputB = (0, 1.5, 0) flags 0x800000", "\"NotFinish\"", "\"Finish\""] {
+        for line in ["prop bool ExecuteOnce = true", "prop bool IsIgnoreNotExistsError = true", "in bool Bool = true flags 0x800000", "prop bool IsLoop = false", "prop f32 CountFrames = 600", "prop f32 RandomAddCountFrames = 900", "in vec3 InputB = (2.5, 0, 0) flags 0x800000", "\"NotFinish\"", "\"Finish\""] {
             assert!(shown.contains(line), "{line} is missing from\n{shown}");
         }
         assert!(hook::patch_graph(&a.write().unwrap(), &HOOK).is_err(), "a patched graph is not patched twice");
@@ -757,10 +806,10 @@ mod tests {
         for a in ["Enemy_Stalfos", "Enemy_Stalfos_ForChild", "Enemy_Keese", "Enemy_Octorok", "Enemy_Poe", "Enemy_Dodongo", "Enemy_DungeonBoss_Gohma"] {
             assert!(plan.who.contains(a), "{a} runs a caller");
         }
-        for a in [HELPERS[0].0, HELPERS[1].0, HELPERS[2].0, "Enemy_Peahat_Larva", "Player_Child", "Player_Adult", "Npc_Navi", "Enemy_Beamos", "Enemy_Stalfos_Dictionary"] {
+        for a in ["Enemy_Peahat_Larva", "Enemy_Peahat_Larva_Independent", "Player_Child", "Player_Adult", "Npc_Navi", "Enemy_Stalfos_Dictionary"] {
             assert!(!plan.who.contains(a), "{a} does not run a caller");
         }
-        assert!(plan.bare.contains_key(&actor_file("Enemy_Keese")) && !plan.bare.contains_key(&actor_file("Enemy_Poe")));
+        assert!(plan.bare.contains_key(&actor_file("Enemy_Stalfos")) && !plan.bare.contains_key(&actor_file("Enemy_Poe")));
         assert!(plan.held.contains_key("Component/ActorHolderParam/Enemy_Poe.game__component__ActorHolderParam.bgyml"));
         let last: usize = outs.len() - 1;
         assert_eq!((outs[0].path.as_str(), outs[last].path.as_str()), (GLOBAL, ACTOR_INFO));
@@ -823,7 +872,7 @@ mod tests {
             let y: Byml = Byml::parse(&sarc::get(es, &h).unwrap_or_else(|| panic!("{a} lacks {h}")).data).unwrap();
             let want: usize = plan.held.get(&h).or(plan.bare.get(&actor_file(a))).copied().unwrap_or_else(|| panic!("{a} has no helper"));
             assert_eq!(y.root.get(HELD).and_then(|m| m.get(KEY)), Some(&entry(HELPERS[want].0)), "{a} through {h}");
-            assert!(want == helper_of(a) || want == 0, "{a} gets its group helper or the larva");
+            assert_eq!(want, helper_of(a), "{a} gets its own group helper: no holder is shared across groups");
             let flags: Byml = Byml::parse(&sarc::get(es, TABLE).unwrap_or_else(|| panic!("{a} has no common blackboard")).data).unwrap();
             let rows: &[Node] = flags.root.get(BOOLS).and_then(Node::as_arr).unwrap();
             assert_eq!(&rows[rows.len() - 2..], &[state_row(ELIGIBLE, true), state_row(USED, false)], "{a}");
@@ -832,16 +881,18 @@ mod tests {
         for a in &plan.off {
             assert!(excluded(a) && !plan.callers().any(|c| c == a), "{a}");
         }
-        for a in BUBBLE_CALLERS.iter().chain(POT_CALLERS.iter()) {
+        for a in ["Enemy_Octorok", "Enemy_Bari", "Enemy_Biri", "Enemy_Stinger", "Enemy_Freezard", "Enemy_Gibdo", "Enemy_Wallmaster", "Enemy_Floormaster", "Enemy_Stalchild", "Enemy_Stalfos", "Enemy_Lizalfos", "Enemy_Wolfos", "Enemy_Moblin", "Enemy_Skulltula", "Enemy_Dekubaba", "Enemy_Scrub_Mad", "Enemy_Amos", "Enemy_TorchSlug", "Enemy_Tektite_Blue"] {
             assert!(plan.callers().any(|c| c == a), "{a} is a caller");
         }
+        for a in ["Enemy_ReDead", "Enemy_ReDead_AlwaysRespawn", "Enemy_Leever", "Enemy_Peahat", "Enemy_Keese", "Enemy_Keese_Ice", "Enemy_Keese_Fire", "Enemy_BabyDodongo", "Enemy_Guay", "Enemy_Skullwalltula", "Enemy_Floormaster_Little", "Enemy_FlyingPot", "Enemy_Shabom"] {
+            assert!(!plan.callers().any(|c| c == a), "{a} never calls");
+        }
         for (helper, _) in HELPERS {
-            assert!(!plan.who.contains(helper), "{helper} does not run a shared graph");
+            assert!(!plan.callers().any(|c| c == helper), "{helper} is never a caller");
             assert!(rf.read(&format!("Pack/Actor/{helper}.pack.zs")).is_ok(), "{helper} has a pack");
         }
         let peer: Byml = Byml::parse(&sarc::get(&sarc::parse(&rf.read_zs(PEER.0).unwrap()).unwrap(), PEER.1).unwrap().data).unwrap();
         assert_eq!((peer.version, peer.big), (VERSION, false));
-        assert!(rf.read(&format!("Pack/Actor/{HELPER}.pack.zs")).is_ok(), "the helper has a pack");
         let was: Byml = rf.read_byml(ACTOR_INFO).unwrap();
         let now: Byml = Byml::parse(&rf.zs.decompress(&outs[last].z).unwrap()).unwrap();
         let (a, b): (&[Node], &[Node]) = (was.root.as_arr().unwrap(), now.root.as_arr().unwrap());

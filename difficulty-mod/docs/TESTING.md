@@ -32,6 +32,10 @@ We added two commands to our own Longshot source build. They are not in Longshot
 - `warp X Y Z`: moves Link to a position in the current map (same units as `status`'s position). Refused while an event plays or a map loads. Seen working for short and 100-unit jumps; a jump to a spot with no ground made Link fall out, lose a heart and respawn.
 - `caption --test "..." --expect "..." --result "..."`: a small panel at the bottom left of the game window saying what is being tested, what is expected and the result. Every scripted test uses it so a person watching can follow. It does not appear in `shot` screenshots.
 
+### Enemy positions: `enemies` (our source build only)
+
+`longshot_ctl.py --json enemies` (or `enemies --no-scan`) lists every live enemy actor as JSON: `t_ms` (host clock, monotonic), `frame`, `link` [x,y,z], `life`, `max_life`, and `enemies`: `name`, `id` (the actor's address, stable per instance), `x`, `y`, `z`, `hp`, `max_hp`. The first call scans memory (a hitch); `--no-scan` re-reads the last scan's enemies and is fast enough to sample at 10 to 20 Hz. Speed is horizontal distance between two samples over the `t_ms` difference, in the units `status` uses per second. In Python, `lib.enemies()` and `lib.horizontal_speed(a, b)` (playtest `encounters\lib.py`) wrap it. `docs\enemy-speed.md` has a whole survey built on it (`playtest\speed\survey.py`).
+
 Run the game windowed (`HOS_FULLSCREEN=0`) so it can be watched beside other windows.
 
 ### Keep the real install safe

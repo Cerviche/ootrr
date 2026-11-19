@@ -2,6 +2,23 @@
 
 One entry per release candidate (rc), newest first. Each rc is one commit on the `difficulty` branch. "Played" means seen in the running game, by hand or by a script through Longshot's control bridge (see [TESTING.md](TESTING.md)). Feature details are in [features/](features/).
 
+## rc 13
+
+Results come from scripted runs in the game (19 Nov) unless they say otherwise.
+
+- **Merged upstream 0.7.1** (the title logo option). All upstream tests and ours pass.
+- **Enemy regen, new timing, seen working:** the first heal comes 15 seconds after the last hit (15.0 and 15.2 measured), then 1 health about every 5 seconds.
+- **Enemies call for backup, reworked, seen working.** Each kind of enemy calls its own kind of helper, after a random 10 to 25 seconds, once. Seen: a Stalfos called one Keese (15.9 and 24.5 seconds), a Lizalfos one Baby Dodongo (24.4 and 25.4 seconds); Keese and a ReDead called nobody for 90 seconds; no crash. The full table is in [enemy-table.md](enemy-table.md). Peahat larvae and Leevers are no longer used as helpers. See [features/17](features/17-enemies-call-for-backup.md).
+- **Gates: eleven of twelve are on.** Played by hand on 19 Nov: gates 1, 2, 3, 4, 5, 6, 9, 11, 12 and 13. A gate now only appears once the player is well past its line on the guard's side. The Death Mountain Trail gate has a Dodongo as its guard: the map loads and he stands at his spot (script); the fight is not played. Gate 7 (Lost Woods east passage) stays held back, never tried.
+- **Spawn enemies with L + R + D-pad** works by scripted presses in this build with every other difficulty setting on (six presses, five to ten enemies). By hand on a real controller it did nothing in the previous build; not retried by hand.
+- **Special encounters:** 24 Guays over child Hyrule Field in six flocks. Seen: eight in range, flying, by day and by night (they were meant to be night-only; they are not). The Like Like near the lakeside laboratory is removed. Grass that always gave a bug joins the surprise pool: confirmed by hand.
+- **Bosses spawn minibosses and minions:** in Gohma's room the Stalfos and Keese are now created when the door shuts, not when the room loads. The dungeon loads; the door scene is not played (a script cannot walk through the door yet). Other boss rooms are unchanged.
+- **Zora's Domain ambush:** trigger adjusted. The map loads with the three Skulltulas present; the walk through the cave is not played.
+- **Fairies help enemies:** confirmed by hand. The circling effect on the healed enemy is not possible with data edits.
+- **Enemy speed, measured for the first time.** A script spawns each enemy beside a standing Link and tracks its position. At 2x only the Lizalfos comes close to double (1.72); Stalfos, Wolfos, Dinolfos, Freezard and Guay gain 30 to 50 percent; Tektites, Peahats, Poes, Bubbles, Shell Blades and Floormasters do not change. The table is in [enemy-speed.md](enemy-speed.md).
+- **Not in this rc:** the "more enemies" slider rework (up to 10x, placed from the maps' navigation data). It is built and loads 37 of 38 maps at 10x, but many planned enemies do not appear in five maps and the frame rate halves at 10x. See [features/10](features/10-more-enemies.md).
+- Testing tools: Longshot updated to the latest upstream with our tools re-applied; a new `enemies` command lists live enemies with positions and health; two copies of the game can run side by side for tests. See [TESTING.md](TESTING.md).
+
 ## rc 12
 
 Results here come from scripted runs in the game unless they say otherwise. Enemy health can now be read during tests, which is what made several of these checks possible.
