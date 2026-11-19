@@ -1017,7 +1017,9 @@ mod tests {
         for (x, y) in a.iter().zip(b.iter()) {
             let (old, new): (Img, Img) = (surface::decode(by, x).unwrap(), surface::decode(raw, y).unwrap());
             for (p, q) in old.px.chunks_exact(4).zip(new.px.chunks_exact(4)) {
-                let w: f64 = t.weight([p[0], p[1], p[2]]) as f64;
+                let lab: [f32; 3] = crate::tex::shift::oklab(crate::tex::shift::lin([p[0], p[1], p[2]]));
+                let core: bool = t.keep() < 1.0 || lab[1].hypot(lab[2]) >= t.chroma * crate::tex::shift::CORE;
+                let w: f64 = if core { t.weight([p[0], p[1], p[2]]) as f64 } else { 0.0 };
                 let l: [f32; 3] = crate::tex::shift::lin([q[0], q[1], q[2]]);
                 for i in 0..3 {
                     sum[i] += w * l[i] as f64;
@@ -1049,9 +1051,23 @@ mod tests {
                     let n: Count = repaint::repaint(&mut new, &|c| s.rgb(c)).unwrap();
                     assert!(n.changed > 0, "{t} {n:?}");
                     let got: [u8; 3] = weighted_mean(&new, &s, &old);
-                    let far: i32 = (0..3).map(|i| (got[i] as i32 - to[i] as i32).abs()).max().unwrap();
-                    println!("{seed} {} {t} target {} got {} off {far} changed {} of {}", it.id, hex(to), hex(got), n.changed, n.blocks);
-                    assert!(far <= 48, "{} {t} target {} got {}", it.id, hex(to), hex(got));
+                    // The part keeps its own shades: its colourful core (pixels about as colourful
+                    // as the part's most colourful) takes the target's hue, lightness and most of
+                    // its chroma (the most vivid shades clip at the edge of the gamut), while its
+                    // near-neutral stone, weave and stitching stay muted.
+                    let lab = |c: [u8; 3]| crate::tex::shift::oklab(crate::tex::shift::lin(c));
+                    let (g, w): ([f32; 3], [f32; 3]) = (lab(got), lab(to));
+                    let (gc, wc): (f32, f32) = (g[1].hypot(g[2]), w[1].hypot(w[2]));
+                    let turn: f32 = ((g[2].atan2(g[1]) - w[2].atan2(w[1])).to_degrees() + 540.0).rem_euclid(360.0) - 180.0;
+                    println!("{seed} {} {t} target {} got {} light {:+.3} chroma {:.2} hue {turn:+.1} changed {} of {}", it.id, hex(to), hex(got), g[0] - w[0], gc / wc.max(1e-4), n.changed, n.blocks);
+                    assert!((g[0] - w[0]).abs() <= 0.1, "{} {t} lightness: target {} got {}", it.id, hex(to), hex(got));
+                    if wc > 0.04 {
+                        // A muted target has little hue to hit: judge it more loosely.
+                        let (tol, share): (f32, f32) = if wc < 0.08 { (20.0, 0.5) } else { (12.0, 0.6) };
+                        assert!(turn.abs() <= tol && gc >= wc * share, "{} {t} colour: target {} got {}", it.id, hex(to), hex(got));
+                    } else {
+                        assert!(gc <= 0.06, "{} {t} a grey target stays grey: got {}", it.id, hex(got));
+                    }
                 }
             }
         }
