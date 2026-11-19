@@ -739,12 +739,6 @@ pub const MENU: &[Page] = &[
             sec("Just for fun", &["bean_pitch", "enemy_spawn_combo"]),
         ],
     },
-    Page {
-        id: "item_gets",
-        label: "Item gets",
-        heading: IN_DEV,
-        sections: &[sec("Item gets", &["item_get_short"])],
-    },
 ];
 
 pub fn problems(sch: &Schema) -> Vec<String> {

@@ -5,11 +5,12 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// Setting numbers and ids that are gone. An old settings string or file that carries one
 /// still imports, with a warning that its value is ignored, and no setting may reuse them.
 /// 55 and 92 (remake only chests and pots) now follow Chests, Pots and Crates.
-pub const RETIRED: [(u16, &str); 8] = [
+pub const RETIRED: [(u16, &str); 9] = [
     (crate::difficulty::ENCOUNTERS_NUM, crate::difficulty::ENCOUNTERS),
     (55, "shuffle_remake_chests"),
     (63, "shop_deal_gear"),
     (92, "shuffle_remake_pots"),
+    (106, crate::short_get::SETTING),
     crate::shops::plan::OLD[0],
     crate::shops::plan::OLD[1],
     crate::shops::plan::OLD[2],
@@ -399,10 +400,6 @@ pub fn build() -> Schema {
     s.extend(ganon_key());
     s.extend(bridge());
     s.extend(crate::medal_gate::settings());
-    s.push(
-        Setting::toggle(106, crate::short_get::SETTING, "world", "Short item get text", true)
-            .tip("Item gets say only \"You got X!\" in one text box: item descriptions, the pickup window, Piece of Heart counts and the other lines after the get message are dropped. Gold Skulltula tokens say the count, and the small key count lines stay."),
-    );
     s.push(
         Setting::toggle(30, "trials_random", "goal", "Random Ganon's Trials", false)
             .tip("Pick the number of trials to clear at random."),
