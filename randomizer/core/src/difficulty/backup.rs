@@ -73,7 +73,7 @@ pub const OUT_OF_BOUNDS: &[&str] = &[
     "Enemy_FlyingPot",
     "Enemy_Shabom",
 ];
-pub const CALLS_NOBODY: &[&str] = &["Enemy_Skulltula_Gold", "Enemy_Poe_Amy", "Enemy_Poe_Beth", "Enemy_Poe_Joelle", "Enemy_Poe_SistersBase", "Enemy_Poe_Flat", "Enemy_Poe_Sharp"];
+pub const CALLS_NOBODY: &[&str] = &["Enemy_Skulltula_Gold", "Enemy_Poe_Amy", "Enemy_Poe_Beth", "Enemy_Poe_Joelle", "Enemy_Poe_SistersBase", "Enemy_Poe_Flat", "Enemy_Poe_Sharp", "Enemy_Scrub_Business", "Enemy_Scrub_ForestStage", "Enemy_Scrub_Mad_Leaf", "Enemy_Scrub_Deku_Leaf", "Enemy_Scrub_Deku_Brothers"];
 pub const WHO_CALLS_WHOM: &[(&str, usize)] = &[
     ("Enemy_Stalfos_Weak", 3),
     ("Enemy_Stalfos", 2),
@@ -90,7 +90,6 @@ pub const WHO_CALLS_WHOM: &[(&str, usize)] = &[
     ("Enemy_Tektite", 8),
     ("Enemy_Dekubaba", 10),
     ("Enemy_Scrub_Mad", 11),
-    ("Enemy_Scrub_Business", 10),
     ("Enemy_Scrub_Deku", 10),
     ("Enemy_SkullKid", 3),
     ("Enemy_Skulltula", 10),
@@ -617,7 +616,13 @@ mod tests {
         for a in ["Enemy_Skulltula_Gold", "Enemy_Poe_Amy", "Enemy_Poe_Beth", "Enemy_Poe_Joelle", "Enemy_ReDead_AlwaysRespawn"] {
             assert!(excluded(a), "{a} calls nobody");
         }
-        let option_3: [(&str, &str, i32); 44] = [
+        for a in ["Enemy_Scrub_Business", "Enemy_Scrub_Business_Leaf", "Enemy_Scrub_Business_Seed", "Enemy_Scrub_ForestStage", "Enemy_Scrub_ForestStage_Elder", "Enemy_Scrub_ForestStage_Leaf", "Enemy_Scrub_Mad_Leaf", "Enemy_Scrub_Deku_Leaf", "Enemy_Scrub_Deku_Brothers"] {
+            assert!(excluded(a), "{a} is harmless and never calls");
+        }
+        for a in ["Enemy_Scrub_Mad", "Enemy_Scrub_Deku"] {
+            assert!(!excluded(a), "{a} fights and may call");
+        }
+        let option_3: [(&str, &str, i32); 43] = [
             ("Enemy_Stalfos", "Enemy_Stalfos_Weak", 1),
             ("Enemy_Stalfos_ForChild", "Enemy_Stalfos_Weak", 1),
             ("Enemy_Stalfos_Weak", "Enemy_Stalchild", 1),
@@ -638,7 +643,6 @@ mod tests {
             ("Enemy_Dekubaba", "Enemy_Skullwalltula", 1),
             ("Enemy_Dekubaba_Withered", "Enemy_Skullwalltula", 1),
             ("Enemy_Scrub_Mad", "Enemy_Dekubaba", 1),
-            ("Enemy_Scrub_Business", "Enemy_Skullwalltula", 1),
             ("Enemy_Scrub_Deku", "Enemy_Skullwalltula", 1),
             ("Enemy_SkullKid", "Enemy_Stalchild", 1),
             ("Enemy_Skulltula", "Enemy_Skullwalltula", 1),
