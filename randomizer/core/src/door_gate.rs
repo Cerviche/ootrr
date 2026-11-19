@@ -163,13 +163,13 @@ pub fn settings() -> Vec<Setting> {
             .opt(STONES, "Closed - Classic", "Hold all three Spiritual Stones, as in the original game. Zelda's escape waits for the Stones too.")
             .opt(SONG_ONLY, "Closed - Song Only", "Only the Song of Time is needed. Zelda's escape stays on Dodongo's Cavern and Jabu-Jabu's Belly.")
             .opt(OPEN, "Open", "The Door of Time is open from the start."),
-        Setting::choice(110, ESCAPE, "world", "Zelda's Escape", MOAT_CHOICE)
+        Setting::choice(133, ESCAPE, "world", "Zelda's Escape", MOAT_CHOICE)
             .tip("With the Door of Time Open or Closed - Song Only: what it takes for Zelda's escape, which leads to the Ocarina of Time in the castle moat and the Song of Time.")
             .opt(VANILLA, "Vanilla", "Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.")
             .opt(STONES, "Classic", "Hold all three Spiritual Stones, as in the original game.")
             .opt(MOAT_CHOICE, "Not Required", "Zelda's escape never plays. The Ocarina of Time waits in the castle moat from the start, with the Song of Time after it.")
             .dep(SETTING, crate::settings::model::Cond::In(vec![Value::s(OPEN), Value::s(SONG_ONLY)])),
-        Setting::toggle(111, SONG, "world", "Additionally requires Song of Time", true)
+        Setting::toggle(134, SONG, "world", "Additionally requires Song of Time", true)
             .tip("On, the Song of Time must be played at the altar once the requirement is met. Off, the door also opens by itself once Zelda's escape has played. Off is experimental and untested in the game.")
             .when_not(SETTING, OPEN)
             .when_not(SETTING, SONG_ONLY),
@@ -795,7 +795,7 @@ mod tests {
 
     #[test]
     fn the_river_never_turns_link_back() {
-        let Some(mut rf) = real() else { return };
+        let Some(rf) = real() else { return };
         let mut a: Ainb = Ainb::parse(&rf.read(RIVER_MODULE).unwrap()).unwrap();
         patch_river(&mut a).unwrap();
         assert!(patch_river(&mut a).is_err());
@@ -822,6 +822,6 @@ mod tests {
         for e in edits {
             crate::start_defaults::stage(&mut rf, &mut more, &[e]).unwrap();
         }
-        assert_eq!(more.len(), 2);
+        assert_eq!(more.len(), 1);
     }
 }

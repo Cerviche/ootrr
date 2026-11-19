@@ -321,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    fn the_water_temple_gate_needs_the_ice_cavern() {
+    fn the_water_temple_gate_needs_no_ice_cavern() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();
         let boots: ItemId = w.item("Iron Boots").unwrap();
@@ -329,7 +329,7 @@ mod tests {
         let cut: Placement = vanilla_without(&w, &d, &["Silver Rupee (Ice Cavern Push Block)", "Silver Rupee Pouch (Ice Cavern Push Block)"]);
         let s: Search = explore(&w, &cut, &[boots]);
         assert!(!seen(&s, &w, "Water Temple Gate Open from Ice Cavern End"));
-        assert!(!s.region_reached(lobby, None));
+        assert!(s.region_reached(lobby, None));
         let s: Search = explore(&w, &vanilla_place(&w, &d).unwrap(), &[boots]);
         assert!(seen(&s, &w, "Water Temple Gate Open from Ice Cavern End"));
         assert!(s.region_reached(lobby, None));

@@ -514,13 +514,13 @@ mod tests {
         s.set("open_door_of_time", Value::Bool(true)).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert_eq!(p.start_flags(), vec![(DOOR_OPENED.to_string(), true)]);
-        assert_eq!(p.logic(), vec![("open_door_of_time", "open")]);
+        assert_eq!(p.logic(), vec![("open_door_of_time", "open"), ("door_of_time_escape", "moat")]);
         assert!(p.notes.iter().any(|n| n.contains("Door of Time starts open")));
         s.set("open_door_of_time", Value::Bool(false)).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.start_flags().is_empty());
         assert!(p.logic().is_empty());
-        assert!(!p.notes.iter().any(|n| n.contains("Door of Time")));
+        assert!(!p.notes.iter().any(|n| n.contains("Door of Time starts open")));
     }
 
     #[test]

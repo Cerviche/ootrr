@@ -557,11 +557,12 @@ mod tests {
         assert!(!reach(&[], &quiet, At::Loc("Master Sword Pedestal")));
         assert!(reach(&[(DOOR, Value::Bool(true))], &quiet, At::Loc("Master Sword Pedestal")));
         let story = |n: &str| n == "Zeldas Letter" || n == "Weird Egg";
-        assert!(!reach(&[(DOOR, Value::Bool(true))], &story, At::Loc("HF Ocarina of Time Item")));
+        assert!(!reach(&[(DOOR, Value::Bool(true)), (crate::door_gate::ESCAPE, Value::s(crate::door_gate::VANILLA))], &story, At::Loc("HF Ocarina of Time Item")));
+        assert!(reach(&[(DOOR, Value::Bool(true))], &story, At::Loc("HF Ocarina of Time Item")));
     }
 
     #[test]
-    fn the_bowling_prizes_need_the_cavern_cleared_and_no_bomb_bag() {
+    fn the_bowling_prizes_need_no_cavern_and_no_bomb_bag() {
         let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
         let w: crate::world::World = crate::slice::logic::world_with(&d, &plan_of(&[]).logic()).unwrap();
         let mut p: crate::world::Placement = crate::slice::fill::vanilla_place(&w, &d).unwrap();
@@ -578,7 +579,7 @@ mod tests {
         for l in ["Market Bombchu Bowling First Prize", "Market Bombchu Bowling Second Prize"] {
             assert!(reach(&[], &|_| false, At::Loc(l)), "{l}");
             assert!(done.loc_access(w.loc(l).unwrap()), "{l}");
-            assert!(!bare.loc_access(w.loc(l).unwrap()), "{l}");
+            assert!(bare.loc_access(w.loc(l).unwrap()), "{l}");
         }
         assert!(reach(&[], &|_| false, At::Loc("Market Bombchu Bowling Bomb")));
         assert!(!done.loc_access(w.loc("Market Bombchu Bowling Bomb").unwrap()));
@@ -588,7 +589,7 @@ mod tests {
         let src: &str = crate::slice::world_files::overworld_text();
         for l in ["First Prize", "Second Prize", "Bombchus", "Bomb"] {
             let line: &str = src.lines().find(|x| x.contains(&format!("\"Market Bombchu Bowling {l}\":"))).unwrap();
-            assert!(line.contains("'Defeat King Dodongo'"), "{l}");
+            assert!(!line.contains("'Defeat King Dodongo'"), "{l}");
             assert_eq!(line.contains("Bombs"), l == "Bomb", "{l}");
         }
     }
