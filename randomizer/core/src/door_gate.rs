@@ -98,7 +98,7 @@ impl Opts {
     pub fn exps(&self) -> Vec<Edit> {
         let mut out: Vec<Edit> = Vec::new();
         if !self.open {
-            out.push(Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string()), (NOT_OP, String::new())]));
+            out.push(Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string())]));
         }
         if self.escape() {
             out.push(Edit::Exp(ESCAPE_EXP.to_string(), terms(self.need)));
@@ -565,7 +565,7 @@ mod tests {
         let mut s: Settings = Settings::default();
         let d: Opts = read(&s, false, &mut bad);
         assert_eq!(d, Opts::default());
-        assert!(d.exps() == vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string()), (NOT_OP, String::new())])] && d.logic().is_empty() && d.notes() == vec![VANILLA_NOTE.to_string()]);
+        assert!(d.exps() == vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string())])] && d.logic().is_empty() && d.notes() == vec![VANILLA_NOTE.to_string()]);
         s.set(SETTING, Value::s(STONES)).unwrap();
         assert_eq!(read(&s, false, &mut bad).need, Need::Stones);
         s.set(SETTING, Value::s(DUNGEONS)).unwrap();
@@ -573,7 +573,7 @@ mod tests {
         let o: Opts = read(&s, false, &mut bad);
         assert_eq!(o.need, Need::Rewards(5));
         assert_eq!(o.logic(), vec![(SETTING, DUNGEONS), (REWARDS, "5")]);
-        assert_eq!(o.exps(), vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string()), (NOT_OP, String::new())]), Edit::Exp(ESCAPE_EXP.to_string(), terms(Need::Rewards(5))), Edit::Exp(REQ_EXP.to_string(), req_terms(Need::Rewards(5)))]);
+        assert_eq!(o.exps(), vec![Edit::Exp(REACTS.to_string(), vec![(0, OPENED.to_string())]), Edit::Exp(ESCAPE_EXP.to_string(), terms(Need::Rewards(5))), Edit::Exp(REQ_EXP.to_string(), req_terms(Need::Rewards(5)))]);
         s.set(SONG, Value::Bool(false)).unwrap();
         assert!(!read(&s, false, &mut bad).song);
         assert!(read(&s, false, &mut bad).logic().contains(&(crate::open_world::DOOR, "stones")));
