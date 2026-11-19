@@ -188,7 +188,7 @@ const GV_BRIDGE: View = View {
 const DOOR_OF_TIME: View = View {
     id: "door_of_time_condition",
     label: "Door of Time",
-    tip: "What it takes to open the Door of Time. With a Closed choice, walk up to the altar in the Temple of Time and play the Song of Time once the requirement is met.\n\nClosed - Vanilla - Clear Dodongo's Cavern and Jabu-Jabu's Belly (the remake's own rule).\n\nClosed - Classic - Hold all three Spiritual Stones.\n\nClosed - Song Only - No other requirement: just the Song of Time and an Ocarina.\n\nOpen - The Door of Time is already open. Zelda's Escape then sets what the Ocarina of Time in the castle moat waits for.",
+    tip: "What it takes to open the Door of Time. With a Closed choice, walk up to the altar in the Temple of Time and play the Song of Time once the requirement is met.\n\nClosed - Vanilla - Clear Dodongo's Cavern and Jabu-Jabu's Belly (the remake's own rule).\n\nClosed - Classic - Hold all three Spiritual Stones.\n\nClosed - Song Only - No other requirement: just the Song of Time and an Ocarina. Zelda's Escape then sets what the Ocarina of Time in the castle moat waits for.\n\nOpen - The Door of Time is already open. Zelda's Escape then sets what the Ocarina of Time in the castle moat waits for.",
     kind: Kind::Pick,
     opts: &[
         yes("Closed - Vanilla", "vanilla"),

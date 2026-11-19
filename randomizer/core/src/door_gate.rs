@@ -51,7 +51,7 @@ pub const VANILLA_NOTE: &str = "Door of Time, Closed - Vanilla: the song opens t
 pub const NOTE: &str = "Door of Time, Closed - Classic: the song opens the door once the three Spiritual Stones are held (DoorOfTime_IsAfter_Srep2_1_1_Exp).";
 pub const ESCAPE_NOTE: &str = "Zelda's escape waits for the three Spiritual Stones in place of Dodongo's Cavern and Jabu-Jabu's Belly: clearing those two dungeons no longer moves the Door of Time quest, and the escape area in Hyrule Field appears while DoorOfTime_IsAfter_Step2_1_Exp holds (Impa's send off played, the escape not played yet, the Stones held).";
 pub const SONG_ONLY_NOTE: &str = "Door of Time, Closed - Song Only: the Song of Time opens the door with no other requirement.";
-pub const MOAT_NOTE: &str = "Door of Time, Open, Zelda's escape not needed: the Ocarina of Time lies in the castle moat from the start (its logic module no longer waits for the Door of Time quest's Step04, and its map entry is present until HyruleField_DoorOfTime_GetOcarinaOfTime has played), so HF Ocarina of Time Item and Song from Ocarina of Time need neither the two dungeons nor Zelda's escape. Zelda's escape never plays: its area in Hyrule Field is absent (its presence reads Get_StoneOfFire_IsAfter_Ready_Exp, always true, negated) and clearing Dodongo's Cavern and Jabu-Jabu's Belly no longer moves the Door of Time quest.";
+pub const MOAT_NOTE: &str = "Zelda's Escape, Not Required: the Ocarina of Time lies in the castle moat from the start (its logic module no longer waits for the Door of Time quest's Step04, and its map entry is present until HyruleField_DoorOfTime_GetOcarinaOfTime has played), so HF Ocarina of Time Item and Song from Ocarina of Time need neither the two dungeons nor Zelda's escape. Zelda's escape never plays: its area in Hyrule Field is absent (its presence reads Get_StoneOfFire_IsAfter_Ready_Exp, always true, negated) and clearing Dodongo's Cavern and Jabu-Jabu's Belly no longer moves the Door of Time quest.";
 pub const SONGLESS_NOTE: &str = "Door of Time: the door also opens by itself once Zelda's escape has played (the door's logic module reads the quest past Step03 in place of Step06). Experimental and untested in the game.";
 
 const AREA_EL: &str = "ActorLogicAreaActor";
@@ -133,11 +133,10 @@ impl Opts {
 
     pub fn notes(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
-        if self.open {
-            if self.moat {
-                out.push(MOAT_NOTE.to_string());
-            }
-        } else {
+        if self.moat {
+            out.push(MOAT_NOTE.to_string());
+        }
+        if !self.open {
             out.push(ALTAR_NOTE.to_string());
             let which: &str = match (self.need, self.only) {
                 (_, true) => SONG_ONLY_NOTE,
@@ -165,11 +164,11 @@ pub fn settings() -> Vec<Setting> {
             .opt(SONG_ONLY, "Closed - Song Only", "Only the Song of Time is needed. Zelda's escape stays on Dodongo's Cavern and Jabu-Jabu's Belly.")
             .opt(OPEN, "Open", "The Door of Time is open from the start."),
         Setting::choice(110, ESCAPE, "world", "Zelda's Escape", MOAT_CHOICE)
-            .tip("With the Door of Time open: what it takes for Zelda's escape, which leads to the Ocarina of Time in the castle moat and the Song of Time.")
+            .tip("With the Door of Time Open or Closed - Song Only: what it takes for Zelda's escape, which leads to the Ocarina of Time in the castle moat and the Song of Time.")
             .opt(VANILLA, "Vanilla", "Clear Dodongo's Cavern and Jabu-Jabu's Belly, as in the remake.")
             .opt(STONES, "Classic", "Hold all three Spiritual Stones, as in the original game.")
             .opt(MOAT_CHOICE, "Not Required", "Zelda's escape never plays. The Ocarina of Time waits in the castle moat from the start, with the Song of Time after it.")
-            .when(SETTING, OPEN),
+            .dep(SETTING, crate::settings::model::Cond::In(vec![Value::s(OPEN), Value::s(SONG_ONLY)])),
         Setting::toggle(111, SONG, "world", "Additionally requires Song of Time", true)
             .tip("On, the Song of Time must be played at the altar once the requirement is met. Off, the door also opens by itself once Zelda's escape has played. Off is experimental and untested in the game.")
             .when_not(SETTING, OPEN)
@@ -193,9 +192,10 @@ fn need_of(s: &Settings, key: &str, bad: &mut Vec<String>) -> Need {
 }
 
 pub fn read(s: &Settings, open: bool, bad: &mut Vec<String>) -> Opts {
-    let need: Need = need_of(s, if open { ESCAPE } else { SETTING }, bad);
-    let moat: bool = open && s.text(ESCAPE).is_ok_and(|v| v == MOAT_CHOICE);
     let only: bool = !open && s.text(SETTING).is_ok_and(|v| v == SONG_ONLY);
+    let own: bool = open || only;
+    let need: Need = need_of(s, if own { ESCAPE } else { SETTING }, bad);
+    let moat: bool = own && s.text(ESCAPE).is_ok_and(|v| v == MOAT_CHOICE);
     let song: bool = open || only || crate::slice::support::toggle(s, SONG, bad);
     Opts { need, song, only, open, moat }
 }
@@ -496,11 +496,14 @@ pub fn stage_flow(rf: &mut Romfs, o: &Opts) -> Res<Out> {
             if o.escape() || o.moat {
                 patch_check(&mut b)?;
             }
+        } else if o.only {
+            if o.escape() || o.moat {
+                patch_check(&mut b)?;
+            }
+            patch_song(&mut b, &[])?;
         } else if o.escape() {
             patch_check(&mut b)?;
             patch_song(&mut b, &[REQ_EXP])?;
-        } else if o.only {
-            patch_song(&mut b, &[])?;
         } else {
             patch_song(&mut b, &[FIRE_EXP, WATER_EXP])?;
         }
@@ -715,7 +718,12 @@ mod tests {
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&s, false, &mut bad);
         assert!(o.only && o.song && !o.escape() && !o.open);
-        assert_eq!(o.logic(), vec![(crate::open_world::DOOR, "sot")]);
+        assert!(o.moat);
+        assert_eq!(o.logic(), vec![(ESCAPE, MOAT_CHOICE), (crate::open_world::DOOR, "sot")]);
+        s.set(ESCAPE, Value::s(STONES)).unwrap();
+        let c: Opts = read(&s, false, &mut bad);
+        assert!(c.only && c.escape() && !c.moat);
+        assert_eq!(c.logic(), vec![(SETTING, STONES), (crate::open_world::DOOR, "sot")]);
         assert_eq!(o.exps().len(), 1);
         assert!(bad.is_empty(), "{bad:?}");
     }

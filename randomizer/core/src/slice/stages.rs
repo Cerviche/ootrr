@@ -128,11 +128,11 @@ fn no_tutorials(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if c.p.gates.door {
         more.extend(crate::door_open::stage_door(rf)?);
-        if c.p.door.moat {
-            crate::door_gate::stage_moat(rf, more, Some(c.work))?;
-        }
     } else {
         more.extend(crate::door_gate::stage_door(rf, &c.p.door)?);
+    }
+    if c.p.door.moat {
+        crate::door_gate::stage_moat(rf, more, Some(c.work))?;
     }
     crate::door_gate::stage_escape(rf, more, Some(c.work), &c.p.door)?;
     Ok(())
