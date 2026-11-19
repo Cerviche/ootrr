@@ -112,8 +112,12 @@ fn quiet_pickups(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     Ok(())
 }
 
-fn door_fix(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    more.extend(crate::door_fix::stage(rf)?);
+fn door_fix(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    if c.p.door.escape() {
+        more.push(crate::door_gate::stage_flow(rf)?);
+    } else {
+        more.extend(crate::door_fix::stage(rf)?);
+    }
     Ok(())
 }
 
@@ -125,6 +129,11 @@ fn no_tutorials(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if c.p.gates.door {
         more.extend(crate::door_open::stage_door(rf)?);
+    } else if !c.p.door.song {
+        more.extend(crate::door_gate::stage_door(rf)?);
+    }
+    if c.p.door.escape() {
+        crate::door_gate::stage_escape(rf, more, Some(c.work))?;
     }
     Ok(())
 }
@@ -185,6 +194,7 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if let Some(n) = c.p.rainbow {
         edits.push(crate::rainbow_bridge::exp(n));
     }
+    edits.extend(c.p.door.exp());
     crate::start_defaults::stage(rf, more, &edits)
 }
 

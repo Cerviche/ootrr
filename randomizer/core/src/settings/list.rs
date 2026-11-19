@@ -399,6 +399,7 @@ pub fn build() -> Schema {
     s.extend(ganon_key());
     s.extend(bridge());
     s.extend(crate::medal_gate::settings());
+    s.extend(crate::door_gate::settings());
     s.push(
         Setting::toggle(106, crate::short_get::SETTING, "world", "Short item get text", true)
             .tip("Item gets say only \"You got X!\" in one text box: item descriptions, the pickup window, Piece of Heart counts and the other lines after the get message are dropped. Gold Skulltula tokens say the count, and the small key count lines stay."),

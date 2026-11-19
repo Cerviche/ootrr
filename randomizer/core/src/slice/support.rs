@@ -91,6 +91,7 @@ pub struct Plan {
     pub lacs: Option<u8>,
     /// crate::rainbow_bridge: Some(n) when the bridge waits for n dungeon rewards.
     pub rainbow: Option<u8>,
+    pub door: crate::door_gate::Opts,
     pub short: bool,
 }
 
@@ -189,6 +190,7 @@ impl Plan {
         if let Some(n) = self.rainbow {
             out.extend(crate::rainbow_bridge::logic(n));
         }
+        out.extend(self.door.logic());
         if self.rewards.potion {
             out.push((crate::flow_extra::potion::KEY, crate::flow_extra::potion::ON));
         }
@@ -273,6 +275,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
     let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
     let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
+    let door: crate::door_gate::Opts = crate::door_gate::read(s, gates.door, &mut bad);
     let short: bool = s.flag(crate::short_get::SETTING).unwrap_or_else(|e| {
         bad.push(e.to_string());
         false
@@ -372,6 +375,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if rainbow.is_some() {
         notes.push(crate::rainbow_bridge::NOTE.to_string());
     }
+    notes.extend(door.notes());
     if short {
         notes.push(crate::short_get::NOTE.to_string());
     }
@@ -379,7 +383,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::lacs_key::NOTE.to_string());
         notes.push(crate::medal_gate::LACS_NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, short, story, endings, difficulty })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, door, short, story, endings, difficulty })
 }
 
 #[cfg(test)]

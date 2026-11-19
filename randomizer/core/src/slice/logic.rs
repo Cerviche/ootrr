@@ -165,6 +165,23 @@ mod tests {
     }
 
     #[test]
+    fn the_door_of_time_requirement_moves_zeldas_escape() {
+        let d: Data = Data::load().unwrap();
+        let reach = |pairs: &[(&str, &str)], gone: &[&str]| -> bool {
+            let w: World = world_with(&d, pairs).unwrap();
+            let s: Search = explore(&w, &vanilla_without(&w, &d, gone), &gauntlets(&w));
+            seen(&s, &w, "HF Ocarina of Time Item")
+        };
+        assert!(reach(&[], &["Zora Sapphire"]));
+        assert!(!reach(&[("door_of_time_condition", "stones")], &["Zora Sapphire"]));
+        assert!(reach(&[("door_of_time_condition", "stones")], &[]));
+        assert!(reach(&[("door_of_time_condition", "dungeons"), ("door_of_time_rewards", "2")], &["Zora Sapphire"]));
+        let songless: World = world_with(&d, &[("open_door_of_time", "stones")]).unwrap();
+        let s: Search = explore(&songless, &vanilla_without(&songless, &d, &["Song of Time"]), &gauntlets(&songless));
+        assert!(seen(&s, &songless, "Master Sword Pedestal"));
+    }
+
+    #[test]
     fn every_audit_gate_can_be_satisfied_in_the_vanilla_world() {
         let d: Data = Data::load().unwrap();
         let w: World = world(&d).unwrap();

@@ -708,6 +708,12 @@ pub const MENU: &[Page] = &[
         heading: IN_DEV,
         sections: &[sec("Item gets", &["item_get_short"])],
     },
+    Page {
+        id: "door_of_time",
+        label: "Door of Time",
+        heading: IN_DEV,
+        sections: &[sec("Door of Time", &["door_of_time_condition", "door_of_time_rewards", "door_of_time_song"])],
+    },
 ];
 
 pub fn problems(sch: &Schema) -> Vec<String> {
