@@ -118,6 +118,7 @@ fn door_fix(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     } else {
         more.extend(crate::door_fix::stage(rf)?);
     }
+    more.push(crate::door_gate::stage_river(rf)?);
     Ok(())
 }
 

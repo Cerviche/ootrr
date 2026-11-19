@@ -40,6 +40,11 @@ const STEP_IN: &str = "ChallengeStepName";
 const CHALLENGE_IN: &str = "ChallengeName";
 const WAIT_ACTOR: &str = "EventSystemActor";
 const WAIT: &str = "EventWait";
+pub const RIVER_MODULE: &str = "Logic/HyruleField_Child_Prefab_32f7.logic.module.ainb";
+pub const RIVER_REQUEST: &str = "EventRequestActor_b3d3";
+pub const RIVER_WALL: &str = "FldObj_AirWall_Player_GenerateNavMesh_066c";
+const REQUEST: &str = "ActorLogicEventRequestActor";
+const SIMPLE: &str = "ActorLogicSimpleActor";
 const FLAG_GET: &str = "HoldGameDataGetBoolSimple";
 const FLAG_IN: &str = "GameDataNameBool";
 const PROXY: &str = "ActorLogicEventProxyRequestActor";
@@ -349,6 +354,19 @@ pub fn patch_opened(a: &mut Ainb) -> Res<()> {
     Ok(())
 }
 
+pub fn patch_river(a: &mut Ainb) -> Res<()> {
+    let req: usize = one(a.find_els(REQUEST).into_iter().filter(|&i| a.prop_str(i, "InstanceName") == Some(RIVER_REQUEST)).collect(), "river turn back request")?;
+    let wall: usize = one(a.find_els(SIMPLE).into_iter().filter(|&i| a.prop_str(i, "InstanceName") == Some(RIVER_WALL)).collect(), "river air wall")?;
+    if !a.force_bool(req, "EventRequestTrigger", false)? || !a.force_bool(wall, CREATE, false)? {
+        return Err(Error::Format("door gate: the river block was already a constant, the module is not the unpatched one"));
+    }
+    Ok(())
+}
+
+pub fn stage_river(rf: &mut Romfs) -> Res<Out> {
+    crate::medal_gate::module(rf, RIVER_MODULE, patch_river)
+}
+
 pub fn stage_song(rf: &mut Romfs) -> Res<Vec<Out>> {
     Ok(vec![crate::medal_gate::module(rf, crate::door_open::MODULE, patch_opened)?, crate::medal_gate::module(rf, crate::door_open::SWORD_MODULE, crate::door_open::patch_sword)?])
 }
@@ -572,6 +590,15 @@ mod tests {
         assert!(patch_opened(&mut a).is_err());
         assert!(crate::ainb::audit(&Ainb::parse(&a.write().unwrap()).unwrap()).is_empty());
         assert_eq!(stage_song(&mut rf).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn the_river_never_turns_link_back() {
+        let Some(mut rf) = real() else { return };
+        let mut a: Ainb = Ainb::parse(&rf.read(RIVER_MODULE).unwrap()).unwrap();
+        patch_river(&mut a).unwrap();
+        assert!(patch_river(&mut a).is_err());
+        assert!(crate::ainb::audit(&Ainb::parse(&a.write().unwrap()).unwrap()).is_empty());
     }
 
     #[test]
