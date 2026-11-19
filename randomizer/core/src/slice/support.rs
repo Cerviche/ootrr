@@ -77,6 +77,7 @@ pub struct Plan {
     pub treasure: bool,
     pub kit: crate::start_items::Kit,
     pub open: crate::open_world::Opts,
+    pub difficulty: crate::difficulty::Opts,
     pub npc: crate::npc_hints::Opts,
     /// crate::story_skip: Saria's gift, the child Temple of Time and the first sword draw.
     /// Always on; the field stays so the parts can be told apart in the build.
@@ -259,6 +260,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, gates.kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
+    let difficulty: crate::difficulty::Opts = crate::difficulty::read(s, &mut bad);
     if open.fortress == crate::open_world::Fortress::Open {
         crate::start_items::give::add(&mut kit, "gerudo_card");
     }
@@ -359,6 +361,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::slice::treasure::NOTE.to_string());
     }
     notes.extend(open.notes()?);
+    notes.extend(difficulty.notes());
     if bridge {
         notes.push(crate::deku_bridge::NOTE.to_string());
     }
@@ -376,7 +379,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::lacs_key::NOTE.to_string());
         notes.push(crate::medal_gate::LACS_NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, short, story, endings })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, short, story, endings, difficulty })
 }
 
 #[cfg(test)]
