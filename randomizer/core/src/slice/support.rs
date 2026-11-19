@@ -90,6 +90,7 @@ pub struct Plan {
     pub lacs: Option<u8>,
     /// crate::rainbow_bridge: Some(n) when the bridge waits for n dungeon rewards.
     pub rainbow: Option<u8>,
+    pub short: bool,
 }
 
 pub use crate::slice::unsupported::not_yet;
@@ -232,15 +233,18 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let fast: bool = toggle(s, "faster_chests", &mut bad);
     let intro: bool = toggle(s, "skip_intro", &mut bad);
     let start: crate::start_items::Start = crate::start_items::Start::read(s, &mut bad);
-    let mut gates: crate::open_world::Gates = crate::open_world::Gates::read(s, &mut bad);
+    let gates: crate::open_world::Gates = crate::open_world::Gates::read(s, &mut bad);
     let songs: Songs = crate::songs::mode(s, &mut bad);
     let harp_colors: bool = toggle(s, crate::song_models::SETTING, &mut bad);
     let chosen: Vec<String> = s.items("starting_items").map(|v| v.to_vec()).unwrap_or_default();
-    let kit: crate::start_items::Kit = crate::start_items::read(s, &mut bad);
+    let mut kit: crate::start_items::Kit = crate::start_items::read(s, &mut bad);
     // Settings that would hand out the same check twice.
-    // The schema disables the open gate behind a closed forest (the page greys it out and a
-    // settings string decodes it as zelda); a value set directly falls back the same way.
-    gates.kakariko = gates.kakariko && gates.forest != Forest::Closed;
+    // The open gate needs the forest open: its story state skips the Deku Tree quest past Mido.
+    // The schema locks the gate to zelda otherwise (the page greys it out and a settings string
+    // decodes it as zelda); a value set directly is refused here, so no such seed is made.
+    if gates.kakariko && gates.forest != Forest::Open {
+        bad.push(format!("open_kakariko is open while open_forest is {}, which cannot go together; set Kokiri Forest to Open or the Kakariko Gate to Zelda's Letter", s.text("open_forest").unwrap_or("closed")));
+    }
     if gates.kakariko && chosen.iter().any(|i| i == "zeldas_letter") {
         bad.push("starting_items includes zeldas_letter while open_kakariko is open, which already hands out that check at new game; drop one of them".to_string());
     }
@@ -255,6 +259,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, gates.kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
+    if open.fortress == crate::open_world::Fortress::Open {
+        crate::start_items::give::add(&mut kit, "gerudo_card");
+    }
     rewards.read_merchants(s, open.beans, &mut bad);
     // Always on in this randomizer, like the other cutscene skips (no setting).
     let story: bool = true;
@@ -264,6 +271,10 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
     let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
     let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
+    let short: bool = s.flag(crate::short_get::SETTING).unwrap_or_else(|e| {
+        bad.push(e.to_string());
+        false
+    });
     if lacs.is_some() && (!rewards.on || matches!(chests, Mode::Off | Mode::Overworld)) {
         bad.push(crate::lacs_key::NEEDS.to_string());
     }
@@ -358,11 +369,14 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if rainbow.is_some() {
         notes.push(crate::rainbow_bridge::NOTE.to_string());
     }
+    if short {
+        notes.push(crate::short_get::NOTE.to_string());
+    }
     if lacs.is_some() {
         notes.push(crate::lacs_key::NOTE.to_string());
         notes.push(crate::medal_gate::LACS_NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, story, endings })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, short, story, endings })
 }
 
 #[cfg(test)]
@@ -377,14 +391,17 @@ mod tests {
         assert_eq!(p.keys.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 11);
+        assert_eq!(p.notes.len(), 12);
+        assert!(p.short && p.notes.iter().any(|n| n == crate::short_get::NOTE));
         assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
         assert!(p.remake && p.hearts && p.rewards.extra);
         assert_eq!(p.world, crate::slice::pickups::Free::Pieces);
         assert!(p.notes.iter().any(|n| n.contains("world clock runs from the start")));
         assert_eq!(p.open, crate::open_world::Opts { time: true, ..crate::open_world::Opts::default() });
         assert!(!p.gates.door);
-        assert!(p.notes.iter().any(|n| n.contains("bridge=medallions")));
+        // The default bridge (vanilla) plays as the unmodified game, so it is listed as not applied.
+        assert!(p.notes.iter().any(|n| n.contains("bridge=vanilla")));
+        assert_eq!(p.rainbow, None);
         assert!(p.notes.iter().any(|n| n.contains("intro is skipped")));
         assert!(!p.notes.iter().any(|n| n.contains("Door of Time starts open")));
         assert!(!p.notes.iter().any(|n| n.contains("Kakariko gate starts open")));
@@ -394,16 +411,16 @@ mod tests {
     fn the_kakariko_setting_becomes_logic_values_and_a_note() {
         let mut s: Settings = Settings::default();
         s.set("open_door_of_time", Value::Bool(false)).unwrap();
-        s.set("open_forest", Value::s("closed_deku")).unwrap();
+        s.set("open_forest", Value::s("open")).unwrap();
         s.set("open_kakariko", Value::s("open")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.gates.kakariko);
-        assert_eq!(p.logic(), vec![("open_forest", "closed_deku"), ("open_kakariko", "open"), ("skip_child_zelda", "true")]);
-        assert_eq!(p.start_flags(), vec![(EXIT_WALL.to_string(), false)]);
+        assert_eq!(p.logic(), vec![("open_forest", "open"), ("open_kakariko", "open"), ("skip_child_zelda", "true")]);
+        assert_eq!(p.start_flags(), vec![(MIDO_WALL.to_string(), false), (EXIT_WALL.to_string(), false)]);
         s.set("open_kakariko", Value::s("zelda")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(!p.gates.kakariko);
-        assert_eq!(p.logic(), vec![("open_forest", "closed_deku")]);
+        assert_eq!(p.logic(), vec![("open_forest", "open")]);
         assert!(!p.notes.iter().any(|n| n.contains("Kakariko")));
         s.set("open_kakariko", Value::s("closed")).unwrap();
         assert!(plan(&s).err().unwrap().to_string().contains("open_kakariko is closed"));
@@ -498,23 +515,28 @@ mod tests {
     }
 
     #[test]
-    fn a_closed_forest_turns_the_open_kakariko_gate_back_to_the_letter() {
+    fn an_open_kakariko_gate_needs_an_open_forest() {
         let mut s: Settings = Settings::default();
         s.set("open_forest", Value::s("open")).unwrap();
         s.set("open_kakariko", Value::s("open")).unwrap();
         assert!(plan(&s).unwrap().gates.kakariko);
-        s.set("open_forest", Value::s("closed")).unwrap();
-        let p: Plan = plan(&s).unwrap();
-        assert!(!p.gates.kakariko);
-        assert!(!p.logic().iter().any(|(k, _)| *k == "open_kakariko"));
-        let back: Settings = Settings::decode(&s.encode().unwrap()).unwrap().settings;
-        assert_eq!(back.get("open_kakariko"), Some(&Value::s("zelda")));
+        for f in ["closed", "closed_deku"] {
+            s.set("open_forest", Value::s(f)).unwrap();
+            // A seed is never made from both.
+            let e: String = plan(&s).err().unwrap_or_else(|| panic!("{f} was accepted")).to_string();
+            assert!(e.contains(&format!("open_kakariko is open while open_forest is {f}")), "{e}");
+            // The schema locks the gate to the letter: the page greys it out and a string reads zelda.
+            assert!(!s.is_enabled("open_kakariko"), "{f}");
+            let back: Settings = Settings::decode(&s.encode().unwrap()).unwrap().settings;
+            assert_eq!(back.get("open_kakariko"), Some(&Value::s("zelda")), "{f}");
+            assert!(!plan(&back).unwrap().gates.kakariko, "{f}");
+        }
     }
 
     #[test]
     fn starting_with_zeldas_letter_next_to_an_open_kakariko_is_refused() {
         let mut s: Settings = Settings::default();
-        s.set("open_forest", Value::s("closed_deku")).unwrap();
+        s.set("open_forest", Value::s("open")).unwrap();
         s.set("open_kakariko", Value::s("open")).unwrap();
         s.set("starting_items", Value::set(&["zeldas_letter"])).unwrap();
         let e: String = plan(&s).unwrap_err().to_string();
@@ -545,14 +567,14 @@ mod tests {
         let p: Plan = plan(&s).unwrap();
         assert!(!p.gates.kakariko && p.defaults() == vec![(crate::open_world::TIME, "true")] && p.logic().is_empty());
         assert!(!p.notes.iter().any(|n| n.contains("open_kakariko")));
-        s.set("open_forest", Value::s("closed_deku")).unwrap();
+        s.set("open_forest", Value::s("open")).unwrap();
         s.set("open_kakariko", Value::s("open")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.gates.kakariko);
-        assert_eq!(p.defaults(), vec![KAKARIKO, (crate::open_world::TIME, "true"), ("open_forest", "closed_deku")]);
-        assert_eq!(p.logic(), vec![("open_forest", "closed_deku"), KAKARIKO, ("skip_child_zelda", "true")]);
+        assert_eq!(p.defaults(), vec![KAKARIKO, (crate::open_world::TIME, "true"), ("open_forest", "open")]);
+        assert_eq!(p.logic(), vec![("open_forest", "open"), KAKARIKO, ("skip_child_zelda", "true")]);
         assert!(p.notes.iter().any(|n| n.contains("Death Mountain starts open") && n.contains("Mask Shop")));
-        assert_eq!(p.start_flags(), vec![(EXIT_WALL.to_string(), false)]);
+        assert_eq!(p.start_flags(), vec![(MIDO_WALL.to_string(), false), (EXIT_WALL.to_string(), false)]);
         s.set("open_kakariko", Value::s("closed")).unwrap();
         assert!(plan(&s).err().unwrap().to_string().contains("open_kakariko is closed"));
     }

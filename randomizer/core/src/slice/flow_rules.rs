@@ -244,8 +244,9 @@ mod tests {
         for n in ["Ocarina", "Progressive Wallet", "Progressive Scale", "Magic Meter", "Boomerang", "Progressive Hookshot", "Progressive Strength Upgrade", "Bomb Bag", "Bow", "Slingshot"] {
             assert!(allows(&d, SARIA, item(&d, n)), "{n}");
         }
-        // Other flow locations keep the accept list.
-        assert!(!allows(&d, "Kak 50 Gold Skulltula Reward", item(&d, "Progressive Hookshot")));
+        // A scrub sale keeps the accept list; the reward events hand out any pouch item (any_item).
+        assert!(!allows(&d, "HF Deku Scrub Grotto", item(&d, "Progressive Hookshot")));
+        assert!(allows(&d, "Kak 50 Gold Skulltula Reward", item(&d, "Progressive Hookshot")));
         assert!(!d.flow_ok("HF Ocarina of Time Item"), "the Ocarina of Time scene stays pinned");
         // Every item a chest gives works through the generic pouch get; dungeon items go through
         // crate::gift_keys instead.
@@ -365,11 +366,13 @@ mod tests {
         let wallet: &Item = item(&d, "Progressive Wallet");
         assert!(allows(&d, "Kak 50 Gold Skulltula Reward", wallet));
         assert!(allows(&d, "LW Target in Woods", wallet));
-        assert!(!allows(&d, "ToT Light Arrows Cutscene", wallet));
+        // The Light Arrows scene runs the generic pouch get like the other gift scenes.
+        assert!(allows(&d, "ToT Light Arrows Cutscene", wallet));
         assert!(!allows(&d, "HF Deku Scrub Grotto", wallet));
         assert!(!allows(&d, "Song from Impa", wallet));
-        assert!(!allows(&d, "Kak 50 Gold Skulltula Reward", item(&d, "Progressive Strength Upgrade")));
-        assert!(!allows(&d, "Kak 50 Gold Skulltula Reward", item(&d, "Progressive Hookshot")));
+        assert!(allows(&d, "Kak 50 Gold Skulltula Reward", item(&d, "Progressive Strength Upgrade")));
+        assert!(allows(&d, "Kak 50 Gold Skulltula Reward", item(&d, "Progressive Hookshot")));
+        assert!(!allows(&d, "HF Deku Scrub Grotto", item(&d, "Progressive Hookshot")));
         assert!(allows(&d, "Some Chest", item(&d, "Progressive Hookshot")));
     }
 
@@ -377,14 +380,17 @@ mod tests {
     fn a_location_always_accepts_its_own_vanilla_item_but_the_item_goes_nowhere_else() {
         let d: Data = Data::load().unwrap();
         let rupees: &Item = item(&d, "Rupees (5)");
+        // A location that keeps the accept list (a scrub sale) takes no one else's vanilla item;
+        // the reward events take any pouch item (any_item).
         assert!(allows(&d, "LW Target in Woods", rupees));
-        assert!(!allows(&d, "Kak 50 Gold Skulltula Reward", rupees));
+        assert!(!allows(&d, "HF Deku Scrub Grotto", rupees));
+        assert!(allows(&d, "Kak 50 Gold Skulltula Reward", rupees));
         let milk: &Item = item(&d, "Bottle with Milk");
         assert!(allows(&d, "LLR Talons Chickens", milk));
-        assert!(!allows(&d, "Kak 50 Gold Skulltula Reward", milk));
+        assert!(!allows(&d, "HF Deku Scrub Grotto", milk));
         let gold: &Item = item(&d, "Rupees (200)");
         assert!(allows(&d, "Kak 100 Gold Skulltula Reward", gold));
-        assert!(!allows(&d, "Market Lost Dog", gold));
+        assert!(!allows(&d, "HF Deku Scrub Grotto", gold));
     }
 
     #[test]

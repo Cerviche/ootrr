@@ -244,7 +244,9 @@ mod tests {
         let s: SeedFile = seed(&[(free, "Boomerang"), (pot.as_str(), "Megaton Hammer"), (skull, "Progressive Hookshot"), ("KF Midos Top Left Chest", "Bow")]);
         let fixed: BM<String, String> = [(skull.to_string(), "Item_Hookshot".to_string())].into_iter().collect();
         let w: BM<String, Want> = need(&d, &s, &fixed).unwrap();
-        let names: Vec<&str> = w.keys().map(|k| k.as_str()).collect();
+        // Every seed also builds the song and Ocarina pickups the story skips hold up (crate::ocarina_hold).
+        let scene: Vec<String> = crate::ocarina_hold::wanted(&d, &s).into_iter().map(|(_, p)| p.pack).collect();
+        let names: Vec<&str> = w.keys().map(|k| k.as_str()).filter(|k| !scene.iter().any(|x| x == k)).collect();
         assert_eq!(names, vec!["Obj_Boomerang", "Obj_Hammer", "Obj_Hookshot_GH"]);
         assert_eq!(w["Obj_Boomerang"].kind, Kind::Free);
         assert_eq!(w["Obj_Hammer"].kind, Kind::Holder);
@@ -253,19 +255,19 @@ mod tests {
         assert_eq!(w["Obj_Hookshot_GH"].spec().unwrap().0.name, "Obj_Hookshot_GH");
         let both: SeedFile = seed(&[(pot.as_str(), "Megaton Hammer"), (skull, "Megaton Hammer")]);
         let wb: BM<String, Want> = need(&d, &both, &BM::new()).unwrap();
-        assert_eq!(wb.keys().map(|k| k.as_str()).collect::<Vec<&str>>(), vec!["Obj_Hammer", "Obj_Hammer_GH"]);
+        assert_eq!(wb.keys().map(|k| k.as_str()).filter(|k| !scene.iter().any(|x| x == k)).collect::<Vec<&str>>(), vec!["Obj_Hammer", "Obj_Hammer_GH"]);
         assert_eq!((wb["Obj_Hammer"].kind, wb["Obj_Hammer_GH"].kind), (Kind::Holder, Kind::Skull));
         assert!(need(&d, &s, &BM::new()).is_err());
         let plain: SeedFile = seed(&[(free, "Rupees (5)"), (pot.as_str(), "Rupees (20)"), ("KF Midos Top Left Chest", "Bow")]);
-        assert!(need(&d, &plain, &BM::new()).unwrap().is_empty());
+        assert!(need(&d, &plain, &BM::new()).unwrap().keys().all(|k| scene.iter().any(|x| x == k)));
         let bow: SeedFile = seed(&[(skull, "Bow")]);
         assert!(need(&d, &bow, &[(skull.to_string(), "Item_Range_Bow".to_string())].into_iter().collect()).is_err());
         let two: SeedFile = seed(&[(free, "Megaton Hammer"), (pot.as_str(), "Megaton Hammer")]);
         let both: BM<String, Want> = need(&d, &two, &BM::new()).unwrap();
-        assert_eq!(both.len(), 1);
+        assert_eq!(both.keys().filter(|k| !scene.iter().any(|x| x == *k)).count(), 1);
         assert_eq!(both["Obj_Hammer"].spots.len(), 2);
         let shipped: SeedFile = seed(&[(pot.as_str(), "Fire Arrows")]);
-        assert!(need(&d, &shipped, &BM::new()).unwrap().is_empty());
+        assert!(need(&d, &shipped, &BM::new()).unwrap().keys().all(|k| scene.iter().any(|x| x == k)));
     }
 
     fn real() -> Option<PB> {
@@ -530,22 +532,29 @@ mod tests {
     }
 
     #[test]
-    fn a_seed_with_no_new_item_builds_the_same_mod_as_before() {
+    fn a_seed_with_no_new_item_builds_only_the_held_song_and_ocarina_pickups() {
         use crate::slice::generate::{generate_data, GenOpts, Generated};
         let Some(root) = real() else {
             return;
         };
         let d: Data = Data::load().unwrap();
-        let g: Generated = (0..40)
-            .map(|n| generate_data(&d, &Settings::default(), &format!("wp4 plain {n}"), &GenOpts::default()).unwrap())
-            .find(|g| need(&d, &g.seed_file, &crate::slice::tier_order::fixed_actors(&d, &g.seed_file).unwrap().assign).unwrap().is_empty())
-            .expect("no default seed in 40 places only vanilla items at pickup spots");
+        // The story skips always hand out the lessons' songs and the Ocarinas with the item get, as
+        // their pickups (crate::ocarina_hold), so every seed builds those packs; a seed with no
+        // other new item at a pickup spot builds only them.
+        let scene = |g: &Generated| -> std::collections::BTreeSet<String> { crate::ocarina_hold::wanted(&d, &g.seed_file).into_iter().map(|(_, p)| p.pack).collect() };
+        // With chests and rewards off only the hearts are shuffled, and they keep their own spots.
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_rewards", crate::settings::Value::s("off")).unwrap();
+        s.set("shuffle_chests", crate::settings::Value::s("off")).unwrap();
+        let g: Generated = generate_data(&d, &s, "wp4 plain", &GenOpts::default()).unwrap();
+        let w: BM<String, Want> = need(&d, &g.seed_file, &crate::slice::tier_order::fixed_actors(&d, &g.seed_file).unwrap().assign).unwrap();
+        assert!(w.keys().all(|k| scene(&g).contains(k)), "{:?}", w.keys().collect::<Vec<&String>>());
+        assert!(!scene(&g).is_empty());
         let load: PB = std::env::temp_dir().join(format!("ootrr_seed_packs_plain_{}", std::process::id()));
         let _ = fs::remove_dir_all(&load);
         let a: Built = crate::slice::edit::build_for(&g.seed_file, &root, &load.join("a"), "m", Host::Hookshot).unwrap();
-        let b: Built = build_with(&g.seed_file, &root, &load.join("b"), "m", Host::Hookshot, &Extra::default()).unwrap();
-        assert_eq!(files(&a.root.join("romfs")), files(&b.root.join("romfs")));
-        assert!(!a.report.contains("pickup packs for key items"));
+        let built: std::collections::BTreeSet<String> = files(&a.root.join("romfs")).into_iter().filter_map(|(f, _)| f.replace(std::path::MAIN_SEPARATOR, "/").strip_prefix("Pack/Actor/").and_then(|x| x.strip_suffix(".pack.zs")).map(|x| x.to_string())).filter(|x| x.starts_with("Obj_")).collect();
+        assert!(scene(&g).iter().all(|p| built.contains(p)), "{built:?}");
         let _ = fs::remove_dir_all(&load);
     }
 }

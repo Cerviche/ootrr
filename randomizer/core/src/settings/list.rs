@@ -206,16 +206,16 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::choice(3, "open_forest", "world", "Kokiri Forest", "closed")
-            .tip("Whether the way out of the forest and into the Deku Tree is blocked. An open Kakariko gate needs the forest exit open, since its story state takes Mido away while the exit wall would stay.")
+            .tip("Whether the way out of the forest and into the Deku Tree is blocked. An open Kakariko gate needs the forest fully open, since its story state skips the Deku Tree quest past Mido; with an open Kakariko gate, Closed and Closed Deku are locked out.")
             .opt("open", "Open", "Nothing blocks the forest or the Deku Tree.")
             .opt("closed_deku", "Closed Deku", "The forest exit is open but the Deku Tree is closed.")
             .opt("closed", "Closed", "The forest and the Deku Tree stay closed until the story opens them."),
     );
     s.push(
         Setting::choice(4, "open_kakariko", "world", "Kakariko Gate", "zelda")
-            .dep("open_forest", super::model::Cond::IsNot(super::model::Value::s("closed")))
+            .dep("open_forest", super::model::Cond::Is(super::model::Value::s("open")))
             .disabled_as(super::model::Value::s("zelda"))
-            .tip("Whether the gate to Kakariko Village needs Zelda's Letter. Open also skips the castle visit: a new game starts after Zelda and Impa, with their two items already given. Needs the forest exit open; with a closed forest the gate falls back to Zelda's Letter.")
+            .tip("Whether the gate to Kakariko Village needs Zelda's Letter. Open also skips the castle visit: a new game starts after Zelda and Impa, with their two items already given. Needs Kokiri Forest set to Open; with Closed or Closed Deku the gate is locked to Zelda's Letter, and a seed that asks for both is refused.")
             .opt("open", "Open", "The gate is open from the start and the castle visit is skipped. Zelda's Letter and the Song from Impa, or whatever is placed there, are given when a new game starts.")
             .opt("zelda", "Zelda's Letter", "The gate opens when you show the letter.")
             .opt("closed", "Closed", "The gate stays closed until the story opens it."),
@@ -249,8 +249,8 @@ pub fn build() -> Schema {
         Setting::choice(7, "gerudo_fortress", "world", "Gerudo Fortress", "normal")
             .tip("How many carpenters must be rescued to open the Fortress.")
             .opt("normal", "Rescue all four", "Free all four carpenters.")
-            .opt("fast", "Rescue one", "Free only one carpenter.")
-            .opt("open", "Open", "The gate is open and no carpenters need rescuing."),
+            .opt("fast", "Rescue one", "Tested in game. Three carpenters start free. The Membership Card is vanilla and is granted when the last carpenter is rescued.")
+            .opt("open", "Open", "Tested in game. Start with the Gerudo Membership Card and the bridge built. The Membership Card check is still in the game and randomized. It triggers when you interact with your first jail cell."),
     );
     s.push(
         where_checks(
@@ -344,6 +344,10 @@ pub fn build() -> Schema {
     s.extend(ganon_key());
     s.extend(bridge());
     s.extend(crate::medal_gate::settings());
+    s.push(
+        Setting::toggle(106, crate::short_get::SETTING, "world", "Short item get text", true)
+            .tip("Item gets say only \"You got X!\" in one text box: item descriptions, the pickup window, Piece of Heart counts and the other lines after the get message are dropped. Gold Skulltula tokens say the count, and the small key count lines stay."),
+    );
     s.push(
         Setting::toggle(30, "trials_random", "goal", "Random Ganon's Trials", false)
             .tip("Pick the number of trials to clear at random."),

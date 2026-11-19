@@ -2,7 +2,7 @@ use std::collections::HashSet as HS;
 
 use crate::error::{Error as E, Res};
 use crate::logic_json::{parse, Json};
-use crate::logic_val::Settings;
+use crate::logic_val::{Settings, Val};
 use crate::slice::data::{Data, SEP};
 use crate::world::{Spec, World};
 
@@ -55,6 +55,9 @@ fn unique(files: Vec<Json>) -> Vec<Json> {
     out
 }
 
+/// The settings whose "hearts" value makes hearts a condition of the logic.
+const HEART_GOALS: [&str; 3] = ["bridge", "lacs_condition", "shuffle_ganon_bosskey"];
+
 pub fn spec(d: &Data, over: &[(&str, &str)]) -> Res<Spec> {
     let mut s: Spec = Spec::from_bundle(SHIMS)?;
     s.settings = Settings::from_json(&parse(SETTINGS)?)?;
@@ -64,8 +67,13 @@ pub fn spec(d: &Data, over: &[(&str, &str)]) -> Res<Spec> {
             Err(_) => s.settings.set_str(k, v),
         }
     }
+    // Hearts only unlock something under a "hearts" bridge, Light Arrows or Ganon's Boss Key
+    // condition. Otherwise they are not progress, so the fill may put them where the logic never
+    // goes (a Piece of Heart behind a bean spot nobody can plant).
+    let hearts: bool = HEART_GOALS.iter().any(|k| s.settings.get(k) == Some(&Val::Str("hearts".to_string())));
     for it in &d.items {
-        s.add_item(&it.name, it.adv, 0);
+        let heart: bool = crate::slice::generate::HEARTS.iter().any(|h| it.name.starts_with(h));
+        s.add_item(&it.name, it.adv && (hearts || !heart), 0);
     }
     s.add_helpers(HELPERS)?;
     let mut files: Vec<Json> = Vec::new();
@@ -193,7 +201,7 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let mut s: crate::settings::Settings = crate::settings::Settings::default();
         let shut: World = world_with(&d, &crate::slice::support::plan(&s).unwrap().logic()).unwrap();
-        s.set("open_forest", crate::settings::Value::s("closed_deku")).unwrap();
+        s.set("open_forest", crate::settings::Value::s("open")).unwrap();
         s.set("open_kakariko", crate::settings::Value::s("open")).unwrap();
         let open: World = world_with(&d, &crate::slice::support::plan(&s).unwrap().logic()).unwrap();
         let gate: &str = "Kakariko Village -> Kak Behind Gate";
@@ -211,7 +219,7 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let mut s: crate::settings::Settings = crate::settings::Settings::default();
         let shut: World = world_with(&d, &crate::slice::support::plan(&s).unwrap().logic()).unwrap();
-        s.set("open_forest", crate::settings::Value::s("closed_deku")).unwrap();
+        s.set("open_forest", crate::settings::Value::s("open")).unwrap();
         s.set("open_kakariko", crate::settings::Value::s("open")).unwrap();
         let open: World = world_with(&d, &crate::slice::support::plan(&s).unwrap().logic()).unwrap();
         let door: &str = "Market Mask Shop -> Market Mask Shop Storefront";

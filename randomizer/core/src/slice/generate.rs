@@ -676,7 +676,9 @@ mod tests {
             for nm in &names {
                 if let Some(item) = g.seed_file.placements.get(nm) {
                     moved += 1;
-                    assert!(!d.item(item).is_some_and(|i| i.adv), "{nm} holds {item}");
+                    // Hearts are not progress without a "hearts" goal (crate::slice::logic::spec).
+                    let heart: bool = HEARTS.iter().any(|h| item.starts_with(h));
+                    assert!(heart || !d.item(item).is_some_and(|i| i.adv), "{nm} holds {item}");
                 }
             }
             assert!(moved >= 4, "{moved}");
@@ -687,12 +689,16 @@ mod tests {
     #[test]
     fn too_many_excluded_locations_stop_the_seed_with_a_reason() {
         let d: Data = Data::load().unwrap();
-        let names: Vec<String> = eligible_names(&d);
+        // The Forest Temple's first chest has its own refusal (crate::slice::entry_key).
+        let names: Vec<String> = eligible_names(&d).into_iter().filter(|n| n != crate::slice::entry_key::CHEST).collect();
         let list: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         let mut s: Settings = all_chests();
         s.set("disabled_locations", Value::set(&list)).unwrap();
         let e: String = generate_data(&d, &s, "many", &GenOpts::default()).err().unwrap().to_string();
-        assert!(e.contains("too many locations are excluded") && e.contains("Exclude fewer"), "{e}");
+        // Hearts count as unneeded without a "hearts" goal, so the excluded spots may all find
+        // such items and the dungeon items left over are what stop the seed instead.
+        let fewer: bool = e.contains("too many locations are excluded") && e.contains("Exclude fewer");
+        assert!(fewer || e.contains("cannot all fit the shuffled locations"), "{e}");
     }
 
     #[test]
@@ -762,7 +768,8 @@ mod tests {
                 assert_eq!(song_loc, song_item, "{loc} holds {item}");
             }
             let n_song: usize = g.seed_file.placements.keys().filter(|k| d.flow.by_name(k).is_some_and(|f| f.cat == "song")).count();
-            assert_eq!(n_song, 11);
+            // Bolero (Sheik in Crater) joined the song shuffle.
+            assert_eq!(n_song, 12);
         }
     }
 
@@ -793,7 +800,9 @@ mod tests {
             let g: Generated = generate_data(&d, &s, &format!("dungeon items {n}"), &GenOpts::default()).unwrap();
             for (loc, item) in &g.seed_file.placements {
                 if d.flow.by_name(loc).is_some() {
-                    let fits = |i: &crate::slice::data::Item| if crate::slice::flow_rules::ANY_POUCH.contains(&loc.as_str()) { crate::slice::flow_rules::saria_takes(&d, i) } else { d.flow_accepts(i) };
+                    // An event hands out what its routine can (flow_rules::allows, any pouch item at the
+                    // reward events since #24); a dungeon item needs a spot crate::gift_keys can credit.
+                    let fits = |i: &crate::slice::data::Item| crate::slice::flow_rules::allows(&d, loc, i) && (i.dungeon.is_none() || crate::gift_keys::spot(&d, loc));
                     assert!(d.item(item).is_some_and(fits) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}");
                 }
             }
@@ -872,7 +881,7 @@ mod tests {
     #[test]
     fn an_open_kakariko_only_places_giveable_items_at_the_skipped_checks() {
         let d: Data = Data::load().unwrap();
-        let s: Settings = with(&[("shuffle_rewards", "supported"), ("shuffle_songs", "anywhere"), ("open_forest", "closed_deku"), ("open_kakariko", "open")]);
+        let s: Settings = with(&[("shuffle_rewards", "supported"), ("shuffle_songs", "anywhere"), ("open_forest", "open"), ("open_kakariko", "open")]);
         for n in 0..3 {
             let g: Generated = generate_data(&d, &s, &format!("kak {n}"), &GenOpts::default()).unwrap();
             assert!(g.report.contains("Kakariko gate starts open"));
@@ -886,7 +895,8 @@ mod tests {
             }
             let state = crate::slice::edit::start_state(&d, &g.seed_file, &p).unwrap();
             assert_eq!(state.items.len(), 1 + 2);
-            assert_eq!(state.steps.len(), 6);
+            // The castle visit skip, plus the Deku Tree quest an open forest moves on.
+            assert_eq!(state.steps.len(), 9);
             if let Some(item) = g.seed_file.placements.get("HC Malon Egg") {
                 assert!(!d.item(item).is_some_and(|i| i.adv), "seed kak {n}: the egg check holds {item}");
             }
