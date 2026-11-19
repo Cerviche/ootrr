@@ -113,11 +113,7 @@ fn quiet_pickups(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn door_fix(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    if c.p.door.flow() {
-        more.push(crate::door_gate::stage_flow(rf, &c.p.door)?);
-    } else {
-        more.extend(crate::door_fix::stage(rf)?);
-    }
+    more.push(crate::door_gate::stage_flow(rf, &c.p.door)?);
     more.push(crate::door_gate::stage_river(rf)?);
     Ok(())
 }

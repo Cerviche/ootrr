@@ -97,10 +97,6 @@ impl Opts {
         self.need != Need::Vanilla
     }
 
-    pub fn flow(&self) -> bool {
-        !self.open
-    }
-
     pub fn exps(&self) -> Vec<Edit> {
         let mut out: Vec<Edit> = Vec::new();
         if !self.open {
@@ -329,6 +325,22 @@ pub fn patch_check(b: &mut Bf) -> Res<usize> {
     Ok(red.len())
 }
 
+fn skip_opened_catch(f: &mut Flow) -> Res<()> {
+    let at = |f: &Flow, n: &str| -> Res<usize> { f.events.iter().position(|e| e.name == n).ok_or_else(|| Error::Msg(format!("door gate: the DoorOfTime flow has no {n}"))) };
+    let catch: usize = at(f, &format!("{}0", crate::door_fix::PREFIX))?;
+    let s6: usize = at(f, crate::door_fix::STEP06)?;
+    match &mut f.events[catch].kind {
+        Kind::Switch { cases, .. } if cases.len() == 2 && cases[0].ev as usize == s6 => cases[0].ev = cases[1].ev,
+        _ => return Err(Error::Format("door gate: the door fix's opened check does not lead to Step06")),
+    }
+    Ok(())
+}
+
+pub fn patch_open(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = b.flows.iter_mut().find(|x| x.name == crate::door_fix::FLOW).ok_or(Error::Format("door gate: no DoorOfTime flow"))?;
+    skip_opened_catch(f)
+}
+
 pub fn patch_song(b: &mut Bf, need: &[&str]) -> Res<()> {
     let f: &mut Flow = b.flows.iter_mut().find(|x| x.name == crate::door_fix::FLOW).ok_or(Error::Format("door gate: no DoorOfTime flow"))?;
     if f.events.iter().any(|e| e.name == format!("{PREFIX}1")) {
@@ -378,12 +390,8 @@ pub fn patch_song(b: &mut Bf, need: &[&str]) -> Res<()> {
             }
         }
     }
-    let catch: usize = find(f, &format!("{}0", crate::door_fix::PREFIX))?;
+    skip_opened_catch(f)?;
     let s6: usize = find(f, crate::door_fix::STEP06)?;
-    match &mut f.events[catch].kind {
-        Kind::Switch { cases, .. } if cases.len() == 2 && cases[0].ev as usize == s6 => cases[0].ev = cases[1].ev,
-        _ => return Err(Error::Format("door gate: the door fix's opened check does not lead to Step06")),
-    }
     let n: usize = f.events.len();
     if n >= NONE as usize {
         return Err(Error::Format("door gate: too many events"));
@@ -471,7 +479,9 @@ pub fn stage_flow(rf: &mut Romfs, o: &Opts) -> Res<Out> {
     staging::rewrite(rf, crate::door_fix::FLOW_FILE, |raw| {
         let mut b: Bf = Bf::parse(raw)?;
         crate::door_fix::patch_flow(&mut b)?;
-        if o.escape() {
+        if o.open {
+            patch_open(&mut b)?;
+        } else if o.escape() {
             patch_check(&mut b)?;
             patch_song(&mut b, &[REQ_EXP])?;
         } else if o.only {
@@ -670,7 +680,7 @@ mod tests {
         s.set(SONG, Value::Bool(false)).unwrap();
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&s, false, &mut bad);
-        assert!(o.only && o.song && !o.escape() && o.flow());
+        assert!(o.only && o.song && !o.escape() && !o.open);
         assert_eq!(o.logic(), vec![(crate::open_world::DOOR, "sot")]);
         assert_eq!(o.exps().len(), 1);
         assert!(bad.is_empty(), "{bad:?}");
@@ -710,6 +720,19 @@ mod tests {
         assert!(patch_opened(&mut a).is_err());
         assert!(crate::ainb::audit(&Ainb::parse(&a.write().unwrap()).unwrap()).is_empty());
         assert_eq!(stage_door(&mut rf, &Opts { only: true, ..Opts::default() }).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn an_open_door_does_not_skip_zeldas_escape() {
+        let Some(mut rf) = real() else { return };
+        let mut b: Bf = Bf::parse(&rf.read_zs(crate::door_fix::FLOW_FILE).unwrap()).unwrap();
+        crate::door_fix::patch_flow(&mut b).unwrap();
+        patch_open(&mut b).unwrap();
+        let f: &Flow = &b.flows[0];
+        let s6: usize = f.events.iter().position(|e| e.name == crate::door_fix::STEP06).unwrap();
+        let catch: &Event = f.events.iter().find(|e| e.name == format!("{}0", crate::door_fix::PREFIX)).unwrap();
+        assert!(matches!(&catch.kind, Kind::Switch { cases, .. } if cases.iter().all(|c| c.ev as usize != s6)));
+        assert!(patch_open(&mut b).is_err());
     }
 
     #[test]
