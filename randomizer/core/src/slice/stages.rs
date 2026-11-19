@@ -130,10 +130,8 @@ fn no_tutorials(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if c.p.gates.door {
         more.extend(crate::door_open::stage_door(rf)?);
-    } else if c.p.door.only {
-        more.extend(crate::door_gate::stage_song(rf)?);
-    } else if !c.p.door.song {
-        more.extend(crate::door_gate::stage_door(rf)?);
+    } else if c.p.door.flow() || !c.p.door.song {
+        more.extend(crate::door_gate::stage_door(rf, &c.p.door)?);
     }
     if c.p.door.escape() {
         crate::door_gate::stage_escape(rf, more, Some(c.work))?;
@@ -197,7 +195,7 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if let Some(n) = c.p.rainbow {
         edits.push(crate::rainbow_bridge::exp(n));
     }
-    edits.extend(c.p.door.exp());
+    edits.extend(c.p.door.exps());
     crate::start_defaults::stage(rf, more, &edits)
 }
 
