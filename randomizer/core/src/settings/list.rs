@@ -304,8 +304,8 @@ pub fn build() -> Schema {
         Setting::choice(7, "gerudo_fortress", "world", "Gerudo Fortress", "normal")
             .tip("How many carpenters must be rescued to open the Fortress.")
             .opt("normal", "Rescue all four", "Free all four carpenters.")
-            .opt("fast", "Rescue one", "Free only one carpenter.")
-            .opt("open", "Open", "The gate is open and no carpenters need rescuing."),
+            .opt("fast", "Rescue one", "Tested in game. Three carpenters start free. The Membership Card is vanilla and is granted when the last carpenter is rescued.")
+            .opt("open", "Open", "Tested in game. Start with the Gerudo Membership Card and the bridge built. The Membership Card check is still in the game and randomized. It triggers when you interact with your first jail cell."),
     );
     s.push(
         where_checks(
@@ -399,6 +399,10 @@ pub fn build() -> Schema {
     s.extend(ganon_key());
     s.extend(bridge());
     s.extend(crate::medal_gate::settings());
+    s.push(
+        Setting::toggle(106, crate::short_get::SETTING, "world", "Short item get text", true)
+            .tip("Item gets say only \"You got X!\" in one text box: item descriptions, the pickup window, Piece of Heart counts and the other lines after the get message are dropped. Gold Skulltula tokens say the count, and the small key count lines stay."),
+    );
     s.push(
         Setting::toggle(30, "trials_random", "goal", "Random Ganon's Trials", false)
             .tip("Pick the number of trials to clear at random."),
