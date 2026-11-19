@@ -46,7 +46,7 @@ pub const BB_HEAD: usize = BB_TYPES * 8;
 pub const BB_SIZES: [usize; BB_TYPES] = [4, 4, 4, 4, 4, 12, 0];
 pub const BB_PLAIN: u32 = 0x0080_0000;
 
-pub const NOTE: &str = "Hold L and R (the shoulder buttons) and press the D-pad Down to spawn a random ordinary enemy a few steps in front of Link. Press the D-pad Up with L and R held to spawn the same kind again. The pool has 43 kinds, from Stalfos and Lizalfos to Poes, Gibdos, Freezards and the silver Iron Knuckle. An enemy whose data the current area has not loaded will not appear, and at most twelve spawned enemies are kept at once. Experimental.";
+pub const NOTE: &str = "Hold both sticks pressed in (left stick click and right stick click) and press the D-pad Down to spawn a random ordinary enemy a few steps in front of Link. Press the D-pad Up with both sticks held in to spawn the same kind again. The pool has 43 kinds, from Stalfos and Lizalfos to Poes, Gibdos, Freezards and the silver Iron Knuckle. An enemy whose data the current area has not loaded will not appear, and at most twelve spawned enemies are kept at once. Experimental.";
 
 fn vec3(x: f32, y: f32, z: f32) -> Vec<u8> {
     [x, y, z].iter().flat_map(|v| v.to_le_bytes()).collect()
@@ -169,8 +169,8 @@ pub fn patch_graph(raw: &[u8]) -> Res<Vec<u8>> {
     mask_spec = mask_spec.out_ptr("ControllerHoldMask", U32).spare_ptr("ControllerReleaseMask", U32).spare_ptr("ControllerRepeatMask", U32).out_ptr("ControllerTrigMask", U32).spare_ptr("ControllerTrigWithRepeatMask", U32);
     let mask: usize = a.add_node(&mask_spec)?;
     let mut held: [bool; 16] = [false; 16];
-    held[3] = true;
-    held[8] = true;
+    held[5] = true;
+    held[10] = true;
     let mut pressed: [bool; 16] = [false; 16];
     pressed[2] = true;
     pressed[11] = true;
@@ -178,7 +178,7 @@ pub fn patch_graph(raw: &[u8]) -> Res<Vec<u8>> {
     route(&mut a, mask, hold_check, "ControllerHoldMask", "ControllerTrigMask")?;
     let trig_check: usize = a.add_node(&trig_checker(&seed("press check"), mask, 3, pressed))?;
     route(&mut a, mask, trig_check, "ControllerTrigMask", "ControllerTrigMask")?;
-    let both: usize = a.add_node(&Spec::query(CONJUNCTION, &seed("both shoulders")).linked(1, "ValueA", hold_check, 3).linked(1, "ValueB", hold_check, 8).out(1, "Result"))?;
+    let both: usize = a.add_node(&Spec::query(CONJUNCTION, &seed("both sticks")).linked(1, "ValueA", hold_check, 5).linked(1, "ValueB", hold_check, 10).out(1, "Result"))?;
     let down: usize = a.add_node(&Spec::query(CONJUNCTION, &seed("down")).linked(1, "ValueA", both, 0).linked(1, "ValueB", trig_check, 2).out(1, "Result"))?;
     let up: usize = a.add_node(&Spec::query(CONJUNCTION, &seed("up")).linked(1, "ValueA", both, 0).linked(1, "ValueB", trig_check, 11).out(1, "Result"))?;
 
@@ -604,7 +604,7 @@ mod tests {
             let p: &crate::ainb::Param = &new.params[c];
             (p.ioe[1][2] as usize..(p.ioe[1][2] + p.ioe[1][3]) as usize).filter(|g| u32::from_le_bytes(new.outs[1][g * 4..g * 4 + 4].try_into().unwrap()) >> 31 == 1).map(|g| new.s(u32::from_le_bytes(new.outs[1][g * 4..g * 4 + 4].try_into().unwrap()) & 0x3fff_ffff).to_string()).collect()
         };
-        assert_eq!(reads(checks[0]), vec!["TrigL", "TrigR"]);
+        assert_eq!(reads(checks[0]), vec!["TrigLSPush", "TrigRSPush"]);
         assert_eq!(reads(checks[1]), vec!["TrigDown", "TrigUp"]);
     }
 

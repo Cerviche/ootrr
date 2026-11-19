@@ -39,6 +39,7 @@ pub struct Ground {
     pub walls: Vec<[[f32; 3]; 2]>,
     pub patch_area: Vec<f32>,
     pub total: f32,
+    pub tiles: bool,
     sums: Vec<f32>,
     cells: Map<(i32, i32), Vec<u32>>,
     wcells: Map<(i32, i32), Vec<u32>>,
@@ -482,7 +483,9 @@ pub fn load(rf: &mut Romfs, map: &str) -> Res<Option<Ground>> {
     if meshes.is_empty() {
         return Ok(None);
     }
-    Ok(Some(Ground::build(&meshes)))
+    let mut g: Ground = Ground::build(&meshes);
+    g.tiles = !rf.root.join(&one).is_file();
+    Ok(Some(g))
 }
 
 #[cfg(test)]

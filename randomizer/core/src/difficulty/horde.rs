@@ -72,6 +72,24 @@ pub const SKIP_MAPS: &[&str] = &[
     "FinalBattleField",
     "HountedWasteland_Child",
 ];
+pub const PEACEFUL: &[&str] = &["KokiriForest_Child", "KakarikoVillage_Child", "KakarikoVillage_Adult", "KakarikoVillage_Adult_Alternative"];
+pub const BIG: &[&str] = &["Enemy_LikeLike", "Enemy_Wolfos", "Enemy_Stalfos", "Enemy_Dinolfos", "Enemy_Dodongo", "Enemy_ReDead", "Enemy_IronKnuckle", "Enemy_Moblin", "Enemy_Floormaster", "Enemy_Amos", "Enemy_Gibdo", "Enemy_DeadHand", "Enemy_Lizalfos"];
+pub const BIG_GAP: f32 = 25.0;
+pub const KNIGHT_PREFIX: &str = "Enemy_IronKnuckle";
+pub const KNIGHTS_FIELD: usize = 2;
+pub const KNIGHTS_ELSEWHERE: usize = 1;
+pub const PERCHERS: &[&str] = &["Enemy_Keese", "Enemy_Keese_Ice", "Enemy_Keese_Fire"];
+pub const PERCH_TREE: &str = "Tree";
+pub const PERCH_LIFT: f32 = 4.0;
+pub const PERCH_WALL_LIFT: f32 = 3.0;
+pub const PERCH_NUDGE: f32 = 0.8;
+pub const HOME_ONLY: &[&str] = &["Enemy_Keese_Fire"];
+pub const BLASTERS: &[&str] = &["Enemy_Dodongo", "Enemy_BabyDodongo"];
+pub const NO_BLASTERS: &[&str] = &["DodongoCavern"];
+pub const BLASTABLE: &[&str] = &["WallCrack", "CrackWall", "HitOnlyBomb", "HitBomb", "Obj_InsideTheDekuTree_SpiderWeb", "InteractiveSpiderWeb", "BreakableRock", "BombRock"];
+pub const SIGHTS: &[&str] = &["Tree", "LookAttentionActor", "InterestSpotActor"];
+pub const GUARD_SHARE: u64 = 50;
+pub const GUARD_REACH: (f32, f32) = (4.0, 10.0);
 pub const RISING_WATER: &[&str] = &["WaterTemple"];
 pub const NO_MINIBOSS: &[&str] = &["KokiriForest_Child"];
 pub const SKIP_PREFIX: &[&str] = &["Demo_"];
@@ -105,6 +123,8 @@ pub const AVOID: &[(&str, f32)] = &[
     ("Enemy_DungeonBoss", 40.0),
     ("Enemy_MiddleBoss", 25.0),
     ("Enemy_Skulltula_Gold", 3.0),
+    ("LonLon", 45.0),
+    ("TempleOfTime", 30.0),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -152,6 +172,7 @@ pub const KINDS: &[Kind] = &[
     k("Enemy_Skullwalltula", Class::Any, 1, 0.0, 3, true),
     k("Enemy_Keese", Class::Fly, 3, 3.5, 5, true),
     k("Enemy_Keese_Ice", Class::Fly, 1, 3.5, 4, true),
+    k("Enemy_Keese_Fire", Class::Fly, 3, 3.0, 1, false),
     k("Enemy_Guay_Fixed", Class::Fly, 2, 6.0, 4, true),
     k("Enemy_Poe", Class::Fly, 2, 0.0, 2, false),
     k("Enemy_Bubble_Green", Class::Fly, 1, 1.5, 2, false),
@@ -170,7 +191,6 @@ pub const NEVER: &[&str] = &[
     "Enemy_DeadHand",
     "Enemy_Gibdo",
     "Enemy_Bubble_Blue",
-    "Enemy_Keese_Fire",
     "Enemy_Poe_Big",
     "Enemy_Poe_Hyrule",
     "Enemy_Poe_Amy",
@@ -215,6 +235,14 @@ pub fn limits(c: Class) -> (f32, f32, f32) {
     }
 }
 
+pub fn big(g: &str) -> bool {
+    BIG.iter().any(|b| g.starts_with(b))
+}
+
+pub fn percher(g: &str) -> bool {
+    PERCHERS.contains(&g)
+}
+
 pub fn kind(g: &str) -> Option<&'static Kind> {
     KINDS.iter().find(|k| k.gyaml == g)
 }
@@ -230,7 +258,7 @@ pub fn map_of(file: &str) -> Option<String> {
 }
 
 pub fn wanted(map: &str) -> bool {
-    !SKIP_MAPS.contains(&map) && !SKIP_PREFIX.iter().any(|p| map.starts_with(p))
+    !SKIP_MAPS.contains(&map) && !PEACEFUL.contains(&map) && !SKIP_PREFIX.iter().any(|p| map.starts_with(p))
 }
 
 pub fn target(vanilla: usize, extra: i64, open: f32) -> usize {
@@ -331,6 +359,7 @@ struct Ctx<'a> {
     water: Vec<[f32; 3]>,
     cum: Vec<(f32, u32)>,
     props: Map<(i32, i32), Vec<[f32; 3]>>,
+    reach: Vec<bool>,
 }
 
 pub fn cell(p: [f32; 3]) -> (i32, i32) {
@@ -511,6 +540,9 @@ impl Ctx<'_> {
         if !self.lived[f.patch as usize] || f.area > MAX_FACE || self.g.patch_area[f.patch as usize] < MIN_PATCH || f.slope > slope || self.g.clear(p) < clear {
             return false;
         }
+        if !matches!(c, Class::Fly | Class::Water) && !self.g.tiles && !self.reach[f.patch as usize] {
+            return false;
+        }
         self.g.steep(p, ring).is_some_and(|s| s <= slope)
     }
 
@@ -530,6 +562,19 @@ impl Ctx<'_> {
             return None;
         }
         Some(([p[0], p[1] + lift_of(k, self.dungeon), p[2]], r, self.key(r, face)))
+    }
+
+    fn perch(&self, p: [f32; 3], lift: f32) -> Option<([f32; 3], Option<i32>, i64)> {
+        let (y, face): (f32, u32) = self.g.floor_near(p[0], p[1] + 0.5, p[2], 1.5, 6.0)?;
+        let f: &ground::Face = &self.g.faces[face as usize];
+        if !self.lived[f.patch as usize] || self.g.patch_area[f.patch as usize] < MIN_PATCH || !near_prop(&self.props, p) {
+            return None;
+        }
+        let r: Option<i32> = self.room_at(p);
+        if self.dungeon && (r.is_none() || r.is_some_and(|r| self.banned.contains(&r))) {
+            return None;
+        }
+        Some(([p[0], y + lift, p[2]], r, self.key(r, face)))
     }
 
     fn pick(&self, rng: &mut Rng) -> Option<([f32; 3], u32)> {
@@ -645,6 +690,12 @@ fn plan_map(sc: &Scene, g: &Ground, extra: i64, seed: &str, seen: &mut Map<u64, 
     let mut lives: Vec<u32> = vec![0; g.patch_area.len()];
     let mut arrivals: Vec<[f32; 3]> = Vec::new();
     let mut props: Map<(i32, i32), Vec<[f32; 3]>> = Map::new();
+    let mut trees: Vec<[f32; 3]> = Vec::new();
+    let mut sights: Vec<[f32; 3]> = Vec::new();
+    let mut bigs: Vec<[f32; 3]> = Vec::new();
+    let mut knights: usize = 0;
+    let mut blastable: bool = NO_BLASTERS.contains(&sc.map.as_str());
+    let mut walkers: Vec<[f32; 3]> = Vec::new();
     for (_, a) in &sc.acts {
         let Some(p) = pos(a) else {
             continue;
@@ -653,6 +704,24 @@ fn plan_map(sc: &Scene, g: &Ground, extra: i64, seed: &str, seen: &mut Map<u64, 
         let n: &str = gyaml(a);
         if fighting(n) {
             foes.push(p);
+            if !kind(n).is_some_and(|k| matches!(k.class, Class::Fly | Class::Water | Class::Ceiling)) {
+                walkers.push(p);
+            }
+        }
+        if big(n) {
+            bigs.push(p);
+        }
+        if n.starts_with(KNIGHT_PREFIX) {
+            knights += 1;
+        }
+        if BLASTABLE.iter().any(|b| n.contains(b)) {
+            blastable = true;
+        }
+        if !origin && n.contains(PERCH_TREE) {
+            trees.push(p);
+        }
+        if !origin && SIGHTS.iter().any(|x| n.contains(x)) {
+            sights.push(p);
         }
         if let Some(k) = kind(n) {
             homes.entry(k.gyaml).or_default().push(p);
@@ -697,7 +766,18 @@ fn plan_map(sc: &Scene, g: &Ground, extra: i64, seed: &str, seen: &mut Map<u64, 
         }
     }
     let open: f32 = cum.iter().map(|c| &g.faces[c.1 as usize]).filter(|f| f.slope < 10.0).map(|f| f.area).sum();
-    let ctx: Ctx = Ctx { g, lived, avoid, foes, rooms, banned, dungeon, water, cum, props };
+    let mut reach: Vec<bool> = vec![false; g.patch_area.len()];
+    for p in arrivals.iter().chain(walkers.iter()) {
+        if let Some((_, f)) = g.floor_near(p[0], p[1], p[2], 1.0, 3.0) {
+            reach[g.faces[f as usize].patch as usize] = true;
+        }
+    }
+    let perches: Vec<([f32; 3], f32)> = if dungeon {
+        g.walls.iter().map(|w| ([(w[0][0] + w[1][0]) / 2.0, (w[0][1] + w[1][1]) / 2.0, (w[0][2] + w[1][2]) / 2.0], PERCH_WALL_LIFT)).collect()
+    } else {
+        trees.iter().map(|t| (*t, PERCH_LIFT)).collect()
+    };
+    let ctx: Ctx = Ctx { g, lived, avoid, foes, rooms, banned, dungeon, water, cum, props, reach };
     let before: usize = ctx.foes.len();
     let goal: usize = target(sc.vanilla, extra, open);
     let mut plan: Plan = Plan { map: sc.map.clone(), vanilla: sc.vanilla, before, target: goal, open, spots: Vec::new(), areas: Vec::new(), arrivals: arrivals.clone() };
@@ -764,7 +844,7 @@ fn plan_map(sc: &Scene, g: &Ground, extra: i64, seed: &str, seen: &mut Map<u64, 
             Class::Mini => m >= 5 && !NO_MINIBOSS.contains(&sc.map.as_str()) && !rising,
             _ => !rising || home,
         };
-        if !fits {
+        if !fits || (HOME_ONLY.contains(&k.gyaml) && !home) || (BLASTERS.contains(&k.gyaml) && blastable && (!home || NO_BLASTERS.contains(&sc.map.as_str()))) || (percher(k.gyaml) && perches.is_empty()) {
             continue;
         }
         let w: u32 = if home {
@@ -786,12 +866,25 @@ fn plan_map(sc: &Scene, g: &Ground, extra: i64, seed: &str, seen: &mut Map<u64, 
     let mut tries: usize = 0;
     while plan.spots.len() < want && tries < want * TRIES {
         tries += 1;
-        let live: Vec<(&'static Kind, u32)> = pool.iter().filter(|(k, _)| (k.class != Class::Mini || minis < mini) && (local(k) || news.contains(&k.gyaml) || news.len() < NEW_KINDS_CAP)).copied().collect();
+        let knight_cap: usize = if sc.map.starts_with("HyruleField") { KNIGHTS_FIELD } else { KNIGHTS_ELSEWHERE };
+        let live: Vec<(&'static Kind, u32)> = pool.iter().filter(|(k, _)| (k.class != Class::Mini || minis < mini) && (!k.gyaml.starts_with(KNIGHT_PREFIX) || knights < knight_cap) && (local(k) || news.contains(&k.gyaml) || news.len() < NEW_KINDS_CAP)).copied().collect();
         let Some(&(k, _)) = pick_kind(&live, &mut rng) else {
             break;
         };
         let home: bool = local(k);
-        let (anchor, why): (Option<([f32; 3], Option<i32>, i64)>, &'static str) = if k.class == Class::Water {
+        let tough: bool = big(k.gyaml) || k.class == Class::Mini;
+        let (anchor, why): (Option<([f32; 3], Option<i32>, i64)>, &'static str) = if percher(k.gyaml) {
+            let (b, _): ([f32; 3], f32) = perches[rng.below(perches.len() as u64) as usize];
+            let lift: f32 = lift_of(k, dungeon);
+            let t: f32 = unit(&mut rng) * std::f32::consts::TAU;
+            (ctx.perch([b[0] + PERCH_NUDGE * t.cos(), b[1], b[2] + PERCH_NUDGE * t.sin()], lift), if dungeon { "perched by a wall" } else { "perched in a tree" })
+        } else if tough && !sights.is_empty() && rng.below(100) < GUARD_SHARE {
+            let h: [f32; 3] = sights[rng.below(sights.len() as u64) as usize];
+            let d: f32 = GUARD_REACH.0 + unit(&mut rng) * (GUARD_REACH.1 - GUARD_REACH.0);
+            let t: f32 = unit(&mut rng) * std::f32::consts::TAU;
+            let hit: Option<(f32, u32)> = g.floor_near(h[0] + d * t.cos(), h[1], h[2] + d * t.sin(), 4.0, 4.0);
+            (hit.and_then(|(y, f)| ctx.settle(k, [h[0] + d * t.cos(), y, h[2] + d * t.sin()], f)), "guarding a landmark")
+        } else if k.class == Class::Water {
             (ctx.wet(&mut rng).filter(|p| ctx.free(&crowd, k, *p, crowd.pts.len(), SPACING)).map(|p| (p, ctx.room_at(p), WATER_KEY)), "water near a vanilla Octorok")
         } else if home && rng.below(100) < NEAR_SHARE {
             let hs: &Vec<[f32; 3]> = &homes[k.gyaml];
@@ -810,12 +903,23 @@ fn plan_map(sc: &Scene, g: &Ground, extra: i64, seed: &str, seen: &mut Map<u64, 
         if !areas.get(&key).is_some_and(|a| a.room_for(k.class)) || !ctx.free(&crowd, k, at, crowd.pts.len(), SPACING) {
             continue;
         }
+        if big(k.gyaml) && bigs.iter().any(|b| near(*b, at) < BIG_GAP) {
+            continue;
+        }
+        if big(k.gyaml) {
+            bigs.push(at);
+        }
+        if k.gyaml.starts_with(KNIGHT_PREFIX) {
+            knights += 1;
+        }
         if let Some(a) = areas.get_mut(&key) {
             a.take(k.class);
         }
         let g0: usize = crowd.pts.len();
         crowd.add(at);
-        let size: u32 = if gmax > 1 { 1 + rng.below(k.group.min(gmax) as u64) as u32 } else { 1 };
+        let size: u32 = if big(k.gyaml) || percher(k.gyaml) {
+            1
+        } else if gmax > 1 { 1 + rng.below(k.group.min(gmax) as u64) as u32 } else { 1 };
         let mut mine: Vec<[f32; 3]> = vec![at];
         let mut rs: Vec<Option<i32>> = vec![r];
         for _ in 0..size.saturating_sub(1) * 4 {
@@ -1030,7 +1134,7 @@ mod tests {
             let (v, _, n): (usize, usize, usize) = count(&all[2].1, m);
             assert!(n > v + v / 2 && n <= MAP_CAP, "{m}: {n} of vanilla {v}");
         }
-        assert!(count(&all[2].1, "KokiriForest_Child").2 > 10);
+        assert_eq!(count(&all[2].1, "KokiriForest_Child").2, 0);
         let ten: &[Plan] = &all[2].1;
         let busy: Vec<(&Plan, &Area)> = ten.iter().flat_map(|p| p.areas.iter().map(move |a| (p, a))).filter(|(_, a)| a.vanilla >= 2 && a.key != WATER_KEY).collect();
         let full: usize = busy.iter().filter(|(_, a)| a.total >= a.vanilla * 10).count();
@@ -1050,6 +1154,9 @@ mod tests {
                         Class::Water => assert!(g.floor_near(s.at[0], s.at[1], s.at[2], WATER_DRY - 0.01, WATER_DRY - 0.01).is_none(), "{} {:?} is on land", s.gyaml, s.at),
                         c => {
                             let (_, f): (f32, u32) = g.floor_near(s.at[0], s.floor, s.at[2], 0.05, 0.05).unwrap_or_else(|| panic!("{} {:?} in {} has no floor", s.gyaml, s.at, p.map));
+                            if percher(&s.gyaml) {
+                                continue;
+                            }
                             let (slope, ring, _): (f32, f32, f32) = limits(c);
                             assert!(g.faces[f as usize].slope <= slope + 0.01, "{} on a {} degree face", s.gyaml, g.faces[f as usize].slope);
                             assert!(g.steep([s.at[0], s.floor, s.at[2]], ring).is_some_and(|x| x <= slope + 0.01), "{} {:?} is on a steep spot", s.gyaml, s.at);
@@ -1074,6 +1181,15 @@ mod tests {
                     assert!(a.limit <= a.vanilla.max(area_target(a.vanilla, *e, f32::MAX).min(a.ground_cap + a.air_cap)) || a.key == WATER_KEY);
                 }
                 assert!(per.keys().all(|k| p.areas.iter().any(|a| a.key == *k)));
+                let cap: usize = if p.map.starts_with("HyruleField") { KNIGHTS_FIELD } else { KNIGHTS_ELSEWHERE };
+                assert!(p.spots.iter().filter(|s| s.gyaml.starts_with(KNIGHT_PREFIX)).count() <= cap, "{} has too many knights", p.map);
+                let bg: Vec<&Spot> = p.spots.iter().filter(|s| big(&s.gyaml)).collect();
+                for (i, x) in bg.iter().enumerate() {
+                    assert!(bg[i + 1..].iter().all(|y| near(x.at, y.at) >= BIG_GAP), "{}: two big enemies closer than {BIG_GAP}", p.map);
+                }
+                assert!(p.spots.iter().filter(|s| percher(&s.gyaml)).all(|s| s.why.starts_with("perched")), "{}: a Keese in open air", p.map);
+                assert!(!NO_BLASTERS.contains(&p.map.as_str()) || p.spots.iter().all(|s| !BLASTERS.contains(&s.gyaml.as_str())), "Dodongos added in {}", p.map);
+                assert!(!PEACEFUL.contains(&p.map.as_str()));
                 for (i, a) in p.arrivals.iter().enumerate() {
                     let near: Vec<&Spot> = p.spots.iter().filter(|s| flat_gap(*a, s.at).is_some_and(|d| d < SAFE_WIDE)).collect();
                     assert!(near.iter().all(|s| flat_gap(*a, s.at).unwrap() >= SAFE_CLEAR), "{} arrival {i} has an enemy inside {SAFE_CLEAR}", p.map);
@@ -1085,7 +1201,7 @@ mod tests {
                     assert!(crowd <= CLUSTER_CAP, "{} has {crowd} added enemies in one cluster", p.map);
                     let busy: usize = p.spots.iter().map(|s| p.spots.iter().filter(|o| near(o.at, s.at) < ACTIVE_RADIUS).count()).max().unwrap_or(0);
                     assert!(busy <= ACTIVE_CAP, "{} has {busy} added enemies within {ACTIVE_RADIUS}", p.map);
-                    assert!(p.spots.iter().all(|s| !matches!(s.gyaml.as_str(), "Enemy_Freezard" | "Enemy_Gibdo" | "Enemy_Bubble_Blue" | "Enemy_Keese_Fire" | "Enemy_Poe_Big")));
+                    assert!(p.spots.iter().all(|s| !matches!(s.gyaml.as_str(), "Enemy_Freezard" | "Enemy_Gibdo" | "Enemy_Bubble_Blue" | "Enemy_Poe_Big")));
                     assert!(p.map != "HountedWasteland_Child");
                     for exit in [[71.2, 41.6, 273.7], [76.5, 41.2, 257.9]] {
                         assert!(!p.map.starts_with("GerudoValley") || p.spots.iter().all(|s| near(s.at, exit) >= SAFE_CLEAR), "{} has an enemy on the exit to the lake", p.map);

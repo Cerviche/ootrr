@@ -4,33 +4,31 @@ Newest state first. "Seen" means seen in the running game. Items move to the cha
 
 ## Broken or unsafe
 
-Nothing known at the moment. Enemies call for backup and the spawn combination were here until rc 12; both are fixed.
+Nothing known at the moment.
 
 ## To confirm by hand
 
 | What | State | What to do |
 |---|---|---|
-| Spawn enemies with L + R + D-pad | Works with scripted button presses, also with every other setting on (rc 13); did nothing on a real controller in rc 12 | Try it on a real controller. Does a kill free one of the 12 slots? |
-| Enemies call for backup | "Bring a friend" (rc 14): 20 callers seen working by script; 8 called nobody in an open field; 2 brought one helper, not two | Play it; check Stalchild, Skulltula, Wallmaster, Armos, Freezard in their homes |
-| More enemies slider (to 10x) | Loads and holds frame rate by script (rc 14) | Play it at 2x, 5x and 10x; try a room whose door waits for its enemies; die in a few maps and check the retry is safe |
-| Gohma's Stalfos and Keese | Created when the door shuts; the dungeon loads | Walk through the boss door: nothing before the door shuts, then they appear |
+| More enemies slider, rc 15 rules | Played at 10x in rc 14; the rules that came out of it (peaceful places, perched Keese, big enemies apart, Iron Knuckle cap, nothing in lava, no added Dodongos in Dodongo's Cavern) are built, not all seen | Play child Hyrule Field, Kokiri Forest, Kakariko and Dodongo's Cavern at 10x; then 2x and 5x; a room whose door waits for its enemies; die in a dungeon and check the retry is safe |
+| Enemies call for backup, lesser kind | Built (rc 15), not played | Fight a Stalfos (a Stalchild should come), a Wolfos (two Keese), a Lizalfos (a Keese). Eight callers called nobody in an open-field script (Stalchild, Freezard, Skulltula, Wallmaster, Armos, Spike, Tailpasaran, Biri): check some in their homes |
+| Does a kill free one of the 12 spawn slots? | Unknown | Spawn 12, kill some, spawn again |
+| Gohma's Stalfos and Keese | Created when the door shuts; never appeared when warped into the room | Walk through the boss door: nothing before it shuts, then they appear |
 | Zora's Domain ambush | Map loads, Skulltulas present | Walk the cave |
-| Dodongo guard on Death Mountain Trail | Stands at his spot | Fight him; the barrier should drop |
-| Guays over child Hyrule Field | Flying by day and night | Decide if that is the amount wanted |
-| Fairies help enemies | No crash; never seen doing its job | Use a fairy near a hurt enemy with the health panel on |
-| The held-back gate 7 | Maps load and guards are there | Walk the Lost Woods east passage, kill the guard, see the barrier drop |
-| Dead Hand in the Hyrule Field hole | Placed further back and his rise distance shortened; not seen since | Drop in and look |
-| Grass that gives bugs | Joined the surprise pool; not seen | Cut the clump by the Dead Hand hole |
+| The held-back gate 7 | Never tried | Walk the Lost Woods east passage, kill the guard, see the barrier drop |
+| Dead Hand in the Hyrule Field hole | Rises near the entrance; left as is by decision | None |
+| Fake pots | Never seen | Break pots until one flies |
 
-## Built but held back (not in this release candidate's gate list)
+## Not built yet (asked for)
 
-Gates 2, 9 and 12 were seen working and are released (gate 2 now has a Dodongo guard that is not played yet). Gate 7 is held; gates 1 and 11 are released with their fixes. A scripted run (19 Nov) showed every map loads and the guards are present; killing the guards and the barrier dropping has not been seen. They are switched on one by one as each is seen working.
+- An effect on screen when an enemy regenerates, is healed by a fairy or calls for backup. The node that emits an effect is known (see the feature notes); what is missing is an effect every enemy has loaded.
+- The Gerudo fighter as a placed enemy (she plays a fortress scene when beaten), and Volvagia or other bosses outside their rooms.
+- Enemy speed: most enemies ignore the setting (see enemy-speed.md). Making the others follow it is open.
+- Limited ammo; Mido as a blocker; lose-heart surviving a quit.
 
-| Gate | Problem seen | Fix in the code, to be played |
-|---|---|---|
-| 1 Sacred Forest Meadow | Only one Mad Scrub present; killing it did not open the gate | The gate creates its own Mad Scrub |
-| 7 Lost Woods, east passage | Never tried | Try it |
-| 11 adult Market | The barrier rose while the player was still outside it (19 Nov) | Trigger starts 3.5 units past the wall on the guard side (round 3); to be played |
+## Gates
+
+Eleven of twelve are on, all played by hand (the Death Mountain Trail one with its Dodongo guard: "perfect"). Gate 7 (Lost Woods, east passage) is held back until someone tries it.
 
 ## Works, with a known limit
 

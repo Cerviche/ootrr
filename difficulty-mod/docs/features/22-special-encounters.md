@@ -203,3 +203,6 @@ User: "add heaps more guay in the field as child-link".
 ## rc 13 scripted check (19 Nov)
 - Guays over the field: at (123.68, 159.5, 159.04) eight Guays are in load range (two flocks of four). By day (clock 12) 3 moved over 5 units, at night (clock 23) 4 moved; none vanished or fell over 40 s each. Night-only was not seen: they were active by day too. Damage to Link was not attributed (the Iron Knuckle is in the same field). Details: `playtest
 c13\RESULTS.md`.
+
+## Folded into More enemies (19 Nov, `feature/horde-r2`)
+The separate checkbox is gone (setting 130 retired). Every More enemies value above 1x now brings all of these encounters. The horde counts the Hyrule Field knight toward its Iron Knuckle limit (2 per Hyrule Field map).

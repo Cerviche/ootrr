@@ -160,6 +160,10 @@ fn copy(a: &Node, h: u64, srt: u32, p: [f32; 3]) -> Node {
 }
 
 pub fn add(y: &mut Byml, seen: &mut Map<u64, u32>, rng: &mut Rng, pct: i64) -> Vec<Made> {
+    add_in(y, seen, rng, pct, &[])
+}
+
+pub fn add_in(y: &mut Byml, seen: &mut Map<u64, u32>, rng: &mut Rng, pct: i64, skip: &[&str]) -> Vec<Made> {
     let mut out: Vec<Made> = Vec::new();
     let Some(list) = y.root.get_mut("Actors").and_then(|l| l.as_arr_mut()) else {
         return out;
@@ -169,6 +173,9 @@ pub fn add(y: &mut Byml, seen: &mut Map<u64, u32>, rng: &mut Rng, pct: i64) -> V
         let Some(up) = plain(a, seen) else {
             continue;
         };
+        if skip.contains(&gyaml(a)) {
+            continue;
+        }
         if rng.below(100) as i64 >= pct {
             continue;
         }
@@ -218,7 +225,8 @@ pub fn made(rf: &mut Romfs, have: Have, seed: &str, pct: i64) -> Res<Vec<(Out, V
         let (b, id): (Vec<u8>, Option<u32>) = raw(rf, have, &f)?;
         let mut y: Byml = Byml::parse(&b)?;
         let mut rng: Rng = Rng::from_text(&format!("{seed}|{SALT}|{f}"));
-        let ms: Vec<Made> = add(&mut y, &mut seen, &mut rng, pct);
+        let skip: &[&str] = if crate::difficulty::horde::NO_BLASTERS.iter().any(|m| f.contains(m)) { crate::difficulty::horde::BLASTERS } else { &[] };
+        let ms: Vec<Made> = add_in(&mut y, &mut seen, &mut rng, pct, skip);
         if ms.is_empty() {
             continue;
         }

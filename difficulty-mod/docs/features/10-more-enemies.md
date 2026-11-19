@@ -158,3 +158,16 @@ Totals at 10x now (seed text "game", copies included): 1,802 added over 39 maps 
 - Safe arrival zones in Kokiri Forest and a second dungeon through a real entrance and a death.
 - Playing it by hand: whether 10x is fun or impossible, minibosses fighting, the Iron Knuckle waking.
 - The raised caps (240 and 120) themselves: the 60 fps result was measured with 160 and 80.
+
+## Round after the user's hands-on play of rc 14 (19 Nov, branch `feature/horde-r2`, commit 641c941, not played yet)
+- **Peaceful places** get no added enemies: child Kokiri Forest, Kakariko Village (child and both adult maps: the game places no enemies there as adult either), child Market, Hyrule Castle, Gerudo Fortress, Zora's Domain, Goron City. Lon Lon Ranch and the Temple of Time are not maps of their own; added enemies keep 45 units from the ranch's buildings and 30 from the temple's.
+- **Iron Knuckles:** at most 2 in a Hyrule Field map and 1 anywhere else, counting the special-encounter knight (the horde runs after it and counts it).
+- **Big enemies spread out:** Like Like, Wolfos, Stalfos, Dinolfos, Dodongo, ReDead, Iron Knuckle, Moblin, Floormaster, Armos (and Gibdo, Dead Hand, Lizalfos when vanilla) keep 25 units (`BIG_GAP`) from any other big enemy, and are never placed in groups. Small kinds still group.
+- **Keese perch:** every kind of Keese is placed only at a perch, outdoors 3.5 above the base of a tree, indoors 2.5 up by a wall, never in open air. Guays stay in the air. Fire Keese are back, only in maps where the game already has them (Dodongo's Cavern gets 28, perched by its walls).
+- **No walkers on unreachable ground** (the lava in Dodongo's Cavern): in maps with a single navigation mesh, walkers only go on mesh pieces that hold an arrival point or a vanilla walking enemy. Fliers are exempt. Hyrule Field's tiled mesh keeps the earlier rule.
+- **No added Dodongos or Baby Dodongos** in Dodongo's Cavern (also no 2x copies of them there), nor in a map with bombable walls, bomb-only walls or burnable webs (`WallCrack`, `CrackWall`, `HitOnlyBomb`, `HitBomb`, the Deku Tree webs) unless the kind is already in that map.
+- **Guards:** tough kinds (big ones and minibosses) half the time stand 4 to 10 units from a tree, a hole entrance marker or an interest spot.
+- **Special encounters folded in:** the `special_encounters` setting (130) is retired; any More enemies value above 1x includes everything it did. An old settings string that sets it gets a "was removed" warning; the default string is unchanged.
+
+10x now (seed text "game", copies included, special encounters not in the CSV): 1,710 added; child Hyrule Field 240, Dodongo's Cavern 145.
+Left: the rule is per map, not per room, for bombable obstacles; lava is excluded through reachability, not a lava attribute (the mesh has none).

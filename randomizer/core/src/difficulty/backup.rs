@@ -36,38 +36,22 @@ pub const USED: &str = "OotrrBackupUsed";
 pub const TABLE: &str = "Component/Blackboard/BlackboardParamTable/EnemyCommon.engine__component__BlackboardParamTable.bgyml";
 pub const BOOLS: &str = "BlackboardParamBoolArray";
 pub const CALLERS: &str = "Enemy_";
-pub const HELPERS: [(&str, &str, i32); 31] = [
+pub const HELPERS: [(&str, &str, i32); 15] = [
     ("Enemy_Keese", "Component/ActorHolderParam/OotrrBackup.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Keese", "Component/ActorHolderParam/OotrrBackupKeese2.game__component__ActorHolderParam.bgyml", 2),
     ("Enemy_Stalfos_Weak", "Component/ActorHolderParam/OotrrBackupStalfosWeak.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Stalchild_Big", "Component/ActorHolderParam/OotrrBackupStalchildBig.game__component__ActorHolderParam.bgyml", 1),
     ("Enemy_Stalchild", "Component/ActorHolderParam/OotrrBackupStalchild.game__component__ActorHolderParam.bgyml", 1),
     ("Enemy_ReDead", "Component/ActorHolderParam/OotrrBackupReDead.game__component__ActorHolderParam.bgyml", 1),
     ("Enemy_Wolfos", "Component/ActorHolderParam/OotrrBackupWolfos.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Wolfos_White", "Component/ActorHolderParam/OotrrBackupWolfosWhite.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Keese_Ice", "Component/ActorHolderParam/OotrrBackupKeeseIce.game__component__ActorHolderParam.bgyml", 1),
     ("Enemy_Lizalfos", "Component/ActorHolderParam/OotrrBackupLizalfos.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Dodongo", "Component/ActorHolderParam/OotrrBackupDodongo.game__component__ActorHolderParam.bgyml", 1),
     ("Enemy_Guay", "Component/ActorHolderParam/OotrrBackupGuay.game__component__ActorHolderParam.bgyml", 1),
     ("Enemy_Guay", "Component/ActorHolderParam/OotrrBackupGuay2.game__component__ActorHolderParam.bgyml", 2),
-    ("Enemy_Tektite_Red", "Component/ActorHolderParam/OotrrBackupTektiteRed.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Tektite_Blue", "Component/ActorHolderParam/OotrrBackupTektiteBlue.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Scrub_Mad", "Component/ActorHolderParam/OotrrBackupScrub.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Skullwalltula", "Component/ActorHolderParam/OotrrBackupSkullwalltula.game__component__ActorHolderParam.bgyml", 1),
     ("Enemy_Dekubaba", "Component/ActorHolderParam/OotrrBackupDekubaba.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Skulltula", "Component/ActorHolderParam/OotrrBackupSkulltula.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Gohma_Larva", "Component/ActorHolderParam/OotrrBackupGohmaLarva.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Wallmaster", "Component/ActorHolderParam/OotrrBackupWallmaster.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Floormaster", "Component/ActorHolderParam/OotrrBackupFloormaster.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_LikeLike", "Component/ActorHolderParam/OotrrBackupLikeLike.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Poe", "Component/ActorHolderParam/OotrrBackupPoe.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Amos", "Component/ActorHolderParam/OotrrBackupAmos.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Tailpasaran", "Component/ActorHolderParam/OotrrBackupTailpasaran.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Bubble_Green", "Component/ActorHolderParam/OotrrBackupBubbleGreen.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Bubble_White", "Component/ActorHolderParam/OotrrBackupBubbleWhite.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Bubble_Red", "Component/ActorHolderParam/OotrrBackupBubbleRed.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_TorchSlug", "Component/ActorHolderParam/OotrrBackupTorchSlug.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Octorok", "Component/ActorHolderParam/OotrrBackupOctorok.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Stinger", "Component/ActorHolderParam/OotrrBackupStinger.game__component__ActorHolderParam.bgyml", 1),
-    ("Enemy_Biri", "Component/ActorHolderParam/OotrrBackupBiri.game__component__ActorHolderParam.bgyml", 1),
+    ("Enemy_Floormaster_Little", "Component/ActorHolderParam/OotrrBackupFloormasterLittle.game__component__ActorHolderParam.bgyml", 1),
     ("Enemy_Biri", "Component/ActorHolderParam/OotrrBackupBiri2.game__component__ActorHolderParam.bgyml", 2),
+    ("Enemy_Biri", "Component/ActorHolderParam/OotrrBackupBiri.game__component__ActorHolderParam.bgyml", 1),
 ];
 pub const HELPER: &str = HELPERS[0].0;
 pub const OUT_OF_BOUNDS: &[&str] = &[
@@ -91,49 +75,46 @@ pub const OUT_OF_BOUNDS: &[&str] = &[
 ];
 pub const CALLS_NOBODY: &[&str] = &["Enemy_Skulltula_Gold", "Enemy_Poe_Amy", "Enemy_Poe_Beth", "Enemy_Poe_Joelle", "Enemy_Poe_SistersBase", "Enemy_Poe_Flat", "Enemy_Poe_Sharp"];
 pub const WHO_CALLS_WHOM: &[(&str, usize)] = &[
-    ("Enemy_Stalfos_Weak", 2),
-    ("Enemy_Stalfos", 1),
-    ("Enemy_Stalchild", 3),
+    ("Enemy_Stalfos_Weak", 3),
+    ("Enemy_Stalfos", 2),
+    ("Enemy_Stalchild", 0),
     ("Enemy_Gibdo", 4),
-    ("Enemy_Wolfos", 5),
+    ("Enemy_Wolfos_White", 5),
+    ("Enemy_Wolfos", 1),
     ("Enemy_Freezard", 6),
-    ("Enemy_Lizalfos", 7),
+    ("Enemy_Lizalfos", 0),
     ("Enemy_Dinolfos", 7),
-    ("Enemy_Dodongo", 8),
-    ("Enemy_Moblin_Club", 9),
-    ("Enemy_Moblin", 10),
-    ("Enemy_Tektite_Red", 11),
-    ("Enemy_Tektite_Blue", 12),
-    ("Enemy_Dekubaba", 13),
-    ("Enemy_Scrub_Mad", 14),
-    ("Enemy_Scrub_Business", 13),
-    ("Enemy_Scrub_Deku", 13),
+    ("Enemy_Dodongo", 0),
+    ("Enemy_Moblin_Club", 8),
+    ("Enemy_Moblin", 9),
+    ("Enemy_Tektite", 8),
+    ("Enemy_Dekubaba", 10),
+    ("Enemy_Scrub_Mad", 11),
+    ("Enemy_Scrub_Business", 10),
+    ("Enemy_Scrub_Deku", 10),
     ("Enemy_SkullKid", 3),
-    ("Enemy_Skulltula", 15),
-    ("Enemy_Gohma_Larva", 16),
-    ("Enemy_Floormaster", 17),
-    ("Enemy_Wallmaster", 18),
-    ("Enemy_LikeLike", 19),
-    ("Enemy_Poe", 20),
-    ("Enemy_Amos", 21),
+    ("Enemy_Skulltula", 10),
+    ("Enemy_Gohma_Larva", 10),
+    ("Enemy_Floormaster", 12),
+    ("Enemy_Wallmaster", 12),
+    ("Enemy_LikeLike", 12),
+    ("Enemy_Poe", 0),
+    ("Enemy_Amos", 0),
     ("Enemy_Spike", 0),
-    ("Enemy_Tailpasaran", 22),
-    ("Enemy_Bubble_Blue", 23),
-    ("Enemy_Bubble_Green", 23),
-    ("Enemy_Bubble_White", 24),
-    ("Enemy_Bubble_Red", 25),
-    ("Enemy_TorchSlug", 26),
-    ("Enemy_Octorok", 27),
-    ("Enemy_ShellBlade", 28),
-    ("Enemy_Stinger", 28),
-    ("Enemy_Bari", 30),
-    ("Enemy_Biri", 29),
-    ("Enemy_Tentacle", 29),
+    ("Enemy_Tailpasaran", 0),
+    ("Enemy_Bubble", 0),
+    ("Enemy_TorchSlug", 0),
+    ("Enemy_Octorok", 0),
+    ("Enemy_ShellBlade", 14),
+    ("Enemy_Stinger", 14),
+    ("Enemy_Bari", 13),
+    ("Enemy_Biri", 0),
+    ("Enemy_Tentacle", 14),
 ];
 pub const FELL_BACK: &[&str] = &[];
 pub const FRAMES: f32 = 600.0;
 pub const RANDOM_FRAMES: f32 = 900.0;
-pub const SIDE: f32 = 2.5;
+pub const RISE: f32 = 0.5;
 pub const MAX: i32 = 2;
 pub const HEAP_EXTRA: i32 = 0x10000;
 pub const ACTOR_DIR: &str = "Actor/";
@@ -206,7 +187,7 @@ pub fn build(a: &mut Ainb, tag: &str) -> Res<usize> {
     let place: usize = a.add_node(&Spec::query(PLACE, &s("place")).out_ptr("Mat34F", MAT34))?;
     let split: usize = a.add_node(&Spec::query(SPLIT, &s("split")).linked_ptr("Matrix34f", MAT34, place).out(4, "Translation").spare_ptr("Rotation", MAT33))?;
     feed(a, place, split, "Mat34F")?;
-    let lift: usize = a.add_node(&Spec::query(LIFT, &s("lift")).linked(4, "InputA", split, 0).constant(4, "InputB", vec3(SIDE, 0.0, 0.0)).out(4, "Result"))?;
+    let lift: usize = a.add_node(&Spec::query(LIFT, &s("lift")).linked(4, "InputA", split, 0).constant(4, "InputB", vec3(0.0, RISE, 0.0)).out(4, "Result"))?;
     feed(a, split, lift, "Translation")?;
     let eligible_key: Vec<u8> = a.pool.add(ELIGIBLE).to_le_bytes().to_vec();
     let used_key: Vec<u8> = a.pool.add(USED).to_le_bytes().to_vec();
@@ -614,7 +595,7 @@ mod tests {
         assert_eq!(e.get("IsCreateFirstWithHolder"), Some(&Node::Bool(false)));
         assert_eq!(e.get("MaxActors"), Some(&Node::I32(1)));
         assert_eq!(holder_file(HELPER, 1).unwrap(), holder_file(HELPER, 1).unwrap());
-        assert_eq!(entry(HELPERS[10].0, HELPERS[10].2).get("MaxActors"), Some(&Node::I32(2)));
+        assert_eq!(entry(HELPERS[1].0, HELPERS[1].2).get("MaxActors"), Some(&Node::I32(2)));
         assert!(HELPERS.iter().all(|h| h.1.starts_with(HOLDER_DIR) && h.1.ends_with(".game__component__ActorHolderParam.bgyml")));
         assert!(HELPERS.iter().all(|h| (1..=MAX).contains(&h.2)), "no caller can ever have more than {MAX} helpers alive");
         let files: Set<&str> = HELPERS.iter().map(|h| h.1).collect();
@@ -639,53 +620,54 @@ mod tests {
         let option_3: [(&str, &str, i32); 44] = [
             ("Enemy_Stalfos", "Enemy_Stalfos_Weak", 1),
             ("Enemy_Stalfos_ForChild", "Enemy_Stalfos_Weak", 1),
-            ("Enemy_Stalfos_Weak", "Enemy_Stalchild_Big", 1),
-            ("Enemy_Stalchild", "Enemy_Stalchild", 1),
-            ("Enemy_Stalchild_Big", "Enemy_Stalchild", 1),
+            ("Enemy_Stalfos_Weak", "Enemy_Stalchild", 1),
+            ("Enemy_Stalchild", "Enemy_Keese", 1),
+            ("Enemy_Stalchild_Big", "Enemy_Keese", 1),
             ("Enemy_Gibdo", "Enemy_ReDead", 1),
-            ("Enemy_Wolfos", "Enemy_Wolfos", 1),
+            ("Enemy_Wolfos", "Enemy_Keese", 2),
             ("Enemy_Wolfos_White", "Enemy_Wolfos", 1),
-            ("Enemy_Freezard", "Enemy_Wolfos_White", 1),
-            ("Enemy_Freezard_Fixed", "Enemy_Wolfos_White", 1),
-            ("Enemy_Lizalfos", "Enemy_Lizalfos", 1),
+            ("Enemy_Freezard", "Enemy_Keese_Ice", 1),
+            ("Enemy_Freezard_Fixed", "Enemy_Keese_Ice", 1),
+            ("Enemy_Lizalfos", "Enemy_Keese", 1),
             ("Enemy_Dinolfos", "Enemy_Lizalfos", 1),
-            ("Enemy_Dodongo", "Enemy_Dodongo", 1),
+            ("Enemy_Dodongo", "Enemy_Keese", 1),
             ("Enemy_Moblin_Club", "Enemy_Guay", 1),
             ("Enemy_Moblin", "Enemy_Guay", 2),
-            ("Enemy_Tektite_Red", "Enemy_Tektite_Red", 1),
-            ("Enemy_Tektite_Blue", "Enemy_Tektite_Blue", 1),
-            ("Enemy_Dekubaba", "Enemy_Scrub_Mad", 1),
-            ("Enemy_Dekubaba_Withered", "Enemy_Scrub_Mad", 1),
+            ("Enemy_Tektite_Red", "Enemy_Guay", 1),
+            ("Enemy_Tektite_Blue", "Enemy_Guay", 1),
+            ("Enemy_Dekubaba", "Enemy_Skullwalltula", 1),
+            ("Enemy_Dekubaba_Withered", "Enemy_Skullwalltula", 1),
             ("Enemy_Scrub_Mad", "Enemy_Dekubaba", 1),
-            ("Enemy_Scrub_Business", "Enemy_Scrub_Mad", 1),
-            ("Enemy_Scrub_Deku", "Enemy_Scrub_Mad", 1),
+            ("Enemy_Scrub_Business", "Enemy_Skullwalltula", 1),
+            ("Enemy_Scrub_Deku", "Enemy_Skullwalltula", 1),
             ("Enemy_SkullKid", "Enemy_Stalchild", 1),
-            ("Enemy_Skulltula", "Enemy_Skulltula", 1),
-            ("Enemy_Gohma_Larva", "Enemy_Gohma_Larva", 1),
-            ("Enemy_Floormaster", "Enemy_Wallmaster", 1),
-            ("Enemy_Wallmaster", "Enemy_Floormaster", 1),
-            ("Enemy_LikeLike", "Enemy_LikeLike", 1),
-            ("Enemy_Poe", "Enemy_Poe", 1),
-            ("Enemy_Poe_Big", "Enemy_Poe", 1),
-            ("Enemy_Poe_Hyrule", "Enemy_Poe", 1),
-            ("Enemy_Amos", "Enemy_Amos", 1),
+            ("Enemy_Skulltula", "Enemy_Skullwalltula", 1),
+            ("Enemy_Gohma_Larva", "Enemy_Skullwalltula", 1),
+            ("Enemy_Floormaster", "Enemy_Floormaster_Little", 1),
+            ("Enemy_Wallmaster", "Enemy_Floormaster_Little", 1),
+            ("Enemy_LikeLike", "Enemy_Floormaster_Little", 1),
+            ("Enemy_Poe", "Enemy_Keese", 1),
+            ("Enemy_Poe_Big", "Enemy_Keese", 1),
+            ("Enemy_Poe_Hyrule", "Enemy_Keese", 1),
+            ("Enemy_Amos", "Enemy_Keese", 1),
             ("Enemy_Spike", "Enemy_Keese", 1),
-            ("Enemy_Tailpasaran", "Enemy_Tailpasaran", 1),
-            ("Enemy_Bubble_Blue", "Enemy_Bubble_Green", 1),
-            ("Enemy_Bubble_Green", "Enemy_Bubble_Green", 1),
-            ("Enemy_Bubble_White", "Enemy_Bubble_White", 1),
-            ("Enemy_Bubble_Red", "Enemy_Bubble_Red", 1),
-            ("Enemy_TorchSlug", "Enemy_TorchSlug", 1),
-            ("Enemy_Octorok", "Enemy_Octorok", 1),
-            ("Enemy_ShellBlade", "Enemy_Stinger", 1),
-            ("Enemy_Stinger", "Enemy_Stinger", 1),
+            ("Enemy_Tailpasaran", "Enemy_Keese", 1),
+            ("Enemy_Bubble_Blue", "Enemy_Keese", 1),
+            ("Enemy_Bubble_Green", "Enemy_Keese", 1),
+            ("Enemy_Bubble_White", "Enemy_Keese", 1),
+            ("Enemy_Bubble_Red", "Enemy_Keese", 1),
+            ("Enemy_TorchSlug", "Enemy_Keese", 1),
+            ("Enemy_Octorok", "Enemy_Keese", 1),
+            ("Enemy_ShellBlade", "Enemy_Biri", 1),
+            ("Enemy_Stinger", "Enemy_Biri", 1),
             ("Enemy_Bari", "Enemy_Biri", 2),
-            ("Enemy_Biri", "Enemy_Biri", 1),
+            ("Enemy_Biri", "Enemy_Keese", 1),
         ];
         for (a, helper, n) in option_3 {
             assert!(!excluded(a), "{a} calls");
             let h: (&str, &str, i32) = HELPERS[helper_of(a)];
             assert_eq!((h.0, h.2), (helper, n), "{a}");
+            assert!(h.0 != a, "{a} never calls its own kind");
         }
         assert_eq!(HELPERS[helper_of("Enemy_Tentacle_Red")].0, "Enemy_Biri");
         assert_eq!(helper_of("Enemy_Unlisted"), 0);
@@ -855,7 +837,7 @@ mod tests {
 ");
         assert!(marked.contains("in bool Bool = true flags 0x800000") && marked.contains("in bool Bool = false flags 0x800000"), "{marked}");
         let shown: String = show(&a);
-        for line in ["prop bool ExecuteOnce = true", "prop bool IsIgnoreNotExistsError = true", "in bool Bool = true flags 0x800000", "prop bool IsLoop = false", "prop f32 CountFrames = 600", "prop f32 RandomAddCountFrames = 900", "in vec3 InputB = (2.5, 0, 0) flags 0x800000", "\"NotFinish\"", "\"Finish\""] {
+        for line in ["prop bool ExecuteOnce = true", "prop bool IsIgnoreNotExistsError = true", "in bool Bool = true flags 0x800000", "prop bool IsLoop = false", "prop f32 CountFrames = 600", "prop f32 RandomAddCountFrames = 900", "in vec3 InputB = (0, 0.5, 0) flags 0x800000", "\"NotFinish\"", "\"Finish\""] {
             assert!(shown.contains(line), "{line} is missing from\n{shown}");
         }
         assert!(hook::patch_graph(&a.write().unwrap(), &HOOK).is_err(), "a patched graph is not patched twice");

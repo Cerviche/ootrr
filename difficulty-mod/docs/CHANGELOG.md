@@ -2,6 +2,25 @@
 
 One entry per release candidate (rc), newest first. Each rc is one commit on the `difficulty` branch. "Played" means seen in the running game, by hand or by a script through Longshot's control bridge (see [TESTING.md](TESTING.md)). Feature details are in [features/](features/).
 
+## rc 15
+
+Changes from the first hands-on session with rc 14 (19 Nov, at 10x). A second hands-on session the same day played this build: "everything I tested was perfect", with the spawn buttons and the extra enemies named; it was not recorded which other items below were looked at, so only those marked "by hand" count as seen.
+
+- **Spawn enemies: new buttons.** Hold both stick clicks, then D-pad Down for a random enemy and D-pad Up for the same one again. Works by hand on a real controller. The old L + R never worked by hand: both open the game's item wheel.
+- **Special encounters is no longer its own setting.** Any more-enemies value above 1x includes what it did (Dead Hand in two holes, the awake Iron Knuckle, the Lake Hylia Like Likes, grass and pot surprises, the Guays over child Hyrule Field). Old settings strings still load.
+- **More enemies, from play at 10x** ("about the right number" in child Hyrule Field; by hand):
+  - Peaceful places get no added enemies: child Kokiri Forest, Kakariko Village, child Market, child Hyrule Castle, Gerudo Fortress, Zora's Domain, Goron City; enemies keep away from Lon Lon Ranch and the Temple of Time.
+  - Iron Knuckles: at most two in each Hyrule Field, one in any other map.
+  - Large enemies (Like Like, Wolfos, Stalfos, Dinolfos, ReDead, Moblins and the like) stay well apart; small ones may cluster.
+  - Keese of every kind are only placed on a perch (a tree outdoors, a wall indoors), since they sit still until approached.
+  - Walkers only go on ground Link can reach; no more enemies standing in the lava of Dodongo's Cavern. Fire Keese were added there.
+  - No added Dodongos or Baby Dodongos in Dodongo's Cavern (their explosion can clear a bombable wall).
+  - Tougher enemies are steered toward landmarks such as trees and holes ("very good stuff" in the first session).
+- **Enemies call for backup: a lesser kind.** Seen by hand in rc 14: Stalfos and Wolfos calling a second of their own kind ("nice", but too much), and a Lizalfos' helper falling into lava. Now a caller never calls its own kind (Stalfos a Stalchild, Wolfos two Keese, White Wolfos a Wolfos, Lizalfos and Dodongos a Keese), and the helper appears where the caller stands. Not played yet in this form.
+- **Gate on Death Mountain Trail with the Dodongo guard: "perfect", by hand.**
+- **Bosses spawn minibosses and minions (Gohma):** warped into the room by the test tool, the Stalfos and Keese never appeared (they wait for the door scene, which a warp skips). Entering through the door is still not played.
+- **Not done:** an on-screen effect when enemies regenerate, are healed by a fairy or call for backup. The node that emits an effect is known; no effect that every enemy has loaded was found yet.
+
 ## rc 14
 
 Results come from scripted runs in the game (19 Nov). Nothing in this entry has been played by hand yet.
