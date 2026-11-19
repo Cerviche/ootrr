@@ -378,6 +378,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     }
     notes.extend(door.notes());
     notes.push(crate::bombchu_open::NOTE.to_string());
+    notes.push(crate::water_gate::NOTE.to_string());
     if short {
         notes.push(crate::short_get::NOTE.to_string());
     }
@@ -400,7 +401,7 @@ mod tests {
         assert_eq!(p.keys.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 15);
+        assert_eq!(p.notes.len(), 16);
         assert!(p.short && p.notes.iter().any(|n| n == crate::short_get::NOTE));
         assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
         assert!(p.remake && p.hearts && p.rewards.extra);

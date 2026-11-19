@@ -26,7 +26,7 @@ pub struct Ctx<'a> {
 
 pub type Stage = fn(&mut Romfs, &Ctx, &mut Vec<Out>) -> Res<()>;
 
-pub const STAGES: [(&str, Stage); 22] = [
+pub const STAGES: [(&str, Stage); 23] = [
     ("boss heart chests", boss_hearts),
     ("songs", songs),
     ("song models", song_models),
@@ -42,6 +42,7 @@ pub const STAGES: [(&str, Stage); 22] = [
     ("open door of time", door_open),
     ("master sword pedestal", pedestal),
     ("bombchu alley", bombchu),
+    ("water temple gate", water_gate),
     ("medallion gate", medal_gate),
     ("start reward and flags", start_reward),
     ("starting items", start_items),
@@ -141,6 +142,10 @@ fn bombchu(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     crate::bombchu_open::stage(rf, more, c.work)
 }
 
+fn water_gate(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    crate::water_gate::stage(rf, more, c.work)
+}
+
 fn pedestal(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     more.extend(crate::door_open::stage_pedestal(rf, Some(c.work))?);
     Ok(())
@@ -198,7 +203,7 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
         edits.push(crate::rainbow_bridge::exp(n));
     }
     edits.extend(c.p.door.exps());
-    edits.push(crate::bombchu_open::exp());
+    edits.push(crate::always::exp());
     crate::start_defaults::stage(rf, more, &edits)
 }
 

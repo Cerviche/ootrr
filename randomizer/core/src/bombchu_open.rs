@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::Path as P;
 
 use crate::ainb::Ainb;
@@ -7,11 +6,9 @@ use crate::byml::{Byml, Node};
 use crate::error::{Error, Res};
 use crate::romfs::Romfs;
 use crate::staging::Out;
-use crate::start_defaults::Edit;
 
 pub const GATE: &str = "Get_StoneOfFire_IsCompleted_Exp";
-pub const ALWAYS: &str = "Get_StoneOfFire_IsAfter_Ready_Exp";
-pub const ALWAYS_FLAG: &str = "Market_Child_TimeTempleDoor_Opened";
+pub const ALWAYS: &str = crate::always::NAME;
 pub const MODULES: [&str; 3] = [
     "Logic/Market_Child_Prefab_0c76.logic.module.ainb",
     "Logic/Market_Child_Prefab_d0eb.logic.module.ainb",
@@ -26,12 +23,6 @@ pub const NOTE: &str = "Bombchu Bowling and the Bombchu Shop in child Castle Tow
 const READ_EXP: &str = "HoldGameDataGetBoolExpSimple";
 const EXP_IN: &str = "GameDataNameBoolExp";
 const STR: usize = 3;
-const OR_OP: i32 = 4;
-const NOT_OP: i32 = 5;
-
-pub fn exp() -> Edit {
-    Edit::Exp(ALWAYS.to_string(), vec![(0, ALWAYS_FLAG.to_string()), (0, ALWAYS_FLAG.to_string()), (NOT_OP, String::new()), (OR_OP, String::new())])
-}
 
 pub fn patch_module(a: &mut Ainb) -> Res<()> {
     let hits: Vec<usize> = a.find_els(READ_EXP).into_iter().filter(|&i| a.in_str(i, EXP_IN) == Some(GATE)).collect();
@@ -104,28 +95,15 @@ fn module_bytes(raw: &[u8]) -> Res<Vec<u8>> {
     Ok(out)
 }
 
-fn edit(rf: &mut Romfs, more: &mut Vec<Out>, work: &P, path: &str, packed: bool, f: impl FnOnce(&[u8]) -> Res<Vec<u8>>) -> Res<()> {
-    if let Some(i) = more.iter().position(|o| o.path == path) {
-        let raw: Vec<u8> = if packed { rf.zs.decompress(&more[i].z)? } else { more[i].z.clone() };
-        let out: Vec<u8> = f(&raw)?;
-        let old: usize = more[i].old;
-        more[i] = if packed { crate::staging::banc_out(rf, path, old, &out)? } else { Out { path: path.to_string(), old, new: out.len(), z: out } };
-        return Ok(());
-    }
-    let have = |p: &str| -> Option<Vec<u8>> { fs::read(p.split('/').fold(work.to_path_buf(), |a, s| a.join(s))).ok() };
-    more.push(if packed { crate::qol::edit_zs(rf, &have, path, f)? } else { crate::qol::edit_plain(rf, &have, path, f)? });
-    Ok(())
-}
-
 pub fn stage(rf: &mut Romfs, more: &mut Vec<Out>, work: &P) -> Res<()> {
     for m in MODULES {
-        edit(rf, more, work, m, false, module_bytes)?;
+        crate::staging::edit_staged(rf, more, work, m, false, module_bytes)?;
     }
     for (flow, event) in FLOWS {
-        edit(rf, more, work, &format!("Event/EventFlow/{flow}.bfevfl.zs"), true, |raw| flow_bytes(raw, flow, event))?;
+        crate::staging::edit_staged(rf, more, work, &format!("Event/EventFlow/{flow}.bfevfl.zs"), true, |raw| flow_bytes(raw, flow, event))?;
     }
     for (path, hashes) in MAPS {
-        edit(rf, more, work, path, true, |raw| map_bytes(raw, hashes))?;
+        crate::staging::edit_staged(rf, more, work, path, true, |raw| map_bytes(raw, hashes))?;
     }
     Ok(())
 }
@@ -159,10 +137,4 @@ mod tests {
         assert!(stage(&mut rf, &mut again, &none).is_err());
     }
 
-    #[test]
-    fn the_always_flag_is_a_tautology() {
-        let Edit::Exp(n, t) = exp() else { panic!() };
-        assert_eq!(n, ALWAYS);
-        assert_eq!(t.len(), 4);
-    }
 }
