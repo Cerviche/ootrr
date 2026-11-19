@@ -194,7 +194,7 @@ const DOOR_OF_TIME: View = View {
         yes("Closed - Vanilla", "vanilla"),
         yes("Closed - Classic", "stones"),
         yes("Closed - Dungeon Rewards", "dungeons"),
-        missing("Closed - Song Only"),
+        yes("Closed - Song Only", "song"),
         yes("Open", "open"),
     ],
 };

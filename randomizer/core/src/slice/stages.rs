@@ -113,8 +113,8 @@ fn quiet_pickups(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn door_fix(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    if c.p.door.escape() {
-        more.push(crate::door_gate::stage_flow(rf)?);
+    if c.p.door.flow() {
+        more.push(crate::door_gate::stage_flow(rf, &c.p.door)?);
     } else {
         more.extend(crate::door_fix::stage(rf)?);
     }
@@ -129,6 +129,8 @@ fn no_tutorials(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if c.p.gates.door {
         more.extend(crate::door_open::stage_door(rf)?);
+    } else if c.p.door.only {
+        more.extend(crate::door_gate::stage_song(rf)?);
     } else if !c.p.door.song {
         more.extend(crate::door_gate::stage_door(rf)?);
     }
