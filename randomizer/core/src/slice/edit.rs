@@ -441,6 +441,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if p.rainbow.is_some() {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, "AllSage", crate::rainbow_bridge::patch_lacs_step)?;
     }
+    // A Bow or Slingshot from any gift or pickup brings its starting bag, as a chest's does.
+    crate::starter_bags::stage(&mut rf, &mut late, &work)?;
     for o in late {
         pk.write_romfs(&o.path, &o.z)?;
         extra += 1;

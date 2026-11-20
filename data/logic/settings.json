@@ -200,7 +200,7 @@
   "medallion_gates": false,
   "open_door_of_time": "stones_sot",
   "open_forest": "closed",
-  "open_kakariko": "zelda",
+  "open_kakariko": "closed",
   "plant_beans": false,
   "scarecrow_behavior": "normal",
   "selected_adult_trade_item": "Pocket Egg",
