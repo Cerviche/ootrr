@@ -68,7 +68,7 @@ pub const SPOTS: [Spot; 4] = [
         file: "Banc/ForestTemple/ForestTemple_Static.bcett.byml.zs",
         actor: "Enemy_DungeonBoss_PhantomGanon",
         mini: "Enemy_Stalfos_Weak",
-        label: "Stalfos",
+        label: "weak Stalfos",
         at: [5.5, 74.95, -62.5],
         start: None,
     },

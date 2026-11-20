@@ -28,7 +28,7 @@ pub const DODONGO_PARAM: &str = "GameParameter/DungeonBossDodongoParam/Enemy_Dun
 pub const STAGES: &str = "SpawnBabyDodongoParams";
 pub const AFTER_ROLL: &str = "RollingAfterSpawnNum";
 pub const FIRST_BABIES: i32 = 2;
-pub const NOTE: &str = "Bosses have a few weak enemies with them. Keese fly around the rooms of Gohma, Phantom Ganon, Morpha and Bongo Bongo, Fire Keese around Volvagia, Fire and Ice Keese around Twinrova and Biri around Barinade. King Dodongo calls Baby Dodongos from the start of his fight and calls more of them. The Keese in Gohma's room appear when the door has shut behind you, as the boss introduction starts, and the others are there whenever you are in the boss room. They stay after the boss is beaten. Ganondorf, Ganon and the dream world boss stages are unchanged. Experimental, untested in the game.";
+pub const NOTE: &str = "Bosses bring a few weak enemies: Keese with Gohma, Phantom Ganon, Morpha and Bongo Bongo, Fire Keese with Volvagia, Fire and Ice Keese with Twinrova and Biri with Barinade. King Dodongo calls Baby Dodongos sooner and more of them. They stay after the boss is beaten. Ganondorf and Ganon are unchanged. Experimental, not yet played through a boss fight.";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Room {

@@ -163,59 +163,56 @@ impl Opts {
     pub fn notes(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
         if self.health != NORMAL {
-            out.push(format!("Enemies and bosses have {} times their usual health. Enemies that are beaten by a scripted hit, such as Deku Scrubs, are unchanged. Experimental, untested in the game.", times(self.health)));
+            out.push(format!("Enemies and bosses have {} times their usual health, up to 99. Enemies that always go down to one scripted hit, like Deku Scrubs, are not changed.", times(self.health)));
         }
         if self.damage != NORMAL {
-            out.push(format!("Enemy attacks and enemy projectiles deal {} times their usual damage. Grabs and traps that are not enemies are unchanged. Experimental, untested in the game.", times(self.damage)));
+            out.push(format!("Enemies and their projectiles hit {} times as hard. Grabs, traps, lava and falls do their usual damage.", times(self.damage)));
         }
         if self.speed != NORMAL {
-            out.push(format!("Enemies move {} times as fast and wait that much less between attacks. Enemies that only move through their animations keep their pace. Experimental, untested in the game.", times(self.speed)));
+            out.push(format!("Enemies are set to move and attack {} times as fast. Experimental: most enemies ignore it, and in our tests only Lizalfos clearly sped up.", times(self.speed)));
         }
         if self.regen {
-            out.push("Enemies and bosses that are still alive win back one point of health about every five seconds, up to their usual health. Experimental, untested in the game.".to_string());
+            out.push("Enemies and bosses you leave alone heal. About 15 seconds after the last hit they get back one point of health every 5 seconds, up to their usual health.".to_string());
         }
         if self.backup {
-            out.push("An ordinary enemy that has had Link as its target for about 25 seconds without a break calls one helper to its side, once in its life. The helper is a Leever (the small creature that pops out of the desert sand), except for enemies native to Jabu-Jabu's Belly (a Shabom) and to the Ice Cavern and the Shadow and Spirit Temples (a flying pot). Helpers never call anything themselves. Bosses, minibosses, Iron Knuckles, Dead Hand, Dark Link, Phantom Ganon and Leevers never call. Experimental, untested in the game.".to_string());
+            out.push("An ordinary enemy that fights you for 10 to 25 seconds calls in one weaker enemy at its side, once. Helpers never call anyone. Bosses, minibosses and Iron Knuckles never call.".to_string());
         }
         if self.no_hearts {
-            out.push("Enemies, pots, grass and other random drops never give recovery hearts, also when your health is low. Where the game would hand out a heart because you need one, a green rupee drops. Experimental, untested in the game.".to_string());
+            out.push("Enemies, pots, grass and other random drops never give recovery hearts. Where the game would hand you a heart because you're low, you get a green rupee.".to_string());
         }
         if self.no_ammo {
-            let shops: &str = if self.shops { " Shopsanity is on: a special deal can take the place of a shelf that sold arrows, bombs or seeds, and the logic does not check that any ammo can still be bought, so you may find a seed where the only arrows are in the shops you cannot afford or cannot reach." } else { "" };
-            out.push(format!("Enemies, pots, grass and other random drops never give arrows, seeds, bombs, Deku Nuts or Deku Sticks.{shops} Experimental, untested in the game."));
+            let shops: &str = if self.shops { " Shopsanity is on: a special deal can take the place of a shelf that sold ammo, and the logic doesn't check that ammo can still be bought, so the only arrows may be in a shop you can't afford or reach yet." } else { "" };
+            out.push(format!("Enemies, pots, grass and other random drops never give arrows, seeds, bombs, Deku Nuts or Deku Sticks.{shops} Seen working on grass; pots and enemy drops are untested."));
         }
         if self.no_fairies {
-            out.push("Playing a song to a gossip stone no longer calls a fairy that heals you. Experimental, untested in the game.".to_string());
+            out.push("Playing a song at a gossip stone no longer brings out a fairy.".to_string());
         }
         if self.lose_heart {
             out.push(match flows::KEEP {
-                flows::Keep::CountSave => "Each game over that you continue from takes away one heart container, down to three hearts. The heart is taken right after the game reloads, and the game is saved at that moment so the loss stays. A fairy in a bottle that revives you costs nothing. Experimental, untested in the game.".to_string(),
-                flows::Keep::Count => "Each game over that you continue from takes away one heart container, down to three hearts. The heart is taken right after the game reloads, and the game remembers it until you quit to the title, even if you die again before saving. A fairy in a bottle that revives you costs nothing. Experimental, untested in the game.".to_string(),
+                flows::Keep::CountSave => "Each game over you continue from costs a heart container, down to three hearts. The game saves right after, so the loss stays. A bottled fairy that revives you costs nothing.".to_string(),
+                flows::Keep::Count => "Each game over you continue from costs a heart container, down to three hearts. The loss lasts until you quit to the title screen. A bottled fairy that revives you costs nothing.".to_string(),
             });
         }
         if self.no_bottles {
-            out.push("While the enemy battle music plays or during a boss battle, Link shakes his head and puts the bottle away without drinking or letting out its contents. Leevers and Moblins, which normally fight without battle music, now start it, because the music is how the game is read as in combat. Experimental, untested in the game.".to_string());
+            out.push("While the battle music plays or during a boss fight, Link shakes his head and puts the bottle away. A bottled fairy still revives you. Leevers and Moblins now start the battle music.".to_string());
         }
         if self.no_target {
-            out.push("Enemies and bosses cannot be locked on to. Aim assist, talking to people, reading signs and locking on to things that are not enemies are unchanged. Experimental, untested in the game.".to_string());
+            out.push("Enemies and bosses can't be locked on to. Aim assist, people, signs and everything else still work as usual.".to_string());
         }
         if self.no_dupes {
-            out.push("A bottle is not filled with something that another of your bottles already holds. This covers catching things with a bottle, shop shelves, Deku Scrub sellers, cows, Talon and the potion shops. A refused catch may still use up what you swung at. Bottle contents from chests and other shuffled items are not covered. Experimental, untested in the game.".to_string());
+            out.push("A bottle won't take something another bottle already holds. This covers catching things, shops, Deku Scrubs, cows, Talon and the potion shops. A refused catch can still use up what you swung at. Bottle contents from chests and other items in the seed are not blocked.".to_string());
         }
         if self.extra > 0 {
-            out.push(format!("About {} in 100 of the ordinary enemies that no door, chest, counter or event is tied to have one extra copy standing next to them. Experimental, untested in the game.", self.extra.min(extras::FULL)));
+            out.push(format!("About {} in 100 of the ordinary enemies that no door, chest or event depends on get a twin next to them.", self.extra.min(extras::FULL)));
         }
         if self.extra > horde::FROM {
-            out.push(format!("More enemies at {}x: each area is filled toward that many times its usual number of enemies (at most {} in one map), on walkable ground read from the game's navigation mesh, with fliers, water enemies and, from 5x, kinds that never live there, groups and the odd miniboss. Experimental, untested in the game.", (self.extra + 100) as f32 / 100.0, horde::MAP_CAP));
+            out.push(format!("More enemies at {}x: each area fills up toward that many times its usual enemies (at most {} per map), with fliers, water enemies and, from 5x, new kinds, small groups and the odd miniboss.", (self.extra + 100) as f32 / 100.0, horde::MAP_CAP));
         }
         if self.respawn {
-            out.push("Most ordinary enemies come back when you leave their room or area and return, not only when you leave the whole dungeon or region. Bosses, minibosses, Gold Skulltulas, Poes, Deku Scrubs and a few enemies that share their data with a boss are unchanged. Experimental, untested in the game.".to_string());
+            out.push("Most ordinary enemies come back when you leave their room or area and return. Bosses, minibosses, Gold Skulltulas, Poes and Deku Scrubs stay beaten. Experimental, untested in the game.".to_string());
         }
         if self.minibosses {
-            out.push(format!(
-                "A strong enemy waits in the boss room of these bosses and leaves when the boss is beaten, in Gohma's room it appears as the boss introduction starts: {}. The other bosses and the dream world fights are unchanged. Experimental, untested in the game.",
-                minibosses::covered()
-            ));
+            out.push(format!("A strong enemy fights alongside these bosses and leaves when the boss is beaten: {}. Experimental, not yet played through a boss fight.", minibosses::covered()));
         }
         if self.minions {
             out.push(minions::NOTE.to_string());
@@ -237,14 +234,14 @@ impl Opts {
             out.push(spawn::NOTE.to_string());
         }
         if self.fairy_helps {
-            out.push("When you let a fairy out of a bottle, or a bottled fairy revives you, every enemy and boss that is awake at that moment is healed to full health too. Bringing back the enemy you beat last is not possible with file edits and is not done. Experimental, untested in the game.".to_string());
+            out.push("When you use a bottled fairy, or one revives you, every enemy and boss that is awake heals to full health too.".to_string());
         }
         if self.gates {
             let names: Vec<&str> = self.gate_list().iter().map(|g| g.name).collect();
             if names.is_empty() {
-                out.push("Enemies block the way is on, but no gate applies to these settings (shuffled entrances would make it add a requirement), so nothing is gated.".to_string());
+                out.push("Enemies block the way is on, but it is off with shuffled entrances, so nothing is blocked.".to_string());
             } else {
-                out.push(format!("A purple barrier, the one that locks the Wolfos fight in the Sacred Forest Meadow, stands in the way at {} while the enemies guarding it are alive and goes away when they are beaten. At Zora's River the guards are Lizalfos that this setting adds. Nothing is saved: when the area loads again and the guards are back, so is the barrier. Experimental, untested by hand.", names.join(", ")));
+                out.push(format!("A barrier blocks the way at {} while its guards are alive, and drops when they are beaten. At Zora's River the guards are Lizalfos added for this. The barrier and guards come back whenever the area reloads.", names.join(", ")));
             }
         }
         out
@@ -597,7 +594,7 @@ mod tests {
         assert!(o.notes().iter().any(|n| n.contains("About 50 in 100")));
         assert!(Opts { extra: 100, ..Opts::default() }.any() && !Opts { extra: 100, ..Opts::default() }.packs());
         assert!(s.set(MORE, Value::Int(1050)).is_err() || s.clone().finish().is_err());
-        assert!(o.notes().iter().any(|n| n.contains("Queen Gohma (Stalfos)") && n.contains("untested in the game")));
+        assert!(o.notes().iter().any(|n| n.contains("Queen Gohma (Stalfos)") && n.contains("Phantom Ganon (weak Stalfos)") && n.contains("Experimental")));
         assert!(o.notes().iter().any(|n| n == minions::NOTE));
         let fun: Opts = Opts { bean_pitch: true, ..Opts::default() };
         assert!(fun.any() && !fun.packs() && fun.notes().len() == 1);
