@@ -653,8 +653,8 @@ pub fn build() -> Schema {
             .opt("jump", "Faster running and longer jumps", "Link also leaves the ground 1.5 times as fast when jumping, so jumps go further."),
     );
     s.push(
-        Setting::toggle(81, crate::open_world::EPONA, "world", "Skip Epona's race", false)
-            .tip("Learning Epona's Song is enough to own Epona, with no ranch visit and no race against Ingo. The first time adult Link plays the song where a horse can be ridden, Epona is registered as his horse and comes, and the Epona quest is marked complete. Experimental, untested in the game."),
+        Setting::toggle(81, crate::open_world::EPONA, "world", "Skip Epona's race", true)
+            .tip("Learning Epona's Song is enough to own Epona, with no ranch visit and no race against Ingo. The first time adult Link plays the song where a horse can be ridden, Epona is registered as his horse and comes, and the Epona quest is marked complete. The logic counts Epona's Song as Epona when this is on, and needs Ingo's race at the ranch when it is off. Experimental, untested in the game."),
     );
     s.push(
         Setting::toggle(82, crate::open_world::MASKS, "world", "Skip the mask trading quest", false)
