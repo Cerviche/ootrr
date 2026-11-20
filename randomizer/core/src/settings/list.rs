@@ -232,7 +232,7 @@ fn difficulty() -> Vec<Setting> {
         Setting::toggle(d::MINIONS_NUM, d::MINIONS, "difficulty", "Bosses spawn minions", false)
             .tip("Bosses bring a few Keese or Biri, and King Dodongo calls more Baby Dodongos. Ganondorf and Ganon are unchanged. Experimental, not yet played through a boss fight."),
         Setting::toggle(d::GATES_NUM, d::GATES, "difficulty", "Enemies block the way", false)
-            .tip("At ten narrow spots a barrier blocks the way until you beat its guards. It comes back when the area reloads. The logic does not count weapons for it. Off with shuffled entrances."),
+            .tip("At ten narrow spots a barrier blocks the way until you beat its guards. It comes back when the area reloads. As a child they only appear once you have the Kokiri Sword. Off with shuffled entrances."),
         Setting::toggle(d::CUCCO_NUM, d::CUCCO, "difficulty", "Cuccos take revenge at once", false)
             .tip("Hit a Cucco once and the whole flock attacks, instead of after a few hits. Anju's Cuccos and the ones you have to find keep their usual temper."),
         Setting::toggle(d::SPAWN_COMBO_NUM, d::SPAWN_COMBO, "difficulty", "Spawn enemies (sticks + D-pad)", false)

@@ -399,7 +399,7 @@ pub fn names(g: &Gate, kinds: &[String], modes: &[Mode], hand_kinds: &[String]) 
     }
     let tag: u32 = murmur3_32(format!("{SEED} gate {} module", g.id).as_bytes(), 0) & 0xffff;
     let name: String = format!("{PREFIX}{:02}_{tag:04x}", g.id);
-    Plan { module: format!("Logic/Module/{PREFIX}{:02}/{name}.logic.module.ain", g.id), graph: format!("Logic/{name}.logic.module.ainb"), guards, modes: modes.to_vec(), hands, area, counters, sword: false }
+    Plan { module: format!("Logic/Module/{PREFIX}{:02}/{name}.logic.module.ain", g.id), graph: format!("Logic/{name}.logic.module.ainb"), guards, modes: modes.to_vec(), hands, area, counters, sword: g.map.ends_with("_Child") }
 }
 
 fn pair(a: u64, b: u64) -> Node {
@@ -1062,7 +1062,7 @@ mod tests {
             assert!(audit(&a).is_empty());
             let and_create = |i: usize| -> bool {
                 let c: crate::ainb::Input = a.input(BOOL, a.find_in(i, BOOL, CREATE).unwrap()).unwrap();
-                c.src >= 0 && c.plug == 1 && a.el_name(c.src as usize) == AND_NODE
+                c.src >= 0 && c.plug == 1 && (a.el_name(c.src as usize) == AND_NODE || a.el_name(c.src as usize) == SWORD_AND)
             };
             let counters: Vec<usize> = (0..a.els.len()).filter(|&i| a.prop_str(i, NAME).is_some_and(|n| n.starts_with(BARRIER))).collect();
             assert!(!counters.is_empty());
@@ -1074,12 +1074,16 @@ mod tests {
             }
             let id: u8 = o.path["Logic/Gimmick_EnemyGate_".len()..][..2].parse().unwrap();
             let gate: &Gate = GATES.iter().find(|g| g.id == id).unwrap();
+            let swords: usize = (0..a.els.len()).filter(|&i| a.el_name(i) == SWORD_AND).count();
+            assert_eq!(swords > 0, gate.map.ends_with("_Child"), "gate {id}: a child gate waits for the Kokiri Sword, an adult one does not");
             let foes: Vec<usize> = (0..a.els.len()).filter(|&i| a.el_name(i) == NODE && a.prop_str(i, NAME).is_some_and(|n| n.starts_with("Enemy_"))).collect();
             assert!(!foes.is_empty());
             for i in foes {
                 let c: crate::ainb::Input = a.input(BOOL, a.find_in(i, BOOL, CREATE).unwrap()).unwrap();
                 if makes(gate) {
                     assert!(and_create(i), "gate {id}: a new guard is created by the trigger that raises the barrier");
+                } else if gate.map.ends_with("_Child") {
+                    assert!(c.src >= 0 && !and_create(i), "gate {id}: an existing guard is created by the sword flag alone");
                 } else {
                     assert!(c.src < 0, "gate {id}: an existing guard is not created by the trigger");
                 }
