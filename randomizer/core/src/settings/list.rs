@@ -409,6 +409,7 @@ pub fn build() -> Schema {
     s.extend(ganon_key());
     s.extend(bridge());
     s.extend(crate::medal_gate::settings());
+    s.extend(crate::door_gate::settings());
     s.push(
         Setting::toggle(30, "trials_random", "goal", "Random Ganon's Trials", false)
             .tip("Pick the number of trials to clear at random."),

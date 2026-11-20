@@ -42,6 +42,8 @@ pub const STAGES: [(&str, Stage); 23] = [
     ("no tutorials", no_tutorials),
     ("open door of time", door_open),
     ("master sword pedestal", pedestal),
+    ("bombchu alley", bombchu),
+    ("water temple gate", water_gate),
     ("medallion gate", medal_gate),
     ("fire temple gorons", fire_gorons),
     ("start reward and flags", start_reward),
@@ -118,8 +120,9 @@ fn quiet_pickups(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     Ok(())
 }
 
-fn door_fix(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    more.extend(crate::door_fix::stage(rf)?);
+fn door_fix(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    more.push(crate::door_gate::stage_flow(rf, &c.p.door)?);
+    more.push(crate::door_gate::stage_river(rf)?);
     Ok(())
 }
 
@@ -131,8 +134,22 @@ fn no_tutorials(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if c.p.gates.door {
         more.extend(crate::door_open::stage_door(rf)?);
+    } else {
+        more.extend(crate::door_gate::stage_door(rf, &c.p.door)?);
     }
+    if c.p.door.moat {
+        crate::door_gate::stage_moat(rf, more, Some(c.work))?;
+    }
+    crate::door_gate::stage_escape(rf, more, Some(c.work), &c.p.door)?;
     Ok(())
+}
+
+fn bombchu(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    crate::bombchu_open::stage(rf, more, c.work)
+}
+
+fn water_gate(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    crate::water_gate::stage(rf, more, c.work)
 }
 
 fn pedestal(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
@@ -196,6 +213,8 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if let Some(n) = c.p.rainbow {
         edits.push(crate::rainbow_bridge::exp(n));
     }
+    edits.extend(c.p.door.exps());
+    edits.push(crate::always::exp());
     crate::start_defaults::stage(rf, more, &edits)
 }
 

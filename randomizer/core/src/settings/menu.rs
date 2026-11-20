@@ -186,11 +186,16 @@ const GV_BRIDGE: View = View {
 };
 
 const DOOR_OF_TIME: View = View {
-    id: "open_door_of_time",
+    id: "door_of_time_condition",
     label: "Door of Time",
-    tip: "Closed - The Ocarina of Time, the Song of Time and all three Spiritual Stones are required to open the Door of Time.\n\nSong only - Play the Song of Time in front of the Door of Time to open it.\n\nOpen - The Door of Time is permanently open with no requirements.",
+    tip: "What it takes to open the Door of Time. With a Closed choice, walk up to the altar in the Temple of Time and play the Song of Time once the requirement is met.\n\nClosed - Vanilla - Clear Dodongo's Cavern and Jabu-Jabu's Belly (the remake's own rule).\n\nClosed - Classic - Hold all three Spiritual Stones.\n\nClosed - Song Only - No other requirement: just the Song of Time and an Ocarina. Zelda's Escape then sets what the Ocarina of Time in the castle moat waits for.\n\nOpen - The Door of Time is already open. Zelda's Escape then sets what the Ocarina of Time in the castle moat waits for.",
     kind: Kind::Pick,
-    opts: &[yes("Closed", "false"), missing("Song only"), yes("Open", "true")],
+    opts: &[
+        yes("Closed - Vanilla", "vanilla"),
+        yes("Closed - Classic", "stones"),
+        yes("Closed - Song Only", "song"),
+        yes("Open", "open"),
+    ],
 };
 
 const ZORAS_FOUNTAIN: View = View {
@@ -419,6 +424,9 @@ const AREA_ACCESS: PortSection = port(
                     Entry::View(&FOREST),
                     Entry::Plain("open_kakariko"),
                     Entry::View(&DOOR_OF_TIME),
+                    Entry::Plain("door_of_time_escape"),
+                    Entry::Plain("door_of_time_song"),
+                    Entry::Hidden("open_door_of_time"),
                     Entry::View(&ZORAS_FOUNTAIN),
                     gray_pick(
                         "Sleeping Waterfall",

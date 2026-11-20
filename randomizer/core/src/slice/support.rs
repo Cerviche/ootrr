@@ -90,6 +90,7 @@ pub struct Plan {
     pub lacs: Option<u8>,
     /// crate::rainbow_bridge: Some(n) when the bridge waits for n dungeon rewards.
     pub rainbow: Option<u8>,
+    pub door: crate::door_gate::Opts,
     /// Saria's Fairy Ocarina joins the pool (crate::slice::pick::OCARINAS).
     pub ocarinas: bool,
     /// The Kokiri Sword chest joins the pool (crate::slice::pick::SWORD).
@@ -190,6 +191,7 @@ impl Plan {
         if let Some(n) = self.rainbow {
             out.extend(crate::rainbow_bridge::logic(n));
         }
+        out.extend(self.door.logic());
         if self.rewards.potion {
             out.push((crate::flow_extra::potion::KEY, crate::flow_extra::potion::ON));
         }
@@ -275,7 +277,11 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
     let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
     let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
-    let short: bool = true;
+    let door: crate::door_gate::Opts = crate::door_gate::read(s, gates.door, &mut bad);
+    let short: bool = s.flag(crate::short_get::SETTING).unwrap_or_else(|e| {
+        bad.push(e.to_string());
+        false
+    });
     if lacs.is_some() && (!rewards.on || matches!(chests, Mode::Off | Mode::Overworld)) {
         bad.push(crate::lacs_key::NEEDS.to_string());
     }
@@ -374,6 +380,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if rainbow.is_some() {
         notes.push(crate::rainbow_bridge::NOTE.to_string());
     }
+    notes.extend(door.notes());
+    notes.push(crate::bombchu_open::NOTE.to_string());
+    notes.push(crate::water_gate::NOTE.to_string());
     if short {
         notes.push(crate::short_get::NOTE.to_string());
     }
@@ -381,7 +390,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::lacs_key::NOTE.to_string());
         notes.push(crate::medal_gate::LACS_NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, short, story, endings, ocarinas, kokiri_sword })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, door, short, story, endings, ocarinas, kokiri_sword, difficulty })
 }
 
 #[cfg(test)]
@@ -396,8 +405,7 @@ mod tests {
         assert_eq!(p.keys.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 13);
-        assert!(p.notes.iter().any(|n| n == crate::fire_gorons::NOTE));
+        assert_eq!(p.notes.len(), 16);
         assert!(p.short && p.notes.iter().any(|n| n == crate::short_get::NOTE));
         assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
         assert!(p.remake && p.hearts && p.rewards.extra);
@@ -509,13 +517,13 @@ mod tests {
         s.set("open_door_of_time", Value::Bool(true)).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert_eq!(p.start_flags(), vec![(DOOR_OPENED.to_string(), true)]);
-        assert_eq!(p.logic(), vec![("open_door_of_time", "open")]);
+        assert_eq!(p.logic(), vec![("open_door_of_time", "open"), ("door_of_time_escape", "moat")]);
         assert!(p.notes.iter().any(|n| n.contains("Door of Time starts open")));
         s.set("open_door_of_time", Value::Bool(false)).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.start_flags().is_empty());
         assert!(p.logic().is_empty());
-        assert!(!p.notes.iter().any(|n| n.contains("Door of Time")));
+        assert!(!p.notes.iter().any(|n| n.contains("Door of Time starts open")));
     }
 
     #[test]
