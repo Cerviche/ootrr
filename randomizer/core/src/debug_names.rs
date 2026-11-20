@@ -19,10 +19,11 @@ use crate::story_skip::{stage_late, stage_late_file};
 
 pub const NUM: u16 = 136;
 pub const SETTING: &str = "debug_location_names";
-pub const NOTE: &str = "Debug: every chest shows its location name in a text box after its item get.";
+pub const NOTE: &str = "Debug: chests and NPC, song and event rewards show their location name in a text box after the item get.";
 const PREFIX: &str = "OOTRR_Dbg_";
 const ENTRY_PREFIX: &str = "Dbg_";
 const LINE_PREFIX: &str = "OOTRR_DbgLoc_";
+const FLOW_PREFIX: &str = "OOTRR_DbgFlow_";
 const CHEST: &str = "Obj_TBox";
 const EVENT: &str = "GetEventName";
 const DROP: &str = "Drop__DropActor";
@@ -51,6 +52,18 @@ pub fn line_label(loc: usize) -> String {
 
 pub fn line_id(loc: usize) -> String {
     format!("{FILE_ID}:{}", line_label(loc))
+}
+
+pub fn flow_label(loc: usize) -> String {
+    format!("{FLOW_PREFIX}{loc}")
+}
+
+pub fn flow_id(loc: usize) -> String {
+    format!("{FILE_ID}:{}", flow_label(loc))
+}
+
+pub fn scene_line(d: &Data, loc: &str) -> Option<String> {
+    d.flow.locs.iter().position(|l| l.name == loc).map(flow_id)
 }
 
 fn current(rf: &mut Romfs, more: &[Out], work: &P, path: &str) -> Res<Vec<u8>> {
@@ -162,13 +175,13 @@ pub fn wrap_flow(b: &mut Bf, stem: &str, ws: &[(&Wrap, &Row)]) -> Res<()> {
     Ok(())
 }
 
-pub fn put_lines(raw: &[u8], lines: &BM<usize, String>) -> Res<Vec<u8>> {
+pub fn put_lines(raw: &[u8], lines: &BM<String, String>) -> Res<Vec<u8>> {
     let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
     let e: &sarc::Entry = sarc::get(&es, FILE).ok_or_else(|| E::Msg(format!("the language archive has no {FILE}")))?;
     let mut m: Msbt = msbt::parse(&e.data)?;
-    for (i, name) in lines {
+    for (label, name) in lines {
         let t = msbt::from_markup(&format!("[{name}]"))?;
-        m.put_tokens(&line_label(*i), &t)?;
+        m.put_tokens(label, &t)?;
     }
     sarc::set(&mut es, FILE, m.write()?);
     sarc::write(&es)
@@ -248,9 +261,114 @@ pub fn stage(rf: &mut Romfs, d: &Data, work: &P, more: &mut Vec<Out>) -> Res<usi
             y.write()
         })?;
     }
-    let lines: BM<usize, String> = wraps.iter().map(|w| (w.loc, d.cat.locs[w.loc].name.clone())).collect();
+    let lines: BM<String, String> = wraps.iter().map(|w| (line_label(w.loc), d.cat.locs[w.loc].name.clone())).collect();
     for l in crate::hints::languages(rf)? {
         stage_late_file(rf, more, work, &l, |raw: &[u8]| put_lines(raw, &lines))?;
     }
     Ok(found.values().map(|v| v.len()).sum())
+}
+
+fn say_after(f: &mut Flow, at: usize, id: String) -> Res<bool> {
+    let then: u16 = match &f.events[at].kind {
+        Kind::Action { next, .. } | Kind::Sub { next, .. } => *next,
+        _ => return Ok(false),
+    };
+    let (t, say): (u16, u16) = action_slot(f, TALKER, TALK)?;
+    let n: u16 = push(f, Kind::Action { next: then, actor: t, act: say, params: Some(talk(id)) })?;
+    match &mut f.events[at].kind {
+        Kind::Action { next, .. } | Kind::Sub { next, .. } => *next = n,
+        _ => {}
+    }
+    Ok(true)
+}
+
+fn say_before(f: &mut Flow, at: usize, id: String) -> Res<()> {
+    let (t, say): (u16, u16) = action_slot(f, TALKER, TALK)?;
+    let w: u16 = idx(at)?;
+    let n: u16 = push(f, Kind::Action { next: w, actor: t, act: say, params: Some(talk(id)) })?;
+    for (i, ev) in f.events.iter_mut().enumerate() {
+        if i == usize::from(n) {
+            continue;
+        }
+        match &mut ev.kind {
+            Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } if *next == w => *next = n,
+            Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => {
+                for c in cases.iter_mut().filter(|c| c.ev == w) {
+                    c.ev = n;
+                }
+            }
+            Kind::Fork { forks, join } => {
+                for x in forks.iter_mut().filter(|x| **x == w) {
+                    *x = n;
+                }
+                if *join == w {
+                    *join = n;
+                }
+            }
+            _ => {}
+        }
+    }
+    for e in f.entries.iter_mut() {
+        if e.main == w {
+            e.main = n;
+        }
+    }
+    Ok(())
+}
+
+pub fn hook(b: &mut Bf, event: &str, id: &str) -> Res<bool> {
+    for f in b.flows.iter_mut() {
+        let Some(at) = f.events.iter().position(|e| e.name == event) else { continue };
+        if !say_after(f, at, id.to_string())? {
+            say_before(f, at, id.to_string())?;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+pub fn stage_flows(rf: &mut Romfs, d: &Data, work: &P, late: &mut Vec<Out>, scenes: &BS<&str>) -> Res<Vec<String>> {
+    let mut missed: Vec<String> = Vec::new();
+    let mut by_file: BM<String, Vec<(String, String)>> = BM::new();
+    for (i, l) in d.flow.locs.iter().enumerate() {
+        if scenes.contains(l.name.as_str()) {
+            continue;
+        }
+        let grants: Vec<&crate::flow_locations::Edit> = l.edits.iter().filter(|e| e.role == "grant").collect();
+        if grants.is_empty() {
+            missed.push(l.name.clone());
+            continue;
+        }
+        for e in grants {
+            for f in std::iter::once(&e.file).chain(e.also.iter()) {
+                let stem: String = f.trim_end_matches(".bfevfl").to_string();
+                by_file.entry(stem).or_default().push((e.event.clone(), flow_id(i)));
+            }
+        }
+    }
+    for (stem, hs) in &by_file {
+        let path: String = format!("Event/EventFlow/{stem}.bfevfl.zs");
+        let staged: bool = late.iter().any(|o| o.path == path) || path.split('/').fold(work.to_path_buf(), |a, s| a.join(s)).is_file();
+        if !staged && rf.read(&path).is_err() {
+            missed.extend(hs.iter().map(|(ev, _)| format!("{stem}:{ev}")));
+            continue;
+        }
+        let mut found: Vec<bool> = Vec::new();
+        stage_late(rf, late, work, stem, |b| {
+            for (ev, id) in hs {
+                found.push(hook(b, ev, id)?);
+            }
+            Ok(())
+        })?;
+        for ((ev, _), ok) in hs.iter().zip(found) {
+            if !ok {
+                missed.push(format!("{stem}:{ev}"));
+            }
+        }
+    }
+    let lines: BM<String, String> = d.flow.locs.iter().enumerate().map(|(i, l)| (flow_label(i), l.name.clone())).collect();
+    for l in crate::hints::languages(rf)? {
+        stage_late_file(rf, late, work, &l, |raw: &[u8]| put_lines(raw, &lines))?;
+    }
+    Ok(missed)
 }
