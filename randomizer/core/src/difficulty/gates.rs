@@ -6,6 +6,7 @@ use crate::difficulty::wake;
 use crate::difficulty::ambush::{actor, euler, floats, fresh, link, list, text, vec3};
 use crate::error::{Error as E, Res};
 use crate::flow_locations::dict_id;
+use crate::gerudo_card::{bool_node, multi_node};
 use crate::murmur::murmur3_32;
 use crate::placement::hash_of;
 use crate::qol::Have;
@@ -36,6 +37,8 @@ pub const AREA: &str = "Area";
 pub const AREA_NODE: &str = "ActorLogicAreaActor";
 pub const HIT_NODE: &str = "HoldActorObserverBySensorHitInfo";
 pub const AND_NODE: &str = "OperateANDFixInputTrue";
+pub const SWORD_AND: &str = crate::gerudo_card::AND;
+pub const SWORD: &str = "IsGet.Weapon_Sword_Kokiri";
 pub const POINTER: &str = "const void";
 pub const IGNORE: [&str; 9] = [
     "Enemy_Scrub_Mad_Leaf",
@@ -357,6 +360,7 @@ pub struct Plan {
     pub hands: Vec<String>,
     pub area: String,
     pub counters: Vec<(usize, String)>,
+    pub sword: bool,
 }
 
 pub fn id_for(gyaml: &str, seed: &str, taken: &[String]) -> String {
@@ -395,7 +399,7 @@ pub fn names(g: &Gate, kinds: &[String], modes: &[Mode], hand_kinds: &[String]) 
     }
     let tag: u32 = murmur3_32(format!("{SEED} gate {} module", g.id).as_bytes(), 0) & 0xffff;
     let name: String = format!("{PREFIX}{:02}_{tag:04x}", g.id);
-    Plan { module: format!("Logic/Module/{PREFIX}{:02}/{name}.logic.module.ain", g.id), graph: format!("Logic/{name}.logic.module.ainb"), guards, modes: modes.to_vec(), hands, area, counters }
+    Plan { module: format!("Logic/Module/{PREFIX}{:02}/{name}.logic.module.ain", g.id), graph: format!("Logic/{name}.logic.module.ainb"), guards, modes: modes.to_vec(), hands, area, counters, sword: false }
 }
 
 fn pair(a: u64, b: u64) -> Node {
@@ -487,7 +491,7 @@ fn named(a: &Ainb, id: &str) -> Vec<usize> {
     (0..a.els.len()).filter(|&i| a.prop_str(i, NAME) == Some(id)).collect()
 }
 
-fn actor_node(a: &mut Ainb, id: &str, mode: Mode, inside_at: usize, dead: bool) -> Res<usize> {
+fn actor_node(a: &mut Ainb, id: &str, mode: Mode, inside_at: usize, armed: Option<usize>, dead: bool) -> Res<usize> {
     let n: Vec<u8> = a.pool.add(id).to_le_bytes().to_vec();
     let one: Vec<u8> = 1u32.to_le_bytes().to_vec();
     let zero: Vec<u8> = 0u32.to_le_bytes().to_vec();
@@ -495,7 +499,10 @@ fn actor_node(a: &mut Ainb, id: &str, mode: Mode, inside_at: usize, dead: bool) 
     let mut s: Spec = Spec::node(NODE, &seed).prop(STR, NAME, n);
     s = match mode {
         Mode::Trigger => s.linked(BOOL, CREATE, inside_at, 1),
-        Mode::Always => s.idle(BOOL, CREATE, one),
+        Mode::Always => match armed {
+            Some(at) => s.linked(BOOL, CREATE, at, 0),
+            None => s.idle(BOOL, CREATE, one),
+        },
         Mode::Never => s.idle(BOOL, CREATE, zero.clone()),
     };
     s = s.idle(BOOL, DELETE, zero.clone()).idle(BOOL, RESPAWN, zero);
@@ -543,19 +550,25 @@ pub fn wire(a: &mut Ainb, p: &Plan) -> Res<usize> {
         .spare_ptr("ContactActorLinkPtr", POINTER);
     hit.role = QUERY;
     let hit_at: usize = a.add_node(&hit)?;
-    let mut inside: Spec = Spec::node(AND_NODE, &seed_i)
-        .linked(BOOL, "BoolMulti", hit_at, 0)
-        .idle(BOOL, "UpdateOnce", zero.clone())
-        .spare(BOOL, "False")
-        .out(BOOL, "True");
-    inside.role = QUERY;
-    let inside_at: usize = a.add_node(&inside)?;
+    let armed: Option<usize> = if p.sword { Some(bool_node(a, SWORD, &format!("{SEED} {} sword", p.area))?) } else { None };
+    let inside_at: usize = match armed {
+        Some(sword_at) => multi_node(a, SWORD_AND, &seed_i, &[(hit_at, 0), (sword_at, 0)])?,
+        None => {
+            let mut inside: Spec = Spec::node(AND_NODE, &seed_i)
+                .linked(BOOL, "BoolMulti", hit_at, 0)
+                .idle(BOOL, "UpdateOnce", zero.clone())
+                .spare(BOOL, "False")
+                .out(BOOL, "True");
+            inside.role = QUERY;
+            a.add_node(&inside)?
+        }
+    };
     let mut at: Vec<usize> = Vec::new();
     for (j, id) in p.guards.iter().enumerate() {
-        at.push(actor_node(a, id, p.modes[j], inside_at, true)?);
+        at.push(actor_node(a, id, p.modes[j], inside_at, armed, true)?);
     }
     for id in &p.hands {
-        actor_node(a, id, Mode::Trigger, inside_at, false)?;
+        actor_node(a, id, Mode::Trigger, inside_at, armed, false)?;
     }
     for (j, id) in &p.counters {
         let n: Vec<u8> = a.pool.add(id).to_le_bytes().to_vec();

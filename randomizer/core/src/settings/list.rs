@@ -5,8 +5,10 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// Setting numbers and ids that are gone. An old settings string or file that carries one
 /// still imports, with a warning that its value is ignored, and no setting may reuse them.
 /// 55 and 92 (remake only chests and pots) now follow Chests, Pots and Crates.
-pub const RETIRED: [(u16, &str); 9] = [
+pub const RETIRED: [(u16, &str); 11] = [
     (crate::difficulty::ENCOUNTERS_NUM, crate::difficulty::ENCOUNTERS),
+    (crate::difficulty::ZORA_AMBUSH_NUM, crate::difficulty::ZORA_AMBUSH),
+    (crate::difficulty::BEAN_PITCH_NUM, crate::difficulty::BEAN_PITCH),
     (55, "shuffle_remake_chests"),
     (63, "shop_deal_gear"),
     (92, "shuffle_remake_pots"),
@@ -222,17 +224,13 @@ fn difficulty() -> Vec<Setting> {
             .tip("Two bottles can't hold the same thing, so no second fairy, potion or Poe. Different things in different bottles are fine."),
         Setting::number(d::MORE_NUM, d::MORE, "difficulty", "More enemies", d::NORMAL, d::MORE_RANGE.0, d::MORE_RANGE.1)
             .multiplier(d::MORE_STEP, d::NORMAL)
-            .tip("How many enemies each area has, up to 10x. From 5x, new kinds join in. Above 1x you also get a few special encounters and rare enemies from grass and pots (untested). Towns and boss rooms get none."),
+            .tip("How many enemies each area has, up to 10x. From 5x, new kinds join in. Above 1x you also get special encounters, such as a Skulltula ambush in Zora's Domain once you have a sword, and rare enemies from grass and pots (untested). Towns and boss rooms get none."),
         Setting::toggle(d::RESPAWN_NUM, d::RESPAWN, "difficulty", "Enemies respawn sooner", false)
             .tip("Beaten enemies come back when you leave the room or area and return, not only after leaving the dungeon or region. Bosses and minibosses stay beaten. Experimental, untested in the game."),
         Setting::toggle(d::MINIBOSSES_NUM, d::MINIBOSSES, "difficulty", "Bosses spawn minibosses", false)
             .tip("A Stalfos or a Dinolfos fights alongside Gohma, Barinade, Phantom Ganon and Twinrova, and leaves when the boss is beaten. Experimental, not yet played through a boss fight."),
         Setting::toggle(d::MINIONS_NUM, d::MINIONS, "difficulty", "Bosses spawn minions", false)
             .tip("Bosses bring a few Keese or Biri, and King Dodongo calls more Baby Dodongos. Ganondorf and Ganon are unchanged. Experimental, not yet played through a boss fight."),
-        Setting::toggle(d::BEAN_PITCH_NUM, d::BEAN_PITCH, "difficulty", "Bean Seller's sales pitch", false)
-            .tip("Just for fun. One talk in five, the Bean Seller by Zora's River says \"Chomp Chomp... would you like some Difficulty Mods?\" before he carries on with his usual talk and his beans. Nothing else changes, and the line is in English in every language. Experimental, untested in the game."),
-        Setting::toggle(d::ZORA_AMBUSH_NUM, d::ZORA_AMBUSH, "difficulty", "Zora's Domain ambush", false)
-            .tip("The hole in Zora's Domain that holds nothing but a few rupees gets company. A wall Skulltula sits on the far wall of each of its three side caves, and once you walk into a side cave a Skulltula appears at its mouth behind you, so it is waiting on your way out. They come back when the area is loaded again. Experimental, untested in the game."),
         Setting::toggle(d::GATES_NUM, d::GATES, "difficulty", "Enemies block the way", false)
             .tip("At ten narrow spots a barrier blocks the way until you beat its guards. It comes back when the area reloads. The logic does not count weapons for it. Off with shuffled entrances."),
         Setting::toggle(d::CUCCO_NUM, d::CUCCO, "difficulty", "Cuccos take revenge at once", false)
