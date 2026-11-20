@@ -3,14 +3,14 @@ use std::fs;
 use std::path::Path as P;
 
 use crate::bfevfl::flow::NONE;
-use crate::bfevfl::{Bf, Entry, Flow, Kind};
+use crate::bfevfl::{Bf, Cont, Entry, Flow, Kind, Val};
 use crate::byml::{Byml, Node};
 use crate::dungeon_credit::{action_slot, idx, push, talk, TALK, TALKER};
 use crate::dungeon_text::{FILE, FILE_ID};
 use crate::error::{Error as E, Res};
 use crate::msbt::{self, Msbt};
 use crate::placement::hash_of;
-use crate::progressive::{add_rows, Size, ANALYZED_TABLE, SETTING_TABLE};
+use crate::progressive::{add_children, add_rows, Size, ANALYZED_TABLE, SETTING_TABLE};
 use crate::romfs::Romfs;
 use crate::sarc;
 use crate::slice::data::Data;
@@ -29,6 +29,7 @@ const DROP: &str = "Drop__DropActor";
 const CHART: &str = "FlowchartFileName";
 const ENTRY: &str = "EntryPointName";
 const ROW_ID: &str = "__RowId";
+const KIDS: &str = "ChildEventList";
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Wrap {
@@ -89,8 +90,52 @@ pub fn row_of(y: &Byml, id: &str) -> Option<Row> {
     Some(Row { stem: stem.to_string(), entry: text(r, ENTRY).to_string() })
 }
 
+pub fn parents(y: &Byml, ws: &[Wrap]) -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = Vec::new();
+    let Some(rows) = y.root.as_arr() else { return out };
+    for r in rows {
+        let Some(kids) = r.get(KIDS).and_then(|k| k.as_arr()) else { continue };
+        for w in ws {
+            if kids.iter().any(|k| k.as_str() == Some(w.old.as_str())) {
+                out.push((text(r, ROW_ID).to_string(), w.id.clone()));
+            }
+        }
+    }
+    out
+}
+
 fn has_row(y: &Byml, id: &str) -> bool {
     y.root.as_arr().is_some_and(|a| a.iter().any(|r| text(r, ROW_ID) == id))
+}
+
+fn next_of(k: &Kind) -> Vec<u16> {
+    match k {
+        Kind::Action { next, .. } | Kind::Join { next } | Kind::Sub { next, .. } => vec![*next],
+        Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => cases.iter().map(|c| c.ev).collect(),
+        Kind::Fork { join, forks } => forks.iter().copied().chain([*join]).collect(),
+        Kind::Label { .. } => Vec::new(),
+    }
+}
+
+pub fn args_from(f: &Flow, main: u16) -> BS<String> {
+    let mut out: BS<String> = BS::new();
+    let mut seen: BS<u16> = BS::new();
+    let mut todo: Vec<u16> = vec![main];
+    while let Some(i) = todo.pop() {
+        if i == NONE || !seen.insert(i) {
+            continue;
+        }
+        let Some(e) = f.events.get(usize::from(i)) else { continue };
+        if let Some(c) = e.kind.params() {
+            for (_, v) in &c.items {
+                if let Val::Arg(a) = v {
+                    out.insert(a.clone());
+                }
+            }
+        }
+        todo.extend(next_of(&e.kind));
+    }
+    out
 }
 
 pub fn wrap_flow(b: &mut Bf, stem: &str, ws: &[(&Wrap, &Row)]) -> Res<()> {
@@ -102,13 +147,15 @@ pub fn wrap_flow(b: &mut Bf, stem: &str, ws: &[(&Wrap, &Row)]) -> Res<()> {
         if f.entries.iter().any(|e| e.name == w.entry) {
             continue;
         }
-        let (vars, pad) = {
+        let (vars, pad, main) = {
             let e: &Entry = f.entries.iter().find(|e| e.name == r.entry).ok_or_else(|| E::Msg(format!("debug names: {stem} has no entry {}", r.entry)))?;
-            (e.vars.clone(), e.pad)
+            (e.vars.clone(), e.pad, e.main)
         };
+        let args: BS<String> = args_from(f, main);
+        let params: Option<Cont> = if args.is_empty() { None } else { Some(Cont { items: args.iter().map(|a| (a.clone(), Val::Arg(a.clone()))).collect() }) };
         let (t, say): (u16, u16) = action_slot(f, TALKER, TALK)?;
         let at: u16 = idx(f.events.len())?;
-        push(f, Kind::Sub { next: at + 1, params: None, flow: String::new(), entry: r.entry.clone() })?;
+        push(f, Kind::Sub { next: at + 1, params, flow: String::new(), entry: r.entry.clone() })?;
         push(f, Kind::Action { next: NONE, actor: t, act: say, params: Some(talk(line_id(w.loc))) })?;
         f.entries.push(Entry { name: w.entry.clone(), subs: vec![at], vars, main: at, pad });
     }
@@ -177,6 +224,10 @@ pub fn stage(rf: &mut Romfs, d: &Data, work: &P, more: &mut Vec<Out>) -> Res<usi
                     continue;
                 }
                 add_rows(&mut y, &w.old, &[(w.id.clone(), if analyzed { None } else { Some(w.entry.clone()) })])?;
+            }
+            if analyzed {
+                let kids: Vec<(String, String)> = parents(&y, &wraps);
+                add_children(&mut y, &kids);
             }
             y.write()
         })?;
