@@ -698,7 +698,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(crate::debug_names::NUM, crate::debug_names::SETTING, "world", "Show location names", false)
-            .tip("For checking the location data. After an item get, a text box shows the internal name of the location the item came from, such as [KF Midos Top Left Chest]. Only chests so far. Experimental, untested in the game."),
+            .tip("For checking the location data. After an item get, a text box shows the internal name of the location the item came from, such as [KF Midos Top Left Chest]. Covers chests, NPC, song and event rewards, Gold Skulltulas and items on the ground. Items on the ground need a button press, and a placed item missing from the location list says so. Experimental."),
     );
     s.push(starting_items());
     s.push(starting_songs());
