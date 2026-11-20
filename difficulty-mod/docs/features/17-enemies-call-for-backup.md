@@ -139,3 +139,13 @@ User's choice from the three options in `enemy-table.md` (Who calls whom): optio
 - **Built.** `difficulty/fx.rs`. The two create requests now sit in a Parallel with one flash node (`OneShotXLinkSearchAndEmit`, key `デクの実有効`), so the caller flashes once at the moment it calls. The wake of a sleeping helper is unchanged. Nodes added per caller: 30 (was 28). No new setting: it comes with "Enemies call for backup".
 - **Tested.** The caller test now checks the flash beside the two requests; the combined test checks three flash nodes per caller with all three settings on. `cargo test -p ootrr-core difficulty` (191) and `settings` (106) pass; not run in the game.
 - **How to test in the game.** `<playtest folder>\fx\PLAN-r2.md` step 5: a Lizalfos flashes on its head in the second its helper appears, once only.
+
+## Effects, round 3 (20 Nov, branch `feature/fx-farore`, commit a0ddefc)
+- **Unchanged on purpose.** The backup call keeps the white Deku Nut flash (user, 20 Nov: only heals get Farore's Wind). With "Enemy regen" or "Fairies help enemies" on, the build now also edits the shared effect-link file (see `09-enemy-regen.md`, round 3); the backup cue does not use the new key, and with backup on its own the file is not touched.
+- **How to test in the game.** `<playtest folder>\fx-farore\PLAN.md` step 5: the Lizalfos caller still shows the white flash, not the green effect.
+
+## Release (rc 16, 20 Nov)
+In rc 16: harmless scrubs (business, stage, leaf scrubs and the Deku Scrub brothers) never call; the caller shows the white Deku Nut flash when it calls.
+
+- **By script** (checks-1120, 20 Nov): a business scrub targeting Link called nobody in 40 s. The fighting Deku Scrub (`Enemy_Scrub_Deku`) still calls a Skullwalltula, as designed (only scrubs that do not fight are left out).
+- **Not played:** the stage and leaf scrubs and the brothers specifically; the call flash was not looked at on its own.

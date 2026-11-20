@@ -73,3 +73,15 @@ Searched every AI graph in the game (loose files and those inside actor packs) f
 - **Built.** `difficulty/fx.rs`, the same check as regen (see `09-enemy-regen.md`): when the fairy flag is seen, a hurt enemy gets the heal to full plus one flash; an enemy already at full gets the plain heal and no flash. Nodes added per caller: 19 (was 14). No new setting: it comes with "Fairies help enemies".
 - **Tested.** As in 09: `cargo test -p ootrr-core difficulty` (191) and `settings` (106) pass; not run in the game.
 - **How to test in the game.** `<playtest folder>\fx\PLAN-r2.md` step 4: hit a Wolfos and an Octorok, release a fairy: each flashes once and is back to full; an unhurt Moblin does not flash. The circling-fairy effect stays out of reach (see above).
+
+## Effects, round 3: Farore's Wind (20 Nov, branch `feature/fx-farore`, commit a0ddefc, built, not run in the game)
+- **Request (20 Nov).** Show Farore's Wind's green effect on enemies when they heal.
+- **Built.** The fairy heal now emits the new key `OotrrHeal` instead of the Deku Nut key; the build adds that key to 114 enemy effect users in the shared effect-link file, playing `Ply_Magic_FaroreWind_Trigger_00` (resident, so on every map) for 90 frames on a body bone. Details, layout and risk in `09-enemy-regen.md` (round 3). Enemies that had no Deku Nut key (Keese, Leever, Like Like, ReDead, Gibdo, Iron Knuckle, Poes, Peahat, Freezard and others) now show it too. No new setting: it comes with "Fairies help enemies".
+- **Tested.** As in 09; not run in the game.
+- **How to test in the game.** `<playtest folder>\fx-farore\PLAN.md` step 4: hit a Wolfos and a Keese, release a fairy: each shows the green effect once and is back to full; an unhurt Moblin shows nothing.
+
+## Release (rc 16, 20 Nov)
+In rc 16: `fx.rs` and `elink.rs` with the full Farore's Wind sequence (commit 17134e6: ring at the feet, column at the chest, orb at the head, 240 frames, scaled by enemy size). No new setting.
+
+- **Played by hand** (session 6, 20 Nov): the game's ordinary effects still work after the shared effect-link edit; the full green heal shows on enemies, including the full heal from a released fairy.
+- **By script:** the effect-link round trip and per-user tests (`cargo test -p ootrr-core difficulty`).
