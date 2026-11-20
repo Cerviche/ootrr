@@ -749,6 +749,7 @@ pub const MENU: &[Page] = &[
             sec("Cutscenes", &["skip_intro", "skip_cutscenes", "skip_story_scenes", "faster_chests"]),
             sec("Side quests", &["skip_mask_quest", "anju_one_cucco"]),
             sec("Dungeons", &["deku_bridge_safe"]),
+            sec("Puzzles", &["faster_blocks"]),
         ],
     },
     Page {
