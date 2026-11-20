@@ -3,9 +3,9 @@ use std::fs;
 use std::path::Path as P;
 
 use crate::bfevfl::flow::NONE;
-use crate::bfevfl::{Bf, Cont, Entry, Flow, Kind, Val};
+use crate::bfevfl::{Bf, Case, Cont, Entry, Flow, Kind, Val};
 use crate::byml::{Byml, Node};
-use crate::dungeon_credit::{action_slot, idx, push, talk, TALK, TALKER};
+use crate::dungeon_credit::{action_slot, idx, push, set_bool, talk, HOLDER, SET, TALK, TALKER};
 use crate::dungeon_text::{FILE, FILE_ID};
 use crate::error::{Error as E, Res};
 use crate::msbt::{self, Msbt};
@@ -19,7 +19,7 @@ use crate::story_skip::{stage_late, stage_late_file};
 
 pub const NUM: u16 = 136;
 pub const SETTING: &str = "debug_location_names";
-pub const NOTE: &str = "Debug: chests and NPC, song and event rewards show their location name in a text box after the item get.";
+pub const NOTE: &str = "Debug: chests, NPC, song and event rewards and Gold Skulltulas show their location name in a text box after the item get.";
 const PREFIX: &str = "OOTRR_Dbg_";
 const ENTRY_PREFIX: &str = "Dbg_";
 const LINE_PREFIX: &str = "OOTRR_DbgLoc_";
@@ -31,6 +31,11 @@ const CHART: &str = "FlowchartFileName";
 const ENTRY: &str = "EntryPointName";
 const ROW_ID: &str = "__RowId";
 const KIDS: &str = "ChildEventList";
+const GET_FLOW: &str = "GetPouchContent";
+const WINDOW_PREFIX: &str = "OpenGetWindow";
+const SWEEP: &str = "OOTRRDbgSweep";
+const SKULL_KIND: &str = "gs";
+const ASK_BOOL: &str = "EventQueryIsGameDataBool";
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Wrap {
@@ -371,4 +376,137 @@ pub fn stage_flows(rf: &mut Romfs, d: &Data, work: &P, late: &mut Vec<Out>, scen
         stage_late_file(rf, late, work, &l, |raw: &[u8]| put_lines(raw, &lines))?;
     }
     Ok(missed)
+}
+
+pub fn skull_flag(h: u64) -> String {
+    format!("IsGoldSkullDead.IsGoldSkullDead_{h}")
+}
+
+pub fn shown_flag(h: u64) -> String {
+    format!("OOTRRDbgGs_{h}")
+}
+
+pub fn skulls(d: &Data) -> Vec<(u64, usize)> {
+    let mut out: Vec<(u64, usize)> = Vec::new();
+    for (i, l) in d.cat.locs.iter().enumerate().filter(|(_, l)| l.kind == SKULL_KIND) {
+        for r in &l.refs {
+            if !out.iter().any(|x| x.0 == r.hash) {
+                out.push((r.hash, i));
+            }
+        }
+    }
+    out
+}
+
+fn row_hash(r: &Node) -> Option<u32> {
+    match r.get("Hash") {
+        Some(Node::U32(h)) => Some(*h),
+        _ => None,
+    }
+}
+
+pub fn add_shown(raw: &[u8], gs: &[(u64, usize)]) -> Res<(Vec<u8>, Vec<u64>)> {
+    let mut y: Byml = Byml::parse(raw)?;
+    let list: &mut Vec<Node> = y.root.get_mut("Data").and_then(|d| d.get_mut("Bool")).and_then(|b| b.as_arr_mut()).ok_or(E::Format("debug names: the game data list has no Bool table"))?;
+    let have: BS<u32> = list.iter().filter_map(row_hash).collect();
+    let mut added: Vec<u64> = Vec::new();
+    for (h, _) in gs {
+        let k: u32 = crate::flags::hash_name(&skull_flag(*h));
+        let Some(base) = list.iter().find(|r| row_hash(r) == Some(k)).cloned() else { continue };
+        let n: u32 = crate::flags::hash_name(&shown_flag(*h));
+        if have.contains(&n) {
+            return Err(E::Msg(format!("debug names: the flag {} clashes with a game flag", shown_flag(*h))));
+        }
+        let mut r: Node = base;
+        r.set("Hash", Node::U32(n));
+        r.set("DefaultValue", Node::Bool(false));
+        list.push(r);
+        added.push(*h);
+    }
+    Ok((y.write()?, added))
+}
+
+fn ask(f: &mut Flow, name: &str, yes: u16, no: u16) -> Res<Kind> {
+    let (a, q): (u16, u16) = crate::start_state::query_slot(f, "GameDataActor", ASK_BOOL)?;
+    Ok(Kind::Switch {
+        actor: a,
+        query: q,
+        cases: vec![Case { val: 0, ev: yes }, Case { val: 1, ev: no }],
+        params: Some(Cont { items: vec![("GameDataName".to_string(), Val::Str(name.to_string())), ("Index".to_string(), Val::Int(-1))] }),
+    })
+}
+
+pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)]) -> Res<usize> {
+    let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == GET_FLOW).ok_or(E::Format("debug names: GetPouchContent has no flow"))?;
+    if f.entries.iter().any(|e| e.name == SWEEP) || gs.is_empty() {
+        return Ok(0);
+    }
+    let pad: u16 = f.entries.first().map(|e| e.pad).unwrap_or(0);
+    let base: usize = f.events.len();
+    let (ta, ts): (u16, u16) = action_slot(f, TALKER, TALK)?;
+    let (sa, ss): (u16, u16) = action_slot(f, HOLDER, SET)?;
+    for (k, (h, i)) in gs.iter().enumerate() {
+        let at: usize = base + 4 * k;
+        let after: u16 = if k + 1 == gs.len() { NONE } else { idx(at + 4)? };
+        let dead: Kind = ask(f, &skull_flag(*h), idx(at + 1)?, after)?;
+        let seen: Kind = ask(f, &shown_flag(*h), after, idx(at + 2)?)?;
+        push(f, dead)?;
+        push(f, seen)?;
+        push(f, Kind::Action { next: idx(at + 3)?, actor: ta, act: ts, params: Some(talk(line_id(*i))) })?;
+        push(f, Kind::Action { next: after, actor: sa, act: ss, params: Some(set_bool(shown_flag(*h))) })?;
+    }
+    f.entries.push(Entry { name: SWEEP.to_string(), subs: Vec::new(), vars: Vec::new(), main: idx(base)?, pad });
+    let starts: Vec<u16> = f.entries.iter().filter(|e| e.name.starts_with(WINDOW_PREFIX)).map(|e| e.main).collect();
+    let mut seen: BS<u16> = BS::new();
+    let mut todo: Vec<u16> = starts;
+    let mut ends: Vec<u16> = Vec::new();
+    while let Some(i) = todo.pop() {
+        if i == NONE || usize::from(i) >= base || !seen.insert(i) {
+            continue;
+        }
+        let k: &Kind = &f.events[usize::from(i)].kind;
+        let nx: Vec<u16> = next_of(k);
+        if matches!(k, Kind::Action { .. } | Kind::Sub { .. } | Kind::Join { .. } | Kind::Switch { .. } | Kind::SubSwitch { .. }) && nx.contains(&NONE) {
+            ends.push(i);
+        }
+        todo.extend(nx);
+    }
+    let mut n: usize = 0;
+    for i in ends {
+        let call: u16 = push(f, Kind::Sub { next: NONE, params: None, flow: String::new(), entry: SWEEP.to_string() })?;
+        let owners: Vec<usize> = f.entries.iter().enumerate().filter(|(_, e)| e.name.starts_with(WINDOW_PREFIX)).map(|(j, _)| j).collect();
+        for j in owners {
+            if !f.entries[j].subs.contains(&call) {
+                f.entries[j].subs.push(call);
+            }
+        }
+        match &mut f.events[usize::from(i)].kind {
+            Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } => *next = call,
+            Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => {
+                for c in cases.iter_mut().filter(|c| c.ev == NONE) {
+                    c.ev = call;
+                }
+            }
+            _ => {}
+        }
+        n += 1;
+    }
+    Ok(n)
+}
+
+pub fn stage_skulls(rf: &mut Romfs, d: &Data, work: &P, late: &mut Vec<Out>) -> Res<usize> {
+    let gs: Vec<(u64, usize)> = skulls(d);
+    let mut added: Vec<u64> = Vec::new();
+    stage_late_file(rf, late, work, crate::chest_slot::LIST, |raw: &[u8]| {
+        let (b, a) = add_shown(raw, &gs)?;
+        added = a;
+        Ok(b)
+    })?;
+    let live: Vec<(u64, usize)> = gs.into_iter().filter(|x| added.contains(&x.0)).collect();
+    stage_late(rf, late, work, GET_FLOW, |b| add_sweep(b, &live).map(|_| ()))?;
+    let lines: BM<String, String> = live.iter().map(|(_, i)| (line_label(*i), d.cat.locs[*i].name.clone())).collect();
+    for l in crate::hints::languages(rf)? {
+        stage_late_file(rf, late, work, &l, |raw: &[u8]| put_lines(raw, &lines))?;
+    }
+    Ok(live.len())
 }

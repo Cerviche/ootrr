@@ -468,6 +468,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             scenes.extend(crate::story_skip::REWARD_SCENES.iter().map(|r| r.0));
         }
         debug_missed = crate::debug_names::stage_flows(&mut rf, &d, &work, &mut late, &scenes)?;
+        crate::debug_names::stage_skulls(&mut rf, &d, &work, &mut late)?;
     }
     let mut paths: BS<&str> = BS::new();
     if let Some(o) = late.iter().find(|o| !paths.insert(o.path.as_str())) {
