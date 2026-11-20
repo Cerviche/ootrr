@@ -149,3 +149,8 @@ In rc 16: harmless scrubs (business, stage, leaf scrubs and the Deku Scrub broth
 
 - **By script** (checks-1120, 20 Nov): a business scrub targeting Link called nobody in 40 s. The fighting Deku Scrub (`Enemy_Scrub_Deku`) still calls a Skullwalltula, as designed (only scrubs that do not fight are left out).
 - **Not played:** the stage and leaf scrubs and the brothers specifically; the call flash was not looked at on its own.
+
+
+## Moved from STATUS.md (20 Nov): backup results
+
+  - Backup: Wolfos and Bari bring 1 helper, not 2; spear Moblin called nobody in 40 s; Stalchild, Skulltula, Wallmaster, Armos and Biri still call nobody in their home maps (45 s).

@@ -49,3 +49,11 @@ You: "the ambush is almost perfect. the ones on the walls are great, the positio
 ## rc 13 scripted check (19 Nov)
 - Zora's Domain loads with the mod. The three hanging `Enemy_Skulltula` are already in the actor list on arrival (13.3, 63.6, -22.7), (22.0, 63.6, -18.2), (15.6, 63.6, -13.2), next to the 3 wall ones, before Link goes near; the same six were listed with Link in the room at (19.0, 59.8, -18.3). The trigger is not confirmed (the list cannot tell created from waiting actors). Cave walk NOT TESTED. Details: `playtest
 c13\RESULTS.md`.
+
+
+## Moved from STATUS.md (20 Nov): feature table row
+
+- **Feature (old table row 18):** Zora's Domain ambush
+- **State:** Seen, fix built
+- **What was seen in the game:** Seen in game: wall Skulltulas great, droppers nearly right but triggered underneath. Fixed in polish-r5 (trigger box at the back, droppers 1.25 nearer the middle) rc13 (19 Nov): Zora's Domain loads. The three hanging Skulltulas are already listed at map load (before any trigger), so the trigger is not confirmed; cave walk NOT TESTED.
+- **Next step:** Retest: nothing drops until you reach the back of a side cave

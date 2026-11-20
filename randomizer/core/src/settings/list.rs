@@ -212,8 +212,8 @@ fn difficulty() -> Vec<Setting> {
             .tip("Enemies, pots and grass never drop recovery hearts. Hearts placed as items in the seed are still there."),
         Setting::toggle(d::NO_FAIRIES_NUM, d::NO_FAIRIES, "difficulty", "No gossip fairies", false)
             .tip("Playing a song at a gossip stone no longer brings out a healing fairy."),
-        Setting::toggle(d::NO_AMMO_NUM, d::NO_AMMO, "difficulty", "No ammo drops", false)
-            .tip("Enemies, pots and grass never drop arrows, seeds, bombs, nuts or sticks. Shops and chests still have them, and the logic does not plan for this. Tested on grass only."),
+        Setting::toggle(d::NO_AMMO_NUM, d::NO_AMMO, "difficulty", "Limited ammo", false)
+            .tip("Enemies, pots and grass never drop arrows, seeds, bombs, nuts or sticks, except where a boss fight stocks them: Gohma's larvae and eggs, the pots before the boss doors, the final battle rubble and Poe Meg. Shops and chests still have them, and the logic does not plan for this. Not played in the game yet."),
         Setting::toggle(d::LOSE_HEART_NUM, d::LOSE_HEART, "difficulty", "Lose heart on death", false)
             .tip("Each game over costs a heart container, down to three. Being saved by a bottled fairy does not count. Quitting to the title screen gives the hearts back."),
         Setting::toggle(d::NO_BOTTLES_NUM, d::NO_BOTTLES, "difficulty", "No bottles during combat", false)
@@ -238,9 +238,17 @@ fn difficulty() -> Vec<Setting> {
         Setting::toggle(d::BOWLING_NUM, d::BOWLING, "difficulty", "Unbreakable Bombchu Bowling grass", false)
             .tip("The grass in the Bombchu Bowling lanes can't be broken, so steer your Bombchus around it."),
         Setting::toggle(d::FIREBALLS_NUM, d::FIREBALLS, "difficulty", "Fireball storms", false)
-            .tip("Burning rocks rain down on a few quiet stretches of Hyrule Field and the Hyrule Castle garden, like on Death Mountain. Dodge them."),
+            .tip("Burning rocks rain down on quiet stretches of Hyrule Field, Desert Colossus, the Haunted Wasteland and the Castle garden, and on every visit to the Death Mountain Trail. Dodge them."),
         Setting::toggle(d::SPAWN_COMBO_NUM, d::SPAWN_COMBO, "difficulty", "Spawn enemies (sticks + D-pad)", false)
             .tip("For fun and practice. Hold both sticks in and press D-pad Down for a random enemy in front of Link, or Up for the same kind again. Up to twelve at once."),
+        Setting::toggle(d::VOLVAGIA_NUM, d::VOLVAGIA, "difficulty", "Volvagia roams Hyrule Field", false)
+            .tip("As an adult, a copy of Volvagia flies over the open middle of Hyrule Field, coming out of the ground and diving back in around one spot as in its own fight, and breathes fire at you. It is its own actor: it plays no intro or death scene, has no boss music, gives nothing when beaten and changes no story flag, and the Fire Temple fight is unchanged. It comes back when the field loads again. It never blocks a path and the logic ignores it. Experimental, untested in the game."),
+        Setting::toggle(d::MEGA_LIKE_NUM, d::MEGA_LIKE, "difficulty", "Shield-eating mega Like Likes", false)
+            .tip("Three bigger, tougher Like Likes wait in the Deku Tree meadow of Kokiri Forest, as a child and as an adult. When one swallows you it takes one of your shields, any of them, the Mirror Shield first, then the Hylian Shield, then the Deku Shield. The shield stays gone until a mega Like Like is killed: any one of them gives back one shield you have owned and no longer have, the Mirror Shield first. Nothing is saved for this: the missing shield is the record. They come back every time the area loads. A shield that a normal Like Like swallowed, or a Deku Shield that burned, is also given back by a mega Like Like. If you build without this setting while a shield is missing, nothing gives it back. Experimental, untested in the game."),
+        Setting::toggle(d::FUSES_NUM, d::FUSES, "difficulty", "Random fuses", false)
+            .tip("Each bomb, Bombchu and lit Deku Stick gets a random fuse, from one second up to its usual time."),
+        Setting::toggle(d::RANDOMIZER_NUM, d::RANDOMIZER, "difficulty", "Enemy randomizer", false)
+            .tip("Enemies are swapped for other kinds that live on the same kind of ground. Enemies a door or puzzle counts are left alone."),
         Setting::toggle(d::FAIRY_HELPS_NUM, d::FAIRY_HELPS, "difficulty", "Fairies help enemies too", false)
             .tip("When you use a bottled fairy, or one revives you, every awake enemy and boss heals to full too."),
     ]
@@ -278,6 +286,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(5, "open_door_of_time", "world", "Open Door of Time", false)
+            .legacy()
             .tip("Start with the Door of Time already open, so the Ocarina and the Song of Time are not needed to reach the Master Sword. The Door of Time quest is left alone, so Zelda's escape and the Song of Time stay checks. The adult pedestal works before the Forest Sage in every seed, with or without this setting."),
     );
     s.push(
@@ -415,6 +424,14 @@ pub fn build() -> Schema {
     s.push(
         Setting::toggle(30, crate::ganon_trials::SKIP, "goal", "Skip Ganon's Trials", false)
             .tip("The barrier in Ganon's Castle starts dispelled, so the tower is open without clearing any of the six trials. The trial rooms stay open and their chests and pots can still be checked. Experimental, untested in the game."),
+    );
+    s.push(
+        Setting::toggle(crate::first_pickups::NUM, crate::first_pickups::SETTING, "world", "Skip first pickup text", false)
+            .tip("No \"You got X!\" box the first time you pick up a rupee, a heart, a magic jar, arrows or Deku seeds. Chests and real items still show theirs."),
+    );
+    s.push(
+        Setting::toggle(crate::area_intros::NUM, crate::area_intros::SETTING, "world", "Skip area intros", false)
+            .tip("The short scene that shows off an area the first time you enter it is skipped."),
     );
     s.push(
         Setting::number(31, "trials", "goal", "Ganon's Trials", 6, 0, 6)
@@ -597,6 +614,10 @@ pub fn build() -> Schema {
     s.push(
         Setting::toggle(42, "faster_chests", "world", "Faster item pickups", false)
             .tip("Shortens the waiting time in chest openings and item pickup scenes, and big chests open with the short small chest animation instead of the long big chest cutscene, like the OoTR option Fast Chest Cutscenes. The text, the item and the dungeon map, compass and boss key credit are the same."),
+    );
+    s.push(
+        Setting::toggle(141, crate::qol::blocks::SETTING, "world", "Faster sliding blocks", false)
+            .tip("Pushable and pullable blocks slide twice as fast."),
     );
     s.push(
         Setting::toggle(45, crate::chest_size::SETTING, "world", "Chest size matches contents", false)

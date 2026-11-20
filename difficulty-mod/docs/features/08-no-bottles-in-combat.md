@@ -58,3 +58,18 @@ What I searched for and did not find (a reusable combat query):
 The notice mechanism IS reachable from data: `UISystemActor.EventTriggerRequestOpenSimpleInfo {Type=N}` (used by `Dm_SY_Ocarina` Type 11, `Dm_SY_Ocarina_EponaSong` 10, `WarpEvent` 14, `SubEvent_GetSwordBigGoron` 18 and 19). `Type` is a native enum (`game::ui::SimpleInfoType`); its value-to-label table is not in the data, so the number for `CannotUseScrubBusinessSeedBattle` is unknown (it would need to be probed in the game), and that text says "Business Scrub", which is wrong for bottles. A bottle-specific text cannot be added cleanly because the label is picked by native code from the enum.
 
 Result: part A (reuse the scrub's combat query) is not possible from data. No code was changed. Decision for the user: keep the music check, or accept a different signal.
+
+
+## Moved from STATUS.md (20 Nov): feature table row
+
+- **Feature (old table row 08):** No bottles in combat
+- **State:** Done
+- **What was seen in the game:** Confirmed by the user at the controls (18 Nov): a bottled fairy could NOT be used while the Iron Knuckle was aggro and COULD once far enough away; the refusal animation is right; a bottled fairy still revived Link automatically in the fight (6 hearts kept). Found and fixed on the way: the block ignored miniboss music (commit 630870b)
+- **Next step:** Not seen against a full boss; low risk
+
+
+## Moved from STATUS.md (20 Nov): request notes
+
+- **Earlier bean-seed feedback, confirmed still wanted:** refusal notice when a bottle is refused in combat (probe of the notice numbers queued for a game slot).
+
+- Combat check: NOT POSSIBLE with data. The scrub's combat refusal is decided in native code (`ExecutePlayerUseScrubBusinessSeed`, message `SimpleInfo_00` / `CannotUseScrubBusinessSeedBattle`); no event or AI query exposes it. Music check stays. A notice can be shown with `UISystemActor.EventTriggerRequestOpenSimpleInfo {Type=N}`, but N is a native enum; the scrub's notice says "Business Scrub". Option: probe the Type numbers in the game for a fitting existing notice. Findings in feature file 08.

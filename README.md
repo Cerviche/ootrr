@@ -2,7 +2,7 @@
 
 [![Join the OOTRR Discord](https://img.shields.io/badge/Discord-Join%20the%20OOTRR%20server-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/jJ5V3NA2GM)
 
-A local rando for the Ocarina of Time remaake, in early dev. repo: https://github.com/realazk/ootrr
+A local rando for the Ocarina of Time remaake, in early dev. repo: https://github.com/ootrando/ootrr
 
 ## Community
 
@@ -33,6 +33,8 @@ Everything is optional and off unless noted. All of these are experimental and s
 - Boss heart containers as chests, and songs shuffled among the song teachers or anywhere.
 - Gossip stones that tell you where an important item lies, without the Mask of Truth.
 - Start with one random Spiritual Stone or Medallion.
+- Skip first pickup text (off by default), next to the cutscene options: no "You got X!" box the first time Link picks up a rupee, a recovery heart, a magic jar, arrows or Deku seeds. Chests, quest items and equipment keep theirs. It marks those pickups' get events as already played at new game.
+- Skip area intros (off by default), next to the cutscene options: the short scene that shows off an area the first time you enter it is skipped, for the overworld areas and the dungeon entrances that only show the place. It also marks each area as visited so its map is available. Arrival scenes that start or advance a quest (the Deku Tree, Zora's Domain, the Lost Woods, the Desert Colossus, the Forest and Water Temples, Hyrule Field and Kokiri Forest, Lon Lon Ranch) keep playing.
 - Faster chest and item pickup scenes. Big chests also open with the short small chest scene: the big chest flow hands over to a copy of the small chest flow that lifts the big lid, then gives the dungeon map, compass and boss key credit the big chest flow would. `ootrr qol-mod <romfs> <load> <name> big-chest-anim` writes a test mod with only that change.
 - Chest size matches contents (experimental, untested in the game): plain wooden chests holding major items become big chests, the rest become small ones. Major means progression items, songs, stones and medallions, boss keys, small keys / key rings / silver rupees found outside their own dungeon, and shields or capacity upgrades you do not start with. Boss heart chests and summoned chests (Jabu Boomerang, Iron Boots, Ice Arrows, Silver Gauntlets, the Dampé race chests) follow the same rule; the two Dampé rupee chests only change size together. Chests that run another story scene, invisible chests and the treasure chest game keep their model.
 - Skip the opening cutscenes (on by default): a new game goes straight to the first moment you control Link, and the first-visit scenes of eighteen areas that only show the place are marked as played. The arrival scenes that advance a quest step (the Deku Tree, Zora's Domain, the Lost Woods, the Desert Colossus) and the Water Temple's are left alone.
@@ -48,7 +50,7 @@ Everything is optional and off unless noted. All of these are experimental and s
 - Skip the mask trading quest: the Happy Mask Shop quest starts complete, so once the shop opens every mask can be borrowed right away, including the Mask of Truth.
 - Magic beans planted: every soft soil patch starts planted, so the adult bean platforms are there from the start. The Magic Bean leaves the item pool, and the bean salesman in Zora's River has one sale left, for 60 rupees, which holds a random item when NPC rewards are shuffled.
 - Gerudo Valley bridge repaired: the broken bridge is fixed from the start, so adult Link can reach Gerudo Fortress without Epona or the Longshot. The carpenters are not rescued, so the guards, the rescue and the Gerudo Membership Card stay as they are.
-- Difficulty (experimental, all off by default), on its own page of the settings menu: enemy health and damage from 0.5 to 5 times, enemy speed from 0.75 to 2 times (most enemies ignore it so far), no heart drops, no ammo drops, no gossip stone fairies, lose a heart container per game over down to three, no bottles during combat, no Z-targeting of enemies, no duplicate bottle contents, more enemies (up to ten times, with a few special encounters), enemies that come back sooner, extra enemies in boss fights, enemies that heal (with a green glow), fairies that heal enemies too, enemies that call for backup, enemies that block the way, Cuccos that get angry at the first hit, fireball storms in parts of Hyrule Field and the castle garden, and Bombchu Bowling grass that cannot be broken (an idea by Sabriel). It is all done by editing game data, with no code patch. Each setting's note in the menu says what it does and whether it has been tried in the game; `difficulty-mod/docs/CHANGELOG.md` and `difficulty-mod/docs/TODO.md` say what was played and what is known not to work.
+- Difficulty (experimental, all off by default), on its own page of the settings menu: enemy health and damage from 0.5 to 5 times, enemy speed from 0.75 to 2 times (most enemies ignore it so far), no heart drops, limited ammo, no gossip stone fairies, lose a heart container per game over down to three, no bottles during combat, no Z-targeting of enemies, no duplicate bottle contents, more enemies (up to ten times, with a few special encounters), enemies that come back sooner, extra enemies in boss fights, enemies that heal (with a green glow), fairies that heal enemies too, enemies that call for backup, enemies that block the way, Cuccos that get angry at the first hit, fireball storms in parts of Hyrule Field and the castle garden, Bombchu Bowling grass that cannot be broken (an idea by Sabriel), a Volvagia that roams adult Hyrule Field, mega Like Likes that eat your shields, random bomb and Bombchu fuses, and an enemy randomizer. It is all done by editing game data, with no code patch. Each setting's note in the menu says what it does and whether it has been tried in the game; `difficulty-mod/docs/CHANGELOG.md` and `difficulty-mod/docs/TODO.md` say what was played and what is known not to work.
 - Spawn enemies (off by default), on the Difficulty page: hold both sticks pressed in and press D-pad Down to spawn a random enemy in front of Link, or D-pad Up for the same kind again. Enemies the area has not loaded will not appear.
 - Bombchus in logic (experimental, off by default): the seed logic counts Bombchus as explosives without a Bomb Bag, as OoTR does. Only the logic is changed. In our test the game only let Bombchus work once a Bomb Bag and its ammo maximum were set, so a seed with this ticked may expect Bombchus where the game will not let you use them.
 - A plandomizer on the Generate page, or --plando Location=Item on the command line, to fix chosen items at chosen locations. The seed is only made if it can still be beaten.
@@ -61,15 +63,15 @@ Everything is optional and off unless noted. All of these are experimental and s
 
 ## Install
 
-Download the file for your system from the [releases page](https://github.com/realazk/ootrr/releases) and check it against `SHA256SUMS.txt`.
+Download the file for your system from the [releases page](https://github.com/ootrando/ootrr/releases) and check it against `SHA256SUMS.txt`.
 
 | System | File | What to do |
 |---|---|---|
-| Windows | `OOTRR-<version>-windows-x64-setup.exe` | Run it and follow the wizard. A portable `.zip` is there too. |
+| Windows | `OOTRR-<version>-windows-x64-setup.exe` | Run it and follow the wizard. Or take `OOTRR-<version>-windows-x64-portable.zip`: unpack it anywhere and double-click `ootrr.exe`. It installs nothing and keeps its data in its own folder. |
 | macOS | `OOTRR-<version>-macos-universal.pkg` | Open it and follow the installer. It runs on Apple silicon and Intel. |
 | Linux | `OOTRR-<version>-linux-amd64.deb` | Install it with your package manager. Or unpack `OOTRR-<version>-linux-x86_64.tar.gz` and run `./install.sh`. |
 
-The installers are not signed. Windows SmartScreen and macOS Gatekeeper warn you the first time, and you can allow it. Start OOTRR from the menu or run `ootrr serve`, then open the link it prints. OOTRR contains no game files. You provide your own extracted copy.
+The files are not code-signed yet. Windows SmartScreen and macOS Gatekeeper warn you the first time, and you can allow it. Each file is built by GitHub Actions from the tagged source and has a build attestation: `gh attestation verify <file> --repo ootrando/ootrr` shows which workflow and commit made it. Start OOTRR from the menu or run `ootrr serve`, then open the link it prints. OOTRR contains no game files. You provide your own extracted copy.
 
 ## Commands
 

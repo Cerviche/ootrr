@@ -206,3 +206,11 @@ c13\RESULTS.md`.
 
 ## Folded into More enemies (19 Nov, `feature/horde-r2`)
 The separate checkbox is gone (setting 130 retired). Every More enemies value above 1x now brings all of these encounters. The horde counts the Hyrule Field knight toward its Iron Knuckle limit (2 per Hyrule Field map).
+
+
+## Moved from STATUS.md (20 Nov): feature table row
+
+- **Feature (old table row 22):** Special encounters (rc 15: no longer a setting; part of more enemies above 1x; setting 130 retired): Dead Hand in hole 9 (Hyrule Field) and hole 23 (Death Mountain Trail), Iron Knuckle in the open part of Hyrule Field
+- **State:** Done, two tweaks wanted
+- **What was seen in the game:** Lake Hylia Like Likes confirmed in the game (19 Nov); the one by the lab removed because of the steep slope, nine remain. Dead Hand and Iron Knuckle confirmed earlier. Build in <playtest folder>\tweaks-r4 Guays (24, child Hyrule Field only) added on `feature/guays`, build in <playtest folder>\guays, not seen in the game. rc13 (19 Nov): Guays over the field: 8 in load range, flying, none vanished or fell, but equally active by day as by night (night-only not seen).
+- **Next step:** Tweaks as before

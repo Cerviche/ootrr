@@ -32,3 +32,11 @@ Never played. To test:
 ## Notes
 - Name-based filters are fragile. If a new attacker is missed, add it to `EXTRA_ATTACKERS` or widen the rule in `is_enemy_attack`.
 - Grab and trap damage would need a different file per enemy; not attempted.
+
+
+## Moved from STATUS.md (20 Nov): feature table row
+
+- **Feature (old table row 02):** Enemy damage
+- **State:** Done
+- **What was seen in the game:** 3x: a bite took 6 quarter hearts instead of 2 (script, rc 5)
+- **Next step:** Grabs (ReDead, Like Like) not covered; parked

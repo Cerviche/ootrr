@@ -45,3 +45,29 @@ Hands-on: hole 9 is a Song of Storms hole (user saw it); ocarina and song given;
 - Skipping a boss intro by button (round3-1120): in Forest Temple (teleport ForestTemple, warp 0 68.5 -45, then 0 80 -62 starts Phantom Ganon's 42 s intro) press the game's own skip button on a real controller (the prompt shown on screen, if any) and check on video that the Stalfos and Keese still appear and attack from the fight's first second. The bridge's PLUS, B, A, X, Y, MINUS, ZR, ZL, L, R, START, D-pad, LS and RS (held and tapped) did not skip it. Read `HavePlayedEvent.Dm_ForestTemple_BossIn` afterwards. Then die, Try Again (returns to the dungeon entrance), walk in and skip again.
 - Barinade and Gohma intro triggers (round3-1120): a warp into Barinade's arena (45 106 -112) does not start the intro; walk through the real boss door by hand and watch whether the 3 Biri and the Stalfos stay idle until the intro ends.
 - Farore's Wind heal effect (fx-farore, 20 Nov, build `<playtest folder>\fx-farore\ootrr.exe`, regen and fairies on): fight a Stalfos and a Keese, let them regen and release a fairy; say whether the green effect is the Farore's Wind animation you meant, where it sits on the enemy and its size. Also cast Farore's Wind yourself and throw a Deku Nut: both must look as before. Capture: video of two heal ticks and one fairy heal. Steps in `<playtest folder>\fx-farore\PLAN.md` step 6.
+
+## Unreleased tests leftovers (unreleased-tests, 20 Nov): need hands
+- Random fuses and Bombchu Bowling: play the bowling alley (Castle Town Market, child) with a random_fuses build; say whether a short-fuse chu still reaches the pins and whether the game is winnable. Capture: 5 runs, how many reach the pins.
+- Random fuses and bomb flowers: Goron City and Dodongo's Cavern flowers keep their normal time. Capture: a clip.
+- Limited ammo, pots before a boss door: Dodongo's Cavern room 19 (pots at -16.5 95.4 -76.1 and -26 96.6 -90.6) and Forest Temple rooms 18, 25, 27, with an empty seed bag, bomb bag below full, full life and magic; say what drops. Leave and re-enter the map between tries. Also Kokiri Forest grass at -4.4 110.7 7.2.
+- Enemy randomizer: look at swapped enemies from a normal camera for ones sunk in or stuck in walls, especially Fire Temple rooms 4 and 5 and Jabu rooms 3 and 5.
+- Gate editor `gate linkscan`: crashes the game host at once on the 20 Nov Longshot build; the Longshot side needs a look before a hands-on try.
+
+## Fireball storms: direction and Death Mountain Trail (added 20 Nov)
+- **What:** see where the storm's rocks come from. Expected: from Death Mountain's direction.
+- **Where:** two Hyrule Field spots (middle road, near the Market), Desert Colossus flats, Wasteland dunes (adult). The desert and Wasteland directions are estimates, so those two matter most.
+- **Setup:** build from <playtest folder>\storms2\ootrr-volcano.exe with fireball_storms on.
+- **Capture:** a clip at each spot, looking up and around as the rocks arc in, and a note of the direction.
+- **Also:** on a save past the Death Mountain summit, walk the Trail as child and as adult (before and after the Kakariko event). Does the mod's storm (burning rocks, fire on the ground) show, as well as the vanilla boulders?
+
+## Lake Octoroks and field Mad Scrubs (added 20 Nov)
+- **What:** kill a Mad Scrub in the trees south-west of Lon Lon Ranch, as child and as adult. Does it die and stay dead until reload?
+- **Also:** swim past the lab bridges as child. Is the Octorok fire fair or too much? (In the script, 3-4 at once took 15 hearts while swimming.) Watch the frame rate there.
+- **Setup:** build from <playtest folder>\lake-octoroks\ootrr.exe with more enemies above 1x.
+- **Capture:** a clip of each, plus the FPS counter.
+
+## Gate 23 Dark Link and gate 20 Leevers (21 Nov, feature/gate-crater)
+- **What (Dark Link):** adult, Master Sword, 20 hearts. Enter Ganon's Castle, walk into the first round room. Dark Link and the purple barrier appear; beat him with the sword (his magic drain empties the bar after a few Din's Fire casts). Does he die, and does the barrier at the north exit drop?
+- **What (Leevers):** child with the Kokiri Sword, Lon Lon Ranch north gate, spot (-60.5, 150, 166). Kill the Giant Leever and the 5 placed small Leevers, by day and again at night. Does the barrier drop after the last placed one? Do any stay burrowed so it never drops?
+- **Setup:** build from <playtest folder>\darklink\ (preset `enemy_gates`, starting_hearts 20); the Longshot `kill` command does NOT kill Leevers (they stay at hp 0), use real hits.
+- **Capture:** a clip of each kill and of Link walking through the old barrier line.

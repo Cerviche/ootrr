@@ -22,21 +22,31 @@ Nothing known at the moment.
 | The held-back gate 7 | Never tried | Walk the Lost Woods east passage, kill the guard, see the barrier drop |
 | Dead Hand in the Hyrule Field hole | Rises near the entrance; left as is by decision | None |
 | Fake pots | Never seen | Break pots until one flies |
+| Temple of Time Beamos (rc 17) | Built, never seen | Adult, after Sheik's first talk: do ten Beamos stand between the pillars, do they hit Link in the aisle, do they leave the Light Arrows scene alone |
+| Storm rocks from the volcano (rc 17) | Rocks seen at every new spot by script; direction not seen | Stand at a spot and watch which way the rocks arc in |
+| Lake Hylia Octoroks and Mad Scrubs (rc 17) | Seen by script | Swim at the bridges (3 to 4 at once took 15 hearts); kill a Mad Scrub; look at the adult field scrubs |
+| Volvagia in Hyrule Field (rc 17, Q17) | Passed by script, hammer kill and respawn | Fight her by hand; is about 3 hearts a hit every 6 s too harsh; win the real Fire Temple fight with the setting on and see her gone |
+| Mega Like Likes (rc 17) | Passed by script | Get swallowed (shield gone), kill one (shield back), as a child and an adult; is 3x life right |
+| Gates 14 to 23 (rc 17) | Passed by script, kills by damage command except gate 20 | Real sword kills at each, gate 20 at night, Nocturne arrival at the Graveyard, gate 22 with the lake drained, the vanilla Wasteland Leevers |
+| Random fuses (rc 17) | Bombs and Bombchus by script | Sticks, bomb flowers and Bombchu Bowling by hand |
+| Limited ammo round 2 (rc 17) | Not played | Walk the Deku Tree, Dodongo's Cavern, the Fire Temple eye switch and Ganon's Castle with the setting on |
+| Enemy randomizer v3 (rc 17) | Not played | Load Bottom of the Well, Dodongo's Cavern, Ice Cavern, child Spirit Temple; judge movement and walls |
+| Skip area intros (rc 17) | Fire Temple entrance seen by hand | Walk into the other areas and dungeon entrances |
 
 ## Not built yet (asked for)
 
 - The Gerudo fighter as a placed enemy (she plays a fortress scene when beaten), and Volvagia or other bosses outside their rooms.
 - Enemy speed: most enemies ignore the setting (see enemy-speed.md). Making the others follow it is open.
-- Limited ammo; Mido as a blocker; lose-heart surviving a quit.
+- Mido as a blocker; lose-heart surviving a quit.
 
 ## Gates
 
-Eleven of twelve are on, all played by hand (the Death Mountain Trail one with its Dodongo guard: "perfect"). Gate 7 (Lost Woods, east passage) is held back until someone tries it.
+Eleven of the first twelve were played by hand in earlier sessions (the Death Mountain Trail one with its Dodongo guard: "perfect"). Gates 14 to 23 (rc 17) passed by script only. Gate 7 (Lost Woods, east passage) is held back until someone tries it.
 
 ## Works, with a known limit
 
 - **Lose heart on death:** the loss lasts for the play session; quitting and continuing restores the hearts.
-- **No ammo drops with shuffled shops:** a seed can end up with no source of arrows. Planned change: "limited ammo", where ammo still drops in boss fights.
+- **Limited ammo with shuffled shops:** a seed can end up with no source of arrows; boss fights keep their ammo (round 2, rc 17, not played).
 - **Dead Hand in the Hyrule Field hole** rises right by the entrance, although he is placed at the back of the room.
 - **Pots in the Market guard house** give no surprises.
 - **Bosses spawn minibosses:** King Dodongo is left out; adding a miniboss there hung his dungeon.
