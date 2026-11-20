@@ -39,7 +39,8 @@ jobs:
           cargo build --release --locked -p ootrr --target wasm32-wasip1
           cargo build --release --locked -p ootrr
       - name: Test the stdio server
-        run: cargo test --release --locked -p ootrr-web -p ootrr -- stdio options_parse jobs::
+        run: |
+          cargo test --release --locked -p ootrr-web -p ootrr -- stdio options_parse jobs::
       - name: Audit
         run: python3 -I tools/audit.py target/wasm32-wasip1/release/ootrr.wasm
       - name: Parity with the native build
