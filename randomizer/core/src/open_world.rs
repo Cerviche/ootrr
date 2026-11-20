@@ -233,7 +233,6 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     };
     let navi: Option<&'static str> = match s.text(FOREST) {
         Ok("open") => Some("open"),
-        Ok("closed_deku") => Some("closed_deku"),
         _ => None,
     };
     Opts {
@@ -346,7 +345,6 @@ impl Gates {
         use crate::slice::support::Forest;
         let forest: Forest = match s.text("open_forest") {
             Ok("closed") => Forest::Closed,
-            Ok("closed_deku") => Forest::ClosedDeku,
             Ok("open") => Forest::Open,
             Ok(v) => {
                 bad.push(format!("open_forest is {v}, which is not a known choice"));
@@ -360,9 +358,9 @@ impl Gates {
         let door: bool = crate::slice::support::toggle(s, "open_door_of_time", bad);
         let kakariko: bool = match s.text("open_kakariko") {
             Ok("open") => true,
-            Ok("zelda") => false,
+            Ok("closed") => false,
             Ok(v) => {
-                bad.push(format!("open_kakariko is {v}, which this build cannot apply yet (only open and zelda work)"));
+                bad.push(format!("open_kakariko is {v}, which this build cannot apply yet (only open and closed work)"));
                 false
             }
             Err(e) => {
@@ -404,8 +402,8 @@ mod tests {
     }
 
     #[test]
-    fn navi_follows_an_open_forest_and_a_closed_deku_forest() {
-        let (o, bad) = opts(&[(FOREST, Value::s("closed_deku"))]);
+    fn navi_follows_an_open_forest() {
+        let (open, bad) = opts(&[(FOREST, Value::s("open"))]);
         assert!(bad.is_empty());
         assert_eq!(o.navi, Some("closed_deku"));
         assert_eq!(o.defaults(), vec![(TIME, "true"), (FOREST, "closed_deku")]);
@@ -413,6 +411,9 @@ mod tests {
         assert!(o.notes().unwrap().iter().any(|n| n.contains("Navi's monster lesson")));
         let (open, _) = opts(&[(FOREST, Value::s("open"))]);
         assert_eq!(open.navi, Some("open"));
+        assert_eq!(open.defaults(), vec![(TIME, "true"), (FOREST, "open")]);
+        assert!(open.logic().is_empty());
+        assert!(open.notes().unwrap().iter().any(|n| n.contains("Navi's monster lesson")));
         let (shut, _) = opts(&[(FOREST, Value::s("closed"))]);
         assert_eq!(shut.navi, None);
     }
