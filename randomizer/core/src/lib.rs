@@ -44,6 +44,7 @@ pub mod medal_gate;
 pub mod npc_hints;
 pub mod rainbow_bridge;
 pub mod open_world;
+pub mod ganon_trials;
 pub mod pickup_pack;
 pub mod pickup_persist;
 pub mod pot_slice;

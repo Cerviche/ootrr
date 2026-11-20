@@ -404,13 +404,13 @@ pub fn build() -> Schema {
             .tip("Item gets say only \"You got X!\" in one text box: item descriptions, the pickup window, Piece of Heart counts and the other lines after the get message are dropped. Gold Skulltula tokens say the count, and the small key count lines stay."),
     );
     s.push(
-        Setting::toggle(30, "trials_random", "goal", "Random Ganon's Trials", false)
-            .tip("Pick the number of trials to clear at random."),
+        Setting::toggle(30, crate::ganon_trials::SKIP, "goal", "Skip Ganon's Trials", false)
+            .tip("The barrier in Ganon's Castle starts dispelled, so the tower is open without clearing any of the six trials. The trial rooms stay open and their chests and pots can still be checked. Experimental, untested in the game."),
     );
     s.push(
         Setting::number(31, "trials", "goal", "Ganon's Trials", 6, 0, 6)
-            .tip("How many of the six trials in Ganon's Castle must be cleared.")
-            .when_off("trials_random"),
+            .tip("How many of the six trials in Ganon's Castle must be cleared. Any of the six count: below 6, the barrier is dispelled once that many trials are cleared, whichever they are.")
+            .when_off(crate::ganon_trials::SKIP),
     );
     s.push(
         Setting::toggle(32, "triforce_hunt", "goal", "Triforce Hunt", false)

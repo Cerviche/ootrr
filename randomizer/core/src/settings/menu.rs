@@ -222,18 +222,18 @@ const CARPENTERS: View = View {
 };
 
 const TRIALS: View = View {
-    id: "trials_random",
+    id: "skip_ganon_trials",
     label: "Ganon's Trials",
-    tip: "Sets the number of Ganon's Trials required to dispel the barrier.\n\nSkip - No Trials are required and the barrier is already dispelled.\n\nSet Number - Select a number of trials that will be required from the slider below. Which specific trials you need to complete will be random.\n\nRandom Number - A random number and set of trials will be required.",
+    tip: "Sets the number of Ganon's Trials required to dispel the barrier.\n\nSkip - No Trials are required and the barrier is already dispelled.\n\nSet Number - Select a number of trials from the slider below. Clearing that many of the six trials, any of them, dispels the barrier.",
     kind: Kind::Pick,
-    opts: &[missing("Skip"), yes("Set Number", "false"), broken("Random Number", "true")],
+    opts: &[yes("Skip", "true"), yes("Set Number", "false")],
 };
 
 const TRIAL_COUNT: View = View {
     id: "trials",
     label: "Ganon's Trials Count",
-    tip: "Set the number of trials required to enter Ganon's Tower.",
-    kind: Kind::Number(0, 6, false),
+    tip: "Set the number of trials required to enter Ganon's Tower. Any of the six trials count.",
+    kind: Kind::Number(0, 6, true),
     opts: &[],
 };
 
@@ -431,7 +431,6 @@ const AREA_ACCESS: PortSection = port(
                     Entry::Hidden("bridge_hearts"),
                     Entry::View(&TRIALS),
                     Entry::View(&TRIAL_COUNT),
-                    gray_check("Medallion Locked Trials", "Doors to trials will be barred until their corresponding medallion is acquired."),
                 ],
             );
 
