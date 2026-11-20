@@ -57,7 +57,7 @@ export function colour_editor() {
   cos.locks = cos.locks || {};
   const box = h("div", { class: "ced", id: "f_colors" });
   const groups = [...color_groups()];
-  if (!open) open = new Set(groups.slice(0, 1).map(([g]) => g));
+  if (!open) open = new Set(groups.map(([g]) => g));
   let busy = false;
 
   const changed = () => {

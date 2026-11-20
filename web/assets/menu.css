@@ -132,8 +132,8 @@ html[data-theme="hyrule"] body {
 .cfolds { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 4px 22px; align-items: start; }
 .cfold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--m-line); font-weight: 600; min-width: 0; }
 .cfold > summary::-webkit-details-marker { display: none; }
-.cfold > summary::before { content: "B8"; color: var(--m-muted); transition: transform 0.15s; }
-.cfold[open] > summary::before { transform: rotate(90deg); }
+.cfold > summary::before { content: ""; flex: none; width: 6px; height: 6px; margin: 0 3px 0 1px; border-right: 2px solid var(--m-muted); border-bottom: 2px solid var(--m-muted); transform: rotate(-45deg); transition: transform 0.15s; }
+.cfold[open] > summary::before { transform: rotate(45deg); }
 .cfold > summary small { font-weight: 400; color: var(--m-muted); font-size: 11.5px; white-space: nowrap; }
 .cchips { display: inline-flex; flex-wrap: wrap; gap: 3px; min-width: 0; }
 .cchips i { width: 10px; height: 10px; border-radius: 2px; border: 1px solid rgba(0, 0, 0, 0.25); display: block; }
