@@ -2,6 +2,18 @@
 
 One entry per release candidate (rc), newest first. Each rc is one commit on the `difficulty` branch. "Played" means seen in the running game, by hand or by a script through Longshot's control bridge (see [TESTING.md](TESTING.md)). Feature details are in [features/](features/).
 
+## rc 18
+
+On top of upstream 0.8.1 (3ee77a6) and rc 17. Adds five features that passed scripted tests since rc 17. Branch `playtest/next`. Five new settings (145 to 148, with 145 and 146 for sizes) are all off by default. **Nothing in this entry has been played by hand.** "Script" means a scripted run in the game through Longshot's control bridge.
+
+- **Temple of Time Beamos reach the aisle** ([features/22](features/22-special-encounters.md)). The ten Beamos are now a cloned pack with longer sight at 1.6x size, so they reach the centre of the aisle. Script: a run down the centre costs 0 to 1.5 hearts. Not played: by hand, the Light Arrows scene (still not checked).
+- **Zora's Domain and bottle fixes** ([features/18](features/18-zora-ambush.md), [features/08](features/08-no-bottles-in-combat.md)). A unit test checks that each Zora cave dropper lies on the way out (cave C was never broken). A bottle used in combat now shows the game's own refusal notice; its wording names the Business Scrub. Script: both seen. Not played: by hand.
+- **Random enemy sizes** (new settings 145 and 146, [features/33](features/33-random-enemy-sizes.md)). Wild was played by script in 5 maps. Not played: Mild, enemies stuck in walls, the mix with other settings. It adds about 27 MB to the build when health follows size.
+- **Shorter timers** (new setting 147, [features/34](features/34-shorter-timers.md)). Timed switches, eye switches and torches give less time. Script: switch and torch times measured. Not proven: winning the Dodongo's Cavern torch room at 50%, and the eye switches.
+- **Damage taken** (new setting 148, [features/35](features/35-damage-options.md)). Normal, Double, Quadruple or One hit kills. Script: played, including a fairy revive. Not covered: pit and lava respawn, several grabs.
+
+**Build notes:** merged onto rc 17 by hand (the timers and damage branches conflicted in `difficulty.rs` and the menu; resolved by keeping both). Setting numbers 136 to 148 are unique. Tests pass (difficulty 292, settings 113, whole workspace 2,173 with the game files).
+
 ## rc 17
 
 On top of upstream 0.8.1 (3ee77a6) and rc 16. Adds the features that passed scripted tests since rc 16. Branch `playtest/next`. Four new settings (138, 142, 143, 144) and the area-intros one (137); all off by default. **Nothing in this entry has been played by hand yet**, except where it says so. "Script" means a scripted run in the game through Longshot's control bridge.

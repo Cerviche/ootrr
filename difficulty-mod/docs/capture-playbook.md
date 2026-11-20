@@ -71,3 +71,22 @@ Hands-on: hole 9 is a Song of Storms hole (user saw it); ocarina and song given;
 - **What (Leevers):** child with the Kokiri Sword, Lon Lon Ranch north gate, spot (-60.5, 150, 166). Kill the Giant Leever and the 5 placed small Leevers, by day and again at night. Does the barrier drop after the last placed one? Do any stay burrowed so it never drops?
 - **Setup:** build from <playtest folder>\darklink\ (preset `enemy_gates`, starting_hearts 20); the Longshot `kill` command does NOT kill Leevers (they stay at hp 0), use real hits.
 - **Capture:** a clip of each kill and of Link walking through the old barrier line.
+
+## Untested round 2 leftovers (21 Nov, <playtest folder>\untested2)
+- **Light Arrows scene and Temple of Time Beamos:** adult with the Shadow and Spirit medallions, `HavePlayedEvent.Dm_TimeTemple_0065` set, mod from <playtest folder>\temple-beamos\ootrr.exe (more_enemies 200). Walk into the temple through its door and let Zelda's scene play. Do the ten Beamos in the pillar gaps act while it plays? Giving the medallions and warping into the temple did not start it. Capture a clip with the FPS counter.
+- **Mad Scrub kill (child and adult):** trees south-west of Lon Lon Ranch, same mod. Reflect a nut with the Deku Shield or hit one that is popped up. Does it die and stay dead? The script could not do it (sword hits nothing close up, shield never came up).
+- **Limited ammo, supply spots:** with ammo 0 break the grass and pots by the Deku Tree slingshot eye switches and fight Gohma (seed drops from larvae and eggs expected); Bongo Bongo's hands with arrows 0. Also try trees and crates in the field. Mod from <playtest folder>\limited-ammo\ootrr.exe.
+- **Storm direction:** <playtest folder>\storms2\ootrr-volcano.exe, field_middle_road and the other three spots: stand in the box with the normal camera turned toward Death Mountain and say whether rocks come from that side.
+- **Adult Death Mountain Trail storm:** same mod, adult, past-summit flags set; stand in the areas near the first slope (the script never reached one) and say whether burning rocks fall.
+
+## Shorter timers: eye switches and torch rooms (21 Nov, feature/timed-switches)
+- **What (eye switch):** with the 50% build, shoot the Dodongo's Cavern room 14 eye switch (placed at about 80.5, 121.0, -6.6; the fire wall it puts out is at 73.75, 115.5, -6.6) with the slingshot and time how long the fire wall stays out. Expected about 6 s at 50% (10 s with the setting off). Then try to get across the wall before it comes back.
+- **What (torches):** light the three Dodongo's Cavern room 8 torches with Din's Fire or a stick and walk them all in turn. At 50% they burn 12 s (15 s off). Is it still comfortable? The script measured only one torch (about 12 s at 50%, 15 s off) and could not walk between them (walk was blocked by the room's pillars).
+- **Setup:** build from <playtest folder>\timers\ with `shorter_timers` half, starting_hearts 20. In room 8 a Dodongo head breathes fire at the east side: keep to the west of the torches. A script cannot aim the slingshot at the switch (the stick does not turn Link while aiming).
+- **Capture:** a clip with the FPS counter, and a note whether the eye switch time felt fair.
+
+## Shorter timers at 50% (added 21 Nov)
+- **What:** in Dodongo's Cavern, the room with the timed torches. Can you light them all before the first goes out (12 s at 50%)?
+- **Where:** also try one of the Ganon's Castle trial torch rooms if you get there.
+- **Setup:** setting shorter_timers at 50%.
+- **Capture:** a clip and the time it took. If it can't be done, say so: the floor is raised for that room.

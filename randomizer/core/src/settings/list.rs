@@ -201,6 +201,12 @@ fn difficulty() -> Vec<Setting> {
         Setting::number(d::DAMAGE_NUM, d::DAMAGE, "difficulty", "Enemy damage", d::NORMAL, d::STAT_RANGE.0, d::STAT_RANGE.1)
             .multiplier(d::STAT_STEP, d::NORMAL)
             .tip("How hard enemies and their projectiles hit, from 0.5x to 5x. Traps, lava, falls and grabs do their usual damage."),
+        Setting::choice(d::HURT_NUM, d::HURT, "difficulty", "Damage Link takes", "normal")
+            .opt("normal", "Normal", "Enemies, traps and falls hurt as usual.")
+            .opt("double", "Double", "Everything that hurts Link, enemy hits, grabs and falls, does twice the damage.")
+            .opt("quadruple", "Quadruple", "Everything that hurts Link does four times the damage.")
+            .opt("one_hit", "One hit kills", "Any hit takes all of Link's hearts. A bottled fairy still revives him.")
+            .tip("How much damage Link takes from enemy hits, boss attacks, grabs, projectiles and falls. Double and Quadruple multiply it. One hit kills takes every heart at once, and a bottled fairy still revives you. Falling into a pit or lava still costs one heart. Stacks with Enemy damage."),
         Setting::number(d::SPEED_NUM, d::SPEED, "difficulty", "Enemy speed", d::NORMAL, d::SPEED_RANGE.0, d::SPEED_RANGE.1)
             .multiplier(d::SPEED_STEP, d::NORMAL)
             .tip("How fast enemies move and attack, from 0.75x to 2x. Experimental: most enemies ignore it so far, and only Lizalfos clearly speed up."),
@@ -247,8 +253,20 @@ fn difficulty() -> Vec<Setting> {
             .tip("Three bigger, tougher Like Likes wait in the Deku Tree meadow of Kokiri Forest, as a child and as an adult. When one swallows you it takes one of your shields, any of them, the Mirror Shield first, then the Hylian Shield, then the Deku Shield. The shield stays gone until a mega Like Like is killed: any one of them gives back one shield you have owned and no longer have, the Mirror Shield first. Nothing is saved for this: the missing shield is the record. They come back every time the area loads. A shield that a normal Like Like swallowed, or a Deku Shield that burned, is also given back by a mega Like Like. If you build without this setting while a shield is missing, nothing gives it back. Experimental, untested in the game."),
         Setting::toggle(d::FUSES_NUM, d::FUSES, "difficulty", "Random fuses", false)
             .tip("Each bomb, Bombchu and lit Deku Stick gets a random fuse, from one second up to its usual time."),
+        Setting::choice(d::timers::NUM, d::timers::SETTING, "difficulty", "Shorter timers", "off")
+            .tip("Timed floor switches, eye switches and torches that burn out give you 75% or 50% of the usual time. Covers the Deku Tree, Dodongo's Cavern, Fire Temple, Gerudo Training Ground and Ganon's Castle. Each puzzle keeps a minimum it can still be finished in. Experimental: played for a floor switch and one torch, eye switches not yet.")
+            .opt("off", "Off", "Timers run as in the game.")
+            .opt("three_quarters", "75%", "Three quarters of the usual time.")
+            .opt("half", "50%", "Half the usual time, or the least that puzzle allows."),
         Setting::toggle(d::RANDOMIZER_NUM, d::RANDOMIZER, "difficulty", "Enemy randomizer", false)
             .tip("Enemies are swapped for other kinds that live on the same kind of ground. Enemies a door or puzzle counts are left alone."),
+        Setting::choice(d::SIZES_NUM, d::SIZES, "difficulty", "Random enemy sizes", "off")
+            .opt("off", "Off", "Enemies are their usual size.")
+            .opt("mild", "Mild", "Each enemy is 0.75 to 1.5 times its usual size.")
+            .opt("wild", "Wild", "Each enemy is 0.5 to 2.5 times its usual size.")
+            .tip("Every ordinary enemy gets its own size, the same for the same seed. Bosses, minibosses and the enemies a door or puzzle counts keep theirs, and indoors the biggest sizes are capped so nothing is wedged into a wall. Experimental, untested by hand."),
+        Setting::toggle(d::SIZES_HEALTH_NUM, d::SIZES_HEALTH, "difficulty", "Health follows size", false)
+            .tip("With random enemy sizes on, an enemy's health is multiplied by its size, so a double-size Stalfos has twice the health and a half-size one half, never less than one. Sizes then come in a few steps. It stacks with the enemy health setting."),
         Setting::toggle(d::FAIRY_HELPS_NUM, d::FAIRY_HELPS, "difficulty", "Fairies help enemies too", false)
             .tip("When you use a bottled fairy, or one revives you, every awake enemy and boss heals to full too."),
     ]

@@ -6,6 +6,8 @@ What is going on and what needs the user. Decisions: `DECISIONS.md`. Feature det
 
 - **Question Q17:** Volvagia in the field does about 3 hearts a hit every ~6 s and only the hammer hurts her. Too harsh? *Default: leave her deadly; her damage follows `enemy_damage`.*
 - **Judge by hand** (steps in [capture-playbook.md](capture-playbook.md)): which way the storm rocks come from; the Octorok fire at the Lake Hylia bridges (3-4 at once took 15 hearts while swimming; the frame rate dips to 22-29 there); killing a Mad Scrub.
+- **Review and push rc 17:** `difficulty` is at `2a2fc47` (local only), build `builds\022_2026-11-21_rc17`. Includes upstream 0.8.1. Changelog says what was and wasn't played.
+- **Branch tidy (yours to delete):** rc 16-era branches whose work is already in `difficulty`: `feature/boss-adds-start`, `feature/bowling-grass`, `feature/fx-farore`, `feature/fireball-storms`, `feature/gate-sword`, `test/gates-all`, `test/handson`, `test/handson2`; tag `backup/next-pre-rc17`.
 - **Pull requests:** paste the #52 description from `pr-drafts\difficulty-rc16.md`; open the faster blocks PR (`pr-drafts\faster-blocks.md`).
 
 ## Right now
@@ -28,16 +30,10 @@ What is going on and what needs the user. Decisions: `DECISIONS.md`. Feature det
 ## Queue
 
 1. Gate editor: crash on any `gate` command (v7), hang from the enemy sweep, then v5 changes: [gate-editor.md](gate-editor.md)
-2. Random fuses by hand, bomb flowers and Bombchu Bowling: [31](features/31-random-fuses.md)
-3. Enemy randomizer: judge movement and walls: [26](features/26-enemy-randomizer.md)
-4. Then, in your order: random enemy sizes (optionally scaled health), less time on timed switches and torches, damage options up to a one-hit-KO preset
-5. Next playtest build: small keys removed, boss key at start, lose heart on death, the spawn combo, the latest features
-6. Bottle gives stopped being taken in the session 6 build: look into
-7. Boss adds in Barinade, Morpha, Bongo Bongo: [11](features/11-boss-minibosses.md)
-8. Zora cave C failed by script: [18](features/18-zora-ambush.md)
-9. Bottle refusal notice probe: [08](features/08-no-bottles-in-combat.md)
-10. Frame rate at 10x alone: [10](features/10-more-enemies.md); enemy speed timing: [03](features/03-enemy-speed.md)
-11. Ideas not asked for yet: Gerudo fighter as a placed enemy; Mido as a blocker; lose-heart surviving a quit
+2. Enemy randomizer: judge movement and walls: [26](features/26-enemy-randomizer.md)
+3. Next playtest build: small keys removed, boss key at start, lose heart on death, the spawn combo, the latest features
+4. Bottle gives stopped being taken in the session 6 build: look into
+5. Ideas not asked for yet: Gerudo fighter as a placed enemy; Mido as a blocker; lose-heart surviving a quit
 ## Features
 
 States: not built, built (never seen), scripted (seen by script), seen by hand, released. "Released" means in a numbered rc or an upstream pull request.

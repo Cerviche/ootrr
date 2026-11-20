@@ -30,6 +30,7 @@ Never played. To test:
 - Check that a ReDead or Like Like grab is unchanged (expected, and a known gap).
 
 ## Notes
+- Grabs, falls and the rest are covered by the separate `damage_taken` setting: see `35-damage-options.md`.
 - Name-based filters are fragile. If a new attacker is missed, add it to `EXTRA_ATTACKERS` or widen the rule in `is_enemy_attack`.
 - Grab and trap damage would need a different file per enemy; not attempted.
 

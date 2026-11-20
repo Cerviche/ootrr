@@ -73,3 +73,12 @@ Result: part A (reuse the scrub's combat query) is not possible from data. No co
 - **Earlier bean-seed feedback, confirmed still wanted:** refusal notice when a bottle is refused in combat (probe of the notice numbers queued for a game slot).
 
 - Combat check: NOT POSSIBLE with data. The scrub's combat refusal is decided in native code (`ExecutePlayerUseScrubBusinessSeed`, message `SimpleInfo_00` / `CannotUseScrubBusinessSeedBattle`); no event or AI query exposes it. Music check stays. A notice can be shown with `UISystemActor.EventTriggerRequestOpenSimpleInfo {Type=N}`, but N is a native enum; the scrub's notice says "Business Scrub". Option: probe the Type numbers in the game for a fitting existing notice. Findings in feature file 08.
+
+## Refusal notice added (21 Nov, branch `feature/zora-bottle-fixes`)
+A refused bottle now also shows the game's own notice, as you asked. How: after the player event starts, the refusal runs `UISystemActor.EventTriggerRequestOpenSimpleInfo` (the action the ocarina and Farore's Wind flows use for their refusals) with `Type` 23 (`NOTICE_TYPE`), then the head shake and the put-away as before. The text is not copied: Type 23 selects the label `CannotUseScrubBusinessSeedBattle` in `LayoutMsg/SimpleInfo_00.msbt`, the game's own "cannot use during combat" notice (it names the Business Scrub; the game has no bottle-specific one).
+The Type numbers are native, so they were probed: Type 22 showed `CannotPutWarpPointOutsideDungeon`, so a Type is the label's position in that file plus 7 (Type 10 and 11 are the ocarina's Epona and warp refusals, 14 is Farore's Wind lacking magic).
+The dupe-items refusal (feature 13) shows no text, only the head shake; it is unchanged.
+Seen in the game (Kakariko, child, fairy bottle on the item button, build from this branch):
+- Lizalfos spawned 9 units away, battle music playing, one use of the button: the notice appeared, Link shook his head, the fairy stayed in the bottle and in the slot, Link was free after about 0.4 s. Screenshot and 8 s clip in the test folder.
+- Control, no enemy near: the same button released the fairy normally and Link held the empty bottle, no notice.
+Not tested: boss fight, other bottle contents.

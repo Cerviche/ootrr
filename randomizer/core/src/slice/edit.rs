@@ -481,6 +481,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     extra += cow_files;
     let leever_classes: Vec<&str> = if p.difficulty.gate_list().iter().any(|g| g.new_kind == crate::difficulty::gates::LEEVER_GIANT) { vec![crate::difficulty::leevers::SMALL_CLASS, crate::difficulty::leevers::GIANT_CLASS] } else { Vec::new() };
     extra += crate::difficulty::leevers::write(&mut rf, &pk, &mut rst, &leever_classes)?;
+    if p.difficulty.encounters {
+        extra += crate::difficulty::beamos::write(&mut rf, &pk, &mut rst)?;
+    }
     let volvagia_lines: Vec<String> = if p.difficulty.volvagia {
         let (n, l): (usize, Vec<String>) = crate::difficulty::volvagia::write(&mut rf, &pk, &mut rst)?;
         extra += n;
@@ -490,6 +493,13 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     };
     let mega_lines: Vec<String> = if p.difficulty.mega_like {
         let (n, l): (usize, Vec<String>) = crate::difficulty::mega_like::write(&mut rf, &pk, &mut rst)?;
+        extra += n;
+        l
+    } else {
+        Vec::new()
+    };
+    let size_lines: Vec<String> = if p.difficulty.sizes.on() && p.difficulty.sized_health {
+        let (n, l): (usize, Vec<String>) = crate::difficulty::sizes::write(&mut rf, &pk, &mut rst)?;
         extra += n;
         l
     } else {
@@ -592,6 +602,10 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if !mega_lines.is_empty() {
         notes.push("Mega Like Likes, files made:".to_string());
         notes.extend(mega_lines.iter().map(|l| format!("  {l}")));
+    }
+    if !size_lines.is_empty() {
+        notes.push("Random enemy sizes, files made:".to_string());
+        notes.extend(size_lines.iter().map(|l| format!("  {l}")));
     }
     if let Some((_, a)) = &loads {
         notes.push(format!("{} events now load the flows their edited events call:", a.len()));

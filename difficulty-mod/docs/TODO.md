@@ -32,6 +32,11 @@ Nothing known at the moment.
 | Limited ammo round 2 (rc 17) | Not played | Walk the Deku Tree, Dodongo's Cavern, the Fire Temple eye switch and Ganon's Castle with the setting on |
 | Enemy randomizer v3 (rc 17) | Not played | Load Bottom of the Well, Dodongo's Cavern, Ice Cavern, child Spirit Temple; judge movement and walls |
 | Skip area intros (rc 17) | Fire Temple entrance seen by hand | Walk into the other areas and dungeon entrances |
+| Temple of Time Beamos reach (rc 18) | Run down the aisle costs 0 to 1.5 hearts (script) | Adult, after Sheik's first talk: by hand, and the Light Arrows scene |
+| Random enemy sizes (rc 18) | Wild by script in 5 maps | Mild, walls, the mix with other settings, 27 MB with health following size |
+| Shorter timers (rc 18) | Switch and torch times by script | Win the Dodongo's Cavern torch room at 50%; the eye switches |
+| Damage taken (rc 18) | Played by script incl. fairy revive | Pit and lava respawn, grabs, one hit kills by hand |
+| Bottle refusal notice (rc 18) | Seen by script | Look at the notice wording in a fight |
 
 ## Not built yet (asked for)
 
