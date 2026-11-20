@@ -233,6 +233,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     }
     let watch: Watch = Watch::new(o.limit, o.live.clone());
     let mut p: Plan = plan(s)?;
+    p.notes.extend(p.trials.note());
     let room: crate::shops::layout::Room = crate::shops::rules::room(d, &p)?;
     let mut lay: Option<crate::shops::Layout> = crate::shops::layout::of(&p.shops, seed, room)?;
     p.notes.extend(lay.as_ref().and_then(|l| crate::shops::rules::cut_note(l.cut, room)));

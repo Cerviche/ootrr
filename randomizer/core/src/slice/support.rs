@@ -90,6 +90,7 @@ pub struct Plan {
     pub lacs: Option<u8>,
     /// crate::rainbow_bridge: Some(n) when the bridge waits for n dungeon rewards.
     pub rainbow: Option<u8>,
+    pub trials: crate::ganon_trials::Trials,
     pub door: crate::door_gate::Opts,
     /// Saria's Fairy Ocarina joins the pool (crate::slice::pick::OCARINAS).
     pub ocarinas: bool,
@@ -167,6 +168,7 @@ impl Plan {
         }
         out.extend(self.qol.logic());
         out.extend(self.open.logic());
+        out.extend(self.trials.logic());
         if self.skulls != crate::slice::skulls::Mode::Off {
             out.push((crate::slice::skull_rules::KEY, crate::slice::skull_rules::ON));
         }
@@ -264,6 +266,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, gates.kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
+    let trials: crate::ganon_trials::Trials = crate::ganon_trials::read(s, &mut bad);
     let difficulty: crate::difficulty::Opts = crate::difficulty::read(s, &mut bad);
     if open.fortress == crate::open_world::Fortress::Open {
         crate::start_items::give::add(&mut kit, "gerudo_card");
@@ -390,7 +393,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::lacs_key::NOTE.to_string());
         notes.push(crate::medal_gate::LACS_NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, door, short, story, endings, ocarinas, kokiri_sword, difficulty })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, trials, door, short, story, endings, ocarinas, kokiri_sword, difficulty })
 }
 
 #[cfg(test)]
