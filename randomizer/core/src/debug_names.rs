@@ -47,6 +47,10 @@ const ACTOR_NAME: &str = "QueryGenericGetActorName";
 const SET_STRING: &str = "OneShotSetNonStructGameDataString64";
 const GLOBAL_AI: &str = "Pack/AI.Global.Product.111.pack.zs";
 const PICKUP_KINDS: [&str; 4] = ["freestanding", "heart", "bossheart", "key"];
+const DONE: &str = "OOTRRDbgDone";
+const PRESS_FROM: &str = "Obj_Heart_Piece";
+const AUTO_CLIENT: &str = "Auto_Item_Catch";
+const PRESS_CLIENTS: [&str; 2] = ["Attention/ClientParam/Item_Catch.game__attention__ClientParam", "Attention/ClientParam/LookOnly_High_Medium.game__attention__ClientParam"];
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Wrap {
@@ -481,7 +485,7 @@ pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)], picks: &[(String, usize)]) -> 
     let base: usize = f.events.len();
     let (ta, ts): (u16, u16) = action_slot(f, TALKER, TALK)?;
     let (sa, ss): (u16, u16) = action_slot(f, HOLDER, SET)?;
-    let tail: usize = base + 4 * gs.len() + 2 * picks.len();
+    let tail: usize = base + 4 * gs.len() + 3 * picks.len();
     for (k, (h, i)) in gs.iter().enumerate() {
         let at: usize = base + 4 * k;
         let after: u16 = idx(at + 4)?;
@@ -494,14 +498,15 @@ pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)], picks: &[(String, usize)]) -> 
     }
     let (qa, qt): (u16, u16) = crate::start_state::query_slot(f, HOLDER, ASK_TEXT)?;
     let (_, st): (u16, u16) = action_slot(f, HOLDER, SET_TEXT)?;
+    let text_of = |v: &str| -> Cont { Cont { items: vec![("GameDataName".to_string(), Val::Str(PICK.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(v.to_string()))] } };
     for (k, (name, i)) in picks.iter().enumerate() {
-        let at: usize = base + 4 * gs.len() + 2 * k;
-        let after: u16 = idx(at + 2)?;
-        let items: Vec<(String, Val)> = vec![("GameDataName".to_string(), Val::Str(PICK.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(name.clone()))];
-        push(f, Kind::Switch { actor: qa, query: qt, cases: vec![Case { val: 0, ev: idx(at + 1)? }, Case { val: 1, ev: after }], params: Some(Cont { items }) })?;
+        let at: usize = base + 4 * gs.len() + 3 * k;
+        let after: u16 = idx(at + 3)?;
+        push(f, Kind::Switch { actor: qa, query: qt, cases: vec![Case { val: 0, ev: idx(at + 1)? }, Case { val: 1, ev: after }], params: Some(text_of(name)) })?;
+        push(f, Kind::Action { next: idx(at + 2)?, actor: qa, act: st, params: Some(text_of(DONE)) })?;
         push(f, Kind::Action { next: after, actor: ta, act: ts, params: Some(talk(line_id(*i))) })?;
     }
-    let clear: Vec<(String, Val)> = vec![("GameDataName".to_string(), Val::Str(PICK.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(String::new()))];
+    let clear: Vec<(String, Val)> = text_of(DONE).items;
     if push(f, Kind::Action { next: NONE, actor: qa, act: st, params: Some(Cont { items: clear }) })? != idx(tail)? {
         return Err(E::Format("debug names: the sweep events are out of order"));
     }
@@ -612,9 +617,60 @@ pub fn patch_pick(raw: &[u8], tag: &str) -> Res<Option<Vec<u8>>> {
     Ok(Some(out))
 }
 
-pub fn patch_pack(raw: &[u8], tag: &str) -> Res<Option<Vec<u8>>> {
-    let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
+fn work_path(f: &str) -> String {
+    format!("Work/{f}.gyml")
+}
+
+pub fn press(es: &mut Vec<sarc::Entry>, clients: &[sarc::Entry]) -> Res<bool> {
     let mut hit: bool = false;
+    for e in es.iter_mut().filter(|e| e.name.contains("AttentionSenderParam/") && e.name.ends_with(".bgyml")) {
+        let mut y: Byml = Byml::parse(&e.data)?;
+        let auto: bool = y.root.get("ClientList").and_then(|l| l.as_arr()).is_some_and(|l| l.iter().any(|c| c.as_str().is_some_and(|s| s.contains(AUTO_CLIENT))));
+        if !auto {
+            continue;
+        }
+        y.root.set("ClientList", Node::Arr(PRESS_CLIENTS.iter().map(|c| Node::Str(work_path(c))).collect()));
+        e.data = y.write()?;
+        hit = true;
+    }
+    if hit {
+        for c in clients {
+            if sarc::get(es, &c.name).is_none() {
+                es.push(c.clone());
+            }
+        }
+    }
+    let pressed: bool = es.iter().filter(|e| e.name.contains("AttentionSenderParam/") && e.name.ends_with(".bgyml")).any(|e| Byml::parse(&e.data).ok().and_then(|y| y.root.get("ClientList").and_then(|l| l.as_arr()).map(|l| l.iter().any(|c| c.as_str().is_some_and(|s| s.contains("/Item_Catch."))))).unwrap_or(false));
+    if !pressed {
+        return Ok(hit);
+    }
+    for e in es.iter_mut().filter(|e| e.name.contains("PouchContentParam/") && e.name.ends_with(".bgyml")) {
+        let mut y: Byml = Byml::parse(&e.data)?;
+        let want: [(&str, bool); 3] = [("DefaultAutoGet", false), ("PlayGetEventManyTimes", true), ("IsPlayGetEventPouchMax", true)];
+        if want.iter().all(|(k, v)| y.root.get(k) == Some(&Node::Bool(*v))) {
+            continue;
+        }
+        for (k, v) in want {
+            y.root.set(k, Node::Bool(v));
+        }
+        e.data = y.write()?;
+        hit = true;
+    }
+    Ok(hit)
+}
+
+pub fn press_clients(rf: &mut Romfs) -> Res<Vec<sarc::Entry>> {
+    let raw: Vec<u8> = rf.read_zs(&crate::pickup_pack::pack_of(PRESS_FROM))?;
+    let es: Vec<sarc::Entry> = sarc::parse(&raw)?;
+    PRESS_CLIENTS
+        .iter()
+        .map(|c| sarc::get(&es, &format!("{c}.bgyml")).cloned().ok_or_else(|| E::Msg(format!("debug names: {PRESS_FROM} has no {c}"))))
+        .collect()
+}
+
+pub fn patch_pack(raw: &[u8], tag: &str, clients: &[sarc::Entry]) -> Res<Option<Vec<u8>>> {
+    let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
+    let mut hit: bool = !clients.is_empty() && press(&mut es, clients)?;
     for e in es.iter_mut().filter(|e| e.name.ends_with(".event.root.ainb")) {
         if let Some(out) = patch_pick(&e.data, &format!("{tag} {}", e.name))? {
             e.data = out;
@@ -702,14 +758,16 @@ pub fn stage_sweep(rf: &mut Romfs, d: &Data, work: &P, tail: &mut Vec<Out>) -> R
             y.write()
         })?;
     }
-    let mut packs: Vec<String> = vec![GLOBAL_AI.to_string()];
-    packs.extend(seen.iter().map(|g| crate::pickup_pack::pack_of(g)));
-    for p in &packs {
+    let clients: Vec<sarc::Entry> = press_clients(rf)?;
+    let mut packs: Vec<(String, bool)> = vec![(GLOBAL_AI.to_string(), false)];
+    packs.extend(seen.iter().map(|g| (crate::pickup_pack::pack_of(g), true)));
+    for (p, own) in &packs {
+        let cl: &[sarc::Entry] = if *own { &clients } else { &[] };
         let Ok(raw) = current(rf, tail, work, p) else { continue };
-        if patch_pack(&raw, p)?.is_none() {
+        if patch_pack(&raw, p, cl)?.is_none() {
             continue;
         }
-        edit_pack(rf, tail, work, p, |raw: &[u8]| Ok(patch_pack(raw, p)?.unwrap_or_else(|| raw.to_vec())))?;
+        edit_pack(rf, tail, work, p, |raw: &[u8]| Ok(patch_pack(raw, p, cl)?.unwrap_or_else(|| raw.to_vec())))?;
     }
     let mut added: Vec<u64> = Vec::new();
     stage_late_file(rf, tail, work, crate::chest_slot::LIST, |raw: &[u8]| {
