@@ -4,7 +4,7 @@ const CSS: &str = "text/css; charset=utf-8";
 const FONT: &str = "font/woff2";
 
 #[cfg(test)]
-pub const JS_FILES: [&str; 36] = [
+pub const JS_FILES: [&str; 38] = [
     "/app.js",
     "/js/dom.js",
     "/js/api.js",
