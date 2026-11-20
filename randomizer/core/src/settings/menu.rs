@@ -169,12 +169,12 @@ const GANON_BK: View = View {
 const FOREST: View = View {
     id: "open_forest",
     label: "Kokiri Forest",
-    tip: "Whether the way out of the forest and into the Deku Tree is blocked.\n\nOpen - Nothing blocks the forest or the Deku Tree.\n\nClosed Deku - The forest exit is open but the Deku Tree is closed.\n\nClosed - The forest and the Deku Tree stay closed until the story opens them.
+    tip: "Whether the way out of the forest and into the Deku Tree is blocked.\n\nOpen - Nothing blocks the forest or the Deku Tree.\n\nClosed - The forest and the Deku Tree stay closed until the story opens them, and the Kakariko gate stays closed.
 
-Open Kakariko needs Open: with the Kakariko gate open, Closed Deku and Closed are locked out.",
+Open Kakariko needs Open: with the Kakariko gate open, Closed is locked out.",
     kind: Kind::Pick,
-    // An open Kakariko gate needs the forest open (settings/list.rs), so the closed choices lock out.
-    opts: &[yes("Open", "open"), needs("Closed Deku", "closed_deku", "open_kakariko!=open"), needs("Closed", "closed", "open_kakariko!=open")],
+    // An open Kakariko gate needs the forest open (settings/list.rs), so the closed choice locks out.
+    opts: &[yes("Open", "open"), needs("Closed", "closed", "open_kakariko!=open")],
 };
 
 const GV_BRIDGE: View = View {
@@ -337,7 +337,14 @@ pub const MOVED: &[(&str, &[PortSection])] = &[
     ("world", &[AREA_ACCESS, port("Entrances", &[Entry::View(&DUNGEON_ENTRANCES)])]),
     ("locations", LOCATIONS_TAB),
     ("dungeon", DUNGEONS_TAB),
+    ("experimental", EXPERIMENTAL_TAB),
 ];
+
+/// A warning shown at the top of a page, above its settings.
+pub const WARNINGS: &[(&str, &str)] = &[(
+    "experimental",
+    "These settings have known unexpected behavior that could lead to many seeds being unbeatable and other minor bugs.",
+)];
 
 const LOGIC: PortSection = port(
                 "Logic",
@@ -561,7 +568,7 @@ const MERCHANTS: View = View {
 const SHOPSANITY: View = View {
     id: "shuffle_shops",
     label: "Shopsanity",
-    tip: "Off - All shop items will be the same as vanilla.\n\n0 Items - Vanilla shop items will be shuffled among different shops.\n\n1-4 Items - Vanilla shop items will be shuffled among different shops, and each shop will contain 1-4 non-vanilla shop items (special deals).\n\nRandom - Vanilla shop items will be shuffled among different shops, and each shop will contain a random number (0-4) of non-vanilla shop items. The Kokiri Shop always gets at least one.\n\nA special deal sells its item once. It can hold anything that cannot be held twice, upgrades at the tier you must already have reached, and songs when songs are shuffled anywhere. Ammo, refills and hearts only go to the two Bazaars and the Bombchu Shop, where one purchase closes the slot.\n\nNot working yet:\n- The Potion Shops and the Happy Mask Shop get no special deals.\n- Untested in the game except one Kokiri Shop deal.",
+    tip: "Off - All shop items will be the same as vanilla.\n\n0 Items - Vanilla shop items will be shuffled among different shops.\n\n1-4 Items - Vanilla shop items will be shuffled among different shops, and each shop will contain 1-4 non-vanilla shop items (special deals).\n\nRandom - Vanilla shop items will be shuffled among different shops, and each shop will contain a random number (0-4) of non-vanilla shop items. The Kokiri Shop always gets at least one.\n\nA special deal sells its item once. It can hold anything that cannot be held twice, upgrades at the tier you must already have reached, and songs when songs are shuffled anywhere. Ammo, refills and hearts only go to the two Bazaars, the two Potion Shops and the Bombchu Shop, where one purchase closes the slot.\n\nA Goron or Zora Tunic moved out of its own shop costs a random price in the Shopsanity Prices range, and a child can buy tunics in every shop.\n\nNot working yet:\n- The Happy Mask Shop gets no special deals.\n- Untested in the game except one Kokiri Shop deal.",
     kind: Kind::Pick,
     opts: &[
         yes("Off", "off"),
@@ -595,7 +602,17 @@ const LOCATIONS_TAB: &[PortSection] = &[
             Entry::Hidden("shuffle_scrubs_b"),
         ],
     ),
-    port("Items", &[Entry::Plain("shuffle_songs"), Entry::Plain("song_harp_colors"), Entry::View(&SKULLTULAS), Entry::View(&FREESTANDING)]),
+    port(
+        "Items",
+        &[
+            Entry::Plain("shuffle_songs"),
+            Entry::Plain("song_harp_colors"),
+            Entry::Plain("shuffle_ocarinas"),
+            Entry::Plain("shuffle_kokiri_sword"),
+            Entry::View(&SKULLTULAS),
+            Entry::View(&FREESTANDING),
+        ],
+    ),
     port(
         "Shops",
         &[
@@ -607,16 +624,6 @@ const LOCATIONS_TAB: &[PortSection] = &[
             Entry::View(&MERCHANTS),
             Entry::View(&MERCHANT_PRICES),
             Entry::View(&MERCHANT_FIXED),
-        ],
-    ),
-    port(
-        "Sanities",
-        &[
-            Entry::Plain("shuffle_pots"),
-            Entry::Plain("shuffle_crates"),
-            Entry::Plain("shuffle_rocks"),
-            Entry::Plain("shuffle_grass"),
-            Entry::Plain("shuffle_beehives"),
         ],
     ),
     port(
@@ -632,6 +639,17 @@ const LOCATIONS_TAB: &[PortSection] = &[
         ],
     ),
 ];
+
+const EXPERIMENTAL_TAB: &[PortSection] = &[port(
+    "Sanities",
+    &[
+        Entry::Plain("shuffle_pots"),
+        Entry::Plain("shuffle_crates"),
+        Entry::Plain("shuffle_rocks"),
+        Entry::Plain("shuffle_grass"),
+        Entry::Plain("shuffle_beehives"),
+    ],
+)];
 
 pub const RANDOMIZER: &str = "Randomizer";
 pub const GAMEPLAY: &str = "Gameplay";
@@ -656,6 +674,12 @@ pub const MENU: &[Page] = &[
     Page {
         id: "locations",
         label: "Shuffle",
+        heading: RANDOMIZER,
+        sections: &[],
+    },
+    Page {
+        id: "experimental",
+        label: "Experimental",
         heading: RANDOMIZER,
         sections: &[],
     },
@@ -843,7 +867,11 @@ fn stub_json(label: &str, w: &Widget) -> Json {
 }
 
 fn page_json(id: &str, label: &str, heading: &str, secs: Vec<Json>) -> Json {
-    Json::obj().with("id", id.into()).with("label", label.into()).with("heading", heading.into()).with("sections", Json::Arr(secs))
+    let j: Json = Json::obj().with("id", id.into()).with("label", label.into()).with("heading", heading.into()).with("sections", Json::Arr(secs));
+    match WARNINGS.iter().find(|(p, _)| *p == id) {
+        Some((_, w)) => j.with("warning", (*w).into()),
+        None => j,
+    }
 }
 
 #[cfg(test)]
@@ -875,6 +903,15 @@ mod tests {
         seen.sort();
         want.sort();
         assert_eq!(seen, want);
+    }
+
+    #[test]
+    fn the_sanities_sit_on_the_experimental_page_under_its_warning() {
+        let j: Json = menu_json(schema());
+        let p: &Json = j.as_arr().unwrap().iter().find(|p| p.get("id").and_then(|x| x.as_str()) == Some("experimental")).unwrap();
+        assert!(p.get("warning").and_then(|x| x.as_str()).unwrap().contains("unbeatable"));
+        let ids: Vec<&str> = p.get("sections").and_then(|x| x.as_arr()).unwrap().iter().flat_map(|s| s.get("ids").and_then(|x| x.as_arr()).unwrap().iter().map(|i| i.as_str().unwrap())).collect();
+        assert_eq!(ids, vec!["shuffle_pots", "shuffle_crates", "shuffle_rocks", "shuffle_grass", "shuffle_beehives"]);
     }
 
     #[test]

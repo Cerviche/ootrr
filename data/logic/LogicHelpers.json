@@ -125,6 +125,8 @@
     "can_hit_deku_scrub": "has_shield or can_use(Slingshot) or can_use(Boomerang) or can_use(Bow)",
     # Lets link get into the crouching state
     "can_shield": "(is_adult and (Hylian_Shield or Mirror_Shield)) or (is_child and Deku_Shield)",
+    # Child boss fights want the Kokiri Sword: Deku Sticks are rare in the remake.
+    "can_finish_boss": "is_adult or Kokiri_Sword",
     "can_jumpslash": "is_adult or Sticks or Kokiri_Sword or can_use(Megaton_Hammer)",
 
     # Enemy killing

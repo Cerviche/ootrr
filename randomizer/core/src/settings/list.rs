@@ -261,19 +261,17 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::choice(3, "open_forest", "world", "Kokiri Forest", "closed")
-            .tip("Whether the way out of the forest and into the Deku Tree is blocked. An open Kakariko gate needs the forest fully open, since its story state skips the Deku Tree quest past Mido; with an open Kakariko gate, Closed and Closed Deku are locked out.")
+            .tip("Whether the way out of the forest and into the Deku Tree is blocked. Closed also closes the Kakariko gate. An open Kakariko gate needs the forest open, since its story state skips the Deku Tree quest past Mido; with an open Kakariko gate, Closed is locked out.")
             .opt("open", "Open", "Nothing blocks the forest or the Deku Tree.")
-            .opt("closed_deku", "Closed Deku", "The forest exit is open but the Deku Tree is closed.")
-            .opt("closed", "Closed", "The forest and the Deku Tree stay closed until the story opens them."),
+            .opt("closed", "Closed", "The forest and the Deku Tree stay closed until the story opens them, and the Kakariko gate stays closed."),
     );
     s.push(
-        Setting::choice(4, "open_kakariko", "world", "Kakariko Gate", "zelda")
+        Setting::choice(4, "open_kakariko", "world", "Kakariko Gate", "closed")
             .dep("open_forest", super::model::Cond::Is(super::model::Value::s("open")))
-            .disabled_as(super::model::Value::s("zelda"))
-            .tip("Whether the gate to Kakariko Village needs Zelda's Letter. Open also skips the castle visit: a new game starts after Zelda and Impa, with their two items already given. Needs Kokiri Forest set to Open; with Closed or Closed Deku the gate is locked to Zelda's Letter, and a seed that asks for both is refused.")
+            .disabled_as(super::model::Value::s("closed"))
+            .tip("Whether the Kakariko Village gate to Death Mountain starts open. Open also skips the castle visit: a new game starts after Zelda and Impa, with their two items already given. Needs Kokiri Forest set to Open; with Closed the gate is locked to Closed, and a seed that asks for both is refused.")
             .opt("open", "Open", "The gate is open from the start and the castle visit is skipped. Zelda's Letter and the Song from Impa, or whatever is placed there, are given when a new game starts.")
-            .opt("zelda", "Zelda's Letter", "The gate opens when you show the letter.")
-            .opt("closed", "Closed", "The gate stays closed until the story opens it."),
+            .opt("closed", "Closed", "The gate opens when you show Zelda's Letter to the guard."),
     );
     s.push(
         Setting::toggle(5, "open_door_of_time", "world", "Open Door of Time", false)
@@ -325,6 +323,17 @@ pub fn build() -> Schema {
             Setting::choice(10, "shuffle_crates", "shuffle", "Crates", "off")
                 .tip("Which crates, including the crates only the remake has, hold random items. Key items whose pickup pack is built can sit in a crate. A shuffled crate gives its item once and stays broken in the save. An item you do not pick up is lost and can make the seed unbeatable, so save before breaking crates that may hold key items. Experimental, untested in the game."),
         ),
+    );
+    s.push(
+        // Old settings strings carry no value here and always shuffled both, so they read as on.
+        Setting::toggle(crate::slice::pick::OCARINAS_NUM, crate::slice::pick::OCARINAS, "shuffle", "Ocarina Shuffle", false)
+            .wire_as(Value::Bool(true))
+            .tip("Whether both Ocarinas join the item pool: the Fairy Ocarina from Saria's gift and the Ocarina of Time Zelda throws in the moat after her escape. Off keeps them at those two spots. Both are only shuffled while NPC rewards are."),
+    );
+    s.push(
+        Setting::toggle(crate::slice::pick::SWORD_NUM, crate::slice::pick::SWORD, "shuffle", "Kokiri Sword Shuffle", false)
+            .wire_as(Value::Bool(true))
+            .tip("Whether the Kokiri Sword joins the item pool. Off keeps it in its chest in the Kokiri Forest training area. The chest is only shuffled while overworld chests are."),
     );
     s.push(
         Setting::toggle(67, crate::pot_slice::plan::HIVES, "shuffle", "Beehives", false)
