@@ -19,7 +19,7 @@ use crate::story_skip::{stage_late, stage_late_file};
 
 pub const NUM: u16 = 136;
 pub const SETTING: &str = "debug_location_names";
-pub const NOTE: &str = "Debug: chests, NPC, song and event rewards, Gold Skulltulas and items on the ground show their location name in a text box after the item get.";
+pub const NOTE: &str = "Debug: chests, NPC, song and event rewards, Gold Skulltulas and items on the ground show their location name in a text box after the item get. Items on the ground need a button press, and placed items missing from the location list say so.";
 const PREFIX: &str = "OOTRR_Dbg_";
 const ENTRY_PREFIX: &str = "Dbg_";
 const LINE_PREFIX: &str = "OOTRR_DbgLoc_";
@@ -51,6 +51,41 @@ const ACTOR_NAME: &str = "QueryGenericGetActorName";
 const SET_STRING: &str = "OneShotSetNonStructGameDataString64";
 const GLOBAL_AI: &str = "Pack/AI.Global.Product.111.pack.zs";
 const PICKUP_KINDS: [&str; 4] = ["freestanding", "heart", "bossheart", "key"];
+const MISS_PREFIX: &str = "OOTRR_DbgMiss_";
+const ITEM_KINDS: [&str; 32] = [
+    "Obj_Armor_Goron",
+    "Obj_Armor_Zora",
+    "Obj_ArrowBundle_Large",
+    "Obj_ArrowBundle_Medium",
+    "Obj_ArrowBundle_Small",
+    "Obj_Bomb",
+    "Obj_Bombchu",
+    "Obj_DekuNut",
+    "Obj_DekuSeed",
+    "Obj_DekuStick",
+    "Obj_Dungeon_SmallKey",
+    "Obj_Dungeon_SmallKey_GerudoFortress_01",
+    "Obj_Dungeon_SmallKey_GerudoFortress_02",
+    "Obj_Dungeon_SmallKey_GerudoFortress_03",
+    "Obj_Dungeon_SmallKey_GerudoFortress_04",
+    "Obj_GerudoValley_Heart_Piece",
+    "Obj_Heart",
+    "Obj_Heart_Container",
+    "Obj_Heart_InWater",
+    "Obj_Heart_Piece",
+    "Obj_Heart_Piece_Digging_Hole",
+    "Obj_Heart_Shootable",
+    "Obj_MagicJar_Large",
+    "Obj_MagicJar_Small",
+    "Obj_Rupee_Blue",
+    "Obj_Rupee_Gold",
+    "Obj_Rupee_Green",
+    "Obj_Rupee_Purple",
+    "Obj_Rupee_Red",
+    "Obj_ScrubBusinessSeed",
+    "Obj_Shield_Deku",
+    "Obj_Shield_Hylian",
+];
 const DONE: &str = "OOTRRDbgDone";
 const PRESS_FROM: &str = "Obj_Heart_Piece";
 const AUTO_CLIENT: &str = "Auto_Item_Catch";
@@ -480,7 +515,7 @@ fn ask(f: &mut Flow, name: &str, yes: u16, no: u16) -> Res<Kind> {
     })
 }
 
-pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)], picks: &[(String, usize)]) -> Res<usize> {
+pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)], picks: &[(String, String)]) -> Res<usize> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == GET_FLOW).ok_or(E::Format("debug names: GetPouchContent has no flow"))?;
     if f.entries.iter().any(|e| e.name == SWEEP) || (gs.is_empty() && picks.is_empty()) {
         return Ok(0);
@@ -503,12 +538,12 @@ pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)], picks: &[(String, usize)]) -> 
     let (qa, qt): (u16, u16) = crate::start_state::query_slot(f, HOLDER, ASK_TEXT)?;
     let (_, st): (u16, u16) = action_slot(f, HOLDER, SET_TEXT)?;
     let text_of = |v: &str| -> Cont { Cont { items: vec![("GameDataName".to_string(), Val::Str(PICK.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(v.to_string()))] } };
-    for (k, (name, i)) in picks.iter().enumerate() {
+    for (k, (name, label)) in picks.iter().enumerate() {
         let at: usize = base + 4 * gs.len() + 3 * k;
         let after: u16 = idx(at + 3)?;
         push(f, Kind::Switch { actor: qa, query: qt, cases: vec![Case { val: 0, ev: idx(at + 1)? }, Case { val: 1, ev: after }], params: Some(text_of(name)) })?;
         push(f, Kind::Action { next: idx(at + 2)?, actor: qa, act: st, params: Some(text_of(DONE)) })?;
-        push(f, Kind::Action { next: after, actor: ta, act: ts, params: Some(talk(line_id(*i))) })?;
+        push(f, Kind::Action { next: after, actor: ta, act: ts, params: Some(talk(format!("{FILE_ID}:{label}"))) })?;
     }
     let (wa, wt): (u16, u16) = wait_slot(f)?;
     if push(f, Kind::Action { next: NONE, actor: wa, act: wt, params: Some(wait(0)) })? != idx(tail)? {
@@ -769,36 +804,58 @@ pub fn pick_name(h: u64) -> String {
     format!("OOTRRDbg{h}")
 }
 
+pub fn miss_label(h: u64) -> String {
+    format!("{MISS_PREFIX}{h}")
+}
+
+fn miss_text(g: &str, h: u64, f: &str) -> String {
+    let short: &str = f.trim_start_matches("Banc/").trim_end_matches(".bcett.byml.zs");
+    format!("Not in database
+{g} {h}
+{short}")
+}
+
 pub fn stage_sweep(rf: &mut Romfs, d: &Data, work: &P, tail: &mut Vec<Out>) -> Res<(usize, usize)> {
     let gs: Vec<(u64, usize)> = skulls(d);
-    let mut by_file: BM<String, BM<u64, usize>> = BM::new();
+    let mut listed: BM<u64, usize> = BM::new();
     for (i, l) in d.cat.locs.iter().enumerate().filter(|(_, l)| PICKUP_KINDS.contains(&l.kind.as_str())) {
         for r in &l.refs {
-            for f in &r.files {
-                by_file.entry(f.clone()).or_default().insert(r.hash, i);
-            }
+            listed.insert(r.hash, i);
         }
     }
-    let mut picks: BM<String, usize> = BM::new();
-    let mut seen: BS<String> = BS::new();
-    for (f, want) in &by_file {
+    let known: BS<u64> = d.cat.locs.iter().flat_map(|l| l.refs.iter().map(|r| r.hash)).collect();
+    let files: Vec<String> = rf.list("Banc")?.into_iter().filter(|f| f.ends_with(".bcett.byml.zs")).collect();
+    let mut picks: BM<String, String> = BM::new();
+    let mut lines: BM<String, String> = BM::new();
+    let mut seen: BS<String> = ITEM_KINDS.iter().map(|g| g.to_string()).collect();
+    for f in &files {
         let raw: Vec<u8> = current(rf, tail, work, f)?;
         let y: Byml = Byml::parse(&raw)?;
         let Some(list) = y.root.get("Actors").and_then(|x| x.as_arr()) else { continue };
         let mut names: BM<u64, String> = BM::new();
         for a in list {
             let Some(h) = hash_of(a) else { continue };
-            let Some(i) = want.get(&h) else { continue };
             let g: &str = text(a, "Gyaml");
             if g.starts_with(CHEST) {
                 continue;
             }
+            let label: String = match listed.get(&h) {
+                Some(i) => {
+                    lines.insert(line_label(*i), d.cat.locs[*i].name.clone());
+                    line_label(*i)
+                }
+                None if !known.contains(&h) && ITEM_KINDS.contains(&g) => {
+                    lines.entry(miss_label(h)).or_insert_with(|| miss_text(g, h, f));
+                    miss_label(h)
+                }
+                None => continue,
+            };
             let name: String = match a.get("Name").and_then(|v| v.as_str()) {
                 Some(n) if !n.is_empty() => n.to_string(),
                 _ => pick_name(h),
             };
             seen.insert(g.to_string());
-            picks.insert(name.clone(), *i);
+            picks.insert(name.clone(), label);
             names.insert(h, name);
         }
         if names.is_empty() {
@@ -837,14 +894,14 @@ pub fn stage_sweep(rf: &mut Romfs, d: &Data, work: &P, tail: &mut Vec<Out>) -> R
         add_pick_flag(&b)
     })?;
     let live: Vec<(u64, usize)> = gs.into_iter().filter(|x| added.contains(&x.0)).collect();
-    let pl: Vec<(String, usize)> = picks.into_iter().collect();
+    let pl: Vec<(String, String)> = picks.into_iter().collect();
     stage_late(rf, tail, work, GET_FLOW, |b| add_sweep(b, &live, &pl).map(|_| ()))?;
     if !pl.is_empty() {
         for stem in ADD_FLOWS {
             stage_late(rf, tail, work, stem, |b| sweep_after_add(b).map(|_| ()))?;
         }
     }
-    let lines: BM<String, String> = live.iter().map(|(_, i)| *i).chain(pl.iter().map(|(_, i)| *i)).map(|i| (line_label(i), d.cat.locs[i].name.clone())).collect();
+    lines.extend(live.iter().map(|(_, i)| (line_label(*i), d.cat.locs[*i].name.clone())));
     for l in crate::hints::languages(rf)? {
         stage_late_file(rf, tail, work, &l, |raw: &[u8]| put_lines(raw, &lines))?;
     }
