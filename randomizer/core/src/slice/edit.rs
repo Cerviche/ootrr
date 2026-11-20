@@ -500,7 +500,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             scenes.extend(crate::story_skip::REWARD_SCENES.iter().map(|r| r.0));
         }
         debug_missed = crate::debug_names::stage_flows(&mut rf, &d, &work, &mut tail, &scenes, &sales)?;
-        crate::debug_names::stage_skulls(&mut rf, &d, &work, &mut tail)?;
+        crate::debug_names::stage_sweep(&mut rf, &d, &work, &mut tail)?;
         for o in tail {
             pk.write_romfs(&o.path, &o.z)?;
             extra += 1;

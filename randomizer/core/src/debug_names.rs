@@ -19,7 +19,7 @@ use crate::story_skip::{stage_late, stage_late_file};
 
 pub const NUM: u16 = 136;
 pub const SETTING: &str = "debug_location_names";
-pub const NOTE: &str = "Debug: chests, NPC, song and event rewards and Gold Skulltulas show their location name in a text box after the item get.";
+pub const NOTE: &str = "Debug: chests, NPC, song and event rewards, Gold Skulltulas and items on the ground show their location name in a text box after the item get.";
 const PREFIX: &str = "OOTRR_Dbg_";
 const ENTRY_PREFIX: &str = "Dbg_";
 const LINE_PREFIX: &str = "OOTRR_DbgLoc_";
@@ -37,6 +37,16 @@ const SWEEP: &str = "OOTRRDbgSweep";
 const SKULL_KIND: &str = "gs";
 const ASK_BOOL: &str = "EventQueryIsGameDataBool";
 const SCRUB_FLOW: &str = "Enemy_Scrub_Business_Common";
+pub const PICK: &str = "OOTRRDbgPick";
+const PICK_TEMPLATE: &str = "UI_MessageTargetActorName";
+const ASK_TEXT: &str = "EventQueryIsGameDataString64";
+const SET_TEXT: &str = "EventTriggerSetGameDataString64";
+const ADD_OWN: &str = "EventTriggerAddOwnToPouch";
+const OWN_LINK: &str = "QueryGenericGetOwnActorLink";
+const ACTOR_NAME: &str = "QueryGenericGetActorName";
+const SET_STRING: &str = "OneShotSetNonStructGameDataString64";
+const GLOBAL_AI: &str = "Pack/AI.Global.Product.111.pack.zs";
+const PICKUP_KINDS: [&str; 4] = ["freestanding", "heart", "bossheart", "key"];
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Wrap {
@@ -77,10 +87,11 @@ fn current(rf: &mut Romfs, more: &[Out], work: &P, path: &str) -> Res<Vec<u8>> {
         return rf.zs.decompress(&o.z);
     }
     let at = path.split('/').fold(work.to_path_buf(), |a, s| a.join(s));
-    match fs::read(&at) {
+    let out: Res<Vec<u8>> = match fs::read(&at) {
         Ok(z) => rf.zs.decompress(&z),
         Err(_) => rf.read_zs(path),
-    }
+    };
+    out.map_err(|e| E::Msg(format!("debug names: {path}: {e}")))
 }
 
 fn text<'a>(n: &'a Node, k: &str) -> &'a str {
@@ -461,24 +472,38 @@ fn ask(f: &mut Flow, name: &str, yes: u16, no: u16) -> Res<Kind> {
     })
 }
 
-pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)]) -> Res<usize> {
+pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)], picks: &[(String, usize)]) -> Res<usize> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == GET_FLOW).ok_or(E::Format("debug names: GetPouchContent has no flow"))?;
-    if f.entries.iter().any(|e| e.name == SWEEP) || gs.is_empty() {
+    if f.entries.iter().any(|e| e.name == SWEEP) || (gs.is_empty() && picks.is_empty()) {
         return Ok(0);
     }
     let pad: u16 = f.entries.first().map(|e| e.pad).unwrap_or(0);
     let base: usize = f.events.len();
     let (ta, ts): (u16, u16) = action_slot(f, TALKER, TALK)?;
     let (sa, ss): (u16, u16) = action_slot(f, HOLDER, SET)?;
+    let tail: usize = base + 4 * gs.len() + 2 * picks.len();
     for (k, (h, i)) in gs.iter().enumerate() {
         let at: usize = base + 4 * k;
-        let after: u16 = if k + 1 == gs.len() { NONE } else { idx(at + 4)? };
+        let after: u16 = idx(at + 4)?;
         let dead: Kind = ask(f, &skull_flag(*h), idx(at + 1)?, after)?;
         let seen: Kind = ask(f, &shown_flag(*h), after, idx(at + 2)?)?;
         push(f, dead)?;
         push(f, seen)?;
         push(f, Kind::Action { next: idx(at + 3)?, actor: ta, act: ts, params: Some(talk(line_id(*i))) })?;
         push(f, Kind::Action { next: after, actor: sa, act: ss, params: Some(set_bool(shown_flag(*h))) })?;
+    }
+    let (qa, qt): (u16, u16) = crate::start_state::query_slot(f, HOLDER, ASK_TEXT)?;
+    let (_, st): (u16, u16) = action_slot(f, HOLDER, SET_TEXT)?;
+    for (k, (name, i)) in picks.iter().enumerate() {
+        let at: usize = base + 4 * gs.len() + 2 * k;
+        let after: u16 = idx(at + 2)?;
+        let items: Vec<(String, Val)> = vec![("GameDataName".to_string(), Val::Str(PICK.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(name.clone()))];
+        push(f, Kind::Switch { actor: qa, query: qt, cases: vec![Case { val: 0, ev: idx(at + 1)? }, Case { val: 1, ev: after }], params: Some(Cont { items }) })?;
+        push(f, Kind::Action { next: after, actor: ta, act: ts, params: Some(talk(line_id(*i))) })?;
+    }
+    let clear: Vec<(String, Val)> = vec![("GameDataName".to_string(), Val::Str(PICK.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(String::new()))];
+    if push(f, Kind::Action { next: NONE, actor: qa, act: st, params: Some(Cont { items: clear }) })? != idx(tail)? {
+        return Err(E::Format("debug names: the sweep events are out of order"));
     }
     f.entries.push(Entry { name: SWEEP.to_string(), subs: Vec::new(), vars: Vec::new(), main: idx(base)?, pad });
     let starts: Vec<u16> = f.entries.iter().filter(|e| e.name.starts_with(WINDOW_PREFIX)).map(|e| e.main).collect();
@@ -519,21 +544,187 @@ pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)]) -> Res<usize> {
     Ok(n)
 }
 
-pub fn stage_skulls(rf: &mut Romfs, d: &Data, work: &P, late: &mut Vec<Out>) -> Res<usize> {
+pub fn add_pick_flag(raw: &[u8]) -> Res<Vec<u8>> {
+    let mut y: Byml = Byml::parse(raw)?;
+    let list: &mut Vec<Node> = y.root.get_mut("Data").and_then(|d| d.get_mut("String64")).and_then(|b| b.as_arr_mut()).ok_or(E::Format("debug names: the game data list has no String64 table"))?;
+    let k: u32 = crate::flags::hash_name(PICK_TEMPLATE);
+    let n: u32 = crate::flags::hash_name(PICK);
+    if !list.iter().any(|r| row_hash(r) == Some(n)) {
+        let mut r: Node = list.iter().find(|r| row_hash(r) == Some(k)).cloned().ok_or(E::Format("debug names: the game data list has no UI_MessageTargetActorName row"))?;
+        r.set("Hash", Node::U32(n));
+        r.set("DefaultValue", Node::Str(String::new()));
+        list.push(r);
+    }
+    y.write()
+}
+
+fn ptr_class(a: &crate::ainb::Ainb, el: usize) -> Option<String> {
+    let st: usize = a.params.get(el)?.ioe[5][2] as usize;
+    let rec: &[u8] = a.outs[5].get(st * 8..st * 8 + 8)?;
+    let o: u32 = u32::from_le_bytes([rec[4], rec[5], rec[6], rec[7]]);
+    a.pool.get(o).map(|x| x.to_string())
+}
+
+pub fn patch_pick(raw: &[u8], tag: &str) -> Res<Option<Vec<u8>>> {
+    use crate::ainb::build::Spec;
+    use crate::ainb::{audit, Ainb, Plug};
+    let mut a: Ainb = Ainb::parse(raw)?;
+    let sites: Vec<usize> = a.find_els(ADD_OWN);
+    if sites.is_empty() || a.find_els(SET_STRING).iter().any(|&i| a.in_str(i, "GameDataFullName") == Some(PICK)) {
+        return Ok(None);
+    }
+    let class: String = a.find_els(OWN_LINK).into_iter().find_map(|i| ptr_class(&a, i)).ok_or_else(|| E::Msg(format!("debug names: {tag} has no actor link to copy")))?;
+    for (n, site) in sites.into_iter().enumerate() {
+        let kid: usize = {
+            let p = &a.params[site];
+            p.plugs.get(p.pl[2][1] as usize).map(|x| x.a as usize).ok_or_else(|| E::Msg(format!("debug names: the add handler in {tag} has no body")))?
+        };
+        if a.el_type(kid) != 3 {
+            return Err(E::Msg(format!("debug names: the add handler in {tag} is not a parallel")));
+        }
+        let seed: String = format!("ootrr debug pick {tag} {n}");
+        let s1: String = format!("{seed} link");
+        let s2: String = format!("{seed} name");
+        let s3: String = format!("{seed} set");
+        let link: usize = a.add_node(&Spec::query(OWN_LINK, &s1).out_ptr("Actor", &class))?;
+        let name: usize = a.add_node(&Spec::query(ACTOR_NAME, &s2).linked_ptr("Actor", &class, link).spare(3, "ActorFileName").out(3, "ActorInstanceName").spare(3, "ActorName"))?;
+        let key: Vec<u8> = a.pool.add(PICK).to_le_bytes().to_vec();
+        let set: usize = a.add_node(
+            &Spec::node(SET_STRING, &s3)
+                .prop(1, "ExecuteEveryFrame", vec![0; 4])
+                .constant(0, "GameDataIndex", (-1i32).to_le_bytes().to_vec())
+                .constant(3, "GameDataFullName", key)
+                .linked(3, "Value", name, 1),
+        )?;
+        let at: usize = a.params[kid].pl[2][0] as usize;
+        let nm: u32 = a.pool.add("");
+        a.params[kid].add_plug(2, at, Plug { a: set as u32, b: nm, extra: Vec::new() })?;
+    }
+    let bad: Vec<String> = audit(&a);
+    if !bad.is_empty() {
+        return Err(E::Msg(format!("debug names: {tag}: {}", bad.join("; "))));
+    }
+    let out: Vec<u8> = a.write()?;
+    let back: Ainb = Ainb::parse(&out)?;
+    if back.write()? != out {
+        return Err(E::Msg(format!("debug names: {tag} does not read back")));
+    }
+    Ok(Some(out))
+}
+
+pub fn patch_pack(raw: &[u8], tag: &str) -> Res<Option<Vec<u8>>> {
+    let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
+    let mut hit: bool = false;
+    for e in es.iter_mut().filter(|e| e.name.ends_with(".event.root.ainb")) {
+        if let Some(out) = patch_pick(&e.data, &format!("{tag} {}", e.name))? {
+            e.data = out;
+            hit = true;
+        }
+    }
+    if hit {
+        Ok(Some(sarc::write(&es)?))
+    } else {
+        Ok(None)
+    }
+}
+
+fn edit_pack(rf: &mut Romfs, tail: &mut Vec<Out>, work: &P, path: &str, f: impl FnOnce(&[u8]) -> Res<Vec<u8>>) -> Res<()> {
+    let at = path.split('/').fold(work.to_path_buf(), |a, s| a.join(s));
+    let z: Vec<u8> = match tail.iter().find(|o| o.path == path) {
+        Some(o) => o.z.clone(),
+        None => match fs::read(&at) {
+            Ok(z) => z,
+            Err(_) => rf.read(path)?,
+        },
+    };
+    let id: Option<u32> = crate::zs::dict_of(&z);
+    let raw: Vec<u8> = rf.zs.decompress(&z)?;
+    let out: Vec<u8> = f(&raw)?;
+    let o: Out = Out { path: path.to_string(), z: crate::zs::compress_raw(&out, id)?, old: raw.len(), new: out.len() };
+    match tail.iter().position(|x| x.path == path) {
+        Some(i) => tail[i] = o,
+        None => tail.push(o),
+    }
+    Ok(())
+}
+
+pub fn pick_name(h: u64) -> String {
+    format!("OOTRRDbg{h}")
+}
+
+pub fn stage_sweep(rf: &mut Romfs, d: &Data, work: &P, tail: &mut Vec<Out>) -> Res<(usize, usize)> {
     let gs: Vec<(u64, usize)> = skulls(d);
+    let mut by_file: BM<String, BM<u64, usize>> = BM::new();
+    for (i, l) in d.cat.locs.iter().enumerate().filter(|(_, l)| PICKUP_KINDS.contains(&l.kind.as_str())) {
+        for r in &l.refs {
+            for f in &r.files {
+                by_file.entry(f.clone()).or_default().insert(r.hash, i);
+            }
+        }
+    }
+    let mut picks: BM<String, usize> = BM::new();
+    let mut seen: BS<String> = BS::new();
+    for (f, want) in &by_file {
+        let raw: Vec<u8> = current(rf, tail, work, f)?;
+        let y: Byml = Byml::parse(&raw)?;
+        let Some(list) = y.root.get("Actors").and_then(|x| x.as_arr()) else { continue };
+        let mut names: BM<u64, String> = BM::new();
+        for a in list {
+            let Some(h) = hash_of(a) else { continue };
+            let Some(i) = want.get(&h) else { continue };
+            let g: &str = text(a, "Gyaml");
+            if g.starts_with(CHEST) {
+                continue;
+            }
+            let name: String = match a.get("Name").and_then(|v| v.as_str()) {
+                Some(n) if !n.is_empty() => n.to_string(),
+                _ => pick_name(h),
+            };
+            seen.insert(g.to_string());
+            picks.insert(name.clone(), *i);
+            names.insert(h, name);
+        }
+        if names.is_empty() {
+            continue;
+        }
+        stage_late_file(rf, tail, work, f, |raw: &[u8]| {
+            let mut y: Byml = Byml::parse(raw)?;
+            if let Some(list) = actors(&mut y) {
+                for a in list.iter_mut() {
+                    let Some(h) = hash_of(a) else { continue };
+                    if let Some(n) = names.get(&h)
+                        && a.get("Name").is_none()
+                    {
+                        a.set("Name", Node::Str(n.clone()));
+                    }
+                }
+            }
+            y.write()
+        })?;
+    }
+    let mut packs: Vec<String> = vec![GLOBAL_AI.to_string()];
+    packs.extend(seen.iter().map(|g| crate::pickup_pack::pack_of(g)));
+    for p in &packs {
+        let Ok(raw) = current(rf, tail, work, p) else { continue };
+        if patch_pack(&raw, p)?.is_none() {
+            continue;
+        }
+        edit_pack(rf, tail, work, p, |raw: &[u8]| Ok(patch_pack(raw, p)?.unwrap_or_else(|| raw.to_vec())))?;
+    }
     let mut added: Vec<u64> = Vec::new();
-    stage_late_file(rf, late, work, crate::chest_slot::LIST, |raw: &[u8]| {
+    stage_late_file(rf, tail, work, crate::chest_slot::LIST, |raw: &[u8]| {
         let (b, a) = add_shown(raw, &gs)?;
         added = a;
-        Ok(b)
+        add_pick_flag(&b)
     })?;
     let live: Vec<(u64, usize)> = gs.into_iter().filter(|x| added.contains(&x.0)).collect();
-    stage_late(rf, late, work, GET_FLOW, |b| add_sweep(b, &live).map(|_| ()))?;
-    let lines: BM<String, String> = live.iter().map(|(_, i)| (line_label(*i), d.cat.locs[*i].name.clone())).collect();
+    let pl: Vec<(String, usize)> = picks.into_iter().collect();
+    stage_late(rf, tail, work, GET_FLOW, |b| add_sweep(b, &live, &pl).map(|_| ()))?;
+    let lines: BM<String, String> = live.iter().map(|(_, i)| *i).chain(pl.iter().map(|(_, i)| *i)).map(|i| (line_label(i), d.cat.locs[i].name.clone())).collect();
     for l in crate::hints::languages(rf)? {
-        stage_late_file(rf, late, work, &l, |raw: &[u8]| put_lines(raw, &lines))?;
+        stage_late_file(rf, tail, work, &l, |raw: &[u8]| put_lines(raw, &lines))?;
     }
-    Ok(live.len())
+    Ok((live.len(), pl.len()))
 }
 
 fn case_to(k: &Kind, val: u32) -> Option<u16> {
