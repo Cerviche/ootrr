@@ -50,12 +50,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ootrr-os"
+version = "0.8.0"
+
+[[package]]
 name = "ootrr-web"
 version = "0.8.0"
 dependencies = [
  "ootrr-core",
  "ootrr-game",
  "ootrr-mem",
+ "ootrr-os",
 ]
 
 [[package]]
