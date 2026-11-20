@@ -126,6 +126,33 @@ html[data-theme="hyrule"] body {
 .app mark { background: rgba(242, 193, 78, 0.3); color: inherit; border-radius: 2px; }
 .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px 14px; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: var(--m-r); padding: 10px 12px; }
 .cgrid .chk { font-size: 12.5px; }
+.ced { display: grid; gap: 10px; min-width: 0; }
+.cedbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.csp { flex: 1; }
+.cfolds { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 4px 22px; align-items: start; }
+.cfold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--m-line); font-weight: 600; min-width: 0; }
+.cfold > summary::-webkit-details-marker { display: none; }
+.cfold > summary::before { content: "B8"; color: var(--m-muted); transition: transform 0.15s; }
+.cfold[open] > summary::before { transform: rotate(90deg); }
+.cfold > summary small { font-weight: 400; color: var(--m-muted); font-size: 11.5px; white-space: nowrap; }
+.cchips { display: inline-flex; flex-wrap: wrap; gap: 3px; min-width: 0; }
+.cchips i { width: 10px; height: 10px; border-radius: 2px; border: 1px solid rgba(0, 0, 0, 0.25); display: block; }
+.crows { display: grid; padding: 4px 0 6px 16px; }
+.crow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 2px 0; }
+.crow input[type="color"] { width: 34px; height: 24px; padding: 0; border: 1px solid var(--m-line); border-radius: var(--m-r); background: none; cursor: pointer; }
+.crow input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.crow input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 2px; }
+.crow input[type="color"]::-moz-color-swatch { border: 0; border-radius: 2px; }
+.cname { min-width: 0; display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; }
+.crow.lk .cname > span:first-child { color: var(--m-muted); }
+.chex { font: 11px var(--m-mono); color: var(--m-off); }
+.chex.on { color: var(--m-accent); }
+.cacts { display: flex; gap: 2px; }
+.cib { flex: none; width: 26px; height: 26px; display: inline-grid; place-items: center; border: 1px solid transparent; border-radius: var(--m-r); background: none; color: var(--m-muted); cursor: pointer; padding: 0; }
+.cib:hover, .cib:focus-visible { border-color: var(--m-line); background: var(--m-panel); color: var(--m-text); }
+.cib svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cib[aria-pressed="true"] { color: var(--m-mark); }
+.app .cedbar select { width: auto; }
 .cbar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .cbar > span { color: var(--m-muted); font-size: 12px; display: flex; gap: 8px; align-items: center; }
 .msec, .w { grid-template-columns: minmax(0, 1fr); }
