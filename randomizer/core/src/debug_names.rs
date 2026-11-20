@@ -38,6 +38,14 @@ const ADD_FLOWS: [&str; 2] = ["Dm_SY_Get", "Dm_SY_Get_WithoutPlayer"];
 const WAIT: &str = "EventWait";
 const WAITER: &str = "EventSystemActor";
 const ADD_DELAY: i32 = 5;
+const SWEEP_MISS: &str = "OOTRRDbgMiss";
+const WAITING: &str = "OOTRRDbgWait";
+const TAG_ASK: &str = "EventQueryCheckTagOnPouchActor";
+const TOKEN_TAG: u32 = 3;
+const TAG_CASES: u32 = 16;
+pub const MISS_SPAWN: &str = "OOTRR_DbgMiss_Spawned";
+const MISS_SPAWN_TEXT: &str = "Not in database
+not placed in a scene";
 const SKULL_KIND: &str = "gs";
 const ASK_BOOL: &str = "EventQueryIsGameDataBool";
 const SCRUB_FLOW: &str = "Enemy_Scrub_Business_Common";
@@ -345,7 +353,13 @@ fn say_after(f: &mut Flow, at: usize, id: String) -> Res<bool> {
 fn say_before(f: &mut Flow, at: usize, id: String) -> Res<()> {
     let (t, say): (u16, u16) = action_slot(f, TALKER, TALK)?;
     let w: u16 = idx(at)?;
-    let n: u16 = push(f, Kind::Action { next: w, actor: t, act: say, params: Some(talk(id)) })?;
+    before(f, at, Kind::Action { next: w, actor: t, act: say, params: Some(talk(id)) })?;
+    Ok(())
+}
+
+fn before(f: &mut Flow, at: usize, k: Kind) -> Res<u16> {
+    let w: u16 = idx(at)?;
+    let n: u16 = push(f, k)?;
     for (i, ev) in f.events.iter_mut().enumerate() {
         if i == usize::from(n) {
             continue;
@@ -373,7 +387,7 @@ fn say_before(f: &mut Flow, at: usize, id: String) -> Res<()> {
             e.main = n;
         }
     }
-    Ok(())
+    Ok(n)
 }
 
 pub fn hook(b: &mut Bf, event: &str, id: &str) -> Res<bool> {
@@ -550,6 +564,12 @@ pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)], picks: &[(String, String)]) ->
         return Err(E::Format("debug names: the sweep events are out of order"));
     }
     f.entries.push(Entry { name: SWEEP.to_string(), subs: Vec::new(), vars: Vec::new(), main: idx(base)?, pad });
+    let m: usize = f.events.len();
+    push(f, Kind::Switch { actor: qa, query: qt, cases: vec![Case { val: 0, ev: NONE }, Case { val: 1, ev: idx(m + 1)? }], params: Some(text_of(DONE)) })?;
+    push(f, Kind::Switch { actor: qa, query: qt, cases: vec![Case { val: 0, ev: NONE }, Case { val: 1, ev: idx(m + 2)? }], params: Some(text_of(WAITING)) })?;
+    push(f, Kind::Action { next: idx(m + 3)?, actor: ta, act: ts, params: Some(talk(format!("{FILE_ID}:{MISS_SPAWN}"))) })?;
+    push(f, Kind::Action { next: NONE, actor: qa, act: st, params: Some(text_of(DONE)) })?;
+    f.entries.push(Entry { name: SWEEP_MISS.to_string(), subs: Vec::new(), vars: Vec::new(), main: idx(m)?, pad });
     let starts: Vec<u16> = f.entries.iter().filter(|e| e.name.starts_with(WINDOW_PREFIX)).map(|e| e.main).collect();
     let mut seen: BS<u16> = BS::new();
     let mut todo: Vec<u16> = starts;
@@ -619,25 +639,34 @@ pub fn sweep_after_add(b: &mut Bf) -> Res<usize> {
     for f in b.flows.iter_mut() {
         let Some((ai, a)) = f.actors.iter().enumerate().find(|(_, a)| a.actions.iter().any(|x| x == ADD_OWN)) else { continue };
         let Some(add) = a.actions.iter().position(|x| x == ADD_OWN) else { continue };
+        let adder: String = a.name.clone();
         let (who, what): (u16, u16) = (idx(ai)?, idx(add)?);
         if f.events.iter().any(|e| matches!(&e.kind, Kind::Sub { entry, .. } if entry == SWEEP)) {
             continue;
         }
         let sites: Vec<usize> = f.events.iter().enumerate().filter(|(_, e)| matches!(e.kind, Kind::Action { actor, act, .. } if actor == who && act == what)).map(|(i, _)| i).collect();
         let (wa, wt): (u16, u16) = wait_slot(f)?;
+        let (ga, gt): (u16, u16) = crate::start_state::query_slot(f, &adder, TAG_ASK)?;
+        let (ha, hs): (u16, u16) = action_slot(f, HOLDER, SET_TEXT)?;
+        let reset: Cont = Cont { items: vec![("GameDataName".to_string(), Val::Str(PICK.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(WAITING.to_string()))] };
         for at in sites {
             let then: u16 = match &f.events[at].kind {
                 Kind::Action { next, .. } => *next,
                 _ => continue,
             };
             let owners: Vec<usize> = f.entries.iter().enumerate().filter(|(_, e)| reach(f, e.main).contains(&idx(at).unwrap_or(NONE))).map(|(j, _)| j).collect();
-            let call: u16 = push(f, Kind::Sub { next: then, params: None, flow: GET_FLOW.to_string(), entry: SWEEP.to_string() })?;
+            let miss: u16 = push(f, Kind::Sub { next: then, params: None, flow: GET_FLOW.to_string(), entry: SWEEP_MISS.to_string() })?;
+            let cases: Vec<Case> = (0..TAG_CASES).map(|v| Case { val: v, ev: if v == TOKEN_TAG { then } else { miss } }).collect();
+            let tag: u16 = push(f, Kind::Switch { actor: ga, query: gt, cases, params: None })?;
+            let call: u16 = push(f, Kind::Sub { next: tag, params: None, flow: GET_FLOW.to_string(), entry: SWEEP.to_string() })?;
             let hold: u16 = push(f, Kind::Action { next: call, actor: wa, act: wt, params: Some(wait(ADD_DELAY)) })?;
             if let Kind::Action { next, .. } = &mut f.events[at].kind {
                 *next = hold;
             }
+            before(f, at, Kind::Action { next: idx(at)?, actor: ha, act: hs, params: Some(reset.clone()) })?;
             for j in owners {
                 f.entries[j].subs.push(call);
+                f.entries[j].subs.push(miss);
             }
             n += 1;
         }
@@ -902,6 +931,7 @@ pub fn stage_sweep(rf: &mut Romfs, d: &Data, work: &P, tail: &mut Vec<Out>) -> R
         }
     }
     lines.extend(live.iter().map(|(_, i)| (line_label(*i), d.cat.locs[*i].name.clone())));
+    lines.insert(MISS_SPAWN.to_string(), MISS_SPAWN_TEXT.to_string());
     for l in crate::hints::languages(rf)? {
         stage_late_file(rf, tail, work, &l, |raw: &[u8]| put_lines(raw, &lines))?;
     }
