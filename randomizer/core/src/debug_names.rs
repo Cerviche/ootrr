@@ -36,6 +36,7 @@ const WINDOW_PREFIX: &str = "OpenGetWindow";
 const SWEEP: &str = "OOTRRDbgSweep";
 const SKULL_KIND: &str = "gs";
 const ASK_BOOL: &str = "EventQueryIsGameDataBool";
+const SCRUB_FLOW: &str = "Enemy_Scrub_Business_Common";
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Wrap {
@@ -332,14 +333,20 @@ pub fn hook(b: &mut Bf, event: &str, id: &str) -> Res<bool> {
     Ok(false)
 }
 
-pub fn stage_flows(rf: &mut Romfs, d: &Data, work: &P, late: &mut Vec<Out>, scenes: &BS<&str>) -> Res<Vec<String>> {
+pub fn stage_flows(rf: &mut Romfs, d: &Data, work: &P, late: &mut Vec<Out>, scenes: &BS<&str>, sales: &[(String, String)]) -> Res<Vec<String>> {
     let mut missed: Vec<String> = Vec::new();
     let mut by_file: BM<String, Vec<(String, String)>> = BM::new();
     for (i, l) in d.flow.locs.iter().enumerate() {
         if scenes.contains(l.name.as_str()) {
             continue;
         }
-        let grants: Vec<&crate::flow_locations::Edit> = l.edits.iter().filter(|e| e.role == "grant").collect();
+        if sales.iter().any(|(_, loc)| loc == &l.name) {
+            continue;
+        }
+        let mut grants: Vec<&crate::flow_locations::Edit> = l.edits.iter().filter(|e| e.role == "grant").collect();
+        if grants.is_empty() {
+            grants = l.edits.iter().filter(|e| e.role == "offer").collect();
+        }
         if grants.is_empty() {
             missed.push(l.name.clone());
             continue;
@@ -368,6 +375,24 @@ pub fn stage_flows(rf: &mut Romfs, d: &Data, work: &P, late: &mut Vec<Out>, scen
         for ((ev, _), ok) in hs.iter().zip(found) {
             if !ok {
                 missed.push(format!("{stem}:{ev}"));
+            }
+        }
+    }
+    if !sales.is_empty() {
+        let mut found: Vec<bool> = Vec::new();
+        stage_late(rf, late, work, SCRUB_FLOW, |b| {
+            for (entry, loc) in sales {
+                let i: Option<usize> = d.flow.locs.iter().position(|l| &l.name == loc);
+                found.push(match i {
+                    Some(i) => hook_sale(b, entry, &flow_id(i))?,
+                    None => false,
+                });
+            }
+            Ok(())
+        })?;
+        for ((_, loc), ok) in sales.iter().zip(found) {
+            if !ok {
+                missed.push(loc.clone());
             }
         }
     }
@@ -509,4 +534,23 @@ pub fn stage_skulls(rf: &mut Romfs, d: &Data, work: &P, late: &mut Vec<Out>) -> 
         stage_late_file(rf, late, work, &l, |raw: &[u8]| put_lines(raw, &lines))?;
     }
     Ok(live.len())
+}
+
+fn case_to(k: &Kind, val: u32) -> Option<u16> {
+    match k {
+        Kind::Switch { cases, .. } => cases.iter().find(|c| c.val == val).map(|c| c.ev),
+        _ => None,
+    }
+}
+
+pub fn hook_sale(b: &mut Bf, entry: &str, id: &str) -> Res<bool> {
+    let Some(f) = b.flows.iter_mut().find(|f| f.name == SCRUB_FLOW) else { return Ok(false) };
+    let Some(gate) = f.entries.iter().find(|e| e.name == entry).map(|e| e.main) else { return Ok(false) };
+    let Some(sub) = case_to(&f.events[usize::from(gate)].kind, 1) else { return Ok(false) };
+    let chk: u16 = match &f.events[usize::from(sub)].kind {
+        Kind::Sub { next, .. } => *next,
+        _ => return Ok(false),
+    };
+    let Some(set) = case_to(&f.events[usize::from(chk)].kind, 0) else { return Ok(false) };
+    say_after(f, usize::from(set), id.to_string())
 }
