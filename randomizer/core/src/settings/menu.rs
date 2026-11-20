@@ -768,6 +768,7 @@ pub const MENU: &[Page] = &[
             sec("Boss fights", &["boss_minibosses", "boss_minions"]),
             sec("Hazards", &["fireball_storms"]),
             sec("Game over", &["lose_heart_on_death"]),
+            sec("Minigames", &["unbreakable_bowling_grass"]),
             sec("Just for fun", &["enemy_spawn_combo"]),
         ],
     },
