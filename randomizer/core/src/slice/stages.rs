@@ -26,13 +26,14 @@ pub struct Ctx<'a> {
 
 pub type Stage = fn(&mut Romfs, &Ctx, &mut Vec<Out>) -> Res<()>;
 
-pub const STAGES: [(&str, Stage); 21] = [
+pub const STAGES: [(&str, Stage); 23] = [
     ("boss heart chests", boss_hearts),
     ("songs", songs),
     ("song models", song_models),
     ("hints", hints),
     ("dungeon item text", dungeon_text),
     ("scrub hint text", scrub_hints),
+    ("fairy price text", fairy_text),
     ("silver rupee text", silver_text),
     ("pouch", pouch),
     ("bomb flowers", bomb_lift),
@@ -41,7 +42,10 @@ pub const STAGES: [(&str, Stage); 21] = [
     ("no tutorials", no_tutorials),
     ("open door of time", door_open),
     ("master sword pedestal", pedestal),
+    ("bombchu alley", bombchu),
+    ("water temple gate", water_gate),
     ("medallion gate", medal_gate),
+    ("fire temple gorons", fire_gorons),
     ("start reward and flags", start_reward),
     ("starting items", start_items),
     ("dpad items", dpad),
@@ -93,6 +97,10 @@ fn scrub_hints(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     crate::scrub_prices::stage_text(rf, c.d, c.seed, c.p.rewards.scrub_hint, more)
 }
 
+fn fairy_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    crate::fairy_prices::stage_text(rf, c.p.rewards.fairy_prices, c.seed, more)
+}
+
 fn silver_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     crate::slice::silver::stage_text(rf, more, c.silver)
 }
@@ -112,8 +120,9 @@ fn quiet_pickups(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     Ok(())
 }
 
-fn door_fix(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    more.extend(crate::door_fix::stage(rf)?);
+fn door_fix(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    more.push(crate::door_gate::stage_flow(rf, &c.p.door)?);
+    more.push(crate::door_gate::stage_river(rf)?);
     Ok(())
 }
 
@@ -125,12 +134,31 @@ fn no_tutorials(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if c.p.gates.door {
         more.extend(crate::door_open::stage_door(rf)?);
+    } else {
+        more.extend(crate::door_gate::stage_door(rf, &c.p.door)?);
     }
+    if c.p.door.moat {
+        crate::door_gate::stage_moat(rf, more, Some(c.work))?;
+    }
+    crate::door_gate::stage_escape(rf, more, Some(c.work), &c.p.door)?;
     Ok(())
+}
+
+fn bombchu(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    crate::bombchu_open::stage(rf, more, c.work)
+}
+
+fn water_gate(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    crate::water_gate::stage(rf, more, c.work)
 }
 
 fn pedestal(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     more.extend(crate::door_open::stage_pedestal(rf, Some(c.work))?);
+    Ok(())
+}
+
+fn fire_gorons(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    more.extend(crate::fire_gorons::stage(rf)?);
     Ok(())
 }
 
@@ -187,6 +215,8 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if let Some(n) = c.p.rainbow {
         edits.push(crate::rainbow_bridge::exp(n));
     }
+    edits.extend(c.p.door.exps());
+    edits.push(crate::always::exp());
     crate::start_defaults::stage(rf, more, &edits)
 }
 

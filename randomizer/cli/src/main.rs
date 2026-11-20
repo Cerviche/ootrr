@@ -104,8 +104,8 @@ const USAGE: &str = "usage:
   ootrr serve [--port N] [--lan] [--no-open] [--no-update-check]
   ootrr mem-watch [--flags data/flags.json] [--out log.txt]   print every flag the running game flips
   ootrr generate <settings_string_or_preset_or_file> <seed> <out.ootrr> [--spoiler <file>] [--plando Location=Item]... [--plando-file <file>]
-  ootrr build <seed.ootrr> <game> <load_dir> <mod_name> [--update <folder|.nup|.nx>] [--include-update] [--host eden|hookshot|longshot|nx2navi] [--music off|grouped|anywhere] [--sfx off|grouped|anywhere] [--colors off|random|shared] [--cosmetic-seed <text>] [--no-title-logo]
-  ootrr colors-preview <romfs_root> <out_dir> <random|shared> <seed_text>
+  ootrr build <seed.ootrr> <game> <load_dir> <mod_name> [--update <folder|.nup|.nx>] [--include-update] [--host eden|hookshot|longshot|nx2navi] [--music off|grouped|anywhere] [--sfx off|grouped|anywhere] [--colors off|custom|random|shared] [--color-part <part>=<original|random|#rrggbb>]... [--cosmetic-seed <text>] [--no-title-logo]
+  ootrr colors-preview <romfs_root> <out_dir> <off|custom|random|shared> <seed_text> [<part>=<colour>...]
   ootrr slice-scan <romfs_root> <out_json>
   ootrr pot-scan <romfs_root> <out_json>
   ootrr rock-scan <romfs_root> <out_json>
