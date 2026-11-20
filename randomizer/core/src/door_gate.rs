@@ -200,10 +200,12 @@ pub fn read(s: &Settings, open: bool, bad: &mut Vec<String>) -> Opts {
     Opts { need, song, only, open, moat }
 }
 
-pub fn legacy(v: &mut crate::settings::state::Vals) {
+pub fn legacy(v: &mut crate::settings::state::Vals, chosen: bool) {
     if v.get(crate::open_world::DOOR) == Some(&Value::Bool(true)) {
         v.insert(crate::open_world::DOOR.to_string(), Value::Bool(false));
-        v.insert(SETTING.to_string(), Value::s(OPEN));
+        if !chosen {
+            v.insert(SETTING.to_string(), Value::s(OPEN));
+        }
     }
 }
 
@@ -649,15 +651,34 @@ mod tests {
 
     #[test]
     fn an_old_open_door_becomes_the_open_choice() {
-        let mut s: Settings = Settings::default();
-        s.set(crate::open_world::DOOR, Value::Bool(true)).unwrap();
-        s.normalize();
+        let j = crate::json::parse(r#"{"open_door_of_time": true}"#).unwrap();
+        let s: Settings = Settings::from_json(&j).unwrap().settings;
         assert_eq!(s.text(SETTING).unwrap(), OPEN);
         assert!(!s.flag(crate::open_world::DOOR).unwrap());
         let mut bad: Vec<String> = Vec::new();
         assert!(crate::open_world::Gates::read(&s, &mut bad).door);
         assert_eq!(read(&s, true, &mut bad), Opts { open: true, moat: true, ..Opts::default() });
         assert!(bad.is_empty(), "{bad:?}");
+    }
+
+    #[test]
+    fn a_stale_open_door_toggle_does_not_override_the_chosen_door() {
+        for c in [STONES, VANILLA, SONG_ONLY] {
+            let j = crate::json::parse(&format!(r#"{{"open_door_of_time": true, "door_of_time_condition": "{c}"}}"#)).unwrap();
+            let s: Settings = Settings::from_json(&j).unwrap().settings;
+            assert_eq!(s.text(SETTING).unwrap(), c);
+            assert!(!s.flag(crate::open_world::DOOR).unwrap());
+            let mut bad: Vec<String> = Vec::new();
+            assert!(!crate::open_world::Gates::read(&s, &mut bad).door);
+            let back: Settings = Settings::decode(&s.encode().unwrap()).unwrap().settings;
+            assert_eq!(back.text(SETTING).unwrap(), c);
+        }
+        let mut s: Settings = Settings::default();
+        s.set(SETTING, Value::s(STONES)).unwrap();
+        s.set(crate::open_world::DOOR, Value::Bool(true)).unwrap();
+        s.normalize();
+        assert_eq!(s.text(SETTING).unwrap(), STONES);
+        assert!(!s.flag(crate::open_world::DOOR).unwrap());
     }
 
     fn real() -> Option<Romfs> {
