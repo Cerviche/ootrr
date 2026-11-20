@@ -275,10 +275,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
     let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
     let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
-    let short: bool = s.flag(crate::short_get::SETTING).unwrap_or_else(|e| {
-        bad.push(e.to_string());
-        false
-    });
+    let short: bool = true;
     if lacs.is_some() && (!rewards.on || matches!(chests, Mode::Off | Mode::Overworld)) {
         bad.push(crate::lacs_key::NEEDS.to_string());
     }
@@ -304,6 +301,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (songs != Songs::Off, "Songs are shuffled. The song lessons are edited."),
         (world.on(), world.note().unwrap_or_default()),
         (fast, "Chest and item pickup scenes are sped up."),
+        (true, crate::fire_gorons::NOTE),
         (intro, "The new game intro is skipped. The opening movie and the wake up scene are bypassed, and the harmless first-visit scenes of the areas are marked as played."),
         (start.reward != Reward::Off, "You start the game with one random Stone or Medallion."),
         (!start.pouch.is_empty(), "The ticked Kokiri Sword, Deku Shield or Slingshot is added to the pouch when a new game starts. A ticked Big or Biggest Bullet Bag brings the Slingshot with it."),
@@ -398,7 +396,8 @@ mod tests {
         assert_eq!(p.keys.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 12);
+        assert_eq!(p.notes.len(), 13);
+        assert!(p.notes.iter().any(|n| n == crate::fire_gorons::NOTE));
         assert!(p.short && p.notes.iter().any(|n| n == crate::short_get::NOTE));
         assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
         assert!(p.remake && p.hearts && p.rewards.extra);

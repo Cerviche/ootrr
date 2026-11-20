@@ -552,6 +552,41 @@ const MERCHANT_FIXED: View = View {
     opts: &[],
 };
 
+const FAIRY_PRICES: View = View {
+    id: "fairy_prices",
+    label: "Great Fairy Prices",
+    tip: "Vanilla - The fairy's usual offering: 25, 50, 100, 200, 300 or 500 rupees.
+Cheap Balanced - Prices will range between 0 to 95 rupees, favoring lower numbers.
+Balanced - Prices will range between 0 to 300 rupees, favoring lower numbers.
+Fixed - A fixed number.
+Range - A random point between specific ranges.
+Set By Wallet - Set weights that decide the choice of each wallet, and get a random price in that range if that wallet is chosen.
+
+Every Great Fairy asks the new price, and her offering line names it.
+
+Not working yet:
+- Balanced, Range and Set By Wallet are not built.
+- Prices stop at 99, so the starting wallet can always pay.
+- Untested in the game.",
+    kind: Kind::Pick,
+    opts: &[
+        yes("Vanilla", "vanilla"),
+        yes("Cheap Balanced", "cheap"),
+        missing("Balanced"),
+        yes("Fixed", "fixed"),
+        missing("Range"),
+        missing("Set By Wallet"),
+    ],
+};
+
+const FAIRY_FIXED: View = View {
+    id: "fairy_price_fixed",
+    label: "Great Fairy Fixed Price",
+    tip: "The offering every Great Fairy asks when Great Fairy Prices is Fixed.",
+    kind: Kind::Number(0, 99, true),
+    opts: &[],
+};
+
 const MERCHANTS: View = View {
     id: "shuffle_merchants",
     label: "Shuffle Merchants",
@@ -624,6 +659,8 @@ const LOCATIONS_TAB: &[PortSection] = &[
             Entry::View(&MERCHANTS),
             Entry::View(&MERCHANT_PRICES),
             Entry::View(&MERCHANT_FIXED),
+            Entry::View(&FAIRY_PRICES),
+            Entry::View(&FAIRY_FIXED),
         ],
     ),
     port(
@@ -725,12 +762,6 @@ pub const MENU: &[Page] = &[
             sec("Game over", &["lose_heart_on_death"]),
             sec("Just for fun", &["bean_pitch", "enemy_spawn_combo"]),
         ],
-    },
-    Page {
-        id: "item_gets",
-        label: "Item gets",
-        heading: IN_DEV,
-        sections: &[sec("Item gets", &["item_get_short"])],
     },
 ];
 

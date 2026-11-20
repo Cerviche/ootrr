@@ -5,11 +5,12 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// Setting numbers and ids that are gone. An old settings string or file that carries one
 /// still imports, with a warning that its value is ignored, and no setting may reuse them.
 /// 55 and 92 (remake only chests and pots) now follow Chests, Pots and Crates.
-pub const RETIRED: [(u16, &str); 8] = [
+pub const RETIRED: [(u16, &str); 9] = [
     (crate::difficulty::ENCOUNTERS_NUM, crate::difficulty::ENCOUNTERS),
     (55, "shuffle_remake_chests"),
     (63, "shop_deal_gear"),
     (92, "shuffle_remake_pots"),
+    (106, crate::short_get::SETTING),
     crate::shops::plan::OLD[0],
     crate::shops::plan::OLD[1],
     crate::shops::plan::OLD[2],
@@ -409,10 +410,6 @@ pub fn build() -> Schema {
     s.extend(bridge());
     s.extend(crate::medal_gate::settings());
     s.push(
-        Setting::toggle(106, crate::short_get::SETTING, "world", "Short item get text", true)
-            .tip("Item gets say only \"You got X!\" in one text box: item descriptions, the pickup window, Piece of Heart counts and the other lines after the get message are dropped. Gold Skulltula tokens say the count, and the small key count lines stay."),
-    );
-    s.push(
         Setting::toggle(30, "trials_random", "goal", "Random Ganon's Trials", false)
             .tip("Pick the number of trials to clear at random."),
     );
@@ -531,6 +528,18 @@ pub fn build() -> Schema {
         Setting::number(crate::merchant_prices::FIXED_NUM, crate::merchant_prices::FIXED, "shuffle", "Merchant Fixed Price", 10, 0, 99)
             .tip("The price of every shuffled merchant when Merchant Prices is Fixed.")
             .when(crate::merchant_prices::SETTING, "fixed"),
+    );
+    s.push(
+        Setting::choice(crate::fairy_prices::NUM, crate::fairy_prices::SETTING, "shuffle", "Great Fairy Prices", "vanilla")
+            .tip("What the six Great Fairies ask as an offering before they grant their reward.")
+            .opt("vanilla", "Vanilla", "The fairy's usual offering: 25, 50, 100, 200, 300 or 500 rupees.")
+            .opt("cheap", "Cheap Balanced", "0 to 95 rupees, favoring low prices.")
+            .opt("fixed", "Fixed", "One price for every Great Fairy."),
+    );
+    s.push(
+        Setting::number(crate::fairy_prices::FIXED_NUM, crate::fairy_prices::FIXED, "shuffle", "Great Fairy Fixed Price", 10, 0, 99)
+            .tip("The offering every Great Fairy asks when Great Fairy Prices is Fixed.")
+            .when(crate::fairy_prices::SETTING, "fixed"),
     );
     s.push(
         Setting::toggle(crate::scrub_prices::HINT_NUM, crate::scrub_prices::HINT, "world", "Scrub Hint Text", false)
