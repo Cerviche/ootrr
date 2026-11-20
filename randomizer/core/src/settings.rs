@@ -298,8 +298,9 @@ mod tests {
         let t: String = Settings::default().encode().unwrap();
         assert_eq!(t, Settings::default().encode().unwrap());
         // The defaults that changed after strings were first shared (boss Heart Containers,
-        // More NPC rewards, Return with Navi) are written out, so old strings keep their meaning.
-        assert!(t.len() < 40, "{t}");
+        // More NPC rewards, Return with Navi, Ocarina and Kokiri Sword shuffle) are written out, so
+        // old strings keep their meaning.
+        assert!(t.len() < 48, "{t}");
         assert_eq!(Settings::decode(&t).unwrap().settings, Settings::default());
     }
 
@@ -356,7 +357,7 @@ mod tests {
     #[test]
     fn rewards_off_writes_the_old_default_string_and_the_new_toggle_round_trips() {
         let old = |s: &mut Settings| {
-            for (k, v) in [("time_always_passes", Value::Bool(false)), ("deku_bridge_safe", Value::Bool(false)), ("shuffle_boss_hearts", Value::Bool(false)), ("shuffle_rewards_extra", Value::Bool(false)), ("navi_return", Value::s("off"))] {
+            for (k, v) in [("time_always_passes", Value::Bool(false)), ("deku_bridge_safe", Value::Bool(false)), ("shuffle_boss_hearts", Value::Bool(false)), ("shuffle_rewards_extra", Value::Bool(false)), ("navi_return", Value::s("off")), ("shuffle_ocarinas", Value::Bool(true)), ("shuffle_kokiri_sword", Value::Bool(true))] {
                 s.set(k, v).unwrap();
             }
         };
@@ -387,6 +388,8 @@ mod tests {
             assert!(!s.flag("open_door_of_time").unwrap(), "{t}");
             assert!(!s.flag("jabu_open").unwrap(), "{t}");
             assert_eq!(s.text("zora_fountain").unwrap(), "closed", "{t}");
+            // Old strings shuffled Saria's Ocarina and the Kokiri Sword chest, so they read as on.
+            assert!(s.flag("shuffle_ocarinas").unwrap() && s.flag("shuffle_kokiri_sword").unwrap(), "{t}");
             assert_eq!(s.encode().unwrap(), t);
         }
         let d: Settings = Settings::default();

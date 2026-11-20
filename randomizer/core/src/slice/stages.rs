@@ -33,6 +33,7 @@ pub const STAGES: [(&str, Stage); 23] = [
     ("hints", hints),
     ("dungeon item text", dungeon_text),
     ("scrub hint text", scrub_hints),
+    ("fairy price text", fairy_text),
     ("silver rupee text", silver_text),
     ("pouch", pouch),
     ("bomb flowers", bomb_lift),
@@ -44,6 +45,7 @@ pub const STAGES: [(&str, Stage); 23] = [
     ("bombchu alley", bombchu),
     ("water temple gate", water_gate),
     ("medallion gate", medal_gate),
+    ("fire temple gorons", fire_gorons),
     ("start reward and flags", start_reward),
     ("starting items", start_items),
     ("dpad items", dpad),
@@ -93,6 +95,10 @@ fn dungeon_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 
 fn scrub_hints(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     crate::scrub_prices::stage_text(rf, c.d, c.seed, c.p.rewards.scrub_hint, more)
+}
+
+fn fairy_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    crate::fairy_prices::stage_text(rf, c.p.rewards.fairy_prices, c.seed, more)
 }
 
 fn silver_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
@@ -148,6 +154,11 @@ fn water_gate(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 
 fn pedestal(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     more.extend(crate::door_open::stage_pedestal(rf, Some(c.work))?);
+    Ok(())
+}
+
+fn fire_gorons(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    more.extend(crate::fire_gorons::stage(rf)?);
     Ok(())
 }
 
