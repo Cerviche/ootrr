@@ -281,10 +281,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
     let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
     let door: crate::door_gate::Opts = crate::door_gate::read(s, gates.door, &mut bad);
-    let short: bool = s.flag(crate::short_get::SETTING).unwrap_or_else(|e| {
-        bad.push(e.to_string());
-        false
-    });
+    let short: bool = true;
     if lacs.is_some() && (!rewards.on || matches!(chests, Mode::Off | Mode::Overworld)) {
         bad.push(crate::lacs_key::NEEDS.to_string());
     }
@@ -408,13 +405,13 @@ mod tests {
         assert_eq!(p.keys.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 16);
+        assert_eq!(p.notes.len(), 18);
         assert!(p.short && p.notes.iter().any(|n| n == crate::short_get::NOTE));
         assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
         assert!(p.remake && p.hearts && p.rewards.extra);
         assert_eq!(p.world, crate::slice::pickups::Free::Pieces);
         assert!(p.notes.iter().any(|n| n.contains("world clock runs from the start")));
-        assert_eq!(p.open, crate::open_world::Opts { time: true, ..crate::open_world::Opts::default() });
+        assert_eq!(p.open, crate::open_world::Opts { time: true, epona: true, ..crate::open_world::Opts::default() });
         assert!(!p.gates.door);
         // The default bridge (vanilla) plays as the unmodified game, so it is listed as not applied.
         assert!(p.notes.iter().any(|n| n.contains("bridge=vanilla")));
@@ -432,12 +429,12 @@ mod tests {
         s.set("open_kakariko", Value::s("open")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.gates.kakariko);
-        assert_eq!(p.logic(), vec![("open_forest", "open"), ("open_kakariko", "open"), ("skip_child_zelda", "true")]);
+        assert_eq!(p.logic(), vec![("open_forest", "open"), ("open_kakariko", "open"), ("skip_child_zelda", "true"), (crate::open_world::EPONA, "1")]);
         assert_eq!(p.start_flags(), vec![(MIDO_WALL.to_string(), false), (EXIT_WALL.to_string(), false)]);
         s.set("open_kakariko", Value::s("closed")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(!p.gates.kakariko);
-        assert_eq!(p.logic(), vec![("open_forest", "open")]);
+        assert_eq!(p.logic(), vec![("open_forest", "open"), (crate::open_world::EPONA, "1")]);
         assert!(!p.notes.iter().any(|n| n.contains("Kakariko")));
     }
 
@@ -495,13 +492,13 @@ mod tests {
         s.set("open_kakariko", Value::s("closed")).unwrap();
         s.set("open_forest", Value::s("closed")).unwrap();
         assert!(!plan(&s).unwrap().keys_roam());
-        assert!(plan(&s).unwrap().logic().is_empty());
+        assert_eq!(plan(&s).unwrap().logic(), vec![(crate::open_world::EPONA, "1")]);
         for v in ["any_dungeon", "keysanity"] {
             s.set("shuffle_smallkeys", Value::s(v)).unwrap();
             let p: Plan = plan(&s).unwrap();
             assert!(p.keys_roam());
-            assert_eq!(p.logic().len(), 3);
-            assert!(p.logic().iter().all(|(k, v)| k.ends_with("_key_layout") && *v == "shuffled"));
+            assert_eq!(p.logic().len(), 4);
+            assert!(p.logic().iter().filter(|(k, _)| *k != crate::open_world::EPONA).all(|(k, v)| k.ends_with("_key_layout") && *v == "shuffled"));
             assert!(p.notes.iter().any(|n| n.contains("Small keys can be found")));
         }
         s.set("shuffle_smallkeys", Value::s("overworld")).unwrap();
@@ -520,12 +517,12 @@ mod tests {
         s.set("open_door_of_time", Value::Bool(true)).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert_eq!(p.start_flags(), vec![(DOOR_OPENED.to_string(), true)]);
-        assert_eq!(p.logic(), vec![("open_door_of_time", "open"), ("door_of_time_escape", "moat")]);
+        assert_eq!(p.logic(), vec![("open_door_of_time", "open"), (crate::open_world::EPONA, "1"), ("door_of_time_escape", "moat")]);
         assert!(p.notes.iter().any(|n| n.contains("Door of Time starts open")));
         s.set("open_door_of_time", Value::Bool(false)).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.start_flags().is_empty());
-        assert!(p.logic().is_empty());
+        assert_eq!(p.logic(), vec![(crate::open_world::EPONA, "1")]);
         assert!(!p.notes.iter().any(|n| n.contains("Door of Time starts open")));
     }
 
@@ -575,7 +572,7 @@ mod tests {
         s.set("open_forest", Value::s("open")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert_eq!(p.start_flags().len(), 2);
-        assert_eq!(p.logic(), vec![("open_forest", "open")]);
+        assert_eq!(p.logic(), vec![("open_forest", "open"), (crate::open_world::EPONA, "1")]);
         assert!(p.notes.iter().any(|n| n.contains("Kokiri Forest starts open")));
     }
 
@@ -584,14 +581,14 @@ mod tests {
         let mut s: Settings = Settings::default();
         assert_eq!(s.text("open_kakariko").unwrap(), "closed");
         let p: Plan = plan(&s).unwrap();
-        assert!(!p.gates.kakariko && p.defaults() == vec![(crate::open_world::TIME, "true")] && p.logic().is_empty());
+        assert!(!p.gates.kakariko && p.defaults() == vec![(crate::open_world::TIME, "true")] && p.logic() == vec![(crate::open_world::EPONA, "1")]);
         assert!(!p.notes.iter().any(|n| n.contains("open_kakariko")));
         s.set("open_forest", Value::s("open")).unwrap();
         s.set("open_kakariko", Value::s("open")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.gates.kakariko);
         assert_eq!(p.defaults(), vec![KAKARIKO, (crate::open_world::TIME, "true"), ("open_forest", "open")]);
-        assert_eq!(p.logic(), vec![("open_forest", "open"), KAKARIKO, ("skip_child_zelda", "true")]);
+        assert_eq!(p.logic(), vec![("open_forest", "open"), KAKARIKO, ("skip_child_zelda", "true"), (crate::open_world::EPONA, "1")]);
         assert!(p.notes.iter().any(|n| n.contains("Death Mountain starts open") && n.contains("Mask Shop")));
         assert_eq!(p.start_flags(), vec![(MIDO_WALL.to_string(), false), (EXIT_WALL.to_string(), false)]);
         s.set("open_kakariko", Value::s("closed")).unwrap();

@@ -15,7 +15,7 @@ pub struct Pick {
 pub const OCARINAS: &str = "shuffle_ocarinas";
 pub const OCARINAS_NUM: u16 = 105;
 pub const SWORD: &str = "shuffle_kokiri_sword";
-pub const SWORD_NUM: u16 = 106;
+pub const SWORD_NUM: u16 = 135;
 pub const SWORD_CHEST: &str = "KF Kokiri Sword Chest";
 
 /// Turns Ocarina and Kokiri Sword shuffle on, the behaviour before the two settings existed.

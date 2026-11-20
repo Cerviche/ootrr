@@ -26,7 +26,7 @@ pub struct Ctx<'a> {
 
 pub type Stage = fn(&mut Romfs, &Ctx, &mut Vec<Out>) -> Res<()>;
 
-pub const STAGES: [(&str, Stage); 23] = [
+pub const STAGES: [(&str, Stage); 25] = [
     ("boss heart chests", boss_hearts),
     ("songs", songs),
     ("song models", song_models),

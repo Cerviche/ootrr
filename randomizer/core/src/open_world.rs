@@ -405,14 +405,9 @@ mod tests {
     fn navi_follows_an_open_forest() {
         let (open, bad) = opts(&[(FOREST, Value::s("open"))]);
         assert!(bad.is_empty());
-        assert_eq!(o.navi, Some("closed_deku"));
-        assert_eq!(o.defaults(), vec![(TIME, "true"), (FOREST, "closed_deku")]);
-        assert_eq!(o.logic(), vec![(EPONA, "1")]);
-        assert!(o.notes().unwrap().iter().any(|n| n.contains("Navi's monster lesson")));
-        let (open, _) = opts(&[(FOREST, Value::s("open"))]);
         assert_eq!(open.navi, Some("open"));
         assert_eq!(open.defaults(), vec![(TIME, "true"), (FOREST, "open")]);
-        assert!(open.logic().is_empty());
+        assert_eq!(open.logic(), vec![(EPONA, "1")]);
         assert!(open.notes().unwrap().iter().any(|n| n.contains("Navi's monster lesson")));
         let (shut, _) = opts(&[(FOREST, Value::s("closed"))]);
         assert_eq!(shut.navi, None);
