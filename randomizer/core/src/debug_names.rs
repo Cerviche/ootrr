@@ -34,6 +34,7 @@ const KIDS: &str = "ChildEventList";
 const GET_FLOW: &str = "GetPouchContent";
 const WINDOW_PREFIX: &str = "OpenGetWindow";
 const SWEEP: &str = "OOTRRDbgSweep";
+const ADD_FLOWS: [&str; 2] = ["Dm_SY_Get", "Dm_SY_Get_WithoutPlayer"];
 const SKULL_KIND: &str = "gs";
 const ASK_BOOL: &str = "EventQueryIsGameDataBool";
 const SCRUB_FLOW: &str = "Enemy_Scrub_Business_Common";
@@ -549,6 +550,47 @@ pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)], picks: &[(String, usize)]) -> 
     Ok(n)
 }
 
+fn reach(f: &Flow, from: u16) -> BS<u16> {
+    let mut seen: BS<u16> = BS::new();
+    let mut todo: Vec<u16> = vec![from];
+    while let Some(i) = todo.pop() {
+        if i == NONE || usize::from(i) >= f.events.len() || !seen.insert(i) {
+            continue;
+        }
+        todo.extend(next_of(&f.events[usize::from(i)].kind));
+    }
+    seen
+}
+
+pub fn sweep_after_add(b: &mut Bf) -> Res<usize> {
+    let mut n: usize = 0;
+    for f in b.flows.iter_mut() {
+        let Some((ai, a)) = f.actors.iter().enumerate().find(|(_, a)| a.actions.iter().any(|x| x == ADD_OWN)) else { continue };
+        let Some(add) = a.actions.iter().position(|x| x == ADD_OWN) else { continue };
+        let (who, what): (u16, u16) = (idx(ai)?, idx(add)?);
+        let sites: Vec<usize> = f.events.iter().enumerate().filter(|(_, e)| matches!(e.kind, Kind::Action { actor, act, .. } if actor == who && act == what)).map(|(i, _)| i).collect();
+        for at in sites {
+            let then: u16 = match &f.events[at].kind {
+                Kind::Action { next, .. } => *next,
+                _ => continue,
+            };
+            if usize::from(then) < f.events.len() && matches!(&f.events[usize::from(then)].kind, Kind::Sub { entry, .. } if entry == SWEEP) {
+                continue;
+            }
+            let owners: Vec<usize> = f.entries.iter().enumerate().filter(|(_, e)| reach(f, e.main).contains(&idx(at).unwrap_or(NONE))).map(|(j, _)| j).collect();
+            let call: u16 = push(f, Kind::Sub { next: then, params: None, flow: GET_FLOW.to_string(), entry: SWEEP.to_string() })?;
+            if let Kind::Action { next, .. } = &mut f.events[at].kind {
+                *next = call;
+            }
+            for j in owners {
+                f.entries[j].subs.push(call);
+            }
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
 pub fn add_pick_flag(raw: &[u8]) -> Res<Vec<u8>> {
     let mut y: Byml = Byml::parse(raw)?;
     let list: &mut Vec<Node> = y.root.get_mut("Data").and_then(|d| d.get_mut("String64")).and_then(|b| b.as_arr_mut()).ok_or(E::Format("debug names: the game data list has no String64 table"))?;
@@ -778,6 +820,11 @@ pub fn stage_sweep(rf: &mut Romfs, d: &Data, work: &P, tail: &mut Vec<Out>) -> R
     let live: Vec<(u64, usize)> = gs.into_iter().filter(|x| added.contains(&x.0)).collect();
     let pl: Vec<(String, usize)> = picks.into_iter().collect();
     stage_late(rf, tail, work, GET_FLOW, |b| add_sweep(b, &live, &pl).map(|_| ()))?;
+    if !pl.is_empty() {
+        for stem in ADD_FLOWS {
+            stage_late(rf, tail, work, stem, |b| sweep_after_add(b).map(|_| ()))?;
+        }
+    }
     let lines: BM<String, String> = live.iter().map(|(_, i)| *i).chain(pl.iter().map(|(_, i)| *i)).map(|i| (line_label(i), d.cat.locs[i].name.clone())).collect();
     for l in crate::hints::languages(rf)? {
         stage_late_file(rf, tail, work, &l, |raw: &[u8]| put_lines(raw, &lines))?;
