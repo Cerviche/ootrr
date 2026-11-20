@@ -307,12 +307,11 @@ pub fn patch_requirement(a: &mut Ainb, need: Need) -> Res<()> {
     a.multi[8 * j..8 * j + 2].copy_from_slice(&e.to_le_bytes());
     a.multi[8 * j + 2..8 * j + 4].copy_from_slice(&(crate::gerudo_card::TRUE_OUT as u16).to_le_bytes());
     let mut want: Vec<u16> = crate::gerudo_card::queries(a, gate);
-    let q: u16 = crate::gerudo_card::qpos(a, or)?;
-    if !want.contains(&q) {
-        want.push(q);
-        crate::gerudo_card::give_queries(a, gate, &want)?;
+    if want.len() != n {
+        return Err(Error::Format("door gate: the door's gate does not list one query per input"));
     }
-    Ok(())
+    want[j - start] = crate::gerudo_card::qpos(a, or)?;
+    crate::gerudo_card::give_queries(a, gate, &want)
 }
 
 pub struct Presence {
@@ -878,7 +877,8 @@ mod tests {
             assert_eq!(names, vec![PROXY, crate::gerudo_card::OR, FLAG_GET]);
             let or: usize = crate::door_open::multi_entry(&back, start + 1).unwrap().0 as usize;
             let q: u16 = back.query_pos(or).unwrap().try_into().unwrap();
-            assert!(crate::gerudo_card::queries(&back, gate).contains(&q));
+            let step: u16 = back.query_pos(step_check(&back, crate::door_open::STEP).unwrap()).unwrap().try_into().unwrap();
+            assert_eq!(crate::gerudo_card::queries(&back, gate), vec![back.query_pos(4).unwrap() as u16, q, step]);
             assert!(step_check(&back, crate::door_open::STEP).is_ok());
         }
         assert_eq!(stage_door(&mut rf, &Opts { song: false, ..Opts::default() }).unwrap().len(), 2);
