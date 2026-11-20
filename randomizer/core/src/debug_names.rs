@@ -35,6 +35,9 @@ const GET_FLOW: &str = "GetPouchContent";
 const WINDOW_PREFIX: &str = "OpenGetWindow";
 const SWEEP: &str = "OOTRRDbgSweep";
 const ADD_FLOWS: [&str; 2] = ["Dm_SY_Get", "Dm_SY_Get_WithoutPlayer"];
+const WAIT: &str = "EventWait";
+const WAITER: &str = "EventSystemActor";
+const ADD_DELAY: i32 = 5;
 const SKULL_KIND: &str = "gs";
 const ASK_BOOL: &str = "EventQueryIsGameDataBool";
 const SCRUB_FLOW: &str = "Enemy_Scrub_Business_Common";
@@ -507,8 +510,8 @@ pub fn add_sweep(b: &mut Bf, gs: &[(u64, usize)], picks: &[(String, usize)]) -> 
         push(f, Kind::Action { next: idx(at + 2)?, actor: qa, act: st, params: Some(text_of(DONE)) })?;
         push(f, Kind::Action { next: after, actor: ta, act: ts, params: Some(talk(line_id(*i))) })?;
     }
-    let clear: Vec<(String, Val)> = text_of(DONE).items;
-    if push(f, Kind::Action { next: NONE, actor: qa, act: st, params: Some(Cont { items: clear }) })? != idx(tail)? {
+    let (wa, wt): (u16, u16) = wait_slot(f)?;
+    if push(f, Kind::Action { next: NONE, actor: wa, act: wt, params: Some(wait(0)) })? != idx(tail)? {
         return Err(E::Format("debug names: the sweep events are out of order"));
     }
     f.entries.push(Entry { name: SWEEP.to_string(), subs: Vec::new(), vars: Vec::new(), main: idx(base)?, pad });
@@ -562,25 +565,41 @@ fn reach(f: &Flow, from: u16) -> BS<u16> {
     seen
 }
 
+fn wait_slot(f: &mut Flow) -> Res<(u16, u16)> {
+    match f.actors.iter().find(|a| a.sub.is_empty() && a.actions.iter().any(|x| x == WAIT)) {
+        Some(a) => {
+            let who: String = a.name.clone();
+            action_slot(f, &who, WAIT)
+        }
+        None => action_slot(f, WAITER, WAIT),
+    }
+}
+
+fn wait(frames: i32) -> Cont {
+    Cont { items: vec![("IsWaitEnd".to_string(), Val::Bool(1)), ("Frames".to_string(), Val::Int(frames))] }
+}
+
 pub fn sweep_after_add(b: &mut Bf) -> Res<usize> {
     let mut n: usize = 0;
     for f in b.flows.iter_mut() {
         let Some((ai, a)) = f.actors.iter().enumerate().find(|(_, a)| a.actions.iter().any(|x| x == ADD_OWN)) else { continue };
         let Some(add) = a.actions.iter().position(|x| x == ADD_OWN) else { continue };
         let (who, what): (u16, u16) = (idx(ai)?, idx(add)?);
+        if f.events.iter().any(|e| matches!(&e.kind, Kind::Sub { entry, .. } if entry == SWEEP)) {
+            continue;
+        }
         let sites: Vec<usize> = f.events.iter().enumerate().filter(|(_, e)| matches!(e.kind, Kind::Action { actor, act, .. } if actor == who && act == what)).map(|(i, _)| i).collect();
+        let (wa, wt): (u16, u16) = wait_slot(f)?;
         for at in sites {
             let then: u16 = match &f.events[at].kind {
                 Kind::Action { next, .. } => *next,
                 _ => continue,
             };
-            if usize::from(then) < f.events.len() && matches!(&f.events[usize::from(then)].kind, Kind::Sub { entry, .. } if entry == SWEEP) {
-                continue;
-            }
             let owners: Vec<usize> = f.entries.iter().enumerate().filter(|(_, e)| reach(f, e.main).contains(&idx(at).unwrap_or(NONE))).map(|(j, _)| j).collect();
             let call: u16 = push(f, Kind::Sub { next: then, params: None, flow: GET_FLOW.to_string(), entry: SWEEP.to_string() })?;
+            let hold: u16 = push(f, Kind::Action { next: call, actor: wa, act: wt, params: Some(wait(ADD_DELAY)) })?;
             if let Kind::Action { next, .. } = &mut f.events[at].kind {
-                *next = call;
+                *next = hold;
             }
             for j in owners {
                 f.entries[j].subs.push(call);
