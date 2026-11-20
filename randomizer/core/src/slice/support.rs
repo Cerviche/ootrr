@@ -85,6 +85,7 @@ pub struct Plan {
     pub endings: bool,
     pub shops: crate::shops::Opts,
     pub bridge: bool,
+    pub debug_names: bool,
     pub silver: bool,
     /// crate::medal_gate: Some(n) when the Light Arrows scene waits for n dungeon rewards.
     pub lacs: Option<u8>,
@@ -281,6 +282,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let endings: bool = true;
     let shops: crate::shops::Opts = crate::shops::plan::read(s, &mut bad);
     let bridge: bool = crate::deku_bridge::mode(s, &mut bad);
+    let debug_names: bool = toggle(s, crate::debug_names::SETTING, &mut bad);
     let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
     let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
     let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
@@ -381,6 +383,9 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if bridge {
         notes.push(crate::deku_bridge::NOTE.to_string());
     }
+    if debug_names {
+        notes.push(crate::debug_names::NOTE.to_string());
+    }
     notes.extend(shops.notes());
     if silver {
         notes.push(crate::slice::silver::NOTE.to_string());
@@ -401,7 +406,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::lacs_key::NOTE.to_string());
         notes.push(crate::medal_gate::LACS_NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, trials, door, short, first_pickups, story, endings, ocarinas, kokiri_sword, difficulty })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, debug_names, silver, lacs, rainbow, trials, door, short, first_pickups, story, endings, ocarinas, kokiri_sword, difficulty })
 }
 
 #[cfg(test)]

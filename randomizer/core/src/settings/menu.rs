@@ -740,6 +740,7 @@ pub const MENU: &[Page] = &[
         heading: RANDOMIZER,
         sections: &[sec("Start", &["starting_hearts", "start_reward"]), sec("Songs", &["starting_songs"]), sec("Items", &["starting_items"])],
     },
+    Page { id: "debug", label: "Debug", heading: IN_DEV, sections: &[sec("Debug", &["debug_location_names"])] },
     Page { id: "excluded", label: "Excluded locations", heading: RANDOMIZER, sections: &[sec("Excluded locations", &["disabled_locations"])] },
     Page {
         id: "timesavers",

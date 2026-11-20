@@ -21,6 +21,7 @@ pub mod catalog_free;
 pub mod chest_size;
 pub mod container;
 pub mod cow_clone;
+pub mod debug_names;
 pub mod deku_bridge;
 pub mod difficulty;
 pub mod always;
