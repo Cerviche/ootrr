@@ -60,6 +60,8 @@ const SET_STRING: &str = "OneShotSetNonStructGameDataString64";
 const GLOBAL_AI: &str = "Pack/AI.Global.Product.111.pack.zs";
 const PICKUP_KINDS: [&str; 4] = ["freestanding", "heart", "bossheart", "key"];
 const MISS_PREFIX: &str = "OOTRR_DbgMiss_";
+const GET_TYPE: &str = "GetType";
+const GET_MEDIUM: &str = "Medium";
 const ITEM_KINDS: [&str; 32] = [
     "Obj_Armor_Goron",
     "Obj_Armor_Zora",
@@ -772,11 +774,15 @@ pub fn press(es: &mut Vec<sarc::Entry>, clients: &[sarc::Entry]) -> Res<bool> {
     for e in es.iter_mut().filter(|e| e.name.contains("PouchContentParam/") && e.name.ends_with(".bgyml")) {
         let mut y: Byml = Byml::parse(&e.data)?;
         let want: [(&str, bool); 3] = [("DefaultAutoGet", false), ("PlayGetEventManyTimes", true), ("IsPlayGetEventPouchMax", true)];
-        if want.iter().all(|(k, v)| y.root.get(k) == Some(&Node::Bool(*v))) {
+        let typed: bool = y.root.get(GET_TYPE).is_some();
+        if typed && want.iter().all(|(k, v)| y.root.get(k) == Some(&Node::Bool(*v))) {
             continue;
         }
         for (k, v) in want {
             y.root.set(k, Node::Bool(v));
+        }
+        if !typed {
+            y.root.set(GET_TYPE, Node::U32(crate::flags::hash_name(GET_MEDIUM)));
         }
         e.data = y.write()?;
         hit = true;
