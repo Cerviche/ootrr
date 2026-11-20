@@ -17,7 +17,7 @@ use crate::slice::data::Data;
 use crate::staging::Out;
 use crate::story_skip::{stage_late, stage_late_file};
 
-pub const NUM: u16 = 136;
+pub const NUM: u16 = 142;
 pub const SETTING: &str = "debug_location_names";
 pub const NOTE: &str = "Debug: chests, NPC, song and event rewards, Gold Skulltulas and items on the ground show their location name in a text box after the item get. Items on the ground need a button press, and placed items missing from the location list say so.";
 const PREFIX: &str = "OOTRR_Dbg_";
