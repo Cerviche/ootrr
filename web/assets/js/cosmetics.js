@@ -1,6 +1,7 @@
 import { h, fill, toast } from "./dom.js";
 import { post } from "./api.js";
 import { state, touch, color_groups } from "./store.js";
+import { open_picker, close_picker } from "./color_pop.js";
 
 const SWATCH = {
   kokiri: "#2f8f3a", kokiri_pants: "#3d7a33", kokiri_shirt: "#d8d1bd", kokiri_belt: "#6b4a2b", feathers: "#e6dfcf",
@@ -61,6 +62,7 @@ export function colour_editor() {
   let busy = false;
 
   const changed = () => {
+    close_picker();
     touch();
     draw();
   };
@@ -83,14 +85,24 @@ export function colour_editor() {
   const row = (g, p) => {
     const lk = !!cos.locks[p.id];
     const text = h("span", { class: `chex${said(p.id) === "original" ? "" : " on"}` }, said(p.id));
-    const sw = h("input", { type: "color", value: shown(p.id), "aria-label": `${g} ${p.label} colour` });
-    sw.addEventListener("input", () => {
-      cos.parts[p.id] = sw.value.toLowerCase();
-      text.textContent = said(p.id);
-      text.className = "chex on";
-      for (const c of box.querySelectorAll(`[data-chip="${p.id}"]`)) c.style.background = sw.value;
-      touch();
-    });
+    const sw = h("button", { type: "button", class: "cswatch", style: `background:${shown(p.id)}`, "aria-label": `${g} ${p.label} colour, ${said(p.id)}`, "aria-haspopup": "dialog" });
+    sw.addEventListener("click", () => open_picker(sw, {
+      title: `${g} · ${p.label}`,
+      value: shown(p.id),
+      onchange: (hex) => {
+        cos.parts[p.id] = hex;
+        text.textContent = said(p.id);
+        text.className = "chex on";
+        sw.style.background = hex;
+        sw.setAttribute("aria-label", `${g} ${p.label} colour, ${hex}`);
+        for (const c of box.querySelectorAll(`[data-chip="${p.id}"]`)) c.style.background = hex;
+        touch();
+      },
+      onreset: () => {
+        delete cos.parts[p.id];
+        changed();
+      },
+    }));
     return h("div", { class: `crow${lk ? " lk" : ""}` }, sw,
       h("div", { class: "cname" }, h("span", null, p.label), text),
       h("div", { class: "cacts" },
