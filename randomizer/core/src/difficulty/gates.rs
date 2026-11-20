@@ -551,17 +551,16 @@ pub fn wire(a: &mut Ainb, p: &Plan) -> Res<usize> {
     hit.role = QUERY;
     let hit_at: usize = a.add_node(&hit)?;
     let armed: Option<usize> = if p.sword { Some(bool_node(a, SWORD, &format!("{SEED} {} sword", p.area))?) } else { None };
+    let mut inside: Spec = Spec::node(AND_NODE, &seed_i)
+        .linked(BOOL, "BoolMulti", hit_at, 0)
+        .idle(BOOL, "UpdateOnce", zero.clone())
+        .spare(BOOL, "False")
+        .out(BOOL, "True");
+    inside.role = QUERY;
+    let held_at: usize = a.add_node(&inside)?;
     let inside_at: usize = match armed {
-        Some(sword_at) => multi_node(a, SWORD_AND, &seed_i, &[(hit_at, 0), (sword_at, 0)])?,
-        None => {
-            let mut inside: Spec = Spec::node(AND_NODE, &seed_i)
-                .linked(BOOL, "BoolMulti", hit_at, 0)
-                .idle(BOOL, "UpdateOnce", zero.clone())
-                .spare(BOOL, "False")
-                .out(BOOL, "True");
-            inside.role = QUERY;
-            a.add_node(&inside)?
-        }
+        Some(sword_at) => multi_node(a, SWORD_AND, &format!("{seed_i} sword"), &[(held_at, 1), (sword_at, 0)])?,
+        None => held_at,
     };
     let mut at: Vec<usize> = Vec::new();
     for (j, id) in p.guards.iter().enumerate() {

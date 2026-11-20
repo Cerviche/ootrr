@@ -552,7 +552,10 @@ mod tests {
                 let start: usize = (-100 - g.src as i64) as usize;
                 let ins: Vec<(u16, u16)> = (start..start + g.plug as usize).map(|j| crate::door_open::multi_entry(&a, j).unwrap()).collect();
                 assert_eq!(ins.len(), 2);
-                assert!(a.el_name(ins[0].0 as usize) == HIT_NODE && is_sword(ins[1].0 as usize));
+                let held: usize = ins[0].0 as usize;
+                assert!(a.el_name(held) == crate::difficulty::gates::AND_NODE && ins[0].1 == 1 && is_sword(ins[1].0 as usize), "{}: the area hit is held once seen, then joined with the sword", p.graph);
+                let h: Input = a.input(BOOL, a.find_in(held, BOOL, "BoolMulti").unwrap()).unwrap();
+                assert!(h.src >= 0 && a.el_name(h.src as usize) == HIT_NODE, "{}", p.graph);
                 let wall: Input = made(&p.guards[1]);
                 assert!(wall.src >= 0 && is_sword(wall.src as usize) && wall.plug == 0, "{}: the wall spider is created by the sword flag", p.graph);
             }
