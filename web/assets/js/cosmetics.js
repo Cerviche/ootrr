@@ -22,6 +22,11 @@ const ICONS = {
 const HEX = /^#[0-9a-f]{6}$/;
 let open = null;
 
+function tinted(el, c) {
+  el.style.background = c;
+  return el;
+}
+
 function icon(name) {
   const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   s.setAttribute("viewBox", "0 0 24 24");
@@ -85,7 +90,7 @@ export function colour_editor() {
   const row = (g, p) => {
     const lk = !!cos.locks[p.id];
     const text = h("span", { class: `chex${said(p.id) === "original" ? "" : " on"}` }, said(p.id));
-    const sw = h("button", { type: "button", class: "cswatch", style: `background:${shown(p.id)}`, "aria-label": `${g} ${p.label} colour, ${said(p.id)}`, "aria-haspopup": "dialog" });
+    const sw = tinted(h("button", { type: "button", class: "cswatch", "aria-label": `${g} ${p.label} colour, ${said(p.id)}`, "aria-haspopup": "dialog" }), shown(p.id));
     sw.addEventListener("click", () => open_picker(sw, {
       title: `${g} · ${p.label}`,
       value: shown(p.id),
@@ -124,7 +129,7 @@ export function colour_editor() {
     const d = h("details", { class: "cfold" },
       h("summary", null,
         h("span", { class: "cgname" }, g),
-        h("span", { class: "cchips", "aria-hidden": "true" }, ps.map((p) => h("i", { "data-chip": p.id, style: `background:${shown(p.id)}` }))),
+        h("span", { class: "cchips", "aria-hidden": "true" }, ps.map((p) => tinted(h("i", { "data-chip": p.id }), shown(p.id)))),
         h("small", null, n ? `${n}/${ps.length} locked` : `${ps.length} ${ps.length === 1 ? "part" : "parts"}`),
         h("span", { class: "csp" }),
         ib(all ? "lock" : "open", all ? `Unlock ${g}` : `Lock ${g}`, (e) => {

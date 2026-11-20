@@ -4,6 +4,11 @@ const KEY = "ootrr.recent_colors";
 const HEX = /^#[0-9a-f]{6}$/;
 let pop = null;
 
+function tinted(el, c) {
+  el.style.background = c;
+  return el;
+}
+
 function to_hex(hu, s, v) {
   const f = (n) => {
     const k = (n + hu / 60) % 6;
@@ -134,10 +139,10 @@ export function open_picker(anchor, { title, value, onchange, onreset }) {
     sv, hue,
     h("div", { class: "cpop-row" }, prev, hex),
     used.length
-      ? h("div", { class: "cpop-recent" }, h("span", null, "Recent"), used.map((c) => h("button", { type: "button", title: c, "aria-label": `Use ${c}`, style: `background:${c}`, onclick: () => {
+      ? h("div", { class: "cpop-recent" }, h("span", null, "Recent"), used.map((c) => tinted(h("button", { type: "button", title: c, "aria-label": `Use ${c}`, onclick: () => {
         [hu, s, v] = of_hex(c);
         set();
-      } })))
+      } }), c)))
       : null,
     h("div", { class: "cpop-row end" },
       h("button", { type: "button", class: "btn small", onclick: () => {
@@ -160,7 +165,7 @@ export function open_picker(anchor, { title, value, onchange, onreset }) {
     const r = anchor.getBoundingClientRect();
     const w = box.offsetWidth;
     const ht = box.offsetHeight;
-    const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+    const left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8));
     const below = r.bottom + 6;
     const top = below + ht > window.innerHeight - 8 ? Math.max(8, r.top - ht - 6) : below;
     box.style.left = `${left}px`;
