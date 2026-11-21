@@ -1483,8 +1483,8 @@ pub const SONG_TRIGGERS: [SongTrigger; 11] = [
         calls: &[],
     },
     // The Ocarina of Time scene also hands over the Ocarina.
-    SongTrigger { loc: "Song from Ocarina of Time", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Time", also: &["HF Ocarina of Time Item"], calls: &[] },
-    SongTrigger { loc: "Song from Windmill", flow: "Npc_Hylia_009_Adult", cut: &[], give: "Dm_MelodyGet_Storm", also: &[], calls: &[] },
+    SongTrigger { loc: "Song from Ocarina of Time", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Time", also: &["HF Ocarina of Time Item"], calls: &[("DoorOfTime", "Dm_MelodyGet_Time_After")] },
+    SongTrigger { loc: "Song from Windmill", flow: "Npc_Hylia_009_Adult", cut: &[], give: "Dm_MelodyGet_Storm", also: &[], calls: &[("Npc_Hylia_009_Adult", "After_GetStormSong")] },
     // Sheik's songs, played from the sage quest flows. Running the item get inside Sheik's own scene
     // stalled (the scene's Link uses its own animation set), so like the others the scene is
     // dropped from the flow that plays it. Requiem is started by its map and keeps its cut scene.
@@ -2147,6 +2147,40 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn every_story_call_of_a_dropped_song_scene_still_runs() {
+        let Some(root) = dump() else { return };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let helpers: [&str; 7] = ["", "Dm_SY_Ocarina", "GetPouchContent", "NaviEventCommon", "NaviChat", "Common", "Common_Camera_Pln"];
+        let talk_only: [(&str, &str); 2] = [("SageOfWater", "Dm_MelodyGet_WaterAfter"), ("AllSage", "MelodyOfShine")];
+        for t in &SONG_TRIGGERS {
+            let b: Bf = Bf::parse(&rf.read_zs(&format!("Event/EventFlow/{}.bfevfl.zs", t.give)).unwrap()).unwrap();
+            for e in b.flows.iter().flat_map(|f| f.events.iter()) {
+                let Kind::Sub { flow, entry, .. } = &e.kind else { continue };
+                if helpers.contains(&flow.as_str()) || talk_only.contains(&(flow.as_str(), entry.as_str())) {
+                    continue;
+                }
+                assert!(t.calls.contains(&(flow.as_str(), entry.as_str())), "{}: the scene calls {flow}:{entry}, which no longer runs", t.loc);
+            }
+        }
+    }
+
+    #[test]
+    fn the_ocarina_of_time_song_moves_the_door_of_time_quest_on() {
+        let Some(root) = dump() else { return };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let t: &SongTrigger = SONG_TRIGGERS.iter().find(|t| t.give == "Dm_MelodyGet_Time").unwrap();
+        let writes: Vec<Write> = scene_writes(&mut rf, t.give).unwrap();
+        let gives: Vec<SceneGive> = std::iter::once(t.loc).chain(t.also.iter().copied()).map(|_| SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None }).collect();
+        let mut b: Bf = Bf::parse(&rf.read_zs(DOOR_FILE).unwrap()).unwrap();
+        patch_song_trigger(&mut b, t, &writes, &gives).unwrap();
+        let f: &Flow = b.flows.iter().find(|x| x.name == DOOR_FLOW).unwrap();
+        let i: usize = f.events.iter().position(|e| matches!(&e.kind, Kind::Sub { flow, entry, .. } if flow.is_empty() && entry == "Dm_MelodyGet_Time_After")).expect("no call to Dm_MelodyGet_Time_After");
+        assert!(f.events[i].name.starts_with(SONG_PREFIX));
+        let ins: Vec<String> = entries_reaching(f, i);
+        assert!(ins.iter().any(|e| e == "DoorOfTime_GetOcarinaOfTime"), "{ins:?}");
     }
 
     /// Follows single nexts from `start`, collecting each event's summary.
