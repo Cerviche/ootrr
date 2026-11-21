@@ -7,13 +7,13 @@ pub const PRICES: &str = "shopsanity_prices";
 /// The shop settings this one replaced (prices, price bounds and deal item classes). Their
 /// numbers and ids are retired in crate::settings::list::RETIRED.
 pub const OLD: [(u16, &str); 4] = [(59, "shop_prices"), (60, "shop_price_max"), (61, "shop_price_min"), (62, "shop_deal_items")];
-pub const LOW: i32 = 5;
+pub const LOW: i32 = 0;
 pub const HIGH: i32 = 995;
-/// The lowest price of a weighted deal price.
+/// The lowest price of a weighted deal price above the Cheap range.
 pub const FLOOR: i32 = 10;
 
 pub const NOTE: &str = "Shop shelves are shuffled. The shop goods trade places between the eight shelf shops, each keeps its own price, and the logic needs a bigger wallet for anything above 200 rupees. Experimental, untested in the game.";
-pub const DEALS: &str = "Special deals sell a random item once, through a new shelf actor per item and price. Only items the shop can sell once go on a deal: items that cannot be held twice (a second copy is turned away with the bag full message), upgrades at the tier the player must already have reached, songs when songs can go anywhere, and ammo, refills and hearts only in the one-keeper shops (the Bazaars, the Potion Shops and the Bombchu Shop), where one purchase closes the slot. Experimental, only one Kokiri Shop deal is tested in the game.";
+pub const DEALS: &str = "Special deals sell a random item once, through a new shelf actor per item and price. A deal can hold any item a shelf can sell: everything but dungeon keys, maps and compasses, and songs only when songs can go anywhere. Deals take the right side of each shop first (Items 7, 5, 8 and 6, then 3, 1, 4 and 2), like shopsanity in Ship of Harkinian, and the shop goods they replace move to the other shops. In the Kokiri, Goron and Zora Shops, which have a keeper per age, a deal bought from one keeper is sold out at the other too. Experimental, only one Kokiri Shop deal is tested in the game.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {
@@ -93,13 +93,13 @@ pub fn settings() -> Vec<Setting> {
             .opt("deals_1", "1 Item", "One slot in each shop is a special deal that sells a random item once, the other slots sell shuffled shop goods.")
             .opt("deals_2", "2 Items", "Two slots in each shop are special deals, the other slots sell shuffled shop goods.")
             .opt("deals_3", "3 Items", "Three slots in each shop are special deals, the other slots sell shuffled shop goods.")
-            .opt("deals_4", "4 Items", "Four slots in each shop are special deals, the other slots sell shuffled shop goods.")
+            .opt("deals_4", "4 Items", "The four right side slots of each shop are special deals, the left side sells shuffled shop goods.")
             .opt("random", "Random", "Each shop gets 0 to 4 special deals, the Kokiri Shop at least one."),
         with_deals(
-            Setting::choice(95, PRICES, "shuffle", "Shopsanity Prices", "starting")
-                .tip("The price range of special deals, named by the wallet that can pay the highest price. The remake's wallets hold 200, 500 and 1000 rupees. Prices lean to the middle of the range, in steps of 5 rupees. Kokiri Shop deals never cost more than 200, so the Kokiri Sword and other early items stay in reach. Shop goods always keep their own price.")
+            Setting::choice(95, PRICES, "shuffle", "Shopsanity Prices", "cheap")
+                .tip("The price range of special deals. The remake's wallets hold 200, 500 and 1000 rupees. Prices lean to the middle of the range, in steps of 5 rupees. Kokiri Shop deals never cost more than 200, so the Kokiri Sword and other early items stay in reach. Shop goods always keep their own price.")
                 .opt("affordable", "Affordable", "Every special deal costs 10 rupees.")
-                .opt("starting", "Starting Wallet", "10 to 200 rupees, no wallet upgrade needed.")
+                .opt("cheap", "Cheap", "0 to 95 rupees, no wallet upgrade needed.")
                 .opt("adult", "Adult Wallet", "10 to 500 rupees, the logic asks for the Adult's Wallet above 200.")
                 .opt("giant", "Giant's Wallet", "10 to 995 rupees, the logic asks for the Giant's Wallet above 500."),
         ),
@@ -119,13 +119,14 @@ fn level(v: &str) -> Option<Level> {
     }
 }
 
-/// The weighted price range of a shopsanity price choice, or Affordable.
-fn prices(v: &str) -> Option<(Prices, i32)> {
+/// The price kind and range of a shopsanity price choice.
+fn prices(v: &str) -> Option<(Prices, i32, i32)> {
+    let a: i32 = crate::shops::price::AFFORDABLE;
     match v {
-        "affordable" => Some((Prices::Affordable, crate::shops::price::AFFORDABLE)),
-        "starting" => Some((Prices::Weighted, crate::shops::price::CHILD)),
-        "adult" => Some((Prices::Weighted, crate::shops::price::ADULT)),
-        "giant" => Some((Prices::Weighted, HIGH)),
+        "affordable" => Some((Prices::Affordable, a, a)),
+        "cheap" => Some((Prices::Weighted, LOW, crate::shops::price::CHEAP)),
+        "adult" => Some((Prices::Weighted, FLOOR, crate::shops::price::ADULT)),
+        "giant" => Some((Prices::Weighted, FLOOR, HIGH)),
         _ => None,
     }
 }
@@ -144,9 +145,9 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     }
     match s.text(PRICES) {
         Ok(v) => match prices(v) {
-            Some((p, max)) => {
+            Some((p, min, max)) => {
                 o.prices = p;
-                o.min = FLOOR.min(max);
+                o.min = min;
                 o.max = max;
             }
             None => bad.push(format!("{PRICES} is {v}, which is not a known choice")),
@@ -199,8 +200,8 @@ mod tests {
         s.set(SETTING, Value::s("deals_2")).unwrap();
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&s, &mut bad);
-        assert_eq!((o.prices, o.min, o.max, o.kinds), (Prices::Weighted, 10, 200, Kinds::ALL));
-        for (v, p, min, max) in [("affordable", Prices::Affordable, 10, 10), ("starting", Prices::Weighted, 10, 200), ("adult", Prices::Weighted, 10, 500), ("giant", Prices::Weighted, 10, 995)] {
+        assert_eq!((o.prices, o.min, o.max, o.kinds), (Prices::Weighted, 0, 95, Kinds::ALL));
+        for (v, p, min, max) in [("affordable", Prices::Affordable, 10, 10), ("cheap", Prices::Weighted, 0, 95), ("adult", Prices::Weighted, 10, 500), ("giant", Prices::Weighted, 10, 995)] {
             s.set(PRICES, Value::s(v)).unwrap();
             let o: Opts = read(&s, &mut bad);
             assert_eq!((o.prices, o.min, o.max), (p, min, max), "{v}");

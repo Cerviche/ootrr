@@ -97,7 +97,7 @@ impl SeedFile {
             }
         }
         for (k, v) in &self.shops {
-            if !ident_ok(k) || !ident_ok(&v.item) || (v.deal && !ident_ok(&v.pool)) || !(1..=MAX_PRICE).contains(&v.price) {
+            if !ident_ok(k) || !ident_ok(&v.item) || (v.deal && !ident_ok(&v.pool)) || !(0..=MAX_PRICE).contains(&v.price) {
                 return Err(bad(&format!("shop slot {k:?} has an empty or odd item, pool item or price")));
             }
         }
