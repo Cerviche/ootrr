@@ -1495,7 +1495,7 @@ pub const SONG_TRIGGERS: [SongTrigger; 11] = [
     SongTrigger { loc: "Sheik at Temple", flow: "AllSage", cut: &[], give: "Dm_MelodyGet_Shine", also: &[], calls: &[] },
 ];
 const SONG_PREFIX: &str = "OOTRRSong";
-pub const BOOT_LESSONS: [&str; 1] = ["Sheik in Kakariko"];
+pub const BOOT_LESSONS: [(&str, &str); 1] = [("Sheik in Kakariko", "Event329")];
 const LOADING_WAIT: (&str, &str) = ("UISystemActor", "EventWaitCloseLoadingFade");
 
 fn fade_in(f: &mut Flow) -> Res<Kind> {
@@ -1513,6 +1513,25 @@ fn fade_in(f: &mut Flow) -> Res<Kind> {
             ],
         }),
     })
+}
+
+fn give_before(f: &mut Flow, ev: &str, prefix: &str, gives: &[SceneGive]) -> Res<()> {
+    let c: usize = find(f, ev)?;
+    let ci: u16 = idx(c)?;
+    let before: Vec<usize> = (0..f.events.len()).filter(|&j| matches!(&f.events[j].kind, Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } if *next == ci)).collect();
+    if before.is_empty() {
+        return Err(Error::Msg(format!("story skip: nothing leads to {ev} in {}, the game files differ", f.name)));
+    }
+    let entries: Vec<String> = entries_reaching(f, c);
+    let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
+    let mut then: u16 = ci;
+    for (k, g) in gives.iter().enumerate().rev() {
+        then = item_get(f, &format!("{prefix}_{k}"), g, then, &names)?;
+    }
+    for j in before {
+        set_next(&mut f.events[j].kind, then)?;
+    }
+    Ok(())
 }
 
 fn loading_wait(f: &mut Flow) -> Res<Kind> {
@@ -1577,11 +1596,17 @@ pub fn patch_song_trigger(b: &mut Bf, t: &SongTrigger, writes: &[Write], gives: 
         let entries: Vec<String> = entries_reaching(f, i);
         let names: Vec<&str> = entries.iter().map(|s| s.as_str()).collect();
         let mut then: u16 = next;
-        for (k, g) in gives.iter().enumerate().rev() {
-            then = item_get(f, &format!("{SONG_PREFIX}{}_{i}_{k}", t.give), g, then, &names)?;
+        let boot: Option<&str> = BOOT_LESSONS.iter().find(|b| b.0 == t.loc).map(|b| b.1);
+        match boot {
+            None => {
+                for (k, g) in gives.iter().enumerate().rev() {
+                    then = item_get(f, &format!("{SONG_PREFIX}{}_{i}_{k}", t.give), g, then, &names)?;
+                }
+            }
+            Some(ev) => give_before(f, ev, &format!("{SONG_PREFIX}{}_{i}", t.give), gives)?,
         }
         let mut kinds: Vec<Kind> = Vec::new();
-        if BOOT_LESSONS.contains(&t.loc) {
+        if boot.is_some() {
             kinds.push(loading_wait(f)?);
             kinds.push(fade_in(f)?);
         }
@@ -2218,21 +2243,28 @@ mod tests {
     }
 
     #[test]
-    fn the_nocturne_waits_for_the_loading_fade_and_fades_in_before_its_item_get() {
+    fn the_nocturne_is_given_before_the_burned_village_loads() {
         let Some(root) = dump() else { return };
         let mut rf: Romfs = Romfs::open(&root).unwrap();
         let t: &SongTrigger = SONG_TRIGGERS.iter().find(|t| t.loc == "Sheik in Kakariko").unwrap();
         let writes: Vec<Write> = scene_writes(&mut rf, t.give).unwrap();
         let gives: Vec<SceneGive> = vec![SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None }];
         let mut b: Bf = Bf::parse(&rf.read_zs(&format!("Event/EventFlow/{}.bfevfl.zs", t.flow)).unwrap()).unwrap();
+        patch_burning(&mut b).unwrap();
         patch_song_trigger(&mut b, t, &writes, &gives).unwrap();
         let f: &Flow = b.flows.iter().find(|x| x.name == t.flow).unwrap();
-        let e = f.entries.iter().find(|e| e.name == "KakarikoVillage_MelodyGet_Shadow").unwrap();
-        let w: Vec<String> = walk(f, e.main, 12);
+        let boot = f.entries.iter().find(|e| e.name == "KakarikoVillage_MelodyGet_Shadow").unwrap();
+        let w: Vec<String> = walk(f, boot.main, 16);
+        assert!(!w.iter().any(|x| x.contains("GetInEvent")), "{w:?}");
         let wait: usize = w.iter().position(|x| x.starts_with("UISystemActor.EventWaitCloseLoadingFade")).expect(&format!("{w:?}"));
         let fade: usize = w.iter().position(|x| x.starts_with("UISystemActor.EventEventFadeIn")).expect(&format!("{w:?}"));
-        let get: usize = w.iter().position(|x| x.contains("GetInEvent")).expect(&format!("{w:?}"));
-        assert!(wait < fade && fade < get, "{w:?}");
+        assert!(wait < fade, "{w:?}");
+        let unequip: usize = f.events.iter().position(|e| e.name == "Event496").unwrap();
+        let a: Vec<String> = walk(f, next_of(&f.events[unequip].kind).unwrap(), 12);
+        let get: usize = a.iter().position(|x| x.contains("GetInEvent")).expect(&format!("{a:?}"));
+        let change: usize = a.iter().position(|x| x.starts_with("GameSystemActor.EventReserveBancChange")).expect(&format!("{a:?}"));
+        assert!(get < change, "{a:?}");
+        assert!(entries_reaching(f, f.events.iter().position(|e| e.name == "Event329").unwrap()).contains(&"KakarikoVillage_Arrive".to_string()));
         Bf::parse(&b.write().unwrap()).unwrap();
     }
 
