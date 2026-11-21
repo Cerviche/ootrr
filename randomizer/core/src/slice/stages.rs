@@ -26,7 +26,7 @@ pub struct Ctx<'a> {
 
 pub type Stage = fn(&mut Romfs, &Ctx, &mut Vec<Out>) -> Res<()>;
 
-pub const STAGES: [(&str, Stage); 25] = [
+pub const STAGES: [(&str, Stage); 26] = [
     ("boss heart chests", boss_hearts),
     ("songs", songs),
     ("song models", song_models),
@@ -52,6 +52,7 @@ pub const STAGES: [(&str, Stage); 25] = [
     ("pot rows", pot_rows),
     ("start defaults", start_defaults),
     ("scrub rows", scrub_rows),
+    ("debug location names", debug_names),
 ];
 
 pub fn run(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
@@ -232,6 +233,13 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     }
     edits.push(crate::always::exp());
     crate::start_defaults::stage(rf, more, &edits)
+}
+
+fn debug_names(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    if c.p.debug_names {
+        crate::debug_names::stage(rf, c.d, c.work, more)?;
+    }
+    Ok(())
 }
 
 fn scrub_rows(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {

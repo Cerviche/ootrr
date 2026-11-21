@@ -698,6 +698,10 @@ pub fn build() -> Schema {
             .wire_as(Value::Bool(false))
             .tip("The wooden bridge in the Deku Tree slingshot room stays up when Link walks, rolls or jumps on it, so you never drop into the pit below it. Nothing else in the dungeon changes and the logic is the same, because the room never needed the bridge to break. Without the Slingshot the jump across has a window of about nine frames, so this keeps the room fair when the chests there hold other items. A bridge that already broke in a save stays broken. Experimental, untested in the game."),
     );
+    s.push(
+        Setting::toggle(crate::debug_names::NUM, crate::debug_names::SETTING, "world", "Show location names", false)
+            .tip("For checking the location data. After an item get, a text box shows the internal name of the location the item came from, such as [KF Midos Top Left Chest]. Covers chests, NPC, song and event rewards, Gold Skulltulas and items on the ground. Items on the ground need a button press, and a placed item missing from the location list says so. Experimental."),
+    );
     s.push(starting_items());
     s.push(starting_songs());
     s.extend(difficulty());

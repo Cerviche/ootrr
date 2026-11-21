@@ -700,6 +700,7 @@ const EXPERIMENTAL_TAB: &[PortSection] = &[port(
 pub const RANDOMIZER: &str = "Randomizer";
 pub const GAMEPLAY: &str = "Gameplay";
 pub const IN_DEV: &str = "In Dev";
+pub const DEBUG: &str = "Debug";
 
 pub const MENU: &[Page] = &[
     Page { id: "win", label: "Logic / Goal", heading: RANDOMIZER, sections: &[] },
@@ -773,6 +774,7 @@ pub const MENU: &[Page] = &[
             sec("Just for fun", &["bean_pitch", "enemy_spawn_combo"]),
         ],
     },
+    Page { id: "debug", label: "Debug", heading: DEBUG, sections: &[sec("Debug", &["debug_location_names"])] },
 ];
 
 pub fn problems(sch: &Schema) -> Vec<String> {

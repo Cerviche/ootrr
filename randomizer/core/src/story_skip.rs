@@ -886,6 +886,7 @@ pub struct SceneGive {
     pub actor: String,
     pub family: Option<&'static str>,
     pub key: Option<(crate::gift_keys::Item, &'static str)>,
+    pub line: Option<String>,
 }
 
 /// The checks whose scenes are dropped for the standard item get.
@@ -902,6 +903,15 @@ fn item_get(f: &mut Flow, name: &str, g: &SceneGive, then: u16, entries: &[&str]
     if f.events.iter().any(|e| e.name == name) {
         return Err(Error::Msg(format!("story skip: the item get {name} is already in {}", f.name)));
     }
+    let then: u16 = match &g.line {
+        Some(id) => {
+            let (t, say): (u16, u16) = crate::dungeon_credit::action_slot(f, crate::dungeon_credit::TALKER, crate::dungeon_credit::TALK)?;
+            let n: u16 = idx(f.events.len())?;
+            f.events.push(Event { name: format!("{name}Dbg"), kind: Kind::Action { next: then, actor: t, act: say, params: Some(crate::dungeon_credit::talk(id.clone())) } });
+            n
+        }
+        None => then,
+    };
     let at: u16 = idx(f.events.len())?;
     // A small key is held up as the minigame key through the key copy, whose window names the
     // dungeon key (crate::gift_keys::SMALL_KEY_SHOWN).
@@ -2193,7 +2203,7 @@ mod tests {
         let mut rf: Romfs = Romfs::open(&root).unwrap();
         for t in &SONG_TRIGGERS {
             let writes: Vec<Write> = scene_writes(&mut rf, t.give).unwrap();
-            let gives: Vec<SceneGive> = std::iter::once(t.loc).chain(t.also.iter().copied()).map(|_| SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None }).collect();
+            let gives: Vec<SceneGive> = std::iter::once(t.loc).chain(t.also.iter().copied()).map(|_| SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None, line: None }).collect();
             let mut b: Bf = Bf::parse(&rf.read_zs(&format!("Event/EventFlow/{}.bfevfl.zs", t.flow)).unwrap()).unwrap();
             patch_song_trigger(&mut b, t, &writes, &gives).unwrap();
             let f: &Flow = b.flows.iter().find(|x| x.name == t.flow).unwrap();
@@ -2420,7 +2430,7 @@ mod tests {
         patch_endings(&mut b).unwrap();
         patch_fire_ending(&mut b).unwrap();
         let gives: Vec<(&str, &[&str], SceneGive)> =
-            REWARD_SCENES.iter().map(|(_, scene, extra)| (*scene, *extra, SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None })).collect();
+            REWARD_SCENES.iter().map(|(_, scene, extra)| (*scene, *extra, SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None, line: None })).collect();
         patch_reward_gives(&mut b, &gives).unwrap();
         let f: &Flow = b.flows.iter().find(|f| f.name == ENDING_FLOW).unwrap();
         for (_, boss) in BOSS_WARPS {
