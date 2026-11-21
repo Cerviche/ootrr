@@ -74,6 +74,9 @@ impl Opts {
         if self.free_scarecrow {
             out.push((scarecrow::LOGIC_KEY, scarecrow::LOGIC_ON));
         }
+        if self.skip_escape {
+            out.push((tower_escape::SETTING, "true"));
+        }
         out
     }
 
@@ -199,7 +202,7 @@ pub fn settings() -> Vec<crate::settings::Setting> {
         Setting::toggle(scarecrow::NUM, scarecrow::SETTING, "world", "Free Scarecrow's Song", false)
             .tip("Start with Scarecrow's Song and an instant scarecrow: Pierre already stands at every scarecrow spot once you own an Ocarina, so there is no song to record or play. The logic counts the song as known, like the OoTR option of the same name. Experimental, untested in the game."),
         Setting::toggle(tower_escape::NUM, tower_escape::SETTING, "goal", "Skip the tower escape", false)
-            .tip("After Ganondorf falls, Link goes straight to the field below the collapsing tower and the Ganon fight, with no escape run down the tower. Experimental, untested in the game."),
+            .tip("After Ganondorf falls, Link goes straight to the field below the collapsing tower and the Ganon fight, with no escape run down the tower, so the logic no longer needs the Longshot to finish. Without this, the logic needs the Longshot for the escape. Experimental, untested in the game."),
     ]
 }
 

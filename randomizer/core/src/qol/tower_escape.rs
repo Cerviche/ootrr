@@ -15,7 +15,7 @@ pub const ANCHOR_FILE: &str = "Banc/InsideGanonCastle/InsideGanonCastle_Dynamic.
 pub const MARK: &[u8] = b"ChangeBancBeforehandAnchor";
 const CHANGE: &str = "GameSystemActor.EventReserveBancChange";
 
-pub const NOTE: &str = "Skip the tower escape: after Ganondorf falls, Link goes straight to the field below the tower, as if he had just run out of the collapsing castle, and the Ganon fight follows as usual. The banc change after Ganondorf's death in Defeat_Ganon loads FinalBattleField at FinalBattleField_Entrance with the event that plays at the end of the escape (InsideGanonCaslte_Dungeon_Escape), and the anchor in Ganon's tower that preloads the next map preloads that field. Experimental, untested in the game.";
+pub const NOTE: &str = "Skip the tower escape: after Ganondorf falls, Link goes straight to the field below the tower, as if he had just run out of the collapsing castle, and the Ganon fight follows as usual. The banc change after Ganondorf's death in Defeat_Ganon loads FinalBattleField at FinalBattleField_Entrance with the event that plays at the end of the escape (InsideGanonCaslte_Dungeon_Escape), and the anchor in Ganon's tower that preloads the next map preloads that field. The logic no longer needs the Longshot for the escape. Experimental, untested in the game.";
 
 fn text(c: &crate::bfevfl::Cont, k: &str) -> Option<String> {
     match c.get(k) {

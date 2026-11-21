@@ -31,6 +31,7 @@
   "ganon_bosskey_tokens": 100,
   "gerudo_bridge_open": false,
   "skip_epona_race": false,
+  "skip_tower_escape": false,
   "gerudo_fortress": "normal",
   "glitch_botw_blank_a": false,
   "glitch_child_shadow": false,
