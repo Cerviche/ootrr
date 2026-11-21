@@ -1495,6 +1495,30 @@ pub const SONG_TRIGGERS: [SongTrigger; 11] = [
     SongTrigger { loc: "Sheik at Temple", flow: "AllSage", cut: &[], give: "Dm_MelodyGet_Shine", also: &[], calls: &[] },
 ];
 const SONG_PREFIX: &str = "OOTRRSong";
+pub const BOOT_LESSONS: [&str; 1] = ["Sheik in Kakariko"];
+const LOADING_WAIT: (&str, &str) = ("UISystemActor", "EventWaitCloseLoadingFade");
+
+fn fade_in(f: &mut Flow) -> Res<Kind> {
+    let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, FADE_IN.0, FADE_IN.1)?;
+    Ok(Kind::Action {
+        next: NONE,
+        actor: a,
+        act: x,
+        params: Some(Cont {
+            items: vec![
+                ("Color".to_string(), Val::Int(0)),
+                ("IsNoPlayAnime".to_string(), Val::Bool(0)),
+                ("Length".to_string(), Val::Int(1)),
+                ("IsWaitEnd".to_string(), Val::Bool(1)),
+            ],
+        }),
+    })
+}
+
+fn loading_wait(f: &mut Flow) -> Res<Kind> {
+    let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, LOADING_WAIT.0, LOADING_WAIT.1)?;
+    Ok(Kind::Action { next: NONE, actor: a, act: x, params: Some(Cont { items: vec![("IsWaitEnd".to_string(), Val::Bool(1))] }) })
+}
 
 /// A write a scene makes of its own (a flag, a counter, a quest step), to run in place of it.
 #[derive(Debug, Clone, PartialEq)]
@@ -1557,6 +1581,10 @@ pub fn patch_song_trigger(b: &mut Bf, t: &SongTrigger, writes: &[Write], gives: 
             then = item_get(f, &format!("{SONG_PREFIX}{}_{i}_{k}", t.give), g, then, &names)?;
         }
         let mut kinds: Vec<Kind> = Vec::new();
+        if BOOT_LESSONS.contains(&t.loc) {
+            kinds.push(loading_wait(f)?);
+            kinds.push(fade_in(f)?);
+        }
         if let Some(m) = given_mark(t.loc) {
             kinds.push(set_bool(f, m, true)?);
         }
@@ -2187,6 +2215,25 @@ mod tests {
         let e: &Event = f.events.iter().find(|e| e.name == ESCAPE_STEP_EVENT).unwrap();
         assert_eq!(text(e, "StepName"), Some(ESCAPE_STEP));
         assert!(patch_escape(&mut b).is_err());
+    }
+
+    #[test]
+    fn the_nocturne_waits_for_the_loading_fade_and_fades_in_before_its_item_get() {
+        let Some(root) = dump() else { return };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let t: &SongTrigger = SONG_TRIGGERS.iter().find(|t| t.loc == "Sheik in Kakariko").unwrap();
+        let writes: Vec<Write> = scene_writes(&mut rf, t.give).unwrap();
+        let gives: Vec<SceneGive> = vec![SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None }];
+        let mut b: Bf = Bf::parse(&rf.read_zs(&format!("Event/EventFlow/{}.bfevfl.zs", t.flow)).unwrap()).unwrap();
+        patch_song_trigger(&mut b, t, &writes, &gives).unwrap();
+        let f: &Flow = b.flows.iter().find(|x| x.name == t.flow).unwrap();
+        let e = f.entries.iter().find(|e| e.name == "KakarikoVillage_MelodyGet_Shadow").unwrap();
+        let w: Vec<String> = walk(f, e.main, 12);
+        let wait: usize = w.iter().position(|x| x.starts_with("UISystemActor.EventWaitCloseLoadingFade")).expect(&format!("{w:?}"));
+        let fade: usize = w.iter().position(|x| x.starts_with("UISystemActor.EventEventFadeIn")).expect(&format!("{w:?}"));
+        let get: usize = w.iter().position(|x| x.contains("GetInEvent")).expect(&format!("{w:?}"));
+        assert!(wait < fade && fade < get, "{w:?}");
+        Bf::parse(&b.write().unwrap()).unwrap();
     }
 
     /// Follows single nexts from `start`, collecting each event's summary.
