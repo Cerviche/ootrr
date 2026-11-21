@@ -767,17 +767,17 @@ pub const MENU: &[Page] = &[
         label: "Difficulty",
         heading: GAMEPLAY,
         sections: &[
-            sec("Enemies", &["enemy_health", "enemy_damage", "damage_taken", "enemy_speed", "enemy_regen", "enemy_backup", "no_z_targeting", "more_enemies", "enemy_randomizer", "enemy_sizes", "enemy_sizes_health", "enemies_respawn_sooner", "enemy_gates", "cucco_revenge", "volvagia_roams"]),
+            sec("Enemies", &["enemy_health", "enemy_damage", "damage_taken", "enemy_speed", "enemy_regen", "enemy_backup", "more_enemies", "enemy_randomizer", "enemy_sizes", "enemy_sizes_health", "enemies_respawn_sooner", "enemy_gates", "volvagia_roams"]),
+            sec("Player", &["no_z_targeting", "lose_heart_on_death", "random_fuses"]),
+            sec("Environment", &["cucco_revenge", "fireball_storms"]),
             sec("Drops and healing", &["no_heart_drops", "no_ammo_drops", "no_gossip_fairies", "no_bottles_in_combat", "no_dupe_items", "fairy_helps_enemies"]),
             sec("Boss fights", &["boss_minibosses", "boss_minions"]),
-            sec("Hazards", &["fireball_storms", "random_fuses", "shorter_timers"]),
-            sec("Game over", &["lose_heart_on_death"]),
+            sec("Hazards", &["shorter_timers"]),
             sec("Minigames", &["unbreakable_bowling_grass"]),
-            sec("Just for fun", &["enemy_spawn_combo"]),
         ],
     },
     Page { id: "cosmetics", label: "Cosmetics", heading: GAMEPLAY, sections: &[sec("Looks", &["mega_like_likes"])] },
-    Page { id: "debug", label: "Debug", heading: DEBUG, sections: &[sec("Debug", &["debug_location_names"])] },
+    Page { id: "debug", label: "Debug", heading: DEBUG, sections: &[sec("Debug", &["debug_location_names"]), sec("Spawn enemies", &["enemy_spawn_combo"])] },
 ];
 
 pub fn problems(sch: &Schema) -> Vec<String> {
