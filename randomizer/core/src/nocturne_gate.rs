@@ -10,7 +10,7 @@ pub const MEDALS: [&str; 3] = ["IsGet.Item_Medal_Forest", "IsGet.Item_Medal_Fire
 pub const NOTE: &str = "Nocturne Trigger, Classic: Kakariko burns and Sheik teaches the Nocturne of Shadow once adult Link holds the Forest, Fire and Water Medallions (SageOfShadow_Kakariko_Burning is rewritten to the three medallions).";
 
 pub fn settings() -> Vec<Setting> {
-    vec![Setting::choice(135, SETTING, "goal", "Nocturne Trigger", VANILLA)
+    vec![Setting::choice(137, SETTING, "goal", "Nocturne Trigger", VANILLA)
         .tip("What makes Kakariko burn, where Sheik teaches the Nocturne of Shadow to adult Link. Untested in the game.")
         .opt(VANILLA, "Vanilla", "The Forest, Fire and Water Temples are cleared, as in the remake.")
         .opt(CLASSIC, "Classic", "Hold the Forest, Fire and Water Medallions, as in the original game.")]
