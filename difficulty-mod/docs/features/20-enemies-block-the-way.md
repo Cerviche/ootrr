@@ -363,3 +363,14 @@ Seen (child, Kokiri Sword, day, real `target` + Y hits): the giant showed hp 16/
 Gate 16 (adult): killed all 4 Dodongos (two needed a second `kill`), waited: the terrace walk went on to z -44 and the main trail to z -39.3; with two alive both were blocked.
 
 Wasteland: NOT TESTED in the game. Link could not get onto the sand within a 50 s walk and no Leever appeared. The clone approach leaves the game's packs unwritten (the test above), and the clone pack is only loaded where a gate places it.
+
+## Changes after the 21 Nov hands-on (branch fix/playtest-gates)
+- Gate 20 (Lon Lon north gate): three Stalfos replace the Leever guards. Gate 9 (Lost Woods): a Stalfos again.
+- Gates 21/22 (lake lab bridge): only the Like Like guards. The four Keese are plain extra enemies near it. The wall now runs across the landward end of the bridge strip only (z 428), not across the open area. Possible cause of the fall through the floor: the old wall started at the lab entrance sign and anchor, where Link arrives, and the guards stood on the ground beside it; not confirmed.
+- Gate 14 (Crater): adult only, with a wall across the full width of the ledge, checked against the navmesh by the gate walk test.
+- Gates 15/16 (Trail): left in place, but the east strip of wall that ran into the Goron City loading zone is gone and the wall ends 8 units short of it. Their walk test is no longer run, as the wall no longer closes the trail; a new position is coming.
+
+### Hands-on 9 results (21 Nov)
+- Gate 23 (Dark Link): seen by hand, passed.
+- Gates 21/22 (lake lab): the user fell through the floor next to the Like Like and Keese; the new wall (only across the bridge, z 428) is a guess at the cause, not confirmed. Gate 15 (child Trail): after the guard died Link was warped (a loading zone right behind the wall); the user wants gates 15 and 16 moved higher up the Death Mountain Trail, above Goron City; a screenshot from the user is awaited, so they have not moved.
+- Gate 20 and gate 9 changes are in the list above (3 Stalfos; Stalfos). Gate 14 is adult only. Not played again after the changes. Gate editor: near useless as built (fairy markers); a live gate with a real barrier tied to a dummy guard is wanted (`gate-editor.md`).

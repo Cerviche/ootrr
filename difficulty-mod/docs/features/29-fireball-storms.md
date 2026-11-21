@@ -155,3 +155,11 @@ Not played.
 - **New request (20 Nov): random fireball storms.** The Death Mountain eruption's falling fireballs at other places: the child Hyrule Castle courtyard sneak, quiet parts of Hyrule Field. Being built (`feature/fireball-storms`).
 
 - **Fireball storms, more places (user, 20 Nov):** the Death Mountain Trail eruption on every visit, child and adult; plus four spots the user picked on the object map: Desert Colossus (-144, -43), Hyrule Field (136, 219) and (-8, 95), Haunted Wasteland (-56, -55). Being built (`feature/fireball-storms-2` off `difficulty`).
+
+
+## After the 21 Nov hands-on (`fix/playtest-misc`, on `playtest/next` only)
+- Seen by hand: the storm at `field_middle_road` is good and the rocks come from the volcano side (step passed 12:06, 12:11).
+- Bug seen: standing in the middle road ring, rocks landed in a different ring (the one by the Market). Fixed in `fireballs.rs` (`e8347f8`); not confirmed in the game afterwards.
+- Every area is twice as big now (trigger 64 x 60, landing spread to match). A Torch Slug (`Enemy_TorchSlug`) stands at the centre of five of the seven spots as a hint (not at the castle garden or `field_south_east`); a unit test keeps it 8 units from every landing anchor.
+- Desert Colossus is switched off: walking toward it made Link fall through the floor. `SPOTS` has 7 entries now (the desert spot is gone). Not fixed, only removed.
+- Future: swap the Death Mountain backdrop to its erupting version during a storm (user, 12:06).

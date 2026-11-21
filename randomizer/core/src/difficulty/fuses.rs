@@ -18,20 +18,19 @@ pub const CHU_GRAPH: &str = "AI/Item_Bombchu_Remake.root.ainb";
 pub const STICK_PACK: &str = "Pack/Actor/Weapon_DekuStick.pack.zs";
 pub const STICK_GRAPH: &str = "AI/Weapon_DekuStick.root.ainb";
 pub const DEATH: &str = "OneShotDeathRequestDeath";
-pub const EXTINGUISH: &str = "OneShotChemicalRequestExtinguish";
 pub const STICK_TERROR: &str = "ExecutePerceptionAdvancedEmitTerror";
 pub const CHU_ROOT: &str = "ExecuteBombchuScheduler";
 pub const DEATH_REASON: i32 = 10;
 pub const FPS: f32 = 60.0;
 pub const FLOOR: f32 = 60.0;
 pub const BOMB_FRAMES: f32 = 240.0;
-pub const CHU_FLOOR: f32 = 120.0;
-pub const CHU_FRAMES: f32 = 210.0;
+pub const CHU_FLOOR: f32 = 210.0;
+pub const CHU_FRAMES: f32 = 315.0;
 pub const STICK_FLOOR: f32 = 600.0;
 pub const STICK_FRAMES: f32 = 1440.0;
 pub const HEAP_EXTRA: i32 = 0x1000;
 pub const LABEL: &str = "random fuses";
-pub const NOTE: &str = "Each bomb, Bombchu and Deku Stick you light gets its own random fuse. A bomb blows up after 1 to 4 seconds instead of 4, a Bombchu after 2 to 3.5 seconds, and a lit Deku Stick burns for 10 to 24 seconds before it goes out (a stick that burned for only 1 second could not carry a flame to a torch). Bomb flowers, the bomb the Imperial soldier throws and the bombs of enemies are unchanged. The Bombchu bowling alley uses the same Bombchu, so its Bombchus get the shorter fuse as well. Experimental, untested in the game.";
+pub const NOTE: &str = "Each bomb, Bombchu and Deku Stick you light gets its own random fuse. A bomb blows up after 1 to 4 seconds instead of 4, a Bombchu after 3.5 to 5.25 seconds (never shorter than normal, so the Bombchu Bowling alley stays playable), and a lit Deku Stick burns for 10 to 24 seconds before it goes out (a stick that burned for only 1 second could not carry a flame to a torch). Bomb flowers, the bomb the Imperial soldier throws and the bombs of enemies are unchanged. Experimental, untested in the game.";
 
 pub fn packs() -> [(&'static str, &'static str); 3] {
     [(BOMB_PACK, BOMB_GRAPH), (CHU_PACK, CHU_GRAPH), (STICK_PACK, STICK_GRAPH)]
@@ -56,10 +55,6 @@ fn timer(a: &mut Ainb, tag: &str, floor: f32, top: f32, finish: usize) -> Res<us
 
 fn death(a: &mut Ainb, tag: &str) -> Res<usize> {
     a.add_node(&Spec::node(DEATH, &format!("{tag} death")).prop(1, "ExecuteEveryFrame", flag(false)).constant(0, "DeathReson", DEATH_REASON.to_le_bytes().to_vec()))
-}
-
-fn extinguish(a: &mut Ainb, tag: &str) -> Res<usize> {
-    a.add_node(&Spec::node(EXTINGUISH, &format!("{tag} out")).prop(1, "ExecuteEveryFrame", flag(false)))
 }
 
 fn sole(a: &Ainb, name: &str, what: &str) -> Res<usize> {
@@ -135,7 +130,7 @@ pub fn stick(raw: &[u8]) -> Res<Vec<u8>> {
     }
     let site: usize = sole(&a, STICK_TERROR, "Deku Stick")?;
     let parent: usize = parallel_above(&a, site, 1, "Deku Stick")?;
-    let out: usize = extinguish(&mut a, "ootrr stick")?;
+    let out: usize = death(&mut a, "ootrr stick")?;
     let top: usize = timer(&mut a, "ootrr stick", STICK_FLOOR, STICK_FRAMES, out)?;
     into_parallel(&mut a, parent, top)?;
     checked(a, "Deku Stick")
@@ -180,6 +175,8 @@ mod tests {
     use super::*;
     use crate::ainb::show::show;
 
+    const VANILLA_CHU_FRAMES: f32 = 210.0;
+
     fn dump() -> Option<std::path::PathBuf> {
         let p: std::path::PathBuf = std::env::var_os("OOTRR_ROMFS").map(std::path::PathBuf::from)?;
         if p.is_dir() { Some(p) } else { None }
@@ -191,13 +188,15 @@ mod tests {
     }
 
     #[test]
-    fn bombs_run_from_one_second_chus_from_two_and_sticks_keep_ten_seconds() {
+    fn bombs_run_from_one_second_chus_never_shorter_than_vanilla_and_sticks_keep_ten_seconds() {
         assert_eq!(FLOOR, FPS);
         assert!(BOMB_FRAMES > FLOOR && CHU_FRAMES > CHU_FLOOR && STICK_FRAMES > STICK_FLOOR);
         assert!(STICK_FLOOR >= 10.0 * FPS);
-        assert_eq!(CHU_FLOOR / FPS, 2.0);
+        assert_eq!(CHU_FLOOR / FPS, 3.5);
+        assert_eq!(CHU_FLOOR, VANILLA_CHU_FRAMES);
+        assert!(CHU_FRAMES <= VANILLA_CHU_FRAMES * 1.5);
         assert_eq!(BOMB_FRAMES / FPS, 4.0);
-        assert_eq!(CHU_FRAMES / FPS, 3.5);
+        assert_eq!(CHU_FRAMES / FPS, 5.25);
         assert_eq!(STICK_FRAMES / FPS, 24.0);
     }
 
@@ -243,7 +242,7 @@ mod tests {
         assert_eq!(chu_a.el_type(r), PARALLEL);
         assert_eq!(chu_a.find_els(CHU_ROOT).len(), 1);
         assert_eq!(root(&before[1]), Some(r));
-        assert!(show(&graph_of(&mut rf, &outs[2].z, STICK_GRAPH)).contains(EXTINGUISH));
+        assert!(show(&graph_of(&mut rf, &outs[2].z, STICK_GRAPH)).contains("DeathReson = 10"));
         let patched: Vec<u8> = bomb(&before_raw(&mut rf)).unwrap();
         assert!(bomb(&patched).is_err());
     }

@@ -1,6 +1,6 @@
 # 32. Shield-eating mega Like Likes
 
-Status: **built and played by script on 20 Nov** (branch `feature/shield-likelikes`, setting `mega_like_likes`, number 144, default off). The feasibility study is kept below the build notes. What was played is listed under "How it was tested"; the feel, a hand-played fight and the Mirror Shield in the hand of a child Link are not played by a person.
+Status: **seen by hand on 21 Nov (swallow, kill, the Mirror sparkle; step passed), built and played by script on 20 Nov** (branch `feature/shield-likelikes`, setting `mega_like_likes`, number 144, default off). The feasibility study is kept below the build notes. What was played is listed under "How it was tested"; the feel, a hand-played fight and the Mirror Shield in the hand of a child Link are not played by a person.
 
 
 ## How it works (as built)
@@ -131,3 +131,15 @@ Not testable yet. When built: adult save with the Mirror Shield equipped and a H
 - The Mirror Shield still goes straight into the pouch, silently: it has no vanilla pickup actor, `Obj_Shield_Mirror` exists only when the randomizer's pickup builder made it for the seed, and `IsGetEvent` showed no window. A sparkle effect and a get-item event were not built.
 - An unclaimed pickup loses nothing: the pouch stays empty, so the next kill gives it again. Reload (Deku lost): all three megas back at 36 of 36.
 - Deku drop not played; it uses the same route and the game's own table.
+
+## Follow-up 3 (21 Nov): the Mirror return shows an effect (branch `feature/mirror-return`)
+
+- **Tried first: (b), the effect keys.** The Mirror branch of the death graph now runs the pouch add in parallel with emits of `OotrrHealRing`, `OotrrHeal` and `OotrrHealOrb` (the Farore's Wind heal keys from `fx.rs`) and the Like Like's own `Eat_Success`, `ライト_00` and `ライト_01` keys (`SPARKLES`). The get-item event (a) was not tried: `IsGetEvent` showed no window earlier and no get-item node was found in the time. Hylian and Deku still come back as the game's own pickups.
+- **The effect-link edit** (the heal keys on the `Enemy_LikeLike` user) is now also staged when only `mega_like_likes` is on (`fx::link_stage_for`, that one user); with regen or fairy help on it is the full edit as before.
+- **Seen (scripted, one game copy, child Link, Kokiri Forest):** Mirror taken with `take`, a mega brought to 1 hp with `enemyhp` and killed by one real Din's Fire: a green sparkle column rose from the dying Like Like and the Mirror count was back to 1. It is not known which of the six keys made the green (the first attempt with the three heal keys alone was not seen; the camera was not on the body). Not played by a person; the sparkle is small and short.
+
+
+## Seen by hand and later changes (21 Nov)
+- Hands-on 9: the mega Like Likes passed by hand, including the Mirror Shield return with its sparkle (user).
+- The Mirror sparkle is on `playtest/next` (`8672f58`, merged) and not yet on `difficulty` (rc 18 has the silent return).
+- Size gallery note: five Like Likes at 0.5x to 2.5x all looked the same size, so placement Scale does nothing for them; the mega Like Like gets its size from its own clone pack. See 33.

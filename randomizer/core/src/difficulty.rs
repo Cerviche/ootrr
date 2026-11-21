@@ -110,8 +110,8 @@ pub const BOWLING_NUM: u16 = 139;
 pub const FIREBALLS_NUM: u16 = 140;
 pub const VOLVAGIA_NUM: u16 = 143;
 pub const MEGA_LIKE_NUM: u16 = 144;
-pub const FUSES_NUM: u16 = 142;
-pub const RANDOMIZER_NUM: u16 = 138;
+pub const FUSES_NUM: u16 = 151;
+pub const RANDOMIZER_NUM: u16 = 150;
 pub const SIZES_NUM: u16 = 145;
 pub const SIZES_HEALTH_NUM: u16 = 146;
 
@@ -503,6 +503,8 @@ pub fn stage_noted(rf: &mut Romfs, o: &Opts, have: Have, seed: &str, notes: &mut
     }
     if o.regen || o.fairy_helps {
         step(rf, &mut outs, have, fx::link_stage)?;
+    } else if o.mega_like {
+        step(rf, &mut outs, have, |rf, have| fx::link_stage_for(rf, have, vec![mega_like::BASE.to_string()]))?;
     }
     if o.backup {
         step(rf, &mut outs, have, |rf, have| Ok(backup::stage(rf, have, ACTOR_PACKS)?.1))?;
@@ -653,7 +655,7 @@ mod tests {
         let o: Opts = read(&s, &mut bad);
         assert!(bad.is_empty() && o.gates() && o.any() && !o.packs());
         assert_eq!(o.gate_list().len(), gates::GATES.len() - gates::HELD.len());
-        assert_eq!(o.notes().len(), 2);
+        assert_eq!(o.notes().len(), 1);
         s.set(FOREST, Value::s("open")).unwrap();
         let o: Opts = read(&s, &mut bad);
         assert!(o.gates() && o.gate_list().len() == gates::GATES.len() - gates::HELD.len() - 1);
@@ -705,7 +707,7 @@ mod tests {
         assert!(bad.is_empty());
         assert_eq!(o, Opts { health: 250, damage: 50, speed: 200, no_hearts: true, no_fairies: true, no_ammo: true, lose_heart: true, no_bottles: true, no_target: true, no_dupes: true, extra: 50, respawn: true, minibosses: true, regen: true, minions: true, fairy_helps: true, backup: true, gates: true, encounters: true, cucco: true, bowling: true, fireballs: true, spawn_combo: true, randomizer: true, fuses: true, mega_like: true, volvagia: true, ..Opts::default() });
         assert!(o.any() && o.packs());
-        assert_eq!(o.notes().len(), 30);
+        assert_eq!(o.notes().len(), 29);
         assert_eq!(o.notes().iter().collect::<std::collections::BTreeSet<&String>>().len(), o.notes().len());
         assert!(o.notes().iter().any(|n| n.contains("About 50 in 100")));
         assert!(Opts { extra: 100, ..Opts::default() }.any() && !Opts { extra: 100, ..Opts::default() }.packs());

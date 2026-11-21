@@ -2,13 +2,44 @@
 
 One entry per release candidate (rc), newest first. Each rc is one commit on the `difficulty` branch. "Played" means seen in the running game, by hand or by a script through Longshot's control bridge (see [TESTING.md](TESTING.md)). Feature details are in [features/](features/).
 
+## rc 19
+
+On top of upstream 0.8.2 (0fa64f4) and rc 18. Everything on `playtest/next`: the fixes from the hands-on session of 21 Nov and the Mirror Shield sparkle. No new settings. The fixes made after the second hands-on session (backup ladder order, Lon Lon adult gate, tree enemies, Stalchild waves, the surprise check in grass and others) are **not** in this rc: they come as small separate pull requests.
+
+**Played by hand on 21 Nov and working**
+- Gate 23 (Dark Link) and gate 17 (Graveyard).
+- Mega Like Likes: the shield swallow, their regen, and the green Mirror Shield sparkle when it comes back.
+- Temple of Time Beamos (they reach the aisle and killed Link).
+- Fireball storms: the rocks fly in from the right direction, they land in their own ring (the wrong-spot bug is gone), the areas are twice as big, and a Torch Slug marks each area.
+- Random fuses: bombs, bombchus and Deku Sticks (the stick now burns up).
+- Killing a Mad Scrub; limited ammo; Guay visible in child Hyrule Field; enemy randomizer swaps in Dodongo's Cavern; the Morpha room frame rate; unbreakable Bombchu Bowling grass.
+
+**Fixes in this rc** (built after the first hands-on): Bombchu fuses are now only longer than the game's (3.5 to 5.25 s), bombs and sticks unchanged, so Bombchu Bowling is beatable again (played by hand: beatable, just hard); gates 9 (Stalfos guard), 14 (adult only, bigger wall), 20 (three Stalfos), 21 and 22 (Like Like guard, wall across the bridge only); Stalfos and Wolfos call a lesser kind for backup; pots and grass surprises at 6%; Guay no longer hidden; Baby Dodongos can be swapped; starting kit gains the Master Sword and Biggoron's Sword.
+
+**Not played by hand:** the Desert Colossus storm is switched off (Link fell through the floor), night Stalchild doubling (built, no visible effect), the other gates' real sword kills, gate 20 at night.
+
+**Known problems**
+- **Random enemy sizes (145, 146) do not work.** The game ignores the placement Scale. Labelled "not working yet" on the settings page.
+- **Volvagia in the field (143) is Functional WIP.** She freezes at death and does not regen. The wanted behaviour (red rupee, then she flees) is not built.
+- **Surprises did not show in field grass** (about 30 to 60 tufts cut, none seen).
+- **Gates 14, 19, 21 and 22 are easy to walk round.**
+- **Gates 15 and 16 are in the wrong place** (they block Goron City, not the climb): to be removed.
+- **The enemy backup ladder** is the user's rough order, not a derived difficulty order.
+- **The night Stalchild doubling has no effect.**
+- **The desert storm is switched off.**
+- Mega Like Likes keep calling small Floormasters (they should call none).
+
+**Settings renumbered:** upstream 0.8.2 took 137, 138 and 142 (Nocturne and Prelude triggers, debug names). Skip area intros is now 149 (was 137), Enemy randomizer 150 (was 138), Random fuses 151 (was 142). Settings strings made with rc 17 or 18 and these three settings will not carry them over.
+
+**Build notes:** upstream 0.8.2 merged into `playtest/next` (conflicts in `slice/edit.rs` and `slice/support.rs`, resolved by keeping both sides). Tests pass with the game files: difficulty 296, whole workspace 2,215.
+
 ## rc 18
 
 On top of upstream 0.8.1 (3ee77a6) and rc 17. Adds five features that passed scripted tests since rc 17. Branch `playtest/next`. Five new settings (145 to 148, with 145 and 146 for sizes) are all off by default. **Nothing in this entry has been played by hand.** "Script" means a scripted run in the game through Longshot's control bridge.
 
 - **Temple of Time Beamos reach the aisle** ([features/22](features/22-special-encounters.md)). The ten Beamos are now a cloned pack with longer sight at 1.6x size, so they reach the centre of the aisle. Script: a run down the centre costs 0 to 1.5 hearts. Not played: by hand, the Light Arrows scene (still not checked).
 - **Zora's Domain and bottle fixes** ([features/18](features/18-zora-ambush.md), [features/08](features/08-no-bottles-in-combat.md)). A unit test checks that each Zora cave dropper lies on the way out (cave C was never broken). A bottle used in combat now shows the game's own refusal notice; its wording names the Business Scrub. Script: both seen. Not played: by hand.
-- **Random enemy sizes** (new settings 145 and 146, [features/33](features/33-random-enemy-sizes.md)). Wild was played by script in 5 maps. Not played: Mild, enemies stuck in walls, the mix with other settings. It adds about 27 MB to the build when health follows size.
+- **Random enemy sizes** (new settings 145 and 146, [features/33](features/33-random-enemy-sizes.md)). **Not working:** the 21 Nov hands-on size gallery showed no change in size, so the game ignores the placement Scale. The settings page labels them "not working yet". Wild was played by script in 5 maps, but that only showed the actors were placed. Not played: Mild, enemies stuck in walls, the mix with other settings. It adds about 27 MB to the build when health follows size.
 - **Shorter timers** (new setting 147, [features/34](features/34-shorter-timers.md)). Timed switches, eye switches and torches give less time. Script: switch and torch times measured. Not proven: winning the Dodongo's Cavern torch room at 50%, and the eye switches.
 - **Damage taken** (new setting 148, [features/35](features/35-damage-options.md)). Normal, Double, Quadruple or One hit kills. Script: played, including a fairy revive. Not covered: pit and lava respawn, several grabs.
 

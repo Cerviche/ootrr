@@ -223,3 +223,10 @@ Result of the rc 17 test: running down the aisle centre (9.5 units from either r
 - Played (21 Nov, Longshot source build, adult, `HavePlayedEvent.Dm_TimeTemple_0065` set before the Market reload, `more_enemies` 200): ten listed; the picture shows several beams on Link along the whole aisle, and Link was lasered (red) mid-aisle. Standing at the centre for 12 s lost 16 quarter hearts (4 hearts) at z -34 and z -37. Six walks down the exact centre (z -34, x 84 to 112 and back, `walk`, about 7 s each): 2, 6, 2, 0, 4 and 0 quarter hearts. Before the fix, scale 1 with ordinary sight: 0. With sight 14 and angle 45 the same six walks gave 6, 0, 2, 2, 6 and 0, so the sight values matter little; the size does. A runner is hit now and then, not every pass: the beam aims, holds, and a moving Link slips out of it. Not tuned further.
 - Open: the ten Beamos together deal modest damage to a runner; if more is wanted, a larger scale or more Beamos. The Light Arrows scene is still untested. The vanilla Beamos elsewhere were not touched and not tested again.
 - Flag note for tests: set `HavePlayedEvent.Dm_TimeTemple_0065` after every game start (it is not saved by the script) and reload the Market (`teleport 3`) so the Beamos exist.
+
+
+## Seen by hand (21 Nov, hands-on 9)
+- Temple of Time Beamos: absent at first because the fresh save lacked `HavePlayedEvent.Dm_TimeTemple_0065` (by design: they come after Sheik's first talk as an adult). With the flag set and the temple re-entered: they appear and killed Link (life 0). Light Arrows scene not looked at.
+- Mad Scrub kill: seen by hand, they die and stay dead until the map reloads.
+- Octoroks at the Lake Hylia bridges: scripted only; 3 to 4 at once took 15 hearts while swimming and the frame rate dipped to 22 to 29; not judged by hand.
+- Guay (crows) over child Hyrule Field were invisible near (97.7, 148, 66). Suspected the size-clone swap or randomizer; fix is on `playtest/next` (`f0297d2`, Guay flocks). Not seen again by hand.

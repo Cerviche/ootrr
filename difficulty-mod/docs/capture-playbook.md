@@ -28,11 +28,6 @@ Hands-on: hole 9 is a Song of Storms hole (user saw it); ocarina and song given;
 
 | 20 Nov | Enemy gates: authoring session (the gate editor) | Walk the maps and place gates: F8 on, H new gate, B barrier (face the guards' side), nudge with Numpad, T/Y kind, G guard, U undo; controller: hold L+R. Tell the agent which preview you could not judge (marker row vs the real barrier) | Any overworld map; start with Kokiri Forest outside Link's house. One gate per spot, as many as you like | Agent launches `<playtest folder>\gate-editor\game` windowed 1024x576, mod with `enemy_gates` on, gets to play, `gate on`, then hands off | `<run folder>\gates.json` (path on the panel); then `json_to_gates.py` for the rows. Full steps: `docs\gate-editor.md` | Open (tool built 20 Nov; scripted self-test NOT TESTED, run selftest.py first) |
 
-## Limited ammo drops (feature/limited-ammo, doc 05) - needs the user at the controls (round2-1120, 20 Nov)
-- Mod: preset `no_ammo_drops` + time savers; exe `wt\ammo\target\release\ootrr.exe`. Bullet bag with 0 seeds (`give Bullet Bag`, `pouch Item_DekuSeed -30`), Kokiri sword.
-- Do: cut 30 grass tufts and break 10 pots in Kokiri Forest and Link's house, walk over every drop, read seeds with `give` list. Expect 0. Then in the Deku Tree: pots before the boss door, then Gohma larvae/eggs (look up to start the fight); expect seeds from larvae (~80%).
-- Capture: seed count after each batch, how many of 10 larvae gave seeds, a short clip of one pot break.
-
 ## Round 2 leftovers (round2-1120, 20 Nov): need hands
 - Grass and pot surprises (OOTRR_SURPRISE_CHANCE=20 at build, more_enemies 110): cut Kokiri Forest grass and break pots in Kokiri houses, Kakariko and Zora's Domain; note Skulltula/Poe/hand and normal drops. Setup: any mod with more_enemies above 1x. Capture: video of 20 cuts, enemy kinds seen.
 - Flying pot in Zora's Domain at (36.2, 114.4, 8.6): walk up to it on foot (the script's warp to 2 units did nothing for 8 s). Capture whether it flies at Link.
@@ -53,30 +48,15 @@ Hands-on: hole 9 is a Song of Storms hole (user saw it); ocarina and song given;
 - Enemy randomizer: look at swapped enemies from a normal camera for ones sunk in or stuck in walls, especially Fire Temple rooms 4 and 5 and Jabu rooms 3 and 5.
 - Gate editor `gate linkscan`: crashes the game host at once on the 20 Nov Longshot build; the Longshot side needs a look before a hands-on try.
 
-## Fireball storms: direction and Death Mountain Trail (added 20 Nov)
-- **What:** see where the storm's rocks come from. Expected: from Death Mountain's direction.
-- **Where:** two Hyrule Field spots (middle road, near the Market), Desert Colossus flats, Wasteland dunes (adult). The desert and Wasteland directions are estimates, so those two matter most.
-- **Setup:** build from <playtest folder>\storms2\ootrr-volcano.exe with fireball_storms on.
-- **Capture:** a clip at each spot, looking up and around as the rocks arc in, and a note of the direction.
-- **Also:** on a save past the Death Mountain summit, walk the Trail as child and as adult (before and after the Kakariko event). Does the mod's storm (burning rocks, fire on the ground) show, as well as the vanilla boulders?
-
 ## Lake Octoroks and field Mad Scrubs (added 20 Nov)
-- **What:** kill a Mad Scrub in the trees south-west of Lon Lon Ranch, as child and as adult. Does it die and stay dead until reload?
+- **What:** (Mad Scrub kill as child: seen by hand 21 Nov.) Look at the field Mad Scrubs as an adult.
 - **Also:** swim past the lab bridges as child. Is the Octorok fire fair or too much? (In the script, 3-4 at once took 15 hearts while swimming.) Watch the frame rate there.
 - **Setup:** build from <playtest folder>\lake-octoroks\ootrr.exe with more enemies above 1x.
 - **Capture:** a clip of each, plus the FPS counter.
 
-## Gate 23 Dark Link and gate 20 Leevers (21 Nov, feature/gate-crater)
-- **What (Dark Link):** adult, Master Sword, 20 hearts. Enter Ganon's Castle, walk into the first round room. Dark Link and the purple barrier appear; beat him with the sword (his magic drain empties the bar after a few Din's Fire casts). Does he die, and does the barrier at the north exit drop?
-- **What (Leevers):** child with the Kokiri Sword, Lon Lon Ranch north gate, spot (-60.5, 150, 166). Kill the Giant Leever and the 5 placed small Leevers, by day and again at night. Does the barrier drop after the last placed one? Do any stay burrowed so it never drops?
-- **Setup:** build from <playtest folder>\darklink\ (preset `enemy_gates`, starting_hearts 20); the Longshot `kill` command does NOT kill Leevers (they stay at hp 0), use real hits.
-- **Capture:** a clip of each kill and of Link walking through the old barrier line.
-
 ## Untested round 2 leftovers (21 Nov, <playtest folder>\untested2)
-- **Light Arrows scene and Temple of Time Beamos:** adult with the Shadow and Spirit medallions, `HavePlayedEvent.Dm_TimeTemple_0065` set, mod from <playtest folder>\temple-beamos\ootrr.exe (more_enemies 200). Walk into the temple through its door and let Zelda's scene play. Do the ten Beamos in the pillar gaps act while it plays? Giving the medallions and warping into the temple did not start it. Capture a clip with the FPS counter.
-- **Mad Scrub kill (child and adult):** trees south-west of Lon Lon Ranch, same mod. Reflect a nut with the Deku Shield or hit one that is popped up. Does it die and stay dead? The script could not do it (sword hits nothing close up, shield never came up).
-- **Limited ammo, supply spots:** with ammo 0 break the grass and pots by the Deku Tree slingshot eye switches and fight Gohma (seed drops from larvae and eggs expected); Bongo Bongo's hands with arrows 0. Also try trees and crates in the field. Mod from <playtest folder>\limited-ammo\ootrr.exe.
-- **Storm direction:** <playtest folder>\storms2\ootrr-volcano.exe, field_middle_road and the other three spots: stand in the box with the normal camera turned toward Death Mountain and say whether rocks come from that side.
+- **Light Arrows scene and Temple of Time Beamos** (the Beamos themselves were seen by hand on 21 Nov; they killed Link): adult with the Shadow and Spirit medallions, `HavePlayedEvent.Dm_TimeTemple_0065` set, mod from <playtest folder>\temple-beamos\ootrr.exe (more_enemies 200). Walk into the temple through its door and let Zelda's scene play. Do the ten Beamos in the pillar gaps act while it plays? Giving the medallions and warping into the temple did not start it. Capture a clip with the FPS counter.
+- **Limited ammo, supply spots** (the limited ammo step was passed by hand on 21 Nov; boss help and Bongo Bongo's hands remain): with ammo 0 break the grass and pots by the Deku Tree slingshot eye switches and fight Gohma (seed drops from larvae and eggs expected); Bongo Bongo's hands with arrows 0. Also try trees and crates in the field. Mod from <playtest folder>\limited-ammo\ootrr.exe.
 - **Adult Death Mountain Trail storm:** same mod, adult, past-summit flags set; stand in the areas near the first slope (the script never reached one) and say whether burning rocks fall.
 
 ## Shorter timers: eye switches and torch rooms (21 Nov, feature/timed-switches)
@@ -85,8 +65,9 @@ Hands-on: hole 9 is a Song of Storms hole (user saw it); ocarina and song given;
 - **Setup:** build from <playtest folder>\timers\ with `shorter_timers` half, starting_hearts 20. In room 8 a Dodongo head breathes fire at the east side: keep to the west of the torches. A script cannot aim the slingshot at the switch (the stick does not turn Link while aiming).
 - **Capture:** a clip with the FPS counter, and a note whether the eye switch time felt fair.
 
-## Shorter timers at 50% (added 21 Nov)
-- **What:** in Dodongo's Cavern, the room with the timed torches. Can you light them all before the first goes out (12 s at 50%)?
-- **Where:** also try one of the Ganon's Castle trial torch rooms if you get there.
-- **Setup:** setting shorter_timers at 50%.
-- **Capture:** a clip and the time it took. If it can't be done, say so: the floor is raised for that room.
+## Open after the 21 Nov hands-on (needs a person)
+- **Fireball storms:** walk each of the five doubled field areas, the castle garden and the Wasteland (adult only) and confirm the rocks land in your own ring, that the Torch Slug stands in the middle, and that nothing drops Link through the floor. The adult Death Mountain Trail storm and the Wasteland direction are still not looked at.
+- **Gates 20, 9, 14, 21, 22 after the changes:** gate 20 (3 Stalfos, day and night), gate 9 (Stalfos), gate 14 (adult only), the lake lab bridge (walk the whole area, look for falling through the floor), gate 15 after the guard dies (no warp).
+- **Deku Stick random fuse:** light a stick and let it burn out; it must be used up.
+- **Backup ladder:** a Stalfos should call a Wolfos, a Wolfos a Lizalfos.
+- **Guay visible** near (97.7, 148, 66) in child Hyrule Field; **night Stalchildren** doubled; **Dodongo's Cavern swaps** (seed handson10).

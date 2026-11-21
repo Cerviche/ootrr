@@ -1,6 +1,6 @@
 # 31. Random fuses
 
-Setting `random_fuses` (number 142), toggle, default off. Difficulty page, new section "Hazards" (it exists on `test/handson2` with fireball storms; this branch is cut from `playtest/next`, which has no such section yet, so merging with the fireball branch needs the two section lines joined).
+Setting `random_fuses` (number 151, was 142 before rc 19), toggle, default off. Difficulty page, new section "Hazards" (it exists on `test/handson2` with fireball storms; this branch is cut from `playtest/next`, which has no such section yet, so merging with the fireball branch needs the two section lines joined).
 
 ## What was requested
 
@@ -33,7 +33,7 @@ The three actors' heap sizes grow by 0x1000 (`RSDB/ActorInfo`), as the regen fea
 ## What is left alone, and why
 
 - **Bomb flowers** (`Obj_BombFlower_*`, graph `Obj_BombFlower_Fruit`) and the bomb Imperial soldiers throw (`Npc_Hylia_ImperialSoldier_Bomb`) are separate actors. Their packs carry a copy of `Item_Bomb.root.ainb`, but we edit only `Item_Bomb.pack.zs`, so flower timers and Goron City / Dodongo's Cavern puzzles are unchanged.
-- **Bombchu bowling** shares the one `Item_Bombchu` actor (no other Bombchu actor exists in the game files), so its Bombchus get the random fuse too. A 2 s chu can still blow up before it reaches the pins. That is the price of the data-only approach; it is stated in the build report and the tooltip is short. Not played.
+- **Bombchu bowling** shares the one `Item_Bombchu` actor, so a short fuse made the minigame impossible (its prizes can hold seed items). Fix (21 Nov, `fix/bowling-fuse`): every Bombchu fuse is now only longer than vanilla, 210 to 315 frames (3.5 to 5.25 s, vanilla to 1.5x). Bombs and sticks unchanged. Not played in the game; check Bowling by hand.
 - **Stick floor is 10 s, not 1 s.** A stick burning for 1 s cannot carry a flame across most rooms to a torch (for example the Deku Tree and Dodongo's Cavern torches). Ten seconds (user decision, 20 Nov; first 5 s) is an estimate, not measured against every torch puzzle; it is one constant (`STICK_FLOOR`) if it needs to be raised.
 - The blink animation does not follow the new fuse. A short-fused bomb blinks slowly and explodes with no change in the blink speed. Syncing it (setting the animation frame from the counter's progress) needs the game to try.
 - Bomb enemies, Dodongo's bomb eating and anything that is not the player's bomb are untouched.
@@ -65,3 +65,12 @@ Turn on Random fuses, start a save with bombs, Bombchus and Deku Sticks.
   - **Random fuses: works.** 20 bombs (1.1 to 3.9 s) and 10 chus (1.1 to 2.5 s) all exploded, none vanished. Sticks burned 11.3 to 18.6 s (tested on the 5 to 24 s build; now 10 to 24). Bombchu Bowling and bomb flowers not tested.
 
 - **Random fuses** (user request, 20 Nov): built (`82d4176` on `feature/random-fuses`, setting 142, Hazards section, not played). A fuse is rolled once per item through the game's own frame counter with a random add. Bombs 1 to 4 s, bombchus 2 to 3.5 s (user, 20 Nov), lit sticks 10 to 24 s (user, 20 Nov). Bombchu Bowling shares the chu actor, so its chus get short fuses too. Risk: the death reason copied from the bomb might delete a chu without an explosion.
+
+
+## After the 21 Nov hands-on (`fix/playtest-misc`, on `playtest/next` only)
+- Seen by hand: bombs and Bombchus are perfect (user).
+- Deku Sticks were wrong: when the random timer ended the flame went out but the stick stayed in Link's hand. The stick's counter now ends through the same death request the bombs use (reason 10, `death()` in `fuses.rs`) instead of `OneShotChemicalRequestExtinguish`, so it burns up and is used up like a vanilla stick. Not confirmed in the game afterwards (the stick step is the same panel step that was marked failed before the fix). The "How it works" line above that names the extinguish node describes the old build.
+
+
+## Bombchu range changed (21 Nov)
+The 120 to 210 frame range above is superseded by 210 to 315 frames (see Bombchu bowling). A unit test pins the floor at the vanilla 210 and the top at no more than 1.5x.

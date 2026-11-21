@@ -52,3 +52,8 @@ Next item in your order: "random enemy sizes (optionally with health scaled to s
 ## Notes
 - The mild range also has a 1.25 step in health mode so mild has three copies per kind, wild five.
 - Open question for you: should wild be allowed above 1.5x indoors in big rooms (Dodongo's, Forest Temple main room)? Default: no.
+
+## Not working yet (21 Nov, hands-on)
+Settings 145 (Random enemy sizes) and 146 (Health follows size) are labelled "(not working yet)" in the settings page. The game ignores the placement Scale for these enemies, so they keep their usual size. The code is kept. Needs a different way to scale (a pack value rather than placement Scale).
+
+Hands-on 9 (21 Nov): the size gallery in child Hyrule Field (Like Likes, Stalfos) showed every size row identical, so the settings really do nothing in the game. Status: NOT WORKING. They stay in rc 18 and on `playtest/next` labelled "not working yet"; the real fix (a pack value or model scale instead of placement Scale; find what made the mega Like Like and the temple Beamos bigger) is open.

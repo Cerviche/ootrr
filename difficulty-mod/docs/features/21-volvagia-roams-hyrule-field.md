@@ -74,3 +74,8 @@ See `<playtest folder>\volvagia\PLAN.md`: stage 1 Market load test, appearance, 
 ## Moved from STATUS.md (20 Nov): Volvagia in the field, scripted test
 
 - **Volvagia** moved to the adult Hyrule Field central plain (-36, 148, 120) (`9ded033`, setting 143, not played). It's on the Market-to-Lon Lon road, so players crossing the field will meet her. She wakes at about 18 units (in her brain graph, not editable). Market stage kept for testing only. **Scripted test: she works** (``<playtest folder>\volvagia\RESULTS-field.md``): the adult field loads at 60 fps; she wakes at 10 to 18 units, flies her circles over open ground and breathes fire (25 to 35 units, 12 to 14 quarter hearts a hit); the readable story flags are untouched by a kill; she comes back on a reload; the Fire Temple still loads; the child field is unchanged. Issues: the corpse stays standing and burning until the map reloads; only the Megaton Hammer hurt her (Din's Fire and the sword did nothing); ``enemy_health`` doesn't scale her 60 hp. Fix for the corpse and the health scaling queued.
+
+## Status (21 Nov, hands-on)
+Functional WIP (label in the settings page and tooltip). When beaten in the field she freezes before her death animation; she should drop a red rupee and flee (planned).
+
+User request (21 Nov, 11:52): after the kill she should drop a red rupee, then flee (leave). Not built yet. The first sentence of the setting tip already says so. Hands-on also showed she freezes just before her death animation. Enemy regen does not reach her clone (checked in `f0297d2`). Q17 (is she too harsh) was not answered; the default stands.

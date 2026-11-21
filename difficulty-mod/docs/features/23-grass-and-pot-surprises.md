@@ -88,3 +88,7 @@ Request: "I also want those creepy small hands that crawl around and attack you 
 - **State:** Built in code, untested (see 23)
 - **What was seen in the game:** Requested 18 Nov: the small crawling hands (the Floormaster's little ones) and the floor Skulltulas sometimes appear instead of bugs or rupees when grass is cut or a pot is broken. Extends the grass and pot surprises (23)
 - **Next step:** After the current build is polished and out
+
+
+## Rate tripled (21 Nov, `fix/playtest-misc`, on `playtest/next` only)
+Hands-on: 91 pots and grass gave one small crawling hand and no rupees. `CHANCE` in `surprises.rs` is now 6 (was 2) per surprise, about one in eight per source; the setting tip says so. The missing rupees were handed to the same fix to check against the limited ammo drop-table edit; the outcome is not recorded here and nothing was played after. Fake pots still never seen. Not played again after the change.

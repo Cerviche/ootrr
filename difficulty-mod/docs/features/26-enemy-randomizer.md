@@ -1,6 +1,6 @@
 # Enemy randomizer
 
-Setting `enemy_randomizer` (number 138), checkbox on the Difficulty page, Enemies section, after "More enemies". Default off. Code: `randomizer/core/src/difficulty/swap.rs`. Branch `feature/enemy-randomizer` from `playtest/next`, worktree `worktree enemyrando`. Exe: `<playtest folder>\enemyrando\ootrr.exe`. Version 2, built 20 Nov (after your v1 play) by an Opus agent with no game run (the user was playing). Load-test plan: `<playtest folder>\enemyrando\PLAN.md`.
+Setting `enemy_randomizer` (number 150, was 138 before rc 19), checkbox on the Difficulty page, Enemies section, after "More enemies". Default off. Code: `randomizer/core/src/difficulty/swap.rs`. Branch `feature/enemy-randomizer` from `playtest/next`, worktree `worktree enemyrando`. Exe: `<playtest folder>\enemyrando\ootrr.exe`. Version 2, built 20 Nov (after your v1 play) by an Opus agent with no game run (the user was playing). Load-test plan: `<playtest folder>\enemyrando\PLAN.md`.
 
 ## Request
 20 Nov: "new feature: enemy randomizer", like Ship of Harkinian's. The design is "Our design proposal" in `docs\research-soh.md`.
@@ -109,3 +109,6 @@ Turn on "Enemy randomizer" only (with `skip_intro`, `skip_cutscenes` all, `faste
 - **Hands-on session 4 (20 Nov late afternoon), seen by the user:** gates without the sword (absent), with the sword (stay when walked up to: the fix works), the guard kill drops the barrier; the Zora ambush works with the fix; the spawn combo; lose heart on death. Enemy randomizer v1: works but is too subtle ("boring"). v2 built (``b461862``, not played): 91 swaps in 16 maps, into 15 kinds; 78% of the 117 enemies the safety rules allow; the Fire Temple's 18 go to 9 kinds. The count is limited by the safety rules, not the pool.
 
   - **Enemy randomizer v2:** all 16 swapped maps load, Dodongo's Cavern included, and the new kinds are present at every planned spot checked. Movement and walls not judged.
+
+## Dodongo's Cavern (21 Nov)
+Seed handson9 swapped 8 enemies in Dodongo's Cavern, all Keese (Fire Keese and Keese turned into Bubbles, Biri, Poes and similar). The 12 Baby Dodongos, 5 Dodongos and 5 Armos were left, because Dodongo kinds are kept in that dungeon. Baby Dodongos are now allowed to be swapped out (never swapped in), which brings the seed to 15 swaps there. Dodongos and Armos still keep their kind.

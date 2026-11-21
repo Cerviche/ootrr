@@ -247,8 +247,8 @@ fn difficulty() -> Vec<Setting> {
             .tip("Burning rocks rain down on quiet stretches of Hyrule Field, Desert Colossus, the Haunted Wasteland and the Castle garden, and on every visit to the Death Mountain Trail. Dodge them."),
         Setting::toggle(d::SPAWN_COMBO_NUM, d::SPAWN_COMBO, "difficulty", "Spawn enemies (sticks + D-pad)", false)
             .tip("For fun and practice. Hold both sticks in and press D-pad Down for a random enemy in front of Link, or Up for the same kind again. Up to twelve at once."),
-        Setting::toggle(d::VOLVAGIA_NUM, d::VOLVAGIA, "difficulty", "Volvagia roams Hyrule Field", false)
-            .tip("As an adult, a copy of Volvagia flies over the open middle of Hyrule Field, coming out of the ground and diving back in around one spot as in its own fight, and breathes fire at you. It is its own actor: it plays no intro or death scene, has no boss music, gives nothing when beaten and changes no story flag, and the Fire Temple fight is unchanged. It comes back when the field loads again. It never blocks a path and the logic ignores it. Experimental, untested in the game."),
+        Setting::toggle(d::VOLVAGIA_NUM, d::VOLVAGIA, "difficulty", "Volvagia roams Hyrule Field (Functional WIP)", false)
+            .tip("Functional WIP: when beaten in the field she freezes before her death animation; she should drop a red rupee and flee (planned). As an adult, a copy of Volvagia flies over the open middle of Hyrule Field, coming out of the ground and diving back in around one spot as in its own fight, and breathes fire at you. It is its own actor: it plays no intro or death scene, has no boss music, gives nothing when beaten and changes no story flag, and the Fire Temple fight is unchanged. It comes back when the field loads again. It never blocks a path and the logic ignores it. Experimental, untested in the game."),
         Setting::toggle(d::MEGA_LIKE_NUM, d::MEGA_LIKE, "difficulty", "Shield-eating mega Like Likes", false)
             .tip("Three bigger, tougher Like Likes wait in the Deku Tree meadow of Kokiri Forest, as a child and as an adult. When one swallows you it takes one of your shields, any of them, the Mirror Shield first, then the Hylian Shield, then the Deku Shield. The shield stays gone until a mega Like Like is killed: any one of them gives back one shield you have owned and no longer have, the Mirror Shield first. Nothing is saved for this: the missing shield is the record. They come back every time the area loads. A shield that a normal Like Like swallowed, or a Deku Shield that burned, is also given back by a mega Like Like. If you build without this setting while a shield is missing, nothing gives it back. Experimental, untested in the game."),
         Setting::toggle(d::FUSES_NUM, d::FUSES, "difficulty", "Random fuses", false)
@@ -260,13 +260,13 @@ fn difficulty() -> Vec<Setting> {
             .opt("half", "50%", "Half the usual time, or the least that puzzle allows."),
         Setting::toggle(d::RANDOMIZER_NUM, d::RANDOMIZER, "difficulty", "Enemy randomizer", false)
             .tip("Enemies are swapped for other kinds that live on the same kind of ground. Enemies a door or puzzle counts are left alone."),
-        Setting::choice(d::SIZES_NUM, d::SIZES, "difficulty", "Random enemy sizes", "off")
+        Setting::choice(d::SIZES_NUM, d::SIZES, "difficulty", "Random enemy sizes (not working yet)", "off")
             .opt("off", "Off", "Enemies are their usual size.")
             .opt("mild", "Mild", "Each enemy is 0.75 to 1.5 times its usual size.")
             .opt("wild", "Wild", "Each enemy is 0.5 to 2.5 times its usual size.")
-            .tip("Every ordinary enemy gets its own size, the same for the same seed. Bosses, minibosses and the enemies a door or puzzle counts keep theirs, and indoors the biggest sizes are capped so nothing is wedged into a wall. Experimental, untested by hand."),
-        Setting::toggle(d::SIZES_HEALTH_NUM, d::SIZES_HEALTH, "difficulty", "Health follows size", false)
-            .tip("With random enemy sizes on, an enemy's health is multiplied by its size, so a double-size Stalfos has twice the health and a half-size one half, never less than one. Sizes then come in a few steps. It stacks with the enemy health setting."),
+            .tip("Every ordinary enemy gets its own size, the same for the same seed. Bosses, minibosses and the enemies a door or puzzle counts keep theirs, and indoors the biggest sizes are capped so nothing is wedged into a wall. Not working yet: the game ignores the size, so enemies keep their usual size. Experimental."),
+        Setting::toggle(d::SIZES_HEALTH_NUM, d::SIZES_HEALTH, "difficulty", "Health follows size (not working yet)", false)
+            .tip("With random enemy sizes on, an enemy's health is multiplied by its size, so a double-size Stalfos has twice the health and a half-size one half, never less than one. Sizes then come in a few steps. It stacks with the enemy health setting. Not working yet, as the sizes themselves are ignored."),
         Setting::toggle(d::FAIRY_HELPS_NUM, d::FAIRY_HELPS, "difficulty", "Fairies help enemies too", false)
             .tip("When you use a bottled fairy, or one revives you, every awake enemy and boss heals to full too."),
     ]
@@ -439,6 +439,8 @@ pub fn build() -> Schema {
     s.extend(bridge());
     s.extend(crate::medal_gate::settings());
     s.extend(crate::door_gate::settings());
+    s.extend(crate::nocturne_gate::settings());
+    s.extend(crate::prelude_gate::settings());
     s.push(
         Setting::toggle(30, crate::ganon_trials::SKIP, "goal", "Skip Ganon's Trials", false)
             .tip("The barrier in Ganon's Castle starts dispelled, so the tower is open without clearing any of the six trials. The trial rooms stay open and their chests and pots can still be checked. Experimental, untested in the game."),
@@ -727,6 +729,10 @@ pub fn build() -> Schema {
         Setting::toggle(crate::deku_bridge::NUM, crate::deku_bridge::KEY, "world", "Deku Tree bridge never breaks", false)
             .wire_as(Value::Bool(false))
             .tip("The wooden bridge in the Deku Tree slingshot room stays up when Link walks, rolls or jumps on it, so you never drop into the pit below it. Nothing else in the dungeon changes and the logic is the same, because the room never needed the bridge to break. Without the Slingshot the jump across has a window of about nine frames, so this keeps the room fair when the chests there hold other items. A bridge that already broke in a save stays broken. Experimental, untested in the game."),
+    );
+    s.push(
+        Setting::toggle(crate::debug_names::NUM, crate::debug_names::SETTING, "world", "Show location names", false)
+            .tip("For checking the location data. After an item get, a text box shows the internal name of the location the item came from, such as [KF Midos Top Left Chest]. Covers chests, NPC, song and event rewards, Gold Skulltulas and items on the ground. Items on the ground need a button press, and a placed item missing from the location list says so. Experimental."),
     );
     s.push(starting_items());
     s.push(starting_songs());

@@ -154,3 +154,8 @@ In rc 16: harmless scrubs (business, stage, leaf scrubs and the Deku Scrub broth
 ## Moved from STATUS.md (20 Nov): backup results
 
   - Backup: Wolfos and Bari bring 1 helper, not 2; spear Moblin called nobody in 40 s; Stalchild, Skulltula, Wallmaster, Armos and Biri still call nobody in their home maps (45 s).
+
+
+## Difficulty ladder (21 Nov, `fix/playtest-misc`, on `playtest/next` only)
+User, hands-on: a Stalfos calling Stalfos and a Wolfos calling Wolfos is too tough; a caller should call a lesser kind. Each caller now calls the kind one step below it on this ladder (code: `HELPERS` and the pairs in `backup.rs`): Keese, Gohma larva, Lizalfos, Wolfos, Stalfos, White Wolfos, Dinolfos, Iron Knuckle. In the code: Dinolfos calls White Wolfos, White Wolfos calls Stalfos, Stalfos calls Wolfos, Wolfos calls Lizalfos, Lizalfos calls Gohma larvae, Gohma larvae call Keese. Four helper packs are new (Gohma larva, Stalfos, White Wolfos, Dinolfos); the pack table is 19 entries.
+Tests: unit and game-file tests only. By hand: the panel step on 21 Nov was marked failed with no note; what failed is not known. Treat the ladder as not confirmed in the game.
