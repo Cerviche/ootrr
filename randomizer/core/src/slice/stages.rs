@@ -218,6 +218,9 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
         edits.push(crate::rainbow_bridge::exp(n));
     }
     edits.extend(c.p.door.exps());
+    if c.p.nocturne {
+        edits.extend(crate::nocturne_gate::exp());
+    }
     edits.push(crate::always::exp());
     crate::start_defaults::stage(rf, more, &edits)
 }

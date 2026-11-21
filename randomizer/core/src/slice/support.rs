@@ -92,6 +92,7 @@ pub struct Plan {
     pub rainbow: Option<u8>,
     pub trials: crate::ganon_trials::Trials,
     pub door: crate::door_gate::Opts,
+    pub nocturne: bool,
     /// Saria's Fairy Ocarina joins the pool (crate::slice::pick::OCARINAS).
     pub ocarinas: bool,
     /// The Kokiri Sword chest joins the pool (crate::slice::pick::SWORD).
@@ -285,6 +286,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
     let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
     let door: crate::door_gate::Opts = crate::door_gate::read(s, gates.door, &mut bad);
+    let nocturne: bool = crate::nocturne_gate::read(s, &mut bad);
     let short: bool = true;
     let first_pickups: bool = s.flag(crate::first_pickups::SETTING).unwrap_or_else(|e| {
         bad.push(e.to_string());
@@ -401,7 +403,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         notes.push(crate::lacs_key::NOTE.to_string());
         notes.push(crate::medal_gate::LACS_NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, trials, door, short, first_pickups, story, endings, ocarinas, kokiri_sword, difficulty })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, silver, lacs, rainbow, trials, door, nocturne, short, first_pickups, story, endings, ocarinas, kokiri_sword, difficulty })
 }
 
 #[cfg(test)]
