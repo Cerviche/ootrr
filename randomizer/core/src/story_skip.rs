@@ -1483,7 +1483,7 @@ pub const SONG_TRIGGERS: [SongTrigger; 11] = [
         calls: &[],
     },
     // The Ocarina of Time scene also hands over the Ocarina.
-    SongTrigger { loc: "Song from Ocarina of Time", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Time", also: &["HF Ocarina of Time Item"], calls: &[("DoorOfTime", "Dm_MelodyGet_Time_After")] },
+    SongTrigger { loc: "Song from Ocarina of Time", flow: "DoorOfTime", cut: &[], give: "Dm_MelodyGet_Time", also: &["HF Ocarina of Time Item"], calls: &[] },
     SongTrigger { loc: "Song from Windmill", flow: "Npc_Hylia_009_Adult", cut: &[], give: "Dm_MelodyGet_Storm", also: &[], calls: &[("Npc_Hylia_009_Adult", "After_GetStormSong")] },
     // Sheik's songs, played from the sage quest flows. Running the item get inside Sheik's own scene
     // stalled (the scene's Link uses its own animation set), so like the others the scene is
@@ -1797,10 +1797,18 @@ const ESCAPE_EVENT: &str = "Event13";
 const ESCAPE_SCENE: &str = "Dm_HrlField_0060";
 pub const ESCAPE_PREFIX: &str = "OOTRREscape";
 
+const ESCAPE_STEP_EVENT: &str = "Event12";
+pub const ESCAPE_STEP: &str = "Step05";
+
 pub fn patch_escape(b: &mut Bf) -> Res<()> {
     let f: &mut Flow = flow_mut(b, DOOR_FLOW)?;
     guard(f, ESCAPE_PREFIX)?;
     transition_to_flag(f, ESCAPE_PREFIX, ESCAPE_EVENT, ESCAPE_SCENE, None)?;
+    let i: usize = find_action(f, (ESCAPE_STEP_EVENT, "ChallengeSystemActor.EventExecuteProgressChallengeStep"))?;
+    if text(&f.events[i], "ChallengeName") != Some("DoorOfTime") || text(&f.events[i], "StepName") != Some("Step04") {
+        return Err(Error::Msg(format!("story skip: {ESCAPE_STEP_EVENT} in {} is not the DoorOfTime Step04 request, the game files differ", f.name)));
+    }
+    set_param(&mut f.events[i].kind, "StepName", Val::Str(ESCAPE_STEP.to_string()))?;
     Ok(())
 }
 
@@ -2154,7 +2162,7 @@ mod tests {
         let Some(root) = dump() else { return };
         let mut rf: Romfs = Romfs::open(&root).unwrap();
         let helpers: [&str; 7] = ["", "Dm_SY_Ocarina", "GetPouchContent", "NaviEventCommon", "NaviChat", "Common", "Common_Camera_Pln"];
-        let talk_only: [(&str, &str); 2] = [("SageOfWater", "Dm_MelodyGet_WaterAfter"), ("AllSage", "MelodyOfShine")];
+        let talk_only: [(&str, &str); 3] = [("SageOfWater", "Dm_MelodyGet_WaterAfter"), ("AllSage", "MelodyOfShine"), ("DoorOfTime", "Dm_MelodyGet_Time_After")];
         for t in &SONG_TRIGGERS {
             let b: Bf = Bf::parse(&rf.read_zs(&format!("Event/EventFlow/{}.bfevfl.zs", t.give)).unwrap()).unwrap();
             for e in b.flows.iter().flat_map(|f| f.events.iter()) {
@@ -2168,19 +2176,17 @@ mod tests {
     }
 
     #[test]
-    fn the_ocarina_of_time_song_moves_the_door_of_time_quest_on() {
+    fn the_skipped_escape_moves_the_quest_past_the_moat_step() {
         let Some(root) = dump() else { return };
         let mut rf: Romfs = Romfs::open(&root).unwrap();
-        let t: &SongTrigger = SONG_TRIGGERS.iter().find(|t| t.give == "Dm_MelodyGet_Time").unwrap();
-        let writes: Vec<Write> = scene_writes(&mut rf, t.give).unwrap();
-        let gives: Vec<SceneGive> = std::iter::once(t.loc).chain(t.also.iter().copied()).map(|_| SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None }).collect();
         let mut b: Bf = Bf::parse(&rf.read_zs(DOOR_FILE).unwrap()).unwrap();
-        patch_song_trigger(&mut b, t, &writes, &gives).unwrap();
+        patch_escape(&mut b).unwrap();
         let f: &Flow = b.flows.iter().find(|x| x.name == DOOR_FLOW).unwrap();
-        let i: usize = f.events.iter().position(|e| matches!(&e.kind, Kind::Sub { flow, entry, .. } if flow.is_empty() && entry == "Dm_MelodyGet_Time_After")).expect("no call to Dm_MelodyGet_Time_After");
-        assert!(f.events[i].name.starts_with(SONG_PREFIX));
-        let ins: Vec<String> = entries_reaching(f, i);
-        assert!(ins.iter().any(|e| e == "DoorOfTime_GetOcarinaOfTime"), "{ins:?}");
+        let steps: Vec<&str> = f.events.iter().filter(|e| text(e, "ChallengeName") == Some("DoorOfTime")).filter_map(|e| text(e, "StepName")).collect();
+        assert!(!steps.contains(&"Step04"), "{steps:?}");
+        let e: &Event = f.events.iter().find(|e| e.name == ESCAPE_STEP_EVENT).unwrap();
+        assert_eq!(text(e, "StepName"), Some(ESCAPE_STEP));
+        assert!(patch_escape(&mut b).is_err());
     }
 
     /// Follows single nexts from `start`, collecting each event's summary.
@@ -2471,7 +2477,7 @@ mod tests {
     }
 
     #[test]
-    fn the_real_zelda_escape_keeps_the_step_and_the_fade() {
+    fn the_real_zelda_escape_moves_the_step_past_the_moat_and_keeps_the_fade() {
         let Some(root) = dump() else {
             return;
         };
@@ -2484,7 +2490,7 @@ mod tests {
         let w: Vec<String> = walk_joins(f, e.main, 80);
         assert!(w.contains(&"GameDataActor.EventTriggerSetGameDataBool(HavePlayedEvent.Dm_HrlField_0060)".to_string()), "{w:?}");
         assert!(!w.iter().any(|x| x.starts_with("EventSystemActor.EventTransition")), "{w:?}");
-        assert!(w.contains(&"ChallengeSystemActor.EventExecuteProgressChallengeStep(DoorOfTime,Step04)".to_string()), "{w:?}");
+        assert!(w.contains(&"ChallengeSystemActor.EventExecuteProgressChallengeStep(DoorOfTime,Step05)".to_string()), "{w:?}");
         Bf::parse(&b.write().unwrap()).unwrap();
     }
 

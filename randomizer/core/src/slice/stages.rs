@@ -139,6 +139,8 @@ fn door_open(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     }
     if c.p.door.moat {
         crate::door_gate::stage_moat(rf, more, Some(c.work))?;
+    } else {
+        crate::door_gate::stage_escape_ocarina(rf, more, Some(c.work))?;
     }
     crate::door_gate::stage_escape(rf, more, Some(c.work), &c.p.door)?;
     Ok(())
