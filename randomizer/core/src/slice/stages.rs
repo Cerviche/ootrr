@@ -210,6 +210,7 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
         crate::medal_gate::override_lacs(&mut edits, n);
     }
     edits.extend(crate::gerudo_card::exps());
+    edits.extend(crate::open_world::fortress::exps());
     edits.extend(c.p.trials.edits());
     c.p.trials.stage(rf, more, c.work)?;
     if let Some(n) = c.p.rainbow {
