@@ -478,6 +478,13 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             crate::difficulty::backup::size(&mut rf, t)?;
         }
     }
+    // The merged carpenter schedules need their parsed size, not their file growth.
+    if rst.is_none() {
+        rst = Some(rsizetable::load(&mut rf)?);
+    }
+    if let Some(t) = rst.as_mut() {
+        grown += crate::open_world::fortress::budget(&mut rf, t)?;
+    }
     extra += crate::slice::skull_kit::write(&mut rf, &pk, &mut rst, &skull_drops, kit_pool)?;
     let (cow_files, cow_lines): (usize, Vec<String>) = crate::cow_clone::write(&mut rf, &pk, &mut rst)?;
     extra += cow_files;
