@@ -677,10 +677,14 @@ pub fn sweep_after_add(b: &mut Bf) -> Res<usize> {
 }
 
 pub fn add_pick_flag(raw: &[u8]) -> Res<Vec<u8>> {
+    add_text_flag(raw, PICK)
+}
+
+pub fn add_text_flag(raw: &[u8], flag: &str) -> Res<Vec<u8>> {
     let mut y: Byml = Byml::parse(raw)?;
     let list: &mut Vec<Node> = y.root.get_mut("Data").and_then(|d| d.get_mut("String64")).and_then(|b| b.as_arr_mut()).ok_or(E::Format("debug names: the game data list has no String64 table"))?;
     let k: u32 = crate::flags::hash_name(PICK_TEMPLATE);
-    let n: u32 = crate::flags::hash_name(PICK);
+    let n: u32 = crate::flags::hash_name(flag);
     if !list.iter().any(|r| row_hash(r) == Some(n)) {
         let mut r: Node = list.iter().find(|r| row_hash(r) == Some(k)).cloned().ok_or(E::Format("debug names: the game data list has no UI_MessageTargetActorName row"))?;
         r.set("Hash", Node::U32(n));
@@ -698,11 +702,18 @@ fn ptr_class(a: &crate::ainb::Ainb, el: usize) -> Option<String> {
 }
 
 pub fn patch_pick(raw: &[u8], tag: &str) -> Res<Option<Vec<u8>>> {
+    patch_pick_as(raw, tag, PICK, false)
+}
+
+/// Writes the name of the actor a pickup adds to the pouch into the String64 flag `flag` at every
+/// EventTriggerAddOwnToPouch handler: its instance name (the banc Name), or with `class_name` its
+/// actor name (its class, which a Gold Skulltula drop spawned at run time also has).
+pub fn patch_pick_as(raw: &[u8], tag: &str, flag: &str, class_name: bool) -> Res<Option<Vec<u8>>> {
     use crate::ainb::build::Spec;
     use crate::ainb::{audit, Ainb, Plug};
     let mut a: Ainb = Ainb::parse(raw)?;
     let sites: Vec<usize> = a.find_els(ADD_OWN);
-    if sites.is_empty() || a.find_els(SET_STRING).iter().any(|&i| a.in_str(i, "GameDataFullName") == Some(PICK)) {
+    if sites.is_empty() || a.find_els(SET_STRING).iter().any(|&i| a.in_str(i, "GameDataFullName") == Some(flag)) {
         return Ok(None);
     }
     let class: String = a.find_els(OWN_LINK).into_iter().find_map(|i| ptr_class(&a, i)).ok_or_else(|| E::Msg(format!("debug names: {tag} has no actor link to copy")))?;
@@ -714,19 +725,22 @@ pub fn patch_pick(raw: &[u8], tag: &str) -> Res<Option<Vec<u8>>> {
         if a.el_type(kid) != 3 {
             return Err(E::Msg(format!("debug names: the add handler in {tag} is not a parallel")));
         }
-        let seed: String = format!("ootrr debug pick {tag} {n}");
+        let seed: String = if flag == PICK { format!("ootrr debug pick {tag} {n}") } else { format!("ootrr {flag} pick {tag} {n}") };
         let s1: String = format!("{seed} link");
         let s2: String = format!("{seed} name");
         let s3: String = format!("{seed} set");
         let link: usize = a.add_node(&Spec::query(OWN_LINK, &s1).out_ptr("Actor", &class))?;
-        let name: usize = a.add_node(&Spec::query(ACTOR_NAME, &s2).linked_ptr("Actor", &class, link).spare(3, "ActorFileName").out(3, "ActorInstanceName").spare(3, "ActorName"))?;
-        let key: Vec<u8> = a.pool.add(PICK).to_le_bytes().to_vec();
+        let q: Spec = Spec::query(ACTOR_NAME, &s2).linked_ptr("Actor", &class, link).spare(3, "ActorFileName");
+        let q: Spec = if class_name { q.spare(3, "ActorInstanceName").out(3, "ActorName") } else { q.out(3, "ActorInstanceName").spare(3, "ActorName") };
+        let out_at: i16 = if class_name { 2 } else { 1 };
+        let name: usize = a.add_node(&q)?;
+        let key: Vec<u8> = a.pool.add(flag).to_le_bytes().to_vec();
         let set: usize = a.add_node(
             &Spec::node(SET_STRING, &s3)
                 .prop(1, "ExecuteEveryFrame", vec![0; 4])
                 .constant(0, "GameDataIndex", (-1i32).to_le_bytes().to_vec())
                 .constant(3, "GameDataFullName", key)
-                .linked(3, "Value", name, 1),
+                .linked(3, "Value", name, out_at),
         )?;
         let at: usize = a.params[kid].pl[2][0] as usize;
         let nm: u32 = a.pool.add("");
@@ -961,4 +975,390 @@ pub fn hook_sale(b: &mut Bf, entry: &str, id: &str) -> Res<bool> {
     };
     let Some(set) = case_to(&f.events[usize::from(chk)].kind, 0) else { return Ok(false) };
     say_after(f, usize::from(set), id.to_string())
+}
+
+/// The String64 flag the pickup AI fills with the class of the actor it adds to the pouch.
+pub const KEY_PICK: &str = "OOTRRKeyPick";
+const KEY_SWEEP: &str = "OOTRRKeySweep";
+
+/// A dungeon item that stands as a ground pickup or drops from a Gold Skulltula: the actor classes
+/// it can be picked up as (its pack, the skulltula kit, the hanging and the falling copy), and the
+/// dungeon credit its get runs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyCredit {
+    pub names: Vec<String>,
+    pub item: crate::gift_keys::Item,
+    pub dungeon: &'static str,
+}
+
+/// The dungeon items the seed puts at ground and skulltula spots. A small key credits itself in
+/// its own dungeon unless keys roam (the pouch add is quiet then), so it is listed only then.
+pub fn key_credits(d: &Data, seed: &crate::settings::seed::SeedFile, roam: bool) -> Vec<KeyCredit> {
+    let mut out: Vec<KeyCredit> = Vec::new();
+    for (loc, item) in &seed.placements {
+        let ground: bool = d.cat.by_name(loc).is_some_and(|l| crate::slice::pickups::on_ground(l) || l.kind == SKULL_KIND);
+        if !ground {
+            continue;
+        }
+        let Some(i) = d.item(item) else { continue };
+        let Some(k) = crate::gift_keys::Item::of(&i.kind) else { continue };
+        if k == crate::gift_keys::Item::Small && !roam {
+            continue;
+        }
+        let Some(dg) = i.dungeon.as_deref().and_then(crate::dungeon_grant::struct_of) else { continue };
+        let Some(p) = crate::slice::key_spots::dungeon_pick(d, item) else { continue };
+        let hang: String = p.hang();
+        let mut names: Vec<String> = vec![
+            p.pack.clone(),
+            crate::pickup_pack::kit::name_of(&p.pack),
+            hang.clone(),
+            crate::pickup_pack::fall::name_of(&p.pack),
+            crate::pickup_pack::fall::name_of(&hang),
+        ];
+        names.sort();
+        names.dedup();
+        if !out.iter().any(|c| c.names == names) {
+            out.push(KeyCredit { names, item: k, dungeon: dg });
+        }
+    }
+    out
+}
+
+/// The sweep entry: when KEY_PICK names one of the credited actors, run its dungeon credit and
+/// clear the flag. Called at the end of every get window of GetPouchContent.
+pub fn add_key_sweep(b: &mut Bf, cs: &[KeyCredit]) -> Res<usize> {
+    let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == GET_FLOW).ok_or(E::Format("key credit: GetPouchContent has no flow"))?;
+    if f.entries.iter().any(|e| e.name == KEY_SWEEP) || cs.is_empty() {
+        return Ok(0);
+    }
+    let pad: u16 = f.entries.first().map(|e| e.pad).unwrap_or(0);
+    let base: usize = f.events.len();
+    let (qa, qt): (u16, u16) = crate::start_state::query_slot(f, HOLDER, ASK_TEXT)?;
+    let (_, st): (u16, u16) = action_slot(f, HOLDER, SET_TEXT)?;
+    let text_of = |v: &str| -> Cont {
+        Cont { items: vec![("GameDataName".to_string(), Val::Str(KEY_PICK.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(v.to_string()))] }
+    };
+    let mut next: u16 = NONE;
+    for c in cs.iter().rev() {
+        let credit: u16 = crate::gift_keys::credit(f, c.item, c.dungeon, NONE)?;
+        let clear: u16 = push(f, Kind::Action { next: credit, actor: qa, act: st, params: Some(text_of("")) })?;
+        for n in c.names.iter().rev() {
+            next = push(f, Kind::Switch { actor: qa, query: qt, cases: vec![Case { val: 0, ev: clear }, Case { val: 1, ev: next }], params: Some(text_of(n)) })?;
+        }
+    }
+    f.entries.push(Entry { name: KEY_SWEEP.to_string(), subs: Vec::new(), vars: Vec::new(), main: next, pad });
+    let starts: Vec<u16> = f.entries.iter().filter(|e| e.name.starts_with(WINDOW_PREFIX)).map(|e| e.main).collect();
+    let mut seen: BS<u16> = BS::new();
+    let mut todo: Vec<u16> = starts;
+    let mut ends: Vec<u16> = Vec::new();
+    while let Some(i) = todo.pop() {
+        if i == NONE || usize::from(i) >= base || !seen.insert(i) {
+            continue;
+        }
+        let k: &Kind = &f.events[usize::from(i)].kind;
+        let nx: Vec<u16> = next_of(k);
+        if matches!(k, Kind::Action { .. } | Kind::Sub { .. } | Kind::Join { .. } | Kind::Switch { .. } | Kind::SubSwitch { .. }) && nx.contains(&NONE) {
+            ends.push(i);
+        }
+        todo.extend(nx);
+    }
+    let mut n: usize = 0;
+    for i in ends {
+        let call: u16 = push(f, Kind::Sub { next: NONE, params: None, flow: String::new(), entry: KEY_SWEEP.to_string() })?;
+        let owners: Vec<usize> = f.entries.iter().enumerate().filter(|(_, e)| e.name.starts_with(WINDOW_PREFIX)).map(|(j, _)| j).collect();
+        for j in owners {
+            if !f.entries[j].subs.contains(&call) {
+                f.entries[j].subs.push(call);
+            }
+        }
+        match &mut f.events[usize::from(i)].kind {
+            Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } => *next = call,
+            Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => {
+                for c in cases.iter_mut().filter(|c| c.ev == NONE) {
+                    c.ev = call;
+                }
+            }
+            _ => {}
+        }
+        n += 1;
+    }
+    Ok(n)
+}
+
+/// Stages the dungeon credit of ground and skulltula dungeon items: the KEY_PICK flag, the pickup
+/// AI that fills it with the picked actor's class, and the sweep after every get window.
+pub fn stage_key_credit(rf: &mut Romfs, work: &P, tail: &mut Vec<Out>, cs: &[KeyCredit]) -> Res<usize> {
+    if cs.is_empty() {
+        return Ok(0);
+    }
+    stage_late_file(rf, tail, work, crate::chest_slot::LIST, |raw: &[u8]| add_text_flag(raw, KEY_PICK))?;
+    let raw: Vec<u8> = current(rf, tail, work, GLOBAL_AI)?;
+    if patch_key_pack(&raw)?.is_some() {
+        edit_pack(rf, tail, work, GLOBAL_AI, |raw: &[u8]| Ok(patch_key_pack(raw)?.unwrap_or_else(|| raw.to_vec())))?;
+    }
+    let mut n: usize = 0;
+    stage_late(rf, tail, work, GET_FLOW, |b| add_key_sweep(b, cs).map(|k| n = k))?;
+    Ok(n)
+}
+
+fn patch_key_pack(raw: &[u8]) -> Res<Option<Vec<u8>>> {
+    let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
+    let mut any: bool = false;
+    for e in es.iter_mut().filter(|e| e.name.ends_with(".event.root.ainb")) {
+        if let Some(out) = patch_pick_as(&e.data, &e.name, KEY_PICK, true)? {
+            e.data = out;
+            any = true;
+        }
+    }
+    Ok(if any { Some(sarc::write(&es)?) } else { None })
+}
+
+/// A dungeon item at a location whose get no other edit credits: an NPC that builds its own
+/// events (cows, frogs, the potion shop, scrubs), a sale offer (Medigoron), a chest that runs a
+/// story event, the Treasure Chest Game prize.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocCredit {
+    pub loc: String,
+    pub item: crate::gift_keys::Item,
+    pub dungeon: &'static str,
+}
+
+/// Points every way into event `w` at event `n` instead (n itself, the entries included).
+fn retarget_to(f: &mut Flow, w: u16, n: u16) {
+    for (i, ev) in f.events.iter_mut().enumerate() {
+        if i == usize::from(n) {
+            continue;
+        }
+        match &mut ev.kind {
+            Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } if *next == w => *next = n,
+            Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => {
+                for c in cases.iter_mut().filter(|c| c.ev == w) {
+                    c.ev = n;
+                }
+            }
+            Kind::Fork { forks, join } => {
+                for x in forks.iter_mut().filter(|x| **x == w) {
+                    *x = n;
+                }
+                if *join == w {
+                    *join = n;
+                }
+            }
+            _ => {}
+        }
+    }
+    for e in f.entries.iter_mut() {
+        if e.main == w {
+            e.main = n;
+        }
+    }
+}
+
+/// Runs the dungeon credit right after event `at`, or right before it when it does not lead on.
+fn credit_at(f: &mut Flow, at: usize, c: &LocCredit) -> Res<bool> {
+    let then: Option<u16> = match &f.events[at].kind {
+        Kind::Action { next, .. } | Kind::Sub { next, .. } => Some(*next),
+        _ => None,
+    };
+    match then {
+        Some(t) => {
+            let first: u16 = crate::gift_keys::credit(f, c.item, c.dungeon, t)?;
+            if let Kind::Action { next, .. } | Kind::Sub { next, .. } = &mut f.events[at].kind {
+                *next = first;
+            }
+        }
+        None => {
+            let w: u16 = idx(at)?;
+            let first: u16 = crate::gift_keys::credit(f, c.item, c.dungeon, w)?;
+            retarget_to(f, w, first);
+        }
+    }
+    Ok(true)
+}
+
+fn credit_hook(b: &mut Bf, event: &str, c: &LocCredit) -> Res<bool> {
+    for f in b.flows.iter_mut() {
+        let Some(at) = f.events.iter().position(|e| e.name == event) else { continue };
+        return credit_at(f, at, c);
+    }
+    Ok(false)
+}
+
+fn credit_sale(b: &mut Bf, entry: &str, c: &LocCredit) -> Res<bool> {
+    let Some(f) = b.flows.iter_mut().find(|f| f.name == SCRUB_FLOW) else { return Ok(false) };
+    let Some(gate) = f.entries.iter().find(|e| e.name == entry).map(|e| e.main) else { return Ok(false) };
+    let Some(sub) = case_to(&f.events[usize::from(gate)].kind, 1) else { return Ok(false) };
+    let chk: u16 = match &f.events[usize::from(sub)].kind {
+        Kind::Sub { next, .. } => *next,
+        _ => return Ok(false),
+    };
+    let Some(set) = case_to(&f.events[usize::from(chk)].kind, 0) else { return Ok(false) };
+    credit_at(f, usize::from(set), c)
+}
+
+/// Credits the dungeon items of NPC, offer and scrub sale locations after their grant. `sales`
+/// maps a menu scrub's one time sale entry (crate::scrubs_b) to its location.
+pub fn stage_credit_flows(rf: &mut Romfs, d: &Data, work: &P, late: &mut Vec<Out>, cs: &[LocCredit], sales: &[(String, String)]) -> Res<()> {
+    let mut by_file: BM<String, Vec<(String, LocCredit)>> = BM::new();
+    let mut by_sale: Vec<(String, LocCredit)> = Vec::new();
+    for c in cs {
+        if let Some((entry, _)) = sales.iter().find(|(_, loc)| loc == &c.loc) {
+            by_sale.push((entry.clone(), c.clone()));
+            continue;
+        }
+        let l = d.flow.by_name(&c.loc).ok_or_else(|| E::Msg(format!("key credit: {} is not a flow location", c.loc)))?;
+        let mut grants: Vec<&crate::flow_locations::Edit> = l.edits.iter().filter(|e| e.role == "grant").collect();
+        if grants.is_empty() {
+            grants = l.edits.iter().filter(|e| e.role == "offer").collect();
+        }
+        if grants.is_empty() {
+            return Err(E::Msg(format!("key credit: {} has no grant to credit its dungeon after", c.loc)));
+        }
+        for e in grants {
+            for f in std::iter::once(&e.file).chain(e.also.iter()) {
+                by_file.entry(f.trim_end_matches(".bfevfl").to_string()).or_default().push((e.event.clone(), c.clone()));
+            }
+        }
+    }
+    for (stem, hs) in &by_file {
+        let mut miss: Vec<String> = Vec::new();
+        stage_late(rf, late, work, stem, |b| {
+            for (ev, c) in hs {
+                if !credit_hook(b, ev, c)? {
+                    miss.push(format!("{} ({ev})", c.loc));
+                }
+            }
+            Ok(())
+        })?;
+        if let Some(m) = miss.first() {
+            return Err(E::Msg(format!("key credit: {stem} has no grant event for {m}")));
+        }
+    }
+    if !by_sale.is_empty() {
+        let mut miss: Vec<String> = Vec::new();
+        stage_late(rf, late, work, SCRUB_FLOW, |b| {
+            for (entry, c) in &by_sale {
+                if !credit_sale(b, entry, c)? {
+                    miss.push(c.loc.clone());
+                }
+            }
+            Ok(())
+        })?;
+        if let Some(m) = miss.first() {
+            return Err(E::Msg(format!("key credit: the scrub sale of {m} was not found")));
+        }
+    }
+    Ok(())
+}
+
+/// Credits the dungeon items of chests whose get runs a story event: the chest's get event is
+/// wrapped into a new entry that runs the story event, then the credit.
+pub fn stage_credit_chests(rf: &mut Romfs, d: &Data, work: &P, more: &mut Vec<Out>, cs: &[LocCredit]) -> Res<()> {
+    if cs.is_empty() {
+        return Ok(());
+    }
+    let mut by_file: BM<String, BM<u64, usize>> = BM::new();
+    for (n, c) in cs.iter().enumerate() {
+        let l = d.cat.by_name(&c.loc).ok_or_else(|| E::Msg(format!("key credit: {} is not a chest", c.loc)))?;
+        for r in &l.refs {
+            for f in &r.files {
+                by_file.entry(f.clone()).or_default().insert(r.hash, n);
+            }
+        }
+    }
+    let mut found: BM<String, Vec<(u64, usize, String)>> = BM::new();
+    for (f, want) in &by_file {
+        let raw: Vec<u8> = current(rf, more, work, f)?;
+        let mut y: Byml = Byml::parse(&raw)?;
+        let Some(list) = actors(&mut y) else { continue };
+        for a in list.iter() {
+            let Some(h) = hash_of(a) else { continue };
+            let Some(n) = want.get(&h) else { continue };
+            // The Treasure Chest Game prize is no Obj_TBox, but it drops its item like one.
+            let ev: Option<String> = chest_event(a).or_else(|| {
+                let dy: &Node = a.get("Dynamic")?;
+                dy.get(DROP)?;
+                dy.get(EVENT).and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(|s| s.to_string())
+            });
+            if let Some(ev) = ev {
+                found.entry(f.clone()).or_default().push((h, *n, ev));
+            }
+        }
+    }
+    let pairs: BS<(usize, String)> = found.values().flatten().map(|(_, n, ev)| (*n, ev.clone())).collect();
+    if pairs.len() < cs.len() {
+        let have: BS<usize> = pairs.iter().map(|p| p.0).collect();
+        let miss: Vec<&str> = cs.iter().enumerate().filter(|(n, _)| !have.contains(n)).map(|(_, c)| c.loc.as_str()).collect();
+        return Err(E::Msg(format!("key credit: no chest with a get event found for {}", miss.join(", "))));
+    }
+    let wraps: Vec<(Wrap, usize)> = pairs.iter().enumerate().map(|(k, (n, ev))| (Wrap { loc: *n, old: ev.clone(), id: format!("OOTRR_KeyCredit_{k}"), entry: format!("KeyCredit_{k}") }, *n)).collect();
+    let id_of: BM<(usize, String), String> = wraps.iter().map(|(w, n)| ((*n, w.old.clone()), w.id.clone())).collect();
+    let table: Byml = Byml::parse(&current(rf, more, work, SETTING_TABLE)?)?;
+    let mut by_flow: BM<String, Vec<(Wrap, Row, LocCredit)>> = BM::new();
+    for (w, n) in &wraps {
+        let r: Row = row_of(&table, &w.old).ok_or_else(|| E::Msg(format!("key credit: the event table has no {} row for {}", w.old, cs[*n].loc)))?;
+        by_flow.entry(r.stem.clone()).or_default().push((w.clone(), r, cs[*n].clone()));
+    }
+    for (stem, ws) in &by_flow {
+        stage_late(rf, more, work, stem, |b| {
+            let f: &mut Flow = match b.flows.iter().position(|f| f.name == *stem) {
+                Some(i) => &mut b.flows[i],
+                None => b.flows.first_mut().ok_or_else(|| E::Msg(format!("key credit: {stem} has no flow")))?,
+            };
+            for (w, r, c) in ws {
+                if f.entries.iter().any(|e| e.name == w.entry) {
+                    continue;
+                }
+                let (vars, pad, main) = {
+                    let e: &Entry = f.entries.iter().find(|e| e.name == r.entry).ok_or_else(|| E::Msg(format!("key credit: {stem} has no entry {}", r.entry)))?;
+                    (e.vars.clone(), e.pad, e.main)
+                };
+                let args: BS<String> = args_from(f, main);
+                let params: Option<Cont> = if args.is_empty() { None } else { Some(Cont { items: args.iter().map(|a| (a.clone(), Val::Arg(a.clone()))).collect() }) };
+                let at: u16 = idx(f.events.len())?;
+                push(f, Kind::Sub { next: NONE, params, flow: String::new(), entry: r.entry.clone() })?;
+                let first: u16 = crate::gift_keys::credit(f, c.item, c.dungeon, NONE)?;
+                if let Kind::Sub { next, .. } = &mut f.events[usize::from(at)].kind {
+                    *next = first;
+                }
+                f.entries.push(Entry { name: w.entry.clone(), subs: vec![at], vars, main: at, pad });
+            }
+            Ok(())
+        })?;
+    }
+    let all: Vec<Wrap> = wraps.iter().map(|(w, _)| w.clone()).collect();
+    for t in [SETTING_TABLE, ANALYZED_TABLE] {
+        let analyzed: bool = t == ANALYZED_TABLE;
+        stage_late_file(rf, more, work, t, |raw: &[u8]| {
+            let mut y: Byml = Byml::parse(raw)?;
+            for w in &all {
+                if analyzed && !has_row(&y, &w.old) {
+                    continue;
+                }
+                add_rows(&mut y, &w.old, &[(w.id.clone(), if analyzed { None } else { Some(w.entry.clone()) })])?;
+            }
+            if analyzed {
+                let kids: Vec<(String, String)> = parents(&y, &all);
+                add_children(&mut y, &kids);
+            }
+            y.write()
+        })?;
+    }
+    for (f, hits) in &found {
+        stage_late_file(rf, more, work, f, |raw: &[u8]| {
+            let mut y: Byml = Byml::parse(raw)?;
+            if let Some(list) = actors(&mut y) {
+                for a in list.iter_mut() {
+                    let Some(h) = hash_of(a) else { continue };
+                    let Some((_, n, ev)) = hits.iter().find(|x| x.0 == h) else { continue };
+                    let Some(id) = id_of.get(&(*n, ev.clone())) else { continue };
+                    if let Some(dy) = a.get_mut("Dynamic") {
+                        dy.set(EVENT, Node::Str(id.clone()));
+                    }
+                }
+            }
+            y.write()
+        })?;
+    }
+    Ok(())
 }

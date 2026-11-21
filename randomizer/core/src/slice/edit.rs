@@ -143,6 +143,27 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let roam: bool = p.keys_roam();
     let gift_keys: Vec<crate::gift_keys::Gift> = crate::gift_keys::gifts(&d, seed)?;
+    let key_cs: Vec<crate::debug_names::KeyCredit> = crate::debug_names::key_credits(&d, seed, roam);
+    // Dungeon items at NPCs with their own events, sale offers, story chests and the Treasure
+    // Chest Game prize credit their dungeon after the get.
+    let mut flow_cs: Vec<crate::debug_names::LocCredit> = Vec::new();
+    let mut wrapped_chests: BS<u64> = BS::new();
+    let mut chest_cs: Vec<crate::debug_names::LocCredit> = Vec::new();
+    for (loc, item) in &seed.placements {
+        let Some(i) = d.item(item) else { continue };
+        let Some(k) = crate::gift_keys::Item::of(&i.kind) else { continue };
+        let Some(dg) = i.dungeon.as_deref().and_then(crate::dungeon_grant::struct_of) else { continue };
+        if (k == crate::gift_keys::Item::Small && !roam) || d.vanilla_of(loc) == Some(item.as_str()) || crate::gift_keys::spot(&d, loc) || crate::shops::is_loc(loc) {
+            continue;
+        }
+        let c = crate::debug_names::LocCredit { loc: loc.clone(), item: k, dungeon: dg };
+        if d.flow.by_name(loc).is_some() {
+            flow_cs.push(c);
+        } else if d.cat.by_name(loc).is_some_and(|l| l.kind == "chest" && (loc == crate::slice::treasure::LOC || l.refs.iter().any(|r| d.events.keep.contains(&r.hash)))) {
+            wrapped_chests.extend(d.cat.by_name(loc).iter().flat_map(|l| l.refs.iter().map(|r| r.hash)));
+            chest_cs.push(c);
+        }
+    }
     let mut keys: Vec<&'static str> = if roam { KEY_DUNGEONS.to_vec() } else { Vec::new() };
     for k in crate::gift_keys::small_dungeons(&gift_keys) {
         if !keys.contains(&k) {
@@ -177,7 +198,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             b
         });
         let raw: &[u8] = resized.as_deref().unwrap_or(&vanilla);
-        let e: Option<Edited> = edit_file_with(&f, raw, &ts, roam, &small_hearts, &lifts)?;
+        let e: Option<Edited> = edit_file_with(&f, raw, &ts, roam, &small_hearts, &lifts, &wrapped_chests)?;
         let e: Option<Edited> = match (e, &resized) {
             (Some(mut e), Some(_)) => {
                 e.old_len = vanilla.len();
@@ -312,6 +333,26 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let pots: Vec<u64> = crate::pot_slice::apply::hashes(&pot_ts);
     let mut marked: BS<(crate::dungeon_grant::Kind, &'static str)> = passes.marks.used.clone();
     marked.extend(crate::gift_keys::marked(&gift_keys));
+    // Boss keys, maps and compasses sold in a shop deal name their dungeon after the sale.
+    for (loc, item) in &seed.placements {
+        if !crate::shops::is_loc(loc) {
+            continue;
+        }
+        if let Some(i) = d.item(item)
+            && let Some(crate::gift_keys::Item::Other(k)) = crate::gift_keys::Item::of(&i.kind)
+            && let Some(dg) = i.dungeon.as_deref().and_then(crate::dungeon_grant::struct_of)
+        {
+            marked.insert((k, dg));
+        }
+    }
+    marked.extend(flow_cs.iter().chain(chest_cs.iter()).filter_map(|c| match c.item {
+        crate::gift_keys::Item::Other(k) => Some((k, c.dungeon)),
+        crate::gift_keys::Item::Small => None,
+    }));
+    marked.extend(key_cs.iter().filter_map(|c| match c.item {
+        crate::gift_keys::Item::Other(k) => Some((k, c.dungeon)),
+        crate::gift_keys::Item::Small => None,
+    }));
     let c: crate::slice::stages::Ctx = crate::slice::stages::Ctx {
         d: &d,
         seed,
@@ -491,7 +532,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if p.open.epona {
         extra += crate::open_world::write_epona_event(&mut rf, &pk, &mut rst)?;
     }
-    if p.debug_names {
+    if p.debug_names || !key_cs.is_empty() || !flow_cs.is_empty() || !chest_cs.is_empty() {
         let mut tail: Vec<crate::staging::Out> = Vec::new();
         let sales: Vec<(String, String)> = scrub_jobs.iter().map(|j| (j.sale.entry.clone(), j.scrub.location.clone())).collect();
         let mut scenes: BS<&str> = BS::new();
@@ -506,8 +547,14 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         if p.endings {
             scenes.extend(crate::story_skip::REWARD_SCENES.iter().map(|r| r.0));
         }
-        debug_missed = crate::debug_names::stage_flows(&mut rf, &d, &work, &mut tail, &scenes, &sales)?;
-        crate::debug_names::stage_sweep(&mut rf, &d, &work, &mut tail)?;
+        if p.debug_names {
+            debug_missed = crate::debug_names::stage_flows(&mut rf, &d, &work, &mut tail, &scenes, &sales)?;
+            crate::debug_names::stage_sweep(&mut rf, &d, &work, &mut tail)?;
+        }
+        // Dungeon items on the ground and at Gold Skulltulas credit their dungeon after the get.
+        crate::debug_names::stage_key_credit(&mut rf, &work, &mut tail, &key_cs)?;
+        crate::debug_names::stage_credit_flows(&mut rf, &d, &work, &mut tail, &flow_cs, &sales)?;
+        crate::debug_names::stage_credit_chests(&mut rf, &d, &work, &mut tail, &chest_cs)?;
         for o in tail {
             pk.write_romfs(&o.path, &o.z)?;
             extra += 1;
@@ -752,7 +799,7 @@ mod tests {
         let b: Vec<u8> = raw(vec![heart(1), heart(2)]);
         let chest = |h: u64, new: &str| Target { heart_chest: true, ..target(h, HEART, new) };
         let ts: Vec<Target> = vec![chest(1, "TBox_Rupee_Red"), chest(2, "Item_Hookshot")];
-        let e: Edited = edit_file_with("Banc/Area/a.bcett.byml.zs", &b, &ts, false, &BS::from([1]), &BM::new()).unwrap().unwrap();
+        let e: Edited = edit_file_with("Banc/Area/a.bcett.byml.zs", &b, &ts, false, &BS::from([1]), &BM::new(), &BS::new()).unwrap().unwrap();
         let back: Byml = Byml::parse(&e.bytes).unwrap();
         let g: Vec<&str> = back.root.get("Actors").unwrap().as_arr().unwrap().iter().map(|a| a.get("Gyaml").unwrap().as_str().unwrap()).collect();
         assert_eq!(g, vec!["Obj_TBox_A_01", CHEST]);
@@ -769,7 +816,7 @@ mod tests {
             ])
         };
         let b: Vec<u8> = raw(vec![heart(1)]);
-        let e: Edited = edit_file_with("Banc/Area/a.bcett.byml.zs", &b, &[target(1, HEART, "Obj_Hookshot")], false, &BS::new(), &BM::new()).unwrap().unwrap();
+        let e: Edited = edit_file_with("Banc/Area/a.bcett.byml.zs", &b, &[target(1, HEART, "Obj_Hookshot")], false, &BS::new(), &BM::new(), &BS::new()).unwrap().unwrap();
         let back: Byml = Byml::parse(&e.bytes).unwrap();
         let a: &Node = &back.root.get("Actors").unwrap().as_arr().unwrap()[0];
         assert_eq!(a.get("Gyaml").and_then(|v| v.as_str()), Some("Obj_Hookshot"));

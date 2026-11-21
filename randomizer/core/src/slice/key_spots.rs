@@ -97,8 +97,40 @@ fn picks() -> &'static BM<String, Pick> {
     M.get_or_init(|| entries().iter().filter_map(|e| pick_in(entries(), &e.item)).map(|p| (p.content.clone(), p)).collect())
 }
 
+/// The pickup a dungeon item stands as: one actor per kind and dungeon (its pouch item is the
+/// game's shared one), so the get can tell which dungeon it credits (crate::debug_names::key_credits).
+pub fn dungeon_pick(d: &Data, item: &str) -> Option<Pick> {
+    let i: &Item = d.item(item)?;
+    let dungeon: &str = i.dungeon.as_deref().and_then(crate::dungeon_grant::struct_of)?;
+    let tag: &str = match i.kind.as_str() {
+        "SmallKey" | "HideoutSmallKey" => "SmallKey",
+        "BossKey" | "GanonBossKey" => "BossKey",
+        "Map" => "Map",
+        "Compass" => "Compass",
+        _ => return None,
+    };
+    let actor: String = i.actor.clone()?;
+    let name: String = format!("Obj_OOTRR_{tag}_{dungeon}");
+    Some(Pick { content: actor, pack: name.clone(), args: vec!["--name".to_string(), name, "--heap".to_string(), "199928".to_string()] })
+}
+
 pub fn pick(content: &str) -> Option<Pick> {
     picks().get(content).cloned()
+}
+
+/// The pick a Gold Skulltula or holder kit can carry: the chosen build when its layers fit a kit,
+/// otherwise the entry's plain build (no ammo, magic or tag layer).
+pub fn kit_pick(content: &str) -> Option<Pick> {
+    let p: Pick = pick(content)?;
+    if p.kit_spec().is_ok() {
+        return Some(p);
+    }
+    let e: &Entry = entries().iter().find(|e| e.item == content)?;
+    if !e.status.ready() {
+        return None;
+    }
+    let plain: Pick = Pick { content: content.to_string(), pack: p.pack.clone(), args: e.args.clone() };
+    plain.kit_spec().is_ok().then_some(plain)
 }
 
 /// The pick that builds the pickup pack `pack`.
@@ -114,7 +146,8 @@ pub fn contents(d: &Data, item: &str) -> Vec<String> {
     let Some(i) = d.item(item) else {
         return Vec::new();
     };
-    if NEVER.contains(&item) || !(i.kind == "Item" || crate::slice::song_spots::is_song_item(i)) || i.dungeon.is_some() {
+    let kind: bool = matches!(i.kind.as_str(), "Item" | "DungeonReward" | "Token") || crate::slice::song_spots::is_song_item(i);
+    if NEVER.contains(&item) || !kind || i.dungeon.is_some() {
         return Vec::new();
     }
     match family(i) {
@@ -139,13 +172,12 @@ pub fn placeable(d: &Data, item: &str, at: Spot) -> bool {
 }
 
 fn judge(d: &Data, item: &str, at: Spot) -> bool {
+    if let Some(p) = dungeon_pick(d, item) {
+        return at == Spot::Free || p.kit_spec().is_ok();
+    }
     let cs: Vec<String> = contents(d, item);
     !cs.is_empty()
-        && cs.iter().all(|c| match pick(c) {
-            Some(p) if at != Spot::Free => p.kit_spec().is_ok(),
-            Some(_) => true,
-            None => false,
-        })
+        && cs.iter().all(|c| if at == Spot::Free { pick(c).is_some() } else { kit_pick(c).is_some() })
 }
 
 pub fn shield(item: &str) -> Option<&'static str> {
@@ -157,6 +189,9 @@ pub fn top_only(d: &Data, item: &str) -> bool {
 }
 
 pub fn resolve(d: &Data, item: &str, tier: Option<&str>) -> Res<Pick> {
+    if let Some(p) = dungeon_pick(d, item) {
+        return Ok(p);
+    }
     let i: &Item = d.item(item).ok_or_else(|| E::Msg(format!("unknown item {item}")))?;
     let content: String = match (tier, family(i)) {
         (Some(t), _) => t.to_string(),
@@ -168,6 +203,16 @@ pub fn resolve(d: &Data, item: &str, tier: Option<&str>) -> Res<Pick> {
         return Err(E::Msg(format!("{item} as {content} has no pickup pack this build can place yet")));
     }
     pick(&content).ok_or_else(|| E::Msg(format!("{item} has no pickup pack this build can place yet ({content})")))
+}
+
+/// resolve for a kit spot (a Gold Skulltula drop or a holder): the kit-capable build.
+pub fn resolve_kit(d: &Data, item: &str, tier: Option<&str>) -> Res<Pick> {
+    if let Some(p) = dungeon_pick(d, item) {
+        p.kit_spec()?;
+        return Ok(p);
+    }
+    let p: Pick = resolve(d, item, tier)?;
+    kit_pick(&p.content).ok_or_else(|| E::Msg(format!("{item} has no pickup pack a kit can carry ({})", p.content)))
 }
 
 pub fn top(f: &str) -> Option<&'static str> {

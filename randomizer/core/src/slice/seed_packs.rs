@@ -73,7 +73,8 @@ pub fn need(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Res<BM<Str
         let Some(k) = kind_of(d, loc, item) else {
             continue;
         };
-        let p: Pick = match resolve(d, item, fixed.get(loc).map(|s| s.as_str())) {
+        let found: Res<Pick> = if k.kit() { crate::slice::key_spots::resolve_kit(d, item, fixed.get(loc).map(|s| s.as_str())) } else { resolve(d, item, fixed.get(loc).map(|s| s.as_str())) };
+        let p: Pick = match found {
             Ok(p) => p,
             // A boss heart whose item has no pack keeps the chest it always had (crate::boss_heart).
             Err(_) if d.cat.by_name(loc).is_some_and(|l| l.kind == "bossheart") => continue,

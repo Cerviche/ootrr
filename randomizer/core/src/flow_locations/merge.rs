@@ -33,7 +33,7 @@ pub fn stage_merged(rf: &mut Romfs, d: &Data, cs: &[Choice], gs: &[Grant], o: &O
             old: c.old.clone(),
             new: c.new.clone(),
         });
-        if GIVES.contains(&c.role.as_str()) && crate::progressive::guarded(&c.new) {
+        if GIVES.contains(&c.role.as_str()) && crate::progressive::guarded(&c.new) && !d.by_name(&c.location).is_some_and(crate::slice::flow_rules::priced_loc) {
             by.entry(c.file.clone()).or_default().ammo.push((c.index, c.event.clone(), c.param.clone()));
         }
         if GIVES.contains(&c.role.as_str()) && crate::starter_bags::bag_for(&c.new).is_some() {

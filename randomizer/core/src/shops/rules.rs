@@ -30,9 +30,10 @@ impl Class {
     }
 }
 
-/// Item kinds a shelf deal does not sell: dungeon items, whose get counts for the dungeon the
-/// chest stands in, shop goods (they move between shelves as goods) and event items.
-pub const NOT_SOLD: [&str; 9] = ["SmallKey", "BossKey", "GanonBossKey", "Map", "Compass", "HideoutSmallKey", "TCGSmallKey", "Shop", "Event"];
+/// Item kinds a shelf deal does not sell: shop goods (they move between shelves as goods), event
+/// items and the Treasure Chest Game keys. A dungeon item sells as its own item and the shop
+/// credits its dungeon after the sale (crate::shelf::hook::Credit).
+pub const NOT_SOLD: [&str; 3] = ["TCGSmallKey", "Shop", "Event"];
 
 /// How a shelf deal sells `item`, or None when no shelf can sell it.
 pub fn class(d: &Data, item: &str) -> Option<Class> {

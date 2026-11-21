@@ -283,6 +283,10 @@ fn dict(rf: &Romfs, path: &str) -> Res<Option<u32>> {
 }
 
 pub fn run(romfs: &P, base: Option<&P>, load: &P, mod_name: &str, host: Host, jobs: &[Job]) -> Res<Done> {
+    run_with(romfs, base, load, mod_name, host, jobs, &[])
+}
+
+pub fn run_with(romfs: &P, base: Option<&P>, load: &P, mod_name: &str, host: Host, jobs: &[Job], credits: &[hook::Credit]) -> Res<Done> {
     if jobs.is_empty() {
         return Err(E::Format("no shelf slot to write"));
     }
@@ -298,7 +302,7 @@ pub fn run(romfs: &P, base: Option<&P>, load: &P, mod_name: &str, host: Host, jo
     // Every shelf build lets a child buy a tunic, wherever the shuffle puts one.
     let sold: Vec<hook::Sold> = hook::plan(jobs);
     let shared: Vec<Vec<String>> = hook::shared(jobs);
-    files.push(c.file(hook::FLOW, |r: &[u8]| hook::edit(r, &sold, &shared, true))?);
+    files.push(c.file(hook::FLOW, |r: &[u8]| hook::edit_with(r, &sold, &shared, credits, true))?);
     files.extend(text_files(&mut c, &made)?);
     let mut note: String = String::new();
     let pk: Pack = Pack::create_for(load, TITLE_ID, mod_name, host)?;

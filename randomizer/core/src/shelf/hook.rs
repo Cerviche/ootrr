@@ -39,6 +39,15 @@ pub const FLOW: &str = "Event/EventFlow/DisplayShop.bfevfl.zs";
 pub const PICK: &str = "OOTRR_ShelfTier";
 pub const GIVE: &str = "OOTRR_ShelfGive";
 pub const SYNC: &str = "OOTRR_ShelfSync";
+pub const CREDIT: &str = "OOTRR_ShelfCredit";
+
+/// A deal slot that sells a dungeon item: its sold counters and the dungeon its sale credits.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Credit {
+    pub counters: Vec<String>,
+    pub item: crate::gift_keys::Item,
+    pub dungeon: &'static str,
+}
 pub const NAME: &str = "Shop_SelectItemName";
 /// The shop's item category question right after "buy it?", which every purchase passes.
 pub const CHECK: (usize, &str) = (280, "Event27");
@@ -270,6 +279,28 @@ fn set_int(f: &mut Flow, name: &str, value: i32, next: u16) -> Res<u16> {
     push(f, Kind::Action { next, actor: a, act: x, params: Some(c) })
 }
 
+/// For each dungeon item slot: once one of its counters is exactly 1 (just sold), its dungeon
+/// credit runs and every counter of the slot becomes 2, which stays sold out and is never credited
+/// again.
+fn credit_entry(f: &mut Flow, cs: &[Credit]) -> Res<u16> {
+    let mut next: u16 = NONE;
+    for c in cs.iter().rev() {
+        let mut mark: u16 = next;
+        for n in c.counters.iter().rev() {
+            mark = set_int(f, n, 2, mark)?;
+        }
+        let credit: u16 = crate::gift_keys::credit(f, c.item, c.dungeon, mark)?;
+        let mut ask: u16 = next;
+        for n in c.counters.iter().rev() {
+            let (a, q): (u16, u16) = query(f, DATA, COUNT)?;
+            let p: Cont = cont(&[("GameDataName", Val::Str(n.clone())), ("Index", Val::Int(-1)), ("Value", Val::Int(1))]);
+            ask = push(f, Kind::Switch { actor: a, query: q, cases: vec![Case { val: 0, ev: ask }, Case { val: 1, ev: credit }, Case { val: 2, ev: ask }], params: Some(p) })?;
+        }
+        next = ask;
+    }
+    Ok(next)
+}
+
 /// For each slot: when any of its counters is above 0, all of them become 1.
 fn sync_entry(f: &mut Flow, shared: &[Vec<String>]) -> Res<u16> {
     let mut next: u16 = NONE;
@@ -297,10 +328,17 @@ fn call(f: &mut Flow, entry: &str, next: u16) -> Res<u16> {
 /// after both grants when `sold` names families, [`SYNC`] after both grants when `shared` names
 /// slots. Every entry that reaches a new call preloads it.
 pub fn apply(f: &mut Flow, sold: &[Sold], shared: &[Vec<String>]) -> Res<()> {
-    if sold.is_empty() && shared.is_empty() {
+    apply_with(f, sold, shared, &[])
+}
+
+pub fn apply_with(f: &mut Flow, sold: &[Sold], shared: &[Vec<String>], credits: &[Credit]) -> Res<()> {
+    let credited: Vec<&Vec<String>> = credits.iter().map(|c| &c.counters).collect();
+    let shared: Vec<Vec<String>> = shared.iter().filter(|s| !credited.contains(s)).cloned().collect();
+    let shared: &[Vec<String>] = &shared;
+    if sold.is_empty() && shared.is_empty() && credits.is_empty() {
         return Err(E::Format("shelf tiers: no family is sold tier by tier and no slot is shared"));
     }
-    if f.entries.iter().any(|e| e.name == PICK || e.name == GIVE || e.name == SYNC) {
+    if f.entries.iter().any(|e| e.name == PICK || e.name == GIVE || e.name == SYNC || e.name == CREDIT) {
         return Err(E::Format("shelf tiers: the shop flow already holds the shelf entries"));
     }
     check_ok(f)?;
@@ -333,8 +371,16 @@ pub fn apply(f: &mut Flow, sold: &[Sold], shared: &[Vec<String>]) -> Res<()> {
         let sync: u16 = sync_entry(f, shared)?;
         added.push((SYNC, sync));
     }
+    if !credits.is_empty() {
+        let c: u16 = credit_entry(f, credits)?;
+        added.push((CREDIT, c));
+    }
     for (g, _, next) in GRANTS {
         let mut to: u16 = next;
+        if !credits.is_empty() {
+            to = call(f, CREDIT, to)?;
+            calls.push(to);
+        }
         if !shared.is_empty() {
             to = call(f, SYNC, to)?;
             calls.push(to);
@@ -366,7 +412,7 @@ pub fn apply(f: &mut Flow, sold: &[Sold], shared: &[Vec<String>]) -> Res<()> {
 /// actions and questions on the game's own actors, and the two entries.
 pub fn audit(a: &Flow, b: &Flow) -> Vec<String> {
     let mut bad: Vec<String> = sound(b);
-    if a.name != b.name || b.actors.len() != a.actors.len() || b.events.len() <= a.events.len() || b.entries.len() <= a.entries.len() || b.entries.len() > a.entries.len() + 3 {
+    if a.name != b.name || b.actors.len() != a.actors.len() || b.events.len() <= a.events.len() || b.entries.len() <= a.entries.len() || b.entries.len() > a.entries.len() + 4 {
         bad.push("the flow lost or gained actors, events or entries it should not".to_string());
         return bad;
     }
@@ -404,13 +450,14 @@ pub fn audit(a: &Flow, b: &Flow) -> Vec<String> {
     for (x, y) in a.entries.iter().zip(&b.entries) {
         let mut z: Entry = y.clone();
         z.subs.truncate(x.subs.len());
-        let added: bool = y.subs.len() >= x.subs.len() && y.subs[x.subs.len()..].iter().all(|s| matches!(b.events.get(*s as usize).map(|e| &e.kind), Some(Kind::Sub { entry, flow, .. }) if flow.is_empty() && (entry == PICK || entry == GIVE || entry == SYNC)));
+        let added: bool = y.subs.len() >= x.subs.len() && y.subs[x.subs.len()..].iter().all(|s| matches!(b.events.get(*s as usize).map(|e| &e.kind), Some(Kind::Sub { entry, flow, .. }) if flow.is_empty() && (entry == PICK || entry == GIVE || entry == SYNC || entry == CREDIT)));
         if z != *x || !added {
             bad.push(format!("entry {} changed", x.name));
         }
     }
     let names: Vec<&str> = b.entries.iter().skip(a.entries.len()).map(|e| e.name.as_str()).collect();
-    if !([&[PICK, GIVE][..], &[SYNC][..], &[PICK, GIVE, SYNC][..]].contains(&names.as_slice())) {
+    let known: bool = !names.is_empty() && names.iter().all(|n| [PICK, GIVE, SYNC, CREDIT].contains(n)) && (names.contains(&PICK) == names.contains(&GIVE));
+    if !known {
         bad.push(format!("the new entries are {names:?}"));
     }
     // Every sub call an entry reaches is in its preload list (a missing one crashed the game).
@@ -463,6 +510,10 @@ pub fn child_tunics(f: &mut Flow) -> Res<bool> {
 /// Edits the shop flow: the tier entries when `sold` names families, and with `tunics` a child
 /// may buy a tunic anywhere ([`child_tunics`]), and the sold sync when `shared` names slots.
 pub fn edit(raw: &[u8], sold: &[Sold], shared: &[Vec<String>], tunics: bool) -> Res<Vec<u8>> {
+    edit_with(raw, sold, shared, &[], tunics)
+}
+
+pub fn edit_with(raw: &[u8], sold: &[Sold], shared: &[Vec<String>], credits: &[Credit], tunics: bool) -> Res<Vec<u8>> {
     let orig: Bf = Bf::parse(raw)?;
     let mut bf: Bf = orig.clone();
     let f: &mut Flow = bf.flows.first_mut().ok_or(E::Format("shelf tiers: the shop flow file holds no flow"))?;
@@ -474,9 +525,9 @@ pub fn edit(raw: &[u8], sold: &[Sold], shared: &[Vec<String>], tunics: bool) -> 
             return Err(E::Msg(format!("child tunics: the shop flow changed in more than the age question: events {changed:?}")));
         }
     }
-    if !sold.is_empty() || !shared.is_empty() {
+    if !sold.is_empty() || !shared.is_empty() || !credits.is_empty() {
         let before: Flow = f.clone();
-        apply(f, sold, shared)?;
+        apply_with(f, sold, shared, credits)?;
         if let Some(m) = audit(&before, f).first() {
             return Err(E::Msg(format!("shelf tiers: the edited shop flow fails its audit, {m}")));
         }

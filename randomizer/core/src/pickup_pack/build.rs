@@ -33,9 +33,6 @@ pub fn plan_with(packs: &[Vec<Entry>], s: &Spec, l: &Layers) -> Res<Plan> {
         return Err(E::Msg(format!("{} or {} is not a plain actor name", s.name, s.item)));
     }
     let mut p: Pool = pool_of(packs)?;
-    if let Some((f, _)) = p.files.iter().find(|e| !is_byml(e.1)) {
-        return Err(E::Msg(format!("{f} is not a parameter file, an item whose pack carries graph or binary files needs a hand made template")));
-    }
     let peers: Vec<(String, usize)> = p.files.iter().map(|e| (e.0.clone(), e.1.len())).collect();
     let m: Made = make_with(&p, s, l)?;
     let m: Made = if l.spin { crate::pickup_pack::lift::ground(&p, m, &s.name, l.lift)? } else { m };
@@ -48,6 +45,11 @@ pub fn plan_with(packs: &[Vec<Entry>], s: &Spec, l: &Layers) -> Res<Plan> {
         fresh.push((f.clone(), d.len()));
     }
     let files: Vec<String> = select(&p, &s.name)?;
+    // Only the files the new pickup reaches go into its pack; a graph file the item's own pack
+    // carries (its AI) is never reached through the thin template.
+    if let Some(f) = files.iter().find(|f| p.get(f).is_some_and(|d| !is_byml(d))) {
+        return Err(E::Msg(format!("{f} is not a parameter file, an item whose pack carries graph or binary files needs a hand made template")));
+    }
     if let Some((f, _)) = fresh.iter().find(|f| !files.contains(&f.0)) {
         return Err(E::Msg(format!("{f} did not make it into the pack")));
     }

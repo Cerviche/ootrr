@@ -65,46 +65,18 @@ pub fn is_song(actor: &str) -> bool {
 /// rules the settings ask for remain (crate::slice::place_rules::SETTING_RULES, songs at song
 /// spots, and where dungeon items may go). Where a location's give path cannot yet hand out an
 /// item, the mod build says so, or the item misbehaves in game and is fixed at that path.
-/// An item whose grant is wrapped into tier or bag checks (flow_wrap): a progressive family, or
-/// ammo that needs its bag. A sale event whose price a module sets must stay a plain call.
-fn wrapped(d: &Data, item: &str) -> bool {
-    d.family(item).is_some() || d.item(item).and_then(|i| i.actor.as_deref()).is_some_and(crate::progressive::guarded)
-}
-
-/// Whether the mod build has a form for `it` at `l`: a pickup actor at a ground spot or a
-/// Gold Skulltula, a shelf actor at a shop deal. Other spots give any item through their grant.
+/// Whether the mod build has a form for `it` at `l`: a pickup actor at a ground spot or a Gold
+/// Skulltula, a shelf actor at a shop deal. Every other spot gives any item through its grant,
+/// and every spot credits a dungeon item to its dungeon (a chest or boss heart chest through its
+/// own credit, an NPC grant through crate::gift_keys, ground and skulltula pickups through their
+/// dungeon's pickup actor, shop deals through the shelf hook, the other NPCs, sale offers and
+/// story chests through crate::debug_names location credits).
 pub fn buildable(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
     let name: &str = &w.locs[l].name;
     let item: &str = &w.items.names[it];
-    // A dungeon item outside its own dungeon is credited by the chest it stands in (also the
-    // chest a boss heart turns into) or by the location's grant (crate::gift_keys). A chest that
-    // runs a story event and a sale offer have neither yet.
-    if let Some(i) = d.item(item).filter(|i| i.dungeon.is_some() && crate::gift_keys::Item::of(&i.kind).is_some()) {
-        let roams: bool = crate::slice::dungeon_items::handles(p, &i.kind) || (p.keys_roam() && i.kind == "SmallKey");
-        if roams {
-            let story: bool = d.cat.by_name(name).is_some_and(|c| c.refs.iter().any(|r| d.events.keep.contains(&r.hash)));
-            let chest: bool = d.cat.by_name(name).is_some_and(|c| c.kind == "chest" || c.kind == "bossheart");
-            if !((chest && !story) || crate::gift_keys::spot(d, name)) {
-                return false;
-            }
-        }
-    }
-    // Scrub sales sell a pouch item through their sale event, one tier of no family.
-    if d.flow.by_name(name).is_some_and(|fl| crate::scrubs_a::is_a(fl) || crate::scrubs_b::is_b(fl) || fl.cat == "scrub_sale" || fl.cat == "scrub_menu") {
-        if d.vanilla_of(name) == Some(item) || crate::scrubs_a::home(d, name, item) {
-            return true;
-        }
-        return d.item(item).is_some_and(|i| crate::scrubs_a::sells(i) && !wrapped(d, item) && i.dungeon.is_none());
-    }
-    // Medigoron's sale has its price set by crate::merchant_prices on the offer event.
-    if name == "GC Medigoron" && wrapped(d, item) {
-        return false;
-    }
-    // The adult trade spots clone their chain event; a trade quest item shares the menu slot.
+    // The adult trade sequence is not shuffled: its spots clone their chain event, and a trade
+    // quest item shares the menu slot with the chain.
     if crate::flow_extra::trade::is(name) && d.item(item).and_then(|i| i.actor.as_deref()).is_some_and(crate::flow_extra::trade::chain) && d.vanilla_of(name) != Some(item) {
-        return false;
-    }
-    if name == crate::slice::treasure::LOC && d.item(item).is_some_and(|i| i.dungeon.is_some()) {
         return false;
     }
     if crate::shops::is_loc(name) && p.shops.on() {

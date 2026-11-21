@@ -234,7 +234,10 @@ pub(crate) fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<Str
             Some(f) => crate::pregrant::chest_drop(f)?.to_string(),
             None => fixed.get(loc).or_else(|| given.get(loc)).cloned().ok_or_else(|| E::Msg(format!("{loc} was given no item actor")))?,
         };
-        let key: Option<&'static str> = if roam && new.kind == "SmallKey" {
+        // A story chest or the Treasure Chest Game prize keeps its event; its key is credited
+        // after it (crate::debug_names::stage_credit_chests).
+        let story: bool = loc == crate::slice::treasure::LOC || d.cat.by_name(loc).is_some_and(|l| l.refs.iter().any(|r| d.events.keep.contains(&r.hash)));
+        let key: Option<&'static str> = if roam && new.kind == "SmallKey" && !story {
             let name: &str = new.dungeon.as_deref().unwrap_or("");
             Some(key_dungeon(name).ok_or_else(|| E::Msg(format!("{item} cannot be placed in a chest, no key count belongs to it")))?)
         } else {

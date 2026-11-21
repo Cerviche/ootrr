@@ -35,7 +35,7 @@ pub fn read(s: &Settings, rewards: bool, bad: &mut Vec<String>) -> bool {
 
 pub fn fits(d: &Data, name: &str, i: &Item) -> bool {
     match d.flow.by_name(name) {
-        Some(l) if is_b(l) => crate::scrubs_a::sells(i) || d.vanilla_of(name) == Some(i.name.as_str()),
+        Some(l) if is_b(l) => i.actor.is_some() || !i.tiers.is_empty() || d.vanilla_of(name) == Some(i.name.as_str()),
         _ => true,
     }
 }

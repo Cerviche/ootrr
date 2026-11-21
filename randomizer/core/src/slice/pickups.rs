@@ -164,7 +164,7 @@ pub fn pack_actor(d: &Data, extra: &Extra, item: &str, tier: Option<&str>) -> Op
         None if i.tiers.is_empty() => i.actor.as_deref()?,
         None => return None,
     };
-    let name: String = ks::pick(content).map(|p| p.pack).unwrap_or_else(|| default_name(content));
+    let name: String = ks::dungeon_pick(d, item).or_else(|| ks::pick(content)).map(|p| p.pack).unwrap_or_else(|| default_name(content));
     extra.has(&name).then_some(name)
 }
 
