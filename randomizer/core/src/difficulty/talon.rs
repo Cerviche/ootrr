@@ -5,6 +5,7 @@ use crate::byml::{Byml, Node};
 use crate::difficulty::flows;
 use crate::difficulty::minions::{fresh, hashes};
 use crate::error::{Error, Res};
+use crate::msbt::{self, Msbt, Tok};
 use crate::murmur::murmur3_32;
 use crate::qol::{edit_zs, Have};
 use crate::romfs::Romfs;
@@ -35,14 +36,18 @@ pub const NAME: &str = "Animal_Cucco_";
 pub const COPIES: [(f32, f32, f32); 5] = [(-52.6, 192.6, 0.7), (-57.0, 195.0, -1.2), (-54.9, 199.8, 2.4), (-52.0, 198.2, -0.4), (-56.4, 198.6, 1.9)];
 pub const FLOOR: f32 = 150.7;
 pub const ORIGINAL: usize = 10;
+pub const TALON_MSG: &str = "EventFlowMsg/Npc_Hylia_Talon_Child.msbt";
+pub const TALON_LINES: [&str; 2] = ["Talk_02", "Talk_07"];
+pub const OLD_SECONDS: &str = "30";
+pub const NEW_SECONDS: &str = "20";
 
-pub const NOTE: &str = "In Talon's cucco game at Lon Lon Ranch, 5 more ordinary cuccos join the 10 (so 15 decoys and the same 3 super cuccos), the cuccos spend much less time standing still after they land, and you get half the time (15 seconds instead of 30).";
+pub const NOTE: &str = "In Talon's cucco game at Lon Lon Ranch, 5 more ordinary cuccos join the 10 (so 15 decoys and the same 3 super cuccos), the cuccos spend much less time standing still after they land, and you get 20 seconds instead of 30 (Talon says so too).";
 
 fn flow_of<'a>(b: &'a mut Bf) -> Res<&'a mut Flow> {
     flows::flow(b, FLOW)
 }
 
-pub fn halve(raw: &[u8]) -> Res<Vec<u8>> {
+pub fn shorten(raw: &[u8]) -> Res<Vec<u8>> {
     let mut b: Bf = Bf::parse(raw)?;
     let f: &mut Flow = flow_of(&mut b)?;
     let mut hit: usize = 0;
@@ -62,8 +67,8 @@ pub fn halve(raw: &[u8]) -> Res<Vec<u8>> {
                 continue;
             }
             match v {
-                Val::Int(n) => *n /= 2,
-                Val::Float(n) => *n /= 2.0,
+                Val::Int(n) => *n = *n * 2 / 3,
+                Val::Float(n) => *n *= 2.0 / 3.0,
                 _ => return Err(Error::Format("talon cuccos: the time limit is not a number")),
             }
             hit += 1;
@@ -153,10 +158,47 @@ pub fn crowd(raw: &[u8]) -> Res<Vec<u8>> {
     y.write()
 }
 
+fn renumber(t: &str) -> String {
+    let b: &[u8] = t.as_bytes();
+    let mut out: String = String::new();
+    let mut i: usize = 0;
+    while i < t.len() {
+        let here: bool = t[i..].starts_with(OLD_SECONDS) && (i == 0 || !b[i - 1].is_ascii_digit()) && !b.get(i + OLD_SECONDS.len()).is_some_and(|c| c.is_ascii_digit());
+        if here {
+            out.push_str(NEW_SECONDS);
+            i += OLD_SECONDS.len();
+        } else {
+            let c: char = t[i..].chars().next().unwrap_or(' ');
+            out.push(c);
+            i += c.len_utf8();
+        }
+    }
+    out
+}
+
+pub fn apply_text(raw: &[u8]) -> Res<Vec<u8>> {
+    let mut es: Vec<Entry> = sarc::parse(raw)?;
+    let mut m: Msbt = msbt::parse(&sarc::get(&es, TALON_MSG).ok_or(Error::Format("talon cuccos: the language archive has no Talon texts"))?.data)?;
+    for l in TALON_LINES {
+        let mut toks: Vec<Tok> = m.text(l)?;
+        for t in toks.iter_mut() {
+            if let Tok::Text(x) = t {
+                *x = renumber(x);
+            }
+        }
+        m.set_tokens(l, &toks)?;
+    }
+    sarc::set(&mut es, TALON_MSG, m.write()?);
+    sarc::write(&es)
+}
+
 pub fn stage(rf: &mut Romfs, have: Have) -> Res<Vec<Out>> {
     let mut outs: Vec<Out> = Vec::new();
-    outs.push(edit_zs(rf, have, FLOW_FILE, halve)?);
+    outs.push(edit_zs(rf, have, FLOW_FILE, shorten)?);
     outs.push(edit_zs(rf, have, MAP, crowd)?);
+    for l in crate::hints::languages(rf)? {
+        outs.push(edit_zs(rf, have, &l, apply_text)?);
+    }
     let z: Vec<u8> = match have(PACK) {
         Some(b) => b,
         None => rf.read(PACK)?,
@@ -184,7 +226,7 @@ mod tests {
 
     #[test]
     fn bad_files_are_refused() {
-        assert!(halve(b"not a flow").is_err());
+        assert!(shorten(b"not a flow").is_err());
         assert!(quicken(b"not a file").is_err());
         assert!(crowd(b"not a map").is_err());
     }
@@ -215,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn the_time_limit_is_halved() {
+    fn the_time_limit_is_twenty_seconds() {
         let Some(mut rf) = game() else {
             eprintln!("skipped: set OOTRR_ROMFS");
             return;
@@ -223,8 +265,8 @@ mod tests {
         let z: Vec<u8> = rf.read(FLOW_FILE).unwrap();
         let raw: Vec<u8> = rf.zs.decompress(&z).unwrap();
         assert_eq!(limit(&raw).unwrap(), Some(1800));
-        let out: Vec<u8> = halve(&raw).unwrap();
-        assert_eq!(limit(&out).unwrap(), Some(900));
+        let out: Vec<u8> = shorten(&raw).unwrap();
+        assert_eq!(limit(&out).unwrap(), Some(1200));
     }
 
     #[test]
@@ -254,15 +296,52 @@ mod tests {
     }
 
     #[test]
-    fn the_stage_changes_three_files() {
+    fn the_numbers_in_talons_lines_become_twenty_and_the_rupee_lines_are_kept() {
+        let Some(mut rf) = game() else {
+            eprintln!("skipped: set OOTRR_ROMFS");
+            return;
+        };
+        let langs: Vec<String> = crate::hints::languages(&rf).unwrap();
+        assert!(!langs.is_empty());
+        let mut english: usize = 0;
+        for l in langs {
+            let raw: Vec<u8> = rf.zs.decompress(&rf.read(&l).unwrap()).unwrap();
+            let out: Vec<u8> = apply_text(&raw).unwrap();
+            let before: Msbt = msbt::parse(&sarc::get(&sarc::parse(&raw).unwrap(), TALON_MSG).unwrap().data).unwrap();
+            let after: Msbt = msbt::parse(&sarc::get(&sarc::parse(&out).unwrap(), TALON_MSG).unwrap().data).unwrap();
+            for (n, _) in before.names() {
+                let (a, b): (String, String) = (msbt::to_markup(&before.text(n).unwrap()), msbt::to_markup(&after.text(n).unwrap()));
+                if TALON_LINES.contains(&n) {
+                    assert_ne!(a, b, "{l}: {n}");
+                    english += (l.contains("USen") && b.contains(NEW_SECONDS)) as usize;
+                } else {
+                    assert_eq!(a, b, "{l}: {n}");
+                }
+            }
+        }
+        assert_eq!(english, 2);
+    }
+
+    #[test]
+    fn only_a_whole_number_is_replaced() {
+        assert_eq!(renumber("Ya got 30 seconds."), "Ya got 20 seconds.");
+        assert_eq!(renumber("130 or 300 or 30"), "130 or 300 or 20");
+    }
+
+    #[test]
+    fn the_stage_changes_the_flow_the_map_the_texts_and_the_pack() {
         let Some(mut rf) = game() else {
             eprintln!("skipped: set OOTRR_ROMFS");
             return;
         };
         let outs: Vec<Out> = stage(&mut rf, &none).unwrap();
         let paths: Vec<&str> = outs.iter().map(|o| o.path.as_str()).collect();
-        assert_eq!(paths, vec![FLOW_FILE, MAP, PACK]);
-        let es: Vec<Entry> = sarc::parse(&rf.zs.decompress(&outs[2].z).unwrap()).unwrap();
+        let langs: Vec<String> = crate::hints::languages(&rf).unwrap();
+        assert_eq!(paths[..2], [FLOW_FILE, MAP]);
+        assert_eq!(&paths[2..2 + langs.len()], langs.iter().map(|l| l.as_str()).collect::<Vec<&str>>());
+        assert_eq!(paths[2 + langs.len()], PACK);
+        assert_eq!(outs.len(), 3 + langs.len());
+        let es: Vec<Entry> = sarc::parse(&rf.zs.decompress(&outs[outs.len() - 1].z).unwrap()).unwrap();
         let was: Vec<Entry> = sarc::parse(&rf.read_zs(PACK).unwrap()).unwrap();
         let changed: Vec<&str> = was.iter().zip(&es).filter(|(w, n)| w.data != n.data).map(|(_, n)| n.name.as_str()).collect();
         assert_eq!(changed, vec![WANDER]);
