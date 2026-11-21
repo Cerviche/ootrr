@@ -2258,7 +2258,7 @@ mod tests {
         let mut rf: Romfs = Romfs::open(&root).unwrap();
         let t: &SongTrigger = SONG_TRIGGERS.iter().find(|t| t.loc == "Sheik in Kakariko").unwrap();
         let writes: Vec<Write> = scene_writes(&mut rf, t.give).unwrap();
-        let gives: Vec<SceneGive> = vec![SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None }];
+        let gives: Vec<SceneGive> = vec![SceneGive { actor: "Item_Bottle".to_string(), family: None, key: None, line: None }];
         let mut b: Bf = Bf::parse(&rf.read_zs(&format!("Event/EventFlow/{}.bfevfl.zs", t.flow)).unwrap()).unwrap();
         patch_burning(&mut b).unwrap();
         patch_song_trigger(&mut b, t, &writes, &gives).unwrap();
