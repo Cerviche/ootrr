@@ -167,8 +167,13 @@ fn fire_gorons(rf: &mut Romfs, _: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 fn medal_gate(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if c.p.rewards.dungeon_rewards {
         crate::medal_gate::stage(rf, more, Some(c.work))?;
-    } else if c.p.lacs.is_some() {
-        crate::medal_gate::stage_lacs(rf, more, Some(c.work))?;
+    } else {
+        if c.p.prelude {
+            crate::prelude_gate::stage(rf, more)?;
+        }
+        if c.p.lacs.is_some() {
+            crate::medal_gate::stage_lacs(rf, more, Some(c.work))?;
+        }
     }
     if c.p.rainbow.is_some() {
         crate::rainbow_bridge::stage(rf, more)?;
@@ -218,8 +223,11 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
         edits.push(crate::rainbow_bridge::exp(n));
     }
     edits.extend(c.p.door.exps());
-    if c.p.nocturne {
+    if c.p.nocturne && !c.p.rewards.dungeon_rewards {
         edits.extend(crate::nocturne_gate::exp());
+    }
+    if c.p.prelude && !c.p.rewards.dungeon_rewards {
+        edits.push(crate::prelude_gate::exp());
     }
     edits.push(crate::always::exp());
     crate::start_defaults::stage(rf, more, &edits)

@@ -369,6 +369,7 @@ const LOGIC: PortSection = port(
                     Entry::View(&EPONA),
                     Entry::Hidden("bombchus_in_logic"),
                     Entry::Plain("nocturne_trigger"),
+                    Entry::Plain("prelude_trigger"),
                 ],
             );
 

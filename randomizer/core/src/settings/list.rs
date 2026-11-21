@@ -412,6 +412,7 @@ pub fn build() -> Schema {
     s.extend(crate::medal_gate::settings());
     s.extend(crate::door_gate::settings());
     s.extend(crate::nocturne_gate::settings());
+    s.extend(crate::prelude_gate::settings());
     s.push(
         Setting::toggle(30, crate::ganon_trials::SKIP, "goal", "Skip Ganon's Trials", false)
             .tip("The barrier in Ganon's Castle starts dispelled, so the tower is open without clearing any of the six trials. The trial rooms stay open and their chests and pots can still be checked. Experimental, untested in the game."),
