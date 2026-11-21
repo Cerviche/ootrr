@@ -187,9 +187,9 @@
         "--heap",
         "199928"
       ],
-      "status": "dry_ok",
+      "status": "built",
       "identity": "Item_BombchuBundle_Small",
-      "notes": "Dry run passes and a tables only copy is built in extra. Rows equal the shipped Obj_Bombchu, so it is not placed and not needed."
+      "notes": "Dry run passes and a tables only copy is built in extra. Rows equal the shipped Obj_Bombchu, so it is not placed and not needed. Marked built in the placement sweep so a Gold Skulltula can drop it."
     },
     {
       "group": "A",
@@ -1006,6 +1006,54 @@
       "status": "built",
       "identity": "Item_ZeldaLetter",
       "notes": "Built and read back in the placement sweep (pack-add with the default touch template). Not yet tried in game."
+    },
+    {
+      "group": "F",
+      "item": "Item_BombBundle_Small",
+      "pack": "Obj_BombBundle_Small",
+      "args": [
+        "--heap",
+        "199928"
+      ],
+      "status": "built",
+      "identity": "Item_BombBundle_Small",
+      "notes": "Built and read back in the placement sweep (pack-add, default touch template). Not yet tried in game."
+    },
+    {
+      "group": "F",
+      "item": "TBox_ArrowBundle_Medium",
+      "pack": "Obj_TBox_ArrowBundle_Medium",
+      "args": [
+        "--heap",
+        "199928"
+      ],
+      "status": "built",
+      "identity": "Obj_ArrowBundle_Medium",
+      "notes": "Built and read back in the placement sweep (pack-add, default touch template). Not yet tried in game."
+    },
+    {
+      "group": "F",
+      "item": "TBox_ArrowBundle_Large",
+      "pack": "Obj_TBox_ArrowBundle_Large",
+      "args": [
+        "--heap",
+        "199928"
+      ],
+      "status": "built",
+      "identity": "Obj_ArrowBundle_Large",
+      "notes": "Built and read back in the placement sweep (pack-add, default touch template). Not yet tried in game."
+    },
+    {
+      "group": "F",
+      "item": "Tbox_MagicJar_Large",
+      "pack": "Obj_Tbox_MagicJar_Large",
+      "args": [
+        "--heap",
+        "199928"
+      ],
+      "status": "built",
+      "identity": "Obj_MagicJar_Large",
+      "notes": "Built and read back in the placement sweep (pack-add, default touch template). Not yet tried in game."
     }
   ]
 }

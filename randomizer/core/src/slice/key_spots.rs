@@ -69,7 +69,8 @@ fn entries() -> &'static [Entry] {
 }
 
 pub fn chosen(e: &Entry) -> Option<Vec<String>> {
-    if e.flag.as_deref().is_some_and(|f| REFUSED.contains(&f)) || !e.item.starts_with("Item_") {
+    let actor: bool = e.item.starts_with("Item_") || e.item.starts_with("TBox_") || e.item.starts_with("Tbox_");
+    if e.flag.as_deref().is_some_and(|f| REFUSED.contains(&f)) || !actor {
         return None;
     }
     let ammo: Option<&catalog::Variant> = e.variants.iter().find(|v| v.status == Status::Built && v.args.iter().any(|a| a == AMMO));
@@ -342,3 +343,4 @@ mod tests {
         assert!(pick("Item_Range_Bow").unwrap().kit_spec().is_err());
     }
 }
+

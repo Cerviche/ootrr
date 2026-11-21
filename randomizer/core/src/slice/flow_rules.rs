@@ -71,7 +71,7 @@ const ROUTINES: [&str; 4] = ["Dm_SY_GetInEvent:GetInEvent", "NpcCommon:NpcCommon
 const BOTTLE_ROUTINES: [&str; 3] = ["Dm_SY_GetInEvent:GetInEventInBottle", "Dm_SY_GetInEvent:GetInEventInEquipedBottle", "Dm_SY_GetInEvent:GetInEventInBottle_BlueBottleShop"];
 
 /// Reward events built by their own modules (clones, tiers of a chain, sales with prices).
-fn own_module(l: &Loc) -> bool {
+pub fn own_module(l: &Loc) -> bool {
     crate::flow_extra::trade::is(&l.name)
         || crate::flow_extra::cows::is(&l.name)
         || crate::flow_extra::frogs::is(&l.name)

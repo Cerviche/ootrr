@@ -191,6 +191,22 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, i: &Item, l: LocId) -> bool {
     spot && i.dungeon.is_some() && (chest || crate::gift_keys::spot(d, name))
 }
 
+/// Whether the setting of a dungeon item allows the location, wherever it is.
+pub fn spot_ok(d: &Data, w: &World, p: &Plan, i: &Item, l: LocId) -> bool {
+    let Some(k) = keep_of(p, &i.kind) else {
+        return false;
+    };
+    let here: Option<&str> = w.regions[w.locs[l].region].dungeon.as_deref();
+    let spot: bool = match k {
+        Keep::AnyDungeon => here.is_some(),
+        Keep::Overworld => here.is_none(),
+        Keep::Regional => here == i.dungeon.as_deref() || near(d, i, &w.locs[l].name),
+        Keep::Anywhere | Keep::Start => true,
+        Keep::Vanilla | Keep::Dungeon | Keep::Lacs => false,
+    };
+    spot && i.dungeon.is_some()
+}
+
 pub fn chest_ok(d: &Data, name: &str) -> bool {
     match d.state_of(name) {
         Some(State::Eligible) => !d.keeps_event(name),
@@ -274,7 +290,7 @@ pub fn grants(d: &Data, seed: &SeedFile, p: &Plan) -> Res<Grants> {
         let l: &crate::catalog::Loc = d
             .cat
             .by_name(loc)
-            .filter(|c| c.kind == "chest")
+            .filter(|c| c.kind == "chest" || c.kind == "bossheart")
             .ok_or_else(|| E::Msg(format!("{item} at {loc} is not in a chest, this build can only hand out dungeon items from chests")))?;
         for r in &l.refs {
             if d.events.keep.contains(&r.hash) {
