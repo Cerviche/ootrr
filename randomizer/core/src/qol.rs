@@ -1,6 +1,10 @@
 pub mod anju;
 pub mod blocks;
 pub mod chest_anim;
+pub mod fishing;
+pub mod night_skulls;
+pub mod scarecrow;
+pub mod tower_escape;
 pub mod bunny;
 pub mod navi_return;
 pub mod poe;
@@ -39,6 +43,11 @@ pub struct Opts {
     pub bunny: bunny::Mode,
     pub big_chests: bool,
     pub blocks: bool,
+    pub day_skulls: bool,
+    pub suns_skulls: bool,
+    pub any_fish: bool,
+    pub free_scarecrow: bool,
+    pub skip_escape: bool,
 }
 
 pub type Have<'a> = &'a dyn Fn(&str) -> Option<Vec<u8>>;
@@ -55,6 +64,15 @@ impl Opts {
         }
         if self.poe {
             out.push((poe::LOGIC_KEY, "1"));
+        }
+        if self.day_skulls {
+            out.push((night_skulls::LOGIC_ALWAYS, "true"));
+        }
+        if self.suns_skulls {
+            out.push((night_skulls::LOGIC_SUNS, "true"));
+        }
+        if self.free_scarecrow {
+            out.push((scarecrow::LOGIC_KEY, scarecrow::LOGIC_ON));
         }
         out
     }
@@ -88,7 +106,26 @@ impl Opts {
         if self.blocks {
             out.push(blocks::NOTE.to_string());
         }
+        if self.day_skulls {
+            out.push(night_skulls::NOTE_ALWAYS.to_string());
+        }
+        if self.suns_skulls {
+            out.push(night_skulls::NOTE_SUNS.to_string());
+        }
+        if self.any_fish {
+            out.push(fishing::NOTE.to_string());
+        }
+        if self.free_scarecrow {
+            out.push(scarecrow::NOTE.to_string());
+        }
+        if self.skip_escape {
+            out.push(tower_escape::NOTE.to_string());
+        }
         out
+    }
+
+    pub fn maps(&self) -> bool {
+        self.day_skulls || self.free_scarecrow || self.skip_escape
     }
 }
 
@@ -116,6 +153,11 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let poe: bool = flag(POE);
     let big_chests: bool = flag(chest_anim::SETTING);
     let blocks: bool = flag(blocks::SETTING);
+    let day_skulls: bool = flag(night_skulls::ALWAYS);
+    let suns_skulls: bool = flag(night_skulls::SUNS);
+    let any_fish: bool = flag(fishing::SETTING);
+    let free_scarecrow: bool = flag(scarecrow::SETTING);
+    let skip_escape: bool = flag(tower_escape::SETTING);
     let navi: navi_return::Mode = match s.text(NAVI) {
         Ok("off") => navi_return::Mode::Off,
         Ok("dungeons") => navi_return::Mode::Dungeons,
@@ -142,7 +184,23 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             bunny::Mode::Off
         }
     };
-    Opts { skip, anju, poe, navi, bunny, big_chests, blocks }
+    Opts { skip, anju, poe, navi, bunny, big_chests, blocks, day_skulls, suns_skulls, any_fish, free_scarecrow, skip_escape }
+}
+
+pub fn settings() -> Vec<crate::settings::Setting> {
+    use crate::settings::Setting;
+    vec![
+        Setting::toggle(night_skulls::ALWAYS_NUM, night_skulls::ALWAYS, "world", "Night Gold Skulltulas always out", false)
+            .tip("The Gold Skulltulas that only come out at night are there day and night, so you never need to wait for night or play Sun's Song for them. The logic no longer needs night for them either. Experimental, untested in the game."),
+        Setting::toggle(night_skulls::SUNS_NUM, night_skulls::SUNS, "world", "Night Gold Skulltulas expect Sun's Song", false)
+            .tip("The logic only expects you to get a night Gold Skulltula once you can play Sun's Song, so no check is placed behind one before that. Like the OoTR trick option of the same name. Has no effect when night Gold Skulltulas are always out."),
+        Setting::toggle(fishing::NUM, fishing::SETTING, "world", "Any fish wins the fishing prizes", false)
+            .tip("The fishing pond owner gives his prize for any fish you hand in, whatever its size: one prize as child and one as adult. Loaches and fish caught with the sinking lure count too. Experimental, untested in the game."),
+        Setting::toggle(scarecrow::NUM, scarecrow::SETTING, "world", "Free Scarecrow's Song", false)
+            .tip("Start with Scarecrow's Song and an instant scarecrow: Pierre already stands at every scarecrow spot once you own an Ocarina, so there is no song to record or play. The logic counts the song as known, like the OoTR option of the same name. Experimental, untested in the game."),
+        Setting::toggle(tower_escape::NUM, tower_escape::SETTING, "goal", "Skip the tower escape", false)
+            .tip("After Ganondorf falls, Link goes straight to the field below the collapsing tower and the Ganon fight, with no escape run down the tower. Experimental, untested in the game."),
+    ]
 }
 
 pub fn files() -> Vec<String> {

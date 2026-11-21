@@ -11,7 +11,7 @@
             "ZF Near Jabu Pot 3": "is_child",
             "ZF Near Jabu Pot 4": "is_child",
             "ZF GS Tree": "is_child and can_bonk",
-            "ZF GS Above the Log": "can_use(Boomerang) and (at_night or gold_skulls_ignore_daytime)",
+            "ZF GS Above the Log": "can_use(Boomerang) and can_get_night_gs",
             "ZF Fairy Gossip Stone": "True",
             "ZF Jabu Gossip Stone": "True",
             "Gossip Stone Fairy": "can_summon_gossip_fairy_without_suns and has_bottle",
@@ -60,7 +60,7 @@
             "ZF Hidden Cave Pot 1": "True",
             "ZF Hidden Cave Pot 2": "True",
             "ZF Hidden Cave Pot 3": "True",
-            "ZF GS Hidden Cave": "Hookshot and (at_night or gold_skulls_ignore_daytime)"
+            "ZF GS Hidden Cave": "Hookshot and can_get_night_gs"
         }
     },
     {

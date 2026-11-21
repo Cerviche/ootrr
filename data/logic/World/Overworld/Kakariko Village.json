@@ -46,12 +46,12 @@
             "Kak Child Crate 4": "is_child and can_break_crate",
             "Kak Child Crate 5": "is_child and can_break_crate",
             "Kak Child Construction Wonderitem": "is_child",
-            "Kak GS House Under Construction": "is_child and (at_night or gold_skulls_ignore_daytime)",
-            "Kak GS Skulltula House": "is_child and (at_night or gold_skulls_ignore_daytime)",
-            "Kak GS Near Gate Guard": "is_child and (at_night or gold_skulls_ignore_daytime)",
-            "Kak GS Tree": "is_child and (at_night or gold_skulls_ignore_daytime) and can_bonk",
+            "Kak GS House Under Construction": "is_child and can_get_night_gs",
+            "Kak GS Skulltula House": "is_child and can_get_night_gs",
+            "Kak GS Near Gate Guard": "is_child and can_get_night_gs",
+            "Kak GS Tree": "is_child and can_get_night_gs and can_bonk",
             "Kak GS Watchtower": "
-                is_child and (at_night or gold_skulls_ignore_daytime) and
+                is_child and can_get_night_gs and
                 (Slingshot or has_bombchus or (logic_kakariko_tower_gs and (Sticks or Kokiri_Sword)))",
             "Bug Rock": "has_bottle"
         },
@@ -94,7 +94,7 @@
         "scene": "Kakariko Village",
         "hint": "KAKARIKO_VILLAGE",
         "locations": {
-            "Kak GS Above Impas House": "is_adult and (at_night or gold_skulls_ignore_daytime)"
+            "Kak GS Above Impas House": "is_adult and can_get_night_gs"
         },
         "exits": {
             "Kak Impas Ledge": "True",
