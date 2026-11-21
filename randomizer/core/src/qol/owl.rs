@@ -27,8 +27,8 @@ pub const PREFIX: &str = "OOTRROwl";
 pub const LABEL: &str = "OOTRR_Owl_";
 pub const NOTE: &str = "The owls on the Death Mountain Trail and at Lake Hylia stay for the whole game, so you can ride them again and again, and the Death Mountain Trail owl offers his ride to Kakariko Village every time, with or without Din's Fire. A new owl stands in Kakariko Village and carries you to Kokiri Forest. The rides are for a child Link, as in the original game.";
 
-pub const KAKARIKO_SPOT: [f32; 3] = [-89.0, 97.35, 44.0];
-pub const KAKARIKO_TURN: f32 = 1.2;
+pub const KAKARIKO_SPOT: [f32; 3] = [-49.33, 118.84, 21.58];
+pub const KAKARIKO_TURN: f32 = 2.1206;
 
 /// Maps whose vanilla owl is kept. The game only places each of them while the Temple of Time
 /// owl scene (Dm_TimeTemple_0086) is unplayed.
