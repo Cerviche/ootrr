@@ -1,4 +1,4 @@
-pub const PICKUPS: [(&str, &str); 28] = [
+pub const PICKUPS: [(&str, &str); 30] = [
     ("Rupee (1)", "Obj_Rupee_Green"),
     ("Rupees (5)", "Obj_Rupee_Blue"),
     ("Rupees (20)", "Obj_Rupee_Red"),
@@ -27,6 +27,8 @@ pub const PICKUPS: [(&str, &str); 28] = [
     ("Piece of Heart (Out of Logic)", "Obj_Heart_Piece"),
     ("Bombchus (5)", "Obj_Bombchu"),
     ("Gold Skulltula Token", "Obj_Token_Gold"),
+    ("Business Scrub Seed", "Obj_ScrubBusinessSeed"),
+    ("Magic Jar (Large)", "Obj_MagicJar_Large"),
 ];
 
 pub const TOKEN: &str = "Obj_Token_Gold";

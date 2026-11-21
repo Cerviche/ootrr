@@ -946,6 +946,66 @@
       "tier": "Ocarina 2 of 2",
       "identity": "Item_Ocarina_Time",
       "notes": "Ocarina pickup. The game ships Obj_Ocarina_Time (the moat Ocarina), which the builder refuses to overwrite, so this pack takes its own name; model Item_Ocarina_Time from Dm_Item_Ocarina_Time, Obj_Item_Base and the shared Item_Common animation. Built and read back in a scratch mod, untested in the game."
+    },
+    {
+      "group": "F",
+      "item": "Item_Sword_Giant",
+      "pack": "Obj_Sword_Giant",
+      "args": [
+        "--heap",
+        "199928"
+      ],
+      "status": "built",
+      "identity": "Weapon_Sword_Giant",
+      "notes": "Built and read back in the placement sweep (pack-add with the default touch template). Not yet tried in game."
+    },
+    {
+      "group": "F",
+      "item": "Item_FairyBless_DefenseDouble",
+      "pack": "Obj_FairyBless_DefenseDouble",
+      "args": [
+        "--heap",
+        "199928"
+      ],
+      "status": "built",
+      "identity": "Item_FairyBless_DefenseDouble",
+      "notes": "Built and read back in the placement sweep (pack-add with the default touch template). Not yet tried in game."
+    },
+    {
+      "group": "F",
+      "item": "Item_DekuStickBundle_Small",
+      "pack": "Obj_DekuStickBundle_Small",
+      "args": [
+        "--heap",
+        "199928"
+      ],
+      "status": "built",
+      "identity": "Item_DekuStickBundle_Small",
+      "notes": "Built and read back in the placement sweep (pack-add with the default touch template). Not yet tried in game."
+    },
+    {
+      "group": "F",
+      "item": "Item_WeirdEgg",
+      "pack": "Obj_WeirdEgg",
+      "args": [
+        "--heap",
+        "199928"
+      ],
+      "status": "built",
+      "identity": "Item_WeirdEgg",
+      "notes": "Built and read back in the placement sweep (pack-add with the default touch template). Not yet tried in game."
+    },
+    {
+      "group": "F",
+      "item": "Item_ZeldaLetter",
+      "pack": "Obj_ZeldaLetter",
+      "args": [
+        "--heap",
+        "199928"
+      ],
+      "status": "built",
+      "identity": "Item_ZeldaLetter",
+      "notes": "Built and read back in the placement sweep (pack-add with the default touch template). Not yet tried in game."
     }
   ]
 }
