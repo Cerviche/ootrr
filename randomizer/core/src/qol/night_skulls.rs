@@ -11,7 +11,7 @@ pub const NIGHT: &str = "Enemy_Skulltula_Gold_Nocturnal";
 pub const COUNT: usize = 30;
 pub const MARK: &[u8] = b"Enemy_Skulltula_Gold_Nocturnal";
 
-pub const NOTE_ALWAYS: &str = "The Gold Skulltulas that only come out at night are there day and night. Their maps set Enemy_Skulltula_Gold_Nocturnal to false on all 30 of them, and the logic no longer needs night for them. Experimental, untested in the game.";
+pub const NOTE_ALWAYS: &str = "The Gold Skulltulas that only come out at night are there day and night. Their maps drop Enemy_Skulltula_Gold_Nocturnal from all 30 of them, so they are placed like the day ones, and the logic no longer needs night for them. Experimental, untested in the game.";
 pub const NOTE_SUNS: &str = "The logic expects Sun's Song for every Gold Skulltula that only comes out at night, so no check needs one of them before you can play Sun's Song. Has no effect when night Gold Skulltulas are there all day.";
 
 pub fn patch(y: &mut Byml) -> usize {
@@ -26,9 +26,13 @@ pub fn patch(y: &mut Byml) -> usize {
         let Some(d) = a.get_mut("Dynamic") else {
             continue;
         };
-        if d.get(NIGHT) == Some(&Node::Bool(true)) {
-            d.set(NIGHT, Node::Bool(false));
-            n += 1;
+        if d.get(NIGHT) != Some(&Node::Bool(true)) {
+            continue;
+        }
+        d.remove(NIGHT);
+        n += 1;
+        if matches!(d, Node::Map(m) if m.is_empty()) {
+            a.remove("Dynamic");
         }
     }
     n

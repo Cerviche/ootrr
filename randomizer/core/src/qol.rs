@@ -313,7 +313,7 @@ mod tests {
         let mut bad: Vec<String> = Vec::new();
         let o: Opts = read(&s, &mut bad);
         assert!(bad.is_empty());
-        assert_eq!(o, Opts { skip: Skip::Story, anju: true, poe: true, navi: navi_return::Mode::Off, bunny: bunny::Mode::Off, big_chests: false, blocks: false });
+        assert_eq!(o, Opts { skip: Skip::Story, anju: true, poe: true, navi: navi_return::Mode::Off, bunny: bunny::Mode::Off, big_chests: false, blocks: false, ..Opts::default() });
         s.set(BUNNY, Value::s("jump")).unwrap();
         assert_eq!(read(&s, &mut bad).bunny, bunny::Mode::Jump);
         assert_eq!(read(&s, &mut bad).notes().len(), 4);
