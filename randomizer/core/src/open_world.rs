@@ -518,6 +518,7 @@ mod tests {
     fn plan_of(pairs: &[(&str, Value)]) -> crate::slice::support::Plan {
         let mut s: Settings = Settings::default();
         s.set(TIME, Value::Bool(false)).unwrap();
+        s.set("shuffle_smallkeys", Value::s("vanilla")).unwrap();
         for (k, v) in pairs {
             s.set(k, v.clone()).unwrap();
         }

@@ -333,7 +333,8 @@ mod tests {
         use crate::slice::support::{plan, Plan};
         use crate::world::{LocId, World};
         let p: Plan = plan(s).unwrap();
-        let w: World = crate::slice::logic::world_with(d, &p.logic()).unwrap();
+        let counted: Vec<(&str, &str)> = p.logic().into_iter().filter(|(k, _)| !k.ends_with("_key_layout")).collect();
+        let w: World = crate::slice::logic::world_with(d, &counted).unwrap();
         let pk: Chosen = pick(d, &w, &p);
         let (_, items): (Vec<String>, Vec<String>) = crate::slice::generate::plando_options(d, s).unwrap();
         let mut locs: Vec<LocId> = pk.free.clone();

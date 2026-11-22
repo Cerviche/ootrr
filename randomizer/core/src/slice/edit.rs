@@ -914,6 +914,7 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let mut s: Settings = Settings::default();
         s.set("shuffle_rewards", crate::settings::Value::s("off")).unwrap();
+        s.set("shuffle_smallkeys", crate::settings::Value::s("vanilla")).unwrap();
         for n in 0..3 {
             let g = generate_data(&d, &s, &format!("tiers {n}"), &GenOpts::default()).unwrap();
             let given: BM<String, String> = actors_for(&d, &g.seed_file).unwrap();
