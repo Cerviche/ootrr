@@ -346,10 +346,11 @@ pub const MOVED: &[(&str, &[PortSection])] = &[
 ];
 
 /// A warning shown at the top of a page, above its settings.
-pub const WARNINGS: &[(&str, &str)] = &[(
-    "experimental",
-    "These settings have known unexpected behavior that could lead to many seeds being unbeatable and other minor bugs.",
-)];
+pub const WARNINGS: &[(&str, &str)] = &[("experimental", UNSTABLE), ("difficulty", UNSTABLE)];
+
+pub const UNSTABLE: &str = "These settings have known unexpected behavior that could lead to many seeds being unbeatable and other minor bugs.";
+
+pub const HIDDEN: &[&str] = &["enemy_randomizer"];
 
 const LOGIC: PortSection = port(
                 "Logic",
@@ -840,9 +841,11 @@ pub fn menu_json(sch: &Schema) -> Json {
             None => Vec::new(),
         };
         for s in p.sections {
-            let ids: Vec<&str> = s.ids.iter().copied().filter(|x| have.contains(x) && placed.insert(x)).collect();
+            let all: Vec<&str> = s.ids.iter().copied().filter(|x| have.contains(x) && placed.insert(x)).collect();
+            let (hidden, ids): (Vec<&str>, Vec<&str>) = all.into_iter().partition(|x| HIDDEN.contains(x));
             if !ids.is_empty() {
-                secs.push(Json::obj().with("label", s.label.into()).with("ids", Json::strs(ids.into_iter())));
+                let j: Json = Json::obj().with("label", s.label.into()).with("ids", Json::strs(ids.into_iter()));
+                secs.push(if hidden.is_empty() { j } else { j.with("hidden", Json::strs(hidden.into_iter())) });
             }
         }
         if !secs.is_empty() {
