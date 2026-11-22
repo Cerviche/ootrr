@@ -46,6 +46,52 @@ pub const SETTING_RULES: [(&str, Rule); 7] = [
     ("song spots", songs),
 ];
 
+/// The rules that keep a seed safe however freely items move: spots the logic or the game is
+/// unsure of (unsure Gold Skulltulas in matched mode, the unsure remake chests and heart spots)
+/// keep progression out, the Treasure Chest Game reward takes only what its game can show, a
+/// spot that exists once per age only takes items a second copy does no harm, and a boss heart
+/// only takes an upgrade it can stand as a pickup of, and pot junk (the Recovery Heart and the
+/// other items no chest holds) stays out of chests and NPC gifts. Only their refusals count; a
+/// spot they pass still goes through the build checks.
+pub const SAFETY_RULES: [(&str, Rule); 7] = [
+    ("junk only spots", junk),
+    ("treasure chest game", treasure),
+    ("remake overworld chests", remake),
+    ("unsure freestanding spots", unsure_free),
+    ("spots that exist once per age", copies),
+    ("upgrades at boss hearts", heart_upgrade),
+    ("pot junk in chests and gifts", pot_junk),
+];
+
+pub fn safety_refuses(s: &Spot) -> bool {
+    SAFETY_RULES.iter().any(|(_, r)| r(s) == Some(false))
+}
+
+fn unsure_free(s: &Spot) -> Option<bool> {
+    (s.p.world.on() && pu::keeps_out(s.d, s.name, s.item)).then_some(false)
+}
+
+fn copies(s: &Spot) -> Option<bool> {
+    (!crate::slice::copies::fits(s.d, s.name, s.item)).then_some(false)
+}
+
+/// An upgrade at a boss heart stands as the ground pickup of the tier slice::tier_order fixes
+/// there. Without a pickup for every tier the build falls back to a heart chest, which has no
+/// tier wrapper and drops the pool's actor instead of that tier (slice::chest_targets).
+fn heart_upgrade(s: &Spot) -> Option<bool> {
+    let heart: bool = s.d.cat.by_name(s.name).is_some_and(|c| c.kind == "bossheart");
+    (heart && s.d.family(s.item).is_some() && !crate::slice::key_spots::placeable(s.d, s.item, crate::slice::key_spots::Spot::Free)).then_some(false)
+}
+
+/// Items that only stand in the world (pots, the ground, skulltulas) or sell on a shelf. Their
+/// chest form is a guess (data/items.json) and untested in the game, so chests and NPC gifts keep
+/// them out, as before every item could go everywhere.
+fn pot_junk(s: &Spot) -> Option<bool> {
+    let junk: bool = pu::WORLD_ONLY.contains(&s.item) || s.d.pots.only.contains(s.item);
+    let gift: bool = s.d.flow.by_name(s.name).is_some() || s.d.cat.by_name(s.name).is_some_and(|c| c.kind == "chest");
+    (junk && gift && !crate::shops::is_loc(s.name)).then_some(false)
+}
+
 pub fn setting_verdict(s: &Spot) -> Option<bool> {
     SETTING_RULES.iter().find_map(|(_, r)| r(s))
 }

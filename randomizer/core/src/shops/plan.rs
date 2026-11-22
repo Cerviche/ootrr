@@ -13,7 +13,7 @@ pub const HIGH: i32 = 995;
 pub const FLOOR: i32 = 10;
 
 pub const NOTE: &str = "Shop shelves are shuffled. The shop goods trade places between the eight shelf shops, each keeps its own price, and the logic needs a bigger wallet for anything above 200 rupees. Experimental, untested in the game.";
-pub const DEALS: &str = "Special deals sell a random item once, through a new shelf actor per item and price. A deal can hold any item a shelf can sell: everything but dungeon keys, maps and compasses, and songs only when songs can go anywhere. Deals take the right side of each shop first (Items 7, 5, 8 and 6, then 3, 1, 4 and 2), like shopsanity in Ship of Harkinian, and the shop goods they replace move to the other shops. In the Kokiri, Goron and Zora Shops, which have a keeper per age, a deal bought from one keeper is sold out at the other too. Experimental, only one Kokiri Shop deal is tested in the game.";
+pub const DEALS: &str = "Special deals sell a random item once, through a new shelf actor per item and price. A deal can hold any item a shelf can sell, dungeon items included (the shop credits their dungeon), and songs only when songs can go anywhere. Deals take the right side of each shop first (Items 7, 5, 8 and 6, then 3, 1, 4 and 2), like shopsanity in Ship of Harkinian, and the shop goods they replace move to the other shops. In the Kokiri, Goron and Zora Shops, which have a keeper per age, a deal bought from one keeper is sold out at the other too. Experimental, only one Kokiri Shop deal is tested in the game.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {

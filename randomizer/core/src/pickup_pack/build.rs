@@ -148,9 +148,19 @@ mod tests {
         let mut odd: Spec = spec(Style::Touch);
         odd.name = "Obj/Test".to_string();
         assert!(plan(&packs(), &odd).is_err());
+        // A graph file the new pickup never reaches (the item's own AI) is left out of the pack.
         let mut with_bin: Vec<Vec<Entry>> = packs();
         with_bin[0].push(Entry { name: "AI/Graph.root.ainb".to_string(), data: b"AIB ".to_vec() });
-        assert!(plan(&with_bin, &spec(Style::Touch)).is_err());
+        let pl: Plan = plan(&with_bin, &spec(Style::Touch)).unwrap();
+        assert!(!pl.files.iter().any(|f| f.starts_with("AI/")));
+        assert_eq!(pl.files, plan(&packs(), &spec(Style::Touch)).unwrap().files);
+        // A binary file the new pickup does reach (here the base's physics file) is still refused.
+        let reached: &str = "Component/Physics/Obj_Item_Base.engine__component__PhysicsParam.bgyml";
+        let mut bin_reached: Vec<Vec<Entry>> = packs();
+        let at: usize = bin_reached[0].iter().position(|e| e.name == reached).unwrap();
+        bin_reached[0][at].data = b"AIB ".to_vec();
+        let e: String = plan(&bin_reached, &spec(Style::Touch)).unwrap_err().to_string();
+        assert!(e.contains(reached) && e.contains("is not a parameter file"), "{e}");
     }
 
     #[test]

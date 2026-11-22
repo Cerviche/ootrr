@@ -112,15 +112,25 @@ mod tests {
         assert_eq!(parse(&d, "Kak Bazaar Item 1=Piece of Heart@30").unwrap().what, What::Deal { item: "Obj_Heart_Piece".into(), price: 30, model: None });
         assert_eq!(parse(&d, "GC Shop Item 6=Buy Heart@5").unwrap().what, What::Goods { actor: "Shop_Heart".into(), price: 5 });
         assert!(parse(&d, "GC Shop Item 6=Progressive Hookshot@50").is_err());
-        for bad in ["Bow", "Item_Quiver_Large", "Item_BulletBag_Medium", "Magic Meter", "Bomb Bag"] {
+        // Every upgrade family sells on a shelf now: a hand written tier keeps that tier, while the
+        // family's own item names no tier and is refused.
+        for bad in ["Bow", "Magic Meter", "Bomb Bag"] {
             assert!(parse(&d, &format!("GC Shop Item 5={bad}@40")).is_err(), "{bad}");
+        }
+        for tier in ["Item_Quiver_Large", "Item_BulletBag_Medium", "Item_BombBag_Medium", "Item_FairyBless_MP"] {
+            let w: What = parse(&d, &format!("GC Shop Item 5={tier}@40")).unwrap().what;
+            assert!(matches!(&w, What::Deal { item, price: 40, .. } if item == tier), "{tier} {w:?}");
         }
         assert_eq!(parse(&d, "GC Shop Item 5=Item_Gauntlet_Goron@40").unwrap().what, What::Deal { item: "Item_Gauntlet_Goron".into(), price: 40, model: None });
         assert_eq!(deal(&d, "Progressive Wallet", Some("Item_Wallet_Medium"), 25).unwrap(), What::Deal { item: "Item_Wallet_Medium".into(), price: 25, model: None });
         assert_eq!(deal(&d, "Progressive Strength Upgrade", Some("Item_Gauntlet_Silver"), 25).unwrap(), What::Deal { item: "Item_Gauntlet_Silver".into(), price: 25, model: None });
         assert!(deal(&d, "Progressive Strength Upgrade", None, 25).is_err());
-        assert!(parse(&d, "GC Shop Item 6=Small Key (Forest Temple)@50").is_err());
+        // A dungeon item sells as itself (a seed deal credits its dungeon, shelf::seed::credits);
+        // the Treasure Chest Game key never stands on a shelf.
+        assert_eq!(parse(&d, "GC Shop Item 6=Small Key (Forest Temple)@50").unwrap().what, What::Deal { item: "Item_Dungeon_SmallKey".into(), price: 50, model: None });
+        assert!(parse(&d, "GC Shop Item 6=Small Key (Treasure Chest Game)@50").is_err());
         assert!(parse(&d, "Nowhere=Boomerang@5").is_err());
+        assert_eq!(parse(&d, "KF Shop Item 1=Boomerang@0").unwrap().what, What::Deal { item: "Item_Boomerang".into(), price: 0, model: None });
         assert!(parse(&d, "KF Shop Item 1=Boomerang@1000").is_err());
     }
 }

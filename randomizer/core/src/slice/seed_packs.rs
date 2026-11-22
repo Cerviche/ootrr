@@ -265,8 +265,15 @@ mod tests {
         assert!(need(&d, &s, &BM::new()).is_err());
         let plain: SeedFile = seed(&[(free, "Rupees (5)"), (pot.as_str(), "Rupees (20)"), ("KF Midos Top Left Chest", "Bow")]);
         assert!(need(&d, &plain, &BM::new()).unwrap().keys().all(|k| scene.iter().any(|x| x == k)));
-        let bow: SeedFile = seed(&[(skull, "Bow")]);
-        assert!(need(&d, &bow, &[(skull.to_string(), "Item_Range_Bow".to_string())].into_iter().collect()).is_err());
+        // A kit cannot carry the Bow's ammo layer, so a skulltula drops the plain Bow kit (the
+        // starter bag hook adds the quiver after its get); a Bow on the ground keeps the ammo layer.
+        let bow: SeedFile = seed(&[(skull, "Bow"), (free, "Bow")]);
+        let wbow: BM<String, Want> = need(&d, &bow, &[(skull.to_string(), "Item_Range_Bow".to_string()), (free.to_string(), "Item_Range_Bow".to_string())].into_iter().collect()).unwrap();
+        assert_eq!(wbow["Obj_Range_Bow_GH"].kind, Kind::Skull);
+        let (ks, kl): (Spec, Layers) = wbow["Obj_Range_Bow_GH"].spec().unwrap();
+        assert_eq!((ks.name.as_str(), ks.item.as_str(), kl.ammo), ("Obj_Range_Bow_GH", "Item_Range_Bow", false));
+        assert_eq!(wbow["Obj_Range_Bow"].kind, Kind::Free);
+        assert!(wbow["Obj_Range_Bow"].spec().unwrap().1.ammo);
         let two: SeedFile = seed(&[(free, "Megaton Hammer"), (pot.as_str(), "Megaton Hammer")]);
         let both: BM<String, Want> = need(&d, &two, &BM::new()).unwrap();
         assert_eq!(both.keys().filter(|k| !scene.iter().any(|x| x == *k)).count(), 1);

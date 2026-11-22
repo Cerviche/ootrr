@@ -307,8 +307,12 @@ mod tests {
             assert!(ok("Gold Skulltula Token", loc), "{loc}");
             assert!(ok("Piece of Heart", loc), "{loc}");
             assert!(ok("Megaton Hammer", loc), "{loc}");
-            assert!(!ok("Progressive Strength Upgrade", loc), "{loc}");
+            // Goron's Bracelet saves under its armor actor now, so every strength tier has a kit.
+            assert!(ok("Progressive Strength Upgrade", loc), "{loc}");
+            // Small keys keep to their own dungeon by default.
             assert!(!ok("Small Key (Forest Temple)", loc), "{loc}");
+            // An item with no pickup pack and no kit (the masks) still cannot lie under a rock or in grass.
+            assert_eq!(crate::pot_slice::rules::at(&d, loc, "Bunny Hood"), Some(false), "{loc}");
         }
     }
 

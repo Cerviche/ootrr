@@ -945,8 +945,8 @@ mod tests {
             let g = generate_data(&d, &Settings::default(), &format!("wrap {n}"), &GenOpts::default()).unwrap();
             let (ts, _, _): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
             let views: BM<String, String> = crate::slice::tier_order::chest_views(&d, &g.seed_file).unwrap();
-            // Freestanding spots hand out a fixed tier (slice::tier_order), not a chest wrapper.
-            for t in ts.iter().filter(|t| !d.cat.by_name(&t.name).is_some_and(crate::slice::pickups::is_world)) {
+            // Freestanding spots and boss hearts hand out a fixed tier (slice::tier_order), not a chest wrapper.
+            for t in ts.iter().filter(|t| !d.cat.by_name(&t.name).is_some_and(|c| crate::slice::pickups::is_world(c) || c.kind == "bossheart")) {
                 match (t.family, d.family(&t.new_item)) {
                     (Some(f), _) => {
                         seen.insert(f);
@@ -1028,10 +1028,16 @@ mod tests {
                 assert_eq!(d.family(&g.seed_file.placements[loc]), Some(*f));
                 assert!(d.flow_ok(loc));
             }
+            // Every flow location takes every item: the build stages the choices in untested mode,
+            // so a name no game flow hands out is listed as untested instead of refused.
+            let songs: bool = plan(&st).unwrap().songs != Songs::Off;
+            let (_, _, untested): (Vec<crate::flow_locations::Change>, usize, Vec<String>) =
+                crate::flow_locations::plan(&d.flow, &flows, &FlowOpts { songs, untested: true }).unwrap_or_else(|e| panic!("seed split {n}: {e}"));
             for c in &flows {
                 // Reward events hand out any item a chest gives, through its chest content actor (#24).
-            let allowed: bool = g.seed_file.placements.get(&c.location).and_then(|it| d.item(it)).is_some_and(|i| crate::slice::flow_rules::allows(&d, &c.location, i));
-            assert!(d.flow.usable(&c.item) || crate::slice::flow_rules::ANY_POUCH.contains(&c.location.as_str()) || crate::ocarina_hold::is_form(&c.item) || allowed, "{} -> {}", c.location, c.item);
+                let allowed: bool = g.seed_file.placements.get(&c.location).and_then(|it| d.item(it)).is_some_and(|i| crate::slice::flow_rules::allows(&d, &c.location, i));
+                let known: bool = d.flow.usable(&c.item) || crate::slice::flow_rules::ANY_POUCH.contains(&c.location.as_str()) || crate::ocarina_hold::is_form(&c.item) || allowed;
+                assert!(known || untested.contains(&c.item), "{} -> {}", c.location, c.item);
             }
             let given: BM<String, String> = actors_for(&d, &g.seed_file).unwrap();
             for (loc, actor) in &given {

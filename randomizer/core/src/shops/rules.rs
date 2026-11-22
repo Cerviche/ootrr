@@ -107,7 +107,14 @@ mod tests {
             for good in ["Boomerang", "Progressive Hookshot", "Bow", "Slingshot", "Bomb Bag", "Magic Meter", "Piece of Heart", "Bombchus (10)", "Rupees (20)", "Bottle", "Bombs (10)", "Kokiri Emerald", "Recovery Heart"] {
                 assert_eq!(at(&d, &on, true, shop, good), Some(true), "{shop} {good}");
             }
-            for bad in ["Small Key (Forest Temple)", "Boss Key (Forest Temple)", "Map (Forest Temple)", "Compass (Forest Temple)", "Buy Heart"] {
+            // A dungeon item sells as its own item and the shop credits its dungeon after the sale
+            // (crate::shelf::hook::Credit).
+            for good in ["Small Key (Forest Temple)", "Boss Key (Forest Temple)", "Map (Forest Temple)", "Compass (Forest Temple)"] {
+                assert_eq!(at(&d, &on, true, shop, good), Some(true), "{shop} {good}");
+            }
+            // Shop goods, event items, the Treasure Chest Game's own items and items without a
+            // remake actor (NOT_SOLD) never stand on a deal.
+            for bad in ["Buy Heart", "Scarecrow Song", "Small Key (Treasure Chest Game)", "Piece of Heart (Treasure Chest Game)", "Ice Trap"] {
                 assert_eq!(at(&d, &on, true, shop, bad), Some(false), "{shop} {bad}");
             }
             assert_eq!(at(&d, &on, true, shop, "Minuet of Forest"), Some(true));

@@ -453,6 +453,12 @@ mod tests {
         }
     }
 
+    /// A chest whose get runs a story event, or the Treasure Chest Game prize: grants leaves it to
+    /// crate::debug_names::stage_credit_chests.
+    fn story_chest(d: &Data, loc: &str) -> bool {
+        loc == crate::slice::treasure::LOC || d.cat.by_name(loc).is_some_and(|c| c.kind == "chest" && c.refs.iter().any(|r| d.events.keep.contains(&r.hash)))
+    }
+
     fn check(d: &Data, s: &Settings, tag: &str, n: usize) -> usize {
         let p: Plan = plan(s).unwrap();
         let base: Generated = generate_data(d, &Settings::default(), "count base", &GenOpts::default()).unwrap();
@@ -481,7 +487,8 @@ mod tests {
                     continue;
                 }
                 let l: LocId = w.loc(loc).unwrap();
-                assert!(allowed(d, &w, &p, i, l), "{item} at {loc}");
+                let it: crate::logic_items::ItemId = w.item(item).unwrap();
+                assert!(spot_ok(d, &w, &p, i, l) && crate::slice::generate::buildable(d, &w, &p, it, l), "{item} at {loc}");
                 let here: Option<&str> = w.regions[w.locs[l].region].dungeon.as_deref();
                 match keep_of(&p, &i.kind) {
                     Some(Keep::AnyDungeon) => assert!(here.is_some(), "{item} at {loc}"),
@@ -493,6 +500,7 @@ mod tests {
                 }
             }
             let gr: Grants = grants(d, &g.seed_file, &p).unwrap();
+            let picks: Vec<crate::debug_names::KeyCredit> = crate::debug_names::key_credits(d, &g.seed_file, p.keys_roam());
             for (loc, item) in &g.seed_file.placements {
                 let Some(i) = d.item(item).filter(|i| Kind::of(&i.kind).is_some_and(|k| gr.sweep.contains(&k))) else {
                     continue;
@@ -501,8 +509,24 @@ mod tests {
                 let Some(c) = d.cat.by_name(loc) else {
                     continue;
                 };
+                let want: Option<&str> = i.dungeon.as_deref().and_then(struct_of);
+                // A ground, skulltula or boss heart spot stands as the item's own pickup, which
+                // credits its dungeon after the get (crate::debug_names::key_credits).
+                if c.kind != "chest" {
+                    let k: Option<crate::gift_keys::Item> = crate::gift_keys::Item::of(&i.kind);
+                    assert!(picks.iter().any(|x| Some(x.item) == k && Some(x.dungeon) == want), "{item} at {loc} has no pickup credit");
+                    continue;
+                }
+                // A chest that keeps its story event, and the Treasure Chest Game prize, credit
+                // after that event (crate::debug_names::stage_credit_chests); every other chest
+                // through its own get.
+                let story: bool = story_chest(d, loc);
                 for r in &c.refs {
-                    assert_eq!(gr.credits.get(&r.hash).map(|c| c.1), i.dungeon.as_deref().and_then(struct_of), "{item} at {loc}");
+                    if story {
+                        assert!(gr.wrapped.contains(&r.hash) && !gr.credits.contains_key(&r.hash), "{item} at {loc} is not left to its story credit");
+                    } else {
+                        assert_eq!(gr.credits.get(&r.hash).map(|c| c.1), want, "{item} at {loc}");
+                    }
                 }
             }
         }
@@ -572,6 +596,26 @@ mod tests {
         a.get("Dynamic").and_then(|d| d.get(k)).and_then(|v| v.as_str()).unwrap_or("")
     }
 
+    /// A story chest's get event `id` is its OOTRR_KeyCredit_N wrap: a row in the event table whose
+    /// entry runs the story event, then sets the dungeon flag of `k` for `want`.
+    fn story_credit(rf: &mut crate::romfs::Romfs, out: &std::path::Path, id: &str, k: Kind, want: &str, loc: &str) {
+        use crate::bfevfl::{Bf, Kind as Ev, Val};
+        let n: &str = id.strip_prefix("OOTRR_KeyCredit_").unwrap_or_else(|| panic!("{loc}: get event {id} is no key credit wrap"));
+        let table: Byml = Byml::parse(&rf.zs.decompress(&std::fs::read(out.join(crate::progressive::SETTING_TABLE)).unwrap()).unwrap()).unwrap();
+        let row: crate::debug_names::Row = crate::debug_names::row_of(&table, id).unwrap_or_else(|| panic!("{loc}: no event table row {id}"));
+        assert_eq!(row.entry, format!("KeyCredit_{n}"), "{loc}");
+        let path: std::path::PathBuf = out.join(format!("Event/EventFlow/{}.bfevfl.zs", row.stem));
+        let b: Bf = Bf::parse(&rf.zs.decompress(&std::fs::read(&path).unwrap()).unwrap()).unwrap();
+        let (f, e): (&crate::bfevfl::Flow, &crate::bfevfl::Entry) =
+            b.flows.iter().find_map(|f| f.entries.iter().find(|e| e.name == row.entry).map(|e| (f, e))).unwrap_or_else(|| panic!("{loc}: {} has no entry {}", row.stem, row.entry));
+        let first: u16 = match &f.events[usize::from(e.main)].kind {
+            Ev::Sub { next, .. } => *next,
+            other => panic!("{loc}: {} does not start with the story event, {other:?}", row.entry),
+        };
+        let flag_name: Option<&Val> = f.events[usize::from(first)].kind.params().and_then(|c| c.get("GameDataName"));
+        assert_eq!(flag_name, Some(&Val::Str(format!("DungeonInfo.{want}.{}", k.member()))), "{loc}");
+    }
+
     fn built_and_checked(root: &std::path::Path, s: &Settings, seed: &str, name: &str) -> (usize, usize) {
         use crate::bfevfl::{Bf, Val};
         use crate::progressive::{Size, BIG_FLOW, SETTING_TABLE, SMALL_FLOW};
@@ -594,6 +638,13 @@ mod tests {
             let Some(c) = d.cat.by_name(loc) else {
                 continue;
             };
+            // A ground, skulltula or boss heart spot stands as the item's own pickup, credited by
+            // crate::debug_names::key_credits (checked in check()).
+            if c.kind != "chest" {
+                away += c.refs.iter().flat_map(|r| r.files.iter()).filter(|f| crate::dungeon_grant::scene_of(f) != Some(want)).count();
+                continue;
+            }
+            let story: bool = story_chest(&d, loc);
             for r in &c.refs {
                 for f in &r.files {
                     let old: Byml = Byml::parse(&rf.read_zs(f).unwrap()).unwrap();
@@ -603,7 +654,11 @@ mod tests {
                     let v: &crate::byml::Node = old.root.get("Actors").and_then(|l| l.as_arr()).and_then(|l| l.iter().find(|a| crate::placement::hash_of(a) == Some(r.hash))).unwrap();
                     let size: Size = Size::of_gyaml(a.get("Gyaml").and_then(|x| x.as_str()).unwrap_or(""));
                     assert_eq!(dy(a, crate::dungeon_credit::DROP), k.actor(), "{loc}");
-                    assert_eq!(dy(a, "GetEventName"), crate::dungeon_grant::event_name(k, want, size), "{loc}");
+                    if story {
+                        story_credit(&mut rf, &out, dy(a, "GetEventName"), k, want, loc);
+                    } else {
+                        assert_eq!(dy(a, "GetEventName"), crate::dungeon_grant::event_name(k, want, size), "{loc}");
+                    }
                     assert_ne!(dy(v, "GetEventName"), dy(a, "GetEventName"), "{loc}");
                     if crate::dungeon_grant::scene_of(f) != Some(want) {
                         away += 1;
@@ -620,8 +675,9 @@ mod tests {
                 let Some(i) = d.item(item).filter(|i| Kind::of(&i.kind).is_some_and(|k| gr.sweep.contains(&k))) else {
                     continue;
                 };
-                // A reward event holding a dungeon item (#24) is credited by crate::gift_keys.
-                if d.cat.by_name(loc).is_none() {
+                // A reward event holding a dungeon item (#24) is credited by crate::gift_keys; a
+                // story chest and a pickup spot credit through their own events, not the chest flow.
+                if !d.cat.by_name(loc).is_some_and(|c| c.kind == "chest") || story_chest(&d, loc) {
                     continue;
                 }
                 let k: Kind = Kind::of(&i.kind).unwrap();

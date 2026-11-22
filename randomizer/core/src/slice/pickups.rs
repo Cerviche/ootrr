@@ -446,7 +446,7 @@ mod tests {
     }
 
     #[test]
-    fn world_locations_only_take_shipped_pickups_and_recovery_hearts_stay_off_chests() {
+    fn world_locations_only_take_shipped_pickups_and_recovery_hearts_move() {
         let d: Data = Data::load().unwrap();
         let s: Settings = on("all");
         let p: Plan = plan(&s).unwrap();
@@ -462,8 +462,9 @@ mod tests {
                     let ok: bool = ground_actor(item).is_some() || ks::shield(item).is_some() || ks::placeable(&d, item, ks::Spot::Free);
                     assert!(ok, "{loc} holds {item}");
                 }
+                // A recovery heart may go to any shuffled location now (a chest drops Obj_Heart,
+                // an NPC grant names it); allowed above covers where.
                 if item == "Recovery Heart" {
-                    assert!(world_loc, "{loc} holds a recovery heart");
                     hearts += 1;
                 }
             }
@@ -559,11 +560,16 @@ mod tests {
     }
 
     #[test]
-    fn the_well_key_spot_takes_its_own_key_or_a_ground_pickup_but_no_other_key() {
+    fn the_well_key_spot_takes_its_own_key_a_ground_pickup_or_another_key_as_its_own_pickup() {
         let d: Data = Data::load().unwrap();
         let key: &str = KEY_SPOTS[0];
         assert_eq!(at(&d, key, "Small Key (Bottom of the Well)"), Some(true));
-        assert_eq!(at(&d, key, "Small Key (Forest Temple)"), Some(false));
+        // Another dungeon's key stands as its own pickup pack and credits its own dungeon after
+        // the get (crate::debug_names::key_credits), not the dungeon of the scene.
+        assert_eq!(at(&d, key, "Small Key (Forest Temple)"), Some(true));
+        let forest: Option<String> = ks::dungeon_pick(&d, "Small Key (Forest Temple)").map(|p| p.pack);
+        let well: Option<String> = ks::dungeon_pick(&d, "Small Key (Bottom of the Well)").map(|p| p.pack);
+        assert!(forest.is_some() && well.is_some() && forest != well, "{forest:?} {well:?}");
         assert_eq!(at(&d, key, "Rupees (20)"), Some(true));
         assert_eq!(at(&d, "LH Underwater Item", "Rutos Letter"), Some(true));
         assert_eq!(at(&d, "LH Underwater Item", "Rupees (50)"), Some(true));
