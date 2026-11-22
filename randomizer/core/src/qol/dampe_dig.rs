@@ -5,8 +5,20 @@ use crate::error::{Error, Res};
 pub const FLOWS: [&str; 2] = ["Npc_Hylia_Dampe_001", "Npc_Hylia_Dampe_001.110"];
 const NAME: &str = "Npc_Hylia_Dampe_001";
 pub const DROPPED: &str = "GraveYard_DiggingHoleTour_Drop_HeartPiece";
+/// The dig lottery (Event219) and its rupee share: 0 makes every dig a hit.
+const LOTTERY: &str = "Event219";
+const RUPEE_RATE: &str = "LotteryHitSoil_RupeeRate";
+/// The lottery's rupee results (Event219 cases 0 to 5).
+const RUPEES: [u32; 6] = [0, 1, 2, 3, 4, 5];
+/// Has the Heart Piece dropped yet (Event119: 0 yes, 1 no).
+const ASK: &str = "Event119";
+/// Dampé's two "found something" reactions; vanilla then asks for a second fee (Event136 or
+/// Event157, the choice, Event88's -5) before the Heart Piece dig.
+const FOUND: [&str; 2] = ["Event48", "Event259"];
+/// The Heart Piece dig: find the soil spot, then the Heart Piece demo and the check's grant.
+const DIG: &str = "Event314";
 
-pub const NOTE: &str = "Dampé's gravedigging tour gives its check on the first dig: before the dig lottery (Event219), a check of GraveYard_DiggingHoleTour_Drop_HeartPiece sends the dig to the Heart Piece branch (Event119) until the check is taken, and to the usual lottery after. Always on.";
+pub const NOTE: &str = "Dampé's gravedigging tour gives its check on the first dig, with no second fee: the dig lottery (Event219) has no rupee share, a rupee result goes to the Heart Piece dig while the check is not taken, and Dampé's find (Event48, Event259) goes straight to the Heart Piece dig (Event314), skipping the question and the second fee. Once the check is taken, every dig gives rupees as before. Always on.";
 
 fn named(f: &Flow, name: &str) -> Res<usize> {
     let hits: Vec<usize> = (0..f.events.len()).filter(|&i| f.events[i].name == name).collect();
@@ -19,33 +31,58 @@ fn named(f: &Flow, name: &str) -> Res<usize> {
 pub fn patch(b: &mut Bf) -> Res<()> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == NAME).ok_or(Error::Format("first dig: the Dampé flow has no Npc_Hylia_Dampe_001 flow"))?;
     let idx = |i: usize| crate::dungeon_credit::idx(i);
-    // Event119: has the Heart Piece dropped yet (0 yes: a rupee instead, 1 no: the Heart Piece).
-    let heart: usize = named(f, "Event119")?;
-    let asks: bool = f.events[heart].kind.params().and_then(|c| c.get("GameDataName")) == Some(&Val::Str(DROPPED.to_string()));
-    let Kind::Switch { cases, .. } = &f.events[heart].kind else {
-        return Err(Error::Format("first dig: Event119 is not a switch"));
-    };
-    if !asks || cases.len() != 2 {
+    let ask: usize = named(f, ASK)?;
+    let asks: bool = f.events[ask].kind.params().and_then(|c| c.get("GameDataName")) == Some(&Val::Str(DROPPED.to_string()));
+    if !asks || !matches!(&f.events[ask].kind, Kind::Switch { cases, .. } if cases.len() == 2) {
         return Err(Error::Format("first dig: Event119 no longer asks whether the Heart Piece dropped"));
     }
-    let lottery: usize = named(f, "Event219")?;
-    let wait: usize = named(f, "Event93")?;
-    if !matches!(f.events[wait].kind, Kind::Action { next, .. } if next as usize == lottery) {
-        return Err(Error::Format("first dig: Event93 no longer leads to the dig lottery"));
-    }
-    // A copy of Event119 in front of the lottery: not dropped yet goes to the Heart Piece branch,
-    // dropped goes to the lottery as before.
-    let at: u16 = idx(f.events.len())?;
-    let mut gate: Event = f.events[heart].clone();
-    gate.name = "OOTRRFirstDig".to_string();
-    if let Kind::Switch { cases, .. } = &mut gate.kind {
-        for c in cases.iter_mut() {
-            c.ev = if c.val == 0 { idx(lottery)? } else { idx(heart)? };
+    let dig: u16 = idx(named(f, DIG)?)?;
+    // Dampé's find goes straight to the Heart Piece dig: no question, no second fee.
+    for n in FOUND {
+        let i: usize = named(f, n)?;
+        match &mut f.events[i].kind {
+            Kind::Action { next, .. } => *next = dig,
+            _ => return Err(Error::Msg(format!("first dig: {n} is not an action"))),
         }
     }
-    f.events.push(gate);
-    if let Kind::Action { next, .. } = &mut f.events[wait].kind {
-        *next = at;
+    // The lottery is still asked (it sets up the dig), with no rupee share.
+    let lottery: usize = named(f, LOTTERY)?;
+    let mut found: bool = false;
+    if let Some(c) = f.events[lottery].kind.params_mut() {
+        for (k, v) in c.items.iter_mut() {
+            if k == RUPEE_RATE {
+                *v = Val::Int(0);
+                found = true;
+            }
+        }
+    }
+    if !found {
+        return Err(Error::Format("first dig: the dig lottery has no rupee rate"));
+    }
+    // A rupee result still goes to the Heart Piece dig until the check is taken: a copy of
+    // Event119 per case, taken goes on to the rupee, not taken to the dig.
+    let targets: Vec<(u32, u16)> = match &f.events[lottery].kind {
+        Kind::Switch { cases, .. } => cases.iter().filter(|c| RUPEES.contains(&c.val)).map(|c| (c.val, c.ev)).collect(),
+        _ => return Err(Error::Format("first dig: the dig lottery is not a switch")),
+    };
+    if targets.len() != RUPEES.len() {
+        return Err(Error::Format("first dig: the dig lottery lost a rupee result"));
+    }
+    for (val, to) in targets {
+        let at: u16 = idx(f.events.len())?;
+        let mut gate: Event = f.events[ask].clone();
+        gate.name = format!("OOTRRFirstDig{val}");
+        if let Kind::Switch { cases, .. } = &mut gate.kind {
+            for c in cases.iter_mut() {
+                c.ev = if c.val == 0 { to } else { dig };
+            }
+        }
+        f.events.push(gate);
+        if let Kind::Switch { cases, .. } = &mut f.events[lottery].kind {
+            for c in cases.iter_mut().filter(|c| c.val == val) {
+                c.ev = at;
+            }
+        }
     }
     Ok(())
 }
