@@ -107,8 +107,6 @@ mod tests {
             for good in ["Boomerang", "Progressive Hookshot", "Bow", "Slingshot", "Bomb Bag", "Magic Meter", "Piece of Heart", "Bombchus (10)", "Rupees (20)", "Bottle", "Bombs (10)", "Kokiri Emerald", "Recovery Heart"] {
                 assert_eq!(at(&d, &on, true, shop, good), Some(true), "{shop} {good}");
             }
-            // A dungeon item sells as its own dungeon's pack and the shop credits its dungeon after
-            // the sale (crate::dungeon_packs::shop_file).
             for good in ["Small Key (Forest Temple)", "Boss Key (Forest Temple)", "Map (Forest Temple)", "Compass (Forest Temple)"] {
                 assert_eq!(at(&d, &on, true, shop, good), Some(true), "{shop} {good}");
             }

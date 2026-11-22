@@ -1004,8 +1004,6 @@ pub struct KeyCredit {
     pub dungeon: &'static str,
 }
 
-/// The dungeon items the seed puts at skulltula spots: ground, holder and shelf spots take their
-/// own dungeon's pack instead (crate::dungeon_packs).
 pub fn key_credits(d: &Data, seed: &crate::settings::seed::SeedFile) -> Vec<KeyCredit> {
     let mut out: Vec<KeyCredit> = Vec::new();
     for (loc, item) in &seed.placements {
@@ -1468,10 +1466,8 @@ mod tests {
         let skull: String = d.cat.locs.iter().find(|l| l.kind == SKULL_KIND).map(|l| l.name.clone()).unwrap();
         let m: std::collections::BTreeMap<String, String> = [("Forest Temple Center Room Left Pot 2", "Small Key (Forest Temple)"), ("Forest Temple First Room Chest", "Small Key (Forest Temple)"), (skull.as_str(), "Small Key (Forest Temple)")].iter().map(|(a, b)| (a.to_string(), b.to_string())).collect();
         let seed: crate::settings::seed::SeedFile = crate::settings::seed::SeedFile::new("s", &crate::settings::Settings::default(), "g", m).unwrap();
-        // The pot key stands as its own dungeon's pack, which the pickup get credits.
         let forest = crate::dungeon_packs::Pack { kind: crate::dungeon_packs::Kind::Small, dungeon: crate::dungeon_grant::struct_of("Forest Temple").unwrap() };
         assert_eq!(crate::dungeon_packs::picked_up(&d, &seed), [forest].into_iter().collect());
-        // The skulltula key is a kit on the shared-item pickup, credited by the key sweep.
         let cs: Vec<KeyCredit> = key_credits(&d, &seed);
         assert_eq!(cs.len(), 1, "only the skulltula key is swept");
         assert_eq!((cs[0].item, cs[0].dungeon), (crate::gift_keys::Item::Small, forest.dungeon));

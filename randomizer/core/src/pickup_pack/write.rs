@@ -454,8 +454,6 @@ pub fn run_with(romfs: &P, load: &P, mod_name: &str, s: &Spec, o: &Opts, l: &Lay
     for n in [BASE, DONOR, s.item.as_str()] {
         packs.push(sarc::parse(&start(&mut rf, o.base.as_ref(), &pack_of(n))?)?);
     }
-    // The model donor lends only its parameter files: its AI graph (the Dungeon Map's) never
-    // reaches the pickup, and the template refuses binary files in its pool.
     if let Some(m) = l.model.as_deref() {
         let es: Vec<Entry> = sarc::parse(&start(&mut rf, o.base.as_ref(), &pack_of(m))?)?;
         packs.push(es.into_iter().filter(|e| crate::pickup_pack::closure::is_byml(&e.data)).collect());

@@ -1,14 +1,3 @@
-//! The Fire Arrow flame on every seed pickup.
-//!
-//! Seed pickups name the Fire Arrow pickup's effect user (actor::GLINT_USER). Its Wait key is a
-//! container that plays the magic aura, the metal shine, the burning core, a light and a far glow
-//! (Wait_00_00..Wait_00_04) while Rotate_Obj plays, under the same trigger as the Gold Skulltula
-//! token's and the Heart Piece's Wait. All but the shine sit on the bone Effect_0, which only 16
-//! of the 913 Item_/Obj_ models have (the arrows, bottles, Deku Sticks, Hookshot, Bombchu); Root
-//! is on 912 of them. So the seed rebinds those effects to Root, larger, in the game's effect
-//! table (ELink2/elink2.Product.110.belnk.zs). The vanilla Fire Arrow pickup, which no seed
-//! places on the ground (slice::pickups::NOT_ON_GROUND), then burns at its model's origin
-//! instead of its tip.
 
 use crate::difficulty::elink::{self, Link, Param, TEXT};
 use crate::error::{Error as E, Res};
@@ -18,15 +7,11 @@ use crate::staging::Out;
 pub const USER: &str = "Obj_Arrow_Fire";
 pub const FROM_BONE: &str = "Effect_0";
 pub const TO_BONE: &str = "Root";
-/// The keys rebound: the parts of the Wait container.
 pub const KEYS: &str = "Wait_";
 pub const BONE: u32 = 12;
 pub const SCALE: u32 = 13;
-/// How much larger the flame burns than on the arrow: one of the effect table's stored values.
 pub const SIZE: f32 = 2.0;
 
-/// Rebinds the Wait effects of [`USER`] from [`FROM_BONE`] to [`TO_BONE`] at [`SIZE`]. Returns
-/// the new table and how many calls moved.
 pub fn rebind(raw: &[u8]) -> Res<(Vec<u8>, usize)> {
     let mut l: Link = Link::parse(raw)?;
     let u: usize = l.user(USER).ok_or_else(|| E::Msg(format!("elink: no effect user {USER}")))?;
@@ -60,8 +45,6 @@ pub fn rebind(raw: &[u8]) -> Res<(Vec<u8>, usize)> {
     Ok((l.write()?, moved))
 }
 
-/// Stages the rebind on top of any earlier edit of the effect table in `late` (the difficulty
-/// options edit the same file).
 pub fn stage(rf: &mut Romfs, late: &mut Vec<Out>, work: &std::path::Path) -> Res<()> {
     crate::story_skip::stage_late_file(rf, late, work, elink::FILE, |raw| Ok(rebind(raw)?.0))
 }

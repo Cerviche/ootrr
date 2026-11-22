@@ -19,7 +19,6 @@ pub fn after(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, m
     let d: Data = Data::load()?;
     let jobs: Vec<Job> = crate::shops::jobs::of(&d, &l)?;
     let base: PB = b.root.join("romfs");
-    // A dungeon item on a deal is its own dungeon's pack, which credits itself (crate::dungeon_packs).
     let done: Done = run_with(romfs, Some(&base), load, mod_name, host, &jobs, &[])?;
     if done.root != b.root {
         return Err(E::Msg(format!("the shelf files went to {} and not to the seed mod {}", done.root.display(), b.root.display())));

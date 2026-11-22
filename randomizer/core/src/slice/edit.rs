@@ -199,8 +199,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let small_hearts: BS<u64> = if p.chest_sizes { crate::chest_size::small_hearts(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.keys.map)) } else { BS::new() };
     let moves: crate::chest_size::Moves = if sizes.is_empty() { crate::chest_size::Moves::default() } else { crate::chest_size::moves(&crate::chest_size::scan(&mut rf, &sizes)?, &sizes) };
     let mut resized_n: usize = 0;
-    // Freestanding spots swapped to a seed pickup stand higher, so the turning item model clears
-    // the ground, and small items are scaled up to read from afar (crate::pickup_pack::lift).
     let lifts: BM<String, (f32, f32)> = {
         let info: crate::byml::Byml = rf.read_byml(crate::pickup_pack::rows::ACTOR_INFO)?;
         ts.iter().filter(|t| extra.has(&t.new_actor)).filter_map(|t| crate::pickup_pack::lift::look_for_pack(&info, &t.new_actor).map(|l| (t.new_actor.clone(), l))).collect()
@@ -252,7 +250,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             }
         }
     }
-    // Spots that exist once per age share one actor hash, so their item is taken once.
     crate::slice::copies::share(&mut rf, &d, &seed.placements, &mut edits)?;
     let pk: Pack = Pack::begin_for(load, TITLE_ID, mod_name, host)?;
     let mut rst: Option<Rst> = None;
@@ -454,7 +451,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let mut late: Vec<crate::staging::Out> = if p.qol.any() { crate::qol::worked(&mut rf, &pk, &p.qol)? } else { Vec::new() };
     late.extend(crate::open_world::worked(&mut rf, &pk, &p.open)?);
     let difficulty_notes: Vec<String> = crate::difficulty::worked(&mut rf, &pk, &p.difficulty, &seed.seed, &mut late)?;
-    // Seed pickups burn with the Fire Arrow flame, moved to a bone every item model has.
     crate::pickup_pack::flame::stage(&mut rf, &mut late, &work)?;
     crate::merchant_prices::stage_bean(&mut rf, seed, p.rewards.merchant_prices, p.rewards.bean_sale, &mut late)?;
     // Scenes that are dropped: Link runs the item get with what their check holds.
@@ -511,7 +507,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     // A Bow or Slingshot from any gift or pickup brings its starting bag, as a chest's does.
     crate::starter_bags::stage(&mut rf, &mut late, &work)?;
-    // A dungeon item's pack picked up from the ground or a holder credits its own dungeon.
     crate::dungeon_packs::stage(&mut rf, &mut late, &work, &crate::dungeon_packs::picked_up(&d, seed))?;
     // Rooms that could lock Link in once their item is shuffled away (crate::dungeon_fixes).
     crate::dungeon_fixes::stage(&mut rf, &mut late, &work)?;

@@ -302,7 +302,6 @@ pub fn run_with(romfs: &P, base: Option<&P>, load: &P, mod_name: &str, host: Hos
     // Every shelf build lets a child buy a tunic, wherever the shuffle puts one.
     let sold: Vec<hook::Sold> = hook::plan(jobs);
     let shared: Vec<Vec<String>> = hook::shared(jobs);
-    // A dungeon item's pack on a shelf credits its dungeon once bought (crate::dungeon_packs).
     let keys: std::collections::BTreeSet<crate::dungeon_packs::Pack> = jobs
         .iter()
         .filter_map(|j| match &j.what {

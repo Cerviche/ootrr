@@ -28,12 +28,6 @@ pub fn edit_file(file: &str, raw: &[u8], ts: &[Target]) -> Res<Option<Edited>> {
     edit_file_with(file, raw, ts, false, &BS::new(), &BM::new(), &BS::new())
 }
 
-/// `small` lists boss heart hashes that become a small chest (chest size matches contents).
-/// `lifts` raises a freestanding spot swapped to one of those pickup actors by that many metres,
-/// so its item model clears the ground, and scales it up by the second value so it reads from
-/// afar (crate::pickup_pack::lift::look_for_pack).
-/// `wrapped` lists chests whose dungeon item is credited after their story event
-/// (crate::debug_names::stage_credit_chests); the small key sweep leaves them alone.
 pub fn edit_file_with(file: &str, raw: &[u8], ts: &[Target], keys: bool, small: &BS<u64>, lifts: &BM<String, (f32, f32)>, wrapped: &BS<u64>) -> Res<Option<Edited>> {
     let mut y: Byml = Byml::parse(raw)?;
     let mut hits: Vec<(usize, Found)> = Vec::new();

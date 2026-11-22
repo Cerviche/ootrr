@@ -99,9 +99,6 @@ fn picks() -> &'static BM<String, Pick> {
 
 pub const DUNGEON_PREFIX: &str = "Obj_OOTRR_";
 
-/// The pickup a dungeon item stands as at a Gold Skulltula drop: one actor per kind and dungeon (its
-/// pouch item is the game's shared one), so the get can tell which dungeon it credits
-/// (crate::debug_names::key_credits). Every other pickup spot takes crate::dungeon_packs instead.
 pub fn dungeon_pick(d: &Data, item: &str) -> Option<Pick> {
     let i: &Item = d.item(item)?;
     let dungeon: &str = i.dungeon.as_deref().and_then(crate::dungeon_grant::struct_of)?;
@@ -204,8 +201,6 @@ pub fn top_only(d: &Data, item: &str) -> bool {
 
 pub fn resolve(d: &Data, item: &str, tier: Option<&str>) -> Res<Pick> {
     let i: &Item = d.item(item).ok_or_else(|| E::Msg(format!("unknown item {item}")))?;
-    // A dungeon item stands at a pickup spot as the pack of its own dungeon (crate::dungeon_packs);
-    // a Gold Skulltula kit carries dungeon_pick instead (resolve_kit).
     if let Some(p) = crate::dungeon_packs::of_item(i) {
         return Ok(p.pick());
     }
@@ -397,9 +392,6 @@ mod tests {
         }
         assert!(placeable(&d, "Ocarina", Spot::Free) && placeable(&d, "Ocarina", Spot::Skull));
         assert!(!placeable(&d, "Milk", Spot::Free));
-        // Dungeon items stand as one pickup per kind and dungeon: their own dungeon's pack on the
-        // ground, in a holder and on a shelf (crate::dungeon_packs), the shared-item pickup touched
-        // as a Gold Skulltula kit (dungeon_pick).
         for at in [Spot::Free, Spot::Pot, Spot::Skull] {
             assert!(placeable(&d, "Small Key (Forest Temple)", at), "{at:?}");
         }

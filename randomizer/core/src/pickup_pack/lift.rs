@@ -74,14 +74,9 @@ pub fn for_pack(t: &Byml, pack: &str) -> Option<f32> {
     (mm > 0).then_some(mm as f32 / 1000.0)
 }
 
-/// How far, in metres, a freestanding seed pickup's model should reach once scaled up, so that
-/// small items read from afar like a Heart Piece (0.40 m) or a Heart Container (0.73 m) do.
 pub const LOOK: f32 = 0.45;
-/// The most a freestanding seed pickup is scaled up.
 pub const GROW_MAX: f32 = 2.0;
 
-/// The scale for a model that reaches `reach` metres: up to [`LOOK`], at most [`GROW_MAX`], and
-/// never smaller than the item.
 pub fn grow(reach: f32) -> f32 {
     if reach <= 0.0 {
         return 1.0;
@@ -89,9 +84,6 @@ pub fn grow(reach: f32) -> f32 {
     (LOOK / reach).clamp(1.0, GROW_MAX)
 }
 
-/// The lift in metres and the scale of the seed pickup pack `pack` when it stands in a map:
-/// map placements carry a Scale, which vanilla maps use on plain objects (ice pillars, abyss
-/// planes). Drops have no placement, so they keep the item's size and [`for_pack`]'s lift.
 pub fn look_for_pack(t: &Byml, pack: &str) -> Option<(f32, f32)> {
     let p: crate::slice::key_spots::Pick = crate::slice::key_spots::by_pack(pack)?;
     let (s, l) = p.spec().ok()?;
@@ -103,8 +95,6 @@ pub fn look_for_pack(t: &Byml, pack: &str) -> Option<(f32, f32)> {
     Some(((reach * k).min(CAP as f32 / 1000.0), k))
 }
 
-/// Sets the placement scale of the map actor `hash` of `y` to `k` on every axis. Returns how many
-/// actors changed.
 pub fn scale(y: &mut Byml, hash: u64, k: f32) -> usize {
     let Some(list) = y.root.get_mut("Actors").and_then(|a| a.as_arr_mut()) else {
         return 0;

@@ -1,29 +1,3 @@
-//! Dungeon items (small keys, boss keys, maps, compasses) at pickup spots and on shop shelves.
-//!
-//! A chest or a gift scene credits its dungeon through its own flow (crate::dungeon_credit,
-//! crate::dungeon_grant, crate::gift_keys). A pickup on the ground, in a pot or on a shelf has no
-//! such flow: the game's own small key pickup credits the dungeon Link stands in. So every dungeon
-//! item a seed puts at such a spot gets a pickup pack of its own, one per item and dungeon
-//! ([`Pack`], e.g. `Obj_SmallKey_FireTemple`). The pack is its own pouch identity, as the game's
-//! Door Key (Obj_MiniGame_SmallKey) is (crate::pickup_pack::Layers::own):
-//!
-//! - its name text says which dungeon it is for, "Small Key (Fire Temple)", in every language
-//!   ([`stage_text`]), and the get window and the shelf caption name it so;
-//! - its pouch row is NotPushToPouch, so the pouch add stores nothing and credits no dungeon;
-//! - the pickup get (Dm_SY_Get, Dm_SY_Get_WithoutPlayer) and the shop purchase (DisplayShop) then
-//!   ask which pack it was and make the writes a credited chest makes ([`patch_get`],
-//!   [`patch_shop`]): the dungeon's key counts and once flag, or its boss key, map or compass flag.
-//!
-//! The pickup get sets the message target to the picked item's name (EventTriggerSetOwnNameToMessage)
-//! before its pouch add; the shop keeps the item on sale in Shop_SelectItemName. Both are asked
-//! with the game data string question the shelf hook already uses (crate::shelf::hook).
-//!
-//! Every deal slot sells once (shelf::hook's sold sync closes it for every keeper of the shop), so
-//! a purchase credits once. Boss hearts count as ground spots. A Gold Skulltula drop is a kit,
-//! which cannot carry an own identity: it stays on the shared-item pickup and the key sweep of
-//! crate::debug_names::key_credits.
-//!
-//! None of this is tested in the game yet.
 
 use std::collections::BTreeSet as BS;
 use std::path::Path;
@@ -42,14 +16,10 @@ use crate::slice::data::{Data, Item};
 use crate::slice::key_spots::Pick;
 use crate::staging::Out;
 
-/// The pickup get flows and their pouch add (as crate::starter_bags::ADDS).
 pub const GETS: [(&str, usize, &str); 2] = [("Dm_SY_Get", 7, "Event35"), ("Dm_SY_Get_WithoutPlayer", 0, "Event0")];
-/// What the pickup get names the picked item in, before its pouch add.
 pub const PICKED: &str = "UI_MessageTargetActorName";
-/// What the shop names the item on sale in.
 pub const ON_SALE: &str = "Shop_SelectItemName";
 pub const SHOP_FLOW: &str = "Event/EventFlow/DisplayShop.bfevfl.zs";
-/// The shop's grants: the first purchase, the repeat purchase and the get event one.
 pub const SHOP_GRANTS: usize = 3;
 const SHOP_ACTOR: &str = "Npc_EventStarter";
 const SHOP_GRANT: &str = "EventTriggerGetItemAtShop";
@@ -68,7 +38,6 @@ pub enum Kind {
 impl Kind {
     pub const ALL: [Kind; 4] = [Kind::Small, Kind::Boss, Kind::Map, Kind::Compass];
 
-    /// The kind of a logic item kind (crate::slice::data::Item::kind).
     pub fn of(kind: &str) -> Option<Kind> {
         match kind {
             "SmallKey" => Some(Kind::Small),
@@ -88,7 +57,6 @@ impl Kind {
         }
     }
 
-    /// The game's own item, whose name, texts and model the pack shows.
     pub fn vanilla(self) -> &'static str {
         match self {
             Kind::Small => "Item_Dungeon_SmallKey",
@@ -98,8 +66,6 @@ impl Kind {
         }
     }
 
-    /// The item the pack is built from. The map's pack carries an AI graph, which the thin
-    /// pickup template cannot carry, so the map is built on the compass with the map's model.
     pub fn template(self) -> &'static str {
         match self {
             Kind::Map => Kind::Compass.vanilla(),
@@ -112,7 +78,6 @@ impl Kind {
     }
 }
 
-/// One dungeon item: its kind and the dungeon (game data struct name) it belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Pack {
     pub kind: Kind,
@@ -124,7 +89,6 @@ impl Pack {
         format!("Obj_{}_{}", self.kind.tag(), self.dungeon)
     }
 
-    /// The pickup pack build of this item (crate::slice::seed_packs).
     pub fn pick(&self) -> Pick {
         let mut args: Vec<String> = vec!["--name".to_string(), self.name(), "--own".to_string()];
         if let Some(m) = self.kind.look() {
@@ -135,7 +99,6 @@ impl Pack {
     }
 }
 
-/// The pack of a logic item, when it is a dungeon item of a dungeon the game keeps data for.
 pub fn of(d: &Data, item: &str) -> Option<Pack> {
     of_item(d.item(item)?)
 }
@@ -146,7 +109,6 @@ pub fn of_item(i: &Item) -> Option<Pack> {
     Some(Pack { kind, dungeon })
 }
 
-/// The pack an actor name stands for.
 pub fn by_name(name: &str) -> Option<Pack> {
     let rest: &str = name.strip_prefix("Obj_")?;
     Kind::ALL.iter().find_map(|k| {
@@ -162,9 +124,6 @@ pub enum Spot {
     Shelf,
 }
 
-/// The kind of pickup spot `loc` is, when a dungeon item there stands as its pack. A Gold
-/// Skulltula drop is None: its kit keeps the key sweep (crate::debug_names::key_credits).
-/// Where the item may lie is the setting's call (crate::slice::dungeon_items::spot_ok).
 pub fn spot(d: &Data, loc: &str) -> Option<Spot> {
     if crate::shops::data::is_loc(loc) {
         Some(Spot::Shelf)
@@ -179,7 +138,6 @@ pub fn spot(d: &Data, loc: &str) -> Option<Spot> {
     }
 }
 
-/// The packs of the dungeon items the seed puts at pickup spots and on shelves.
 pub fn placed(d: &Data, seed: &SeedFile) -> BS<Pack> {
     seed.placements
         .iter()
@@ -188,7 +146,6 @@ pub fn placed(d: &Data, seed: &SeedFile) -> BS<Pack> {
         .collect()
 }
 
-/// The packs the seed puts where they are picked up (not on shelves): the pickup get credits them.
 pub fn picked_up(d: &Data, seed: &SeedFile) -> BS<Pack> {
     seed.placements
         .iter()
@@ -197,7 +154,6 @@ pub fn picked_up(d: &Data, seed: &SeedFile) -> BS<Pack> {
         .collect()
 }
 
-/// True when the seed hands the dungeon item at `loc` out as its pack, so no chest credits it.
 pub fn handed(d: &Data, loc: &str, item: &str) -> bool {
     d.vanilla_of(loc) != Some(item) && spot(d, loc).is_some() && of(d, item).is_some()
 }
@@ -212,7 +168,6 @@ fn push(f: &mut Flow, kind: Ev) -> Res<u16> {
     Ok(i)
 }
 
-/// The writes a credited chest makes for `p`, ending at `end`. Returns the first event.
 pub fn credit(f: &mut Flow, p: Pack, end: u16) -> Res<u16> {
     let (a, set): (u16, u16) = action_slot(f, HOLDER, SET)?;
     let d: &str = p.dungeon;
@@ -237,12 +192,9 @@ pub fn credit(f: &mut Flow, p: Pack, end: u16) -> Res<u16> {
 fn ask(f: &mut Flow, data: &str, value: &str, hit: u16, miss: u16) -> Res<u16> {
     let (a, q): (u16, u16) = crate::progressive::ensure(f, HOLDER, ASK)?;
     let c: Cont = Cont { items: vec![("GameDataName".to_string(), Val::Str(data.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(value.to_string()))] };
-    // A bool question answers case 0 for true.
     push(f, Ev::Switch { actor: a, query: q, cases: vec![Case { val: 0, ev: hit }, Case { val: 1, ev: miss }], params: Some(c) })
 }
 
-/// Asks `data` for each pack's name and credits the one it names, then goes on to `then`.
-/// Returns the first question.
 pub fn chain(f: &mut Flow, data: &str, packs: &BS<Pack>, then: u16) -> Res<u16> {
     let mut miss: u16 = then;
     for p in packs.iter().rev() {
@@ -269,7 +221,6 @@ fn hooked(f: &Flow) -> bool {
     f.events.iter().any(|e| e.name.starts_with(PREFIX))
 }
 
-/// After the pickup get's pouch add `i` (named `name`), credits the pack the get names.
 pub fn patch_get(f: &mut Flow, i: usize, name: &str, packs: &BS<Pack>) -> Res<()> {
     let then: u16 = match f.events.get(i) {
         Some(e) if e.name == name => next_of(&e.kind).ok_or_else(|| E::Msg(format!("dungeon packs: {name} of {} is not an action", f.name)))?,
@@ -290,7 +241,6 @@ fn is_shop_grant(f: &Flow, e: &Event) -> bool {
     }
 }
 
-/// After each of the shop's grants, credits the pack on sale.
 pub fn patch_shop(f: &mut Flow, packs: &BS<Pack>) -> Res<()> {
     let grants: Vec<usize> = (0..f.events.len()).filter(|&i| is_shop_grant(f, &f.events[i])).collect();
     if grants.len() != SHOP_GRANTS {
@@ -311,7 +261,6 @@ fn flow_mut<'a>(b: &'a mut Bf, name: &str) -> Res<&'a mut Flow> {
     b.flows.iter_mut().find(|f| f.name == name).ok_or_else(|| E::Msg(format!("dungeon packs: no {name} flow")))
 }
 
-/// The shop flow file with the purchase credit, for the shelf build (crate::shelf::stage).
 pub fn shop_file(raw: &[u8], packs: &BS<Pack>) -> Res<Vec<u8>> {
     if packs.is_empty() {
         return Ok(raw.to_vec());
@@ -326,7 +275,6 @@ pub fn shop_file(raw: &[u8], packs: &BS<Pack>) -> Res<Vec<u8>> {
     Ok(out)
 }
 
-/// Stages the pickup get credit on top of what the build already wrote for both flows (`work`).
 pub fn stage(rf: &mut Romfs, late: &mut Vec<Out>, work: &Path, packs: &BS<Pack>) -> Res<()> {
     if packs.is_empty() {
         return Ok(());
@@ -345,7 +293,6 @@ fn lit(s: &str) -> Res<Vec<Tok>> {
     msbt::from_markup(s)
 }
 
-/// "Small Key (Fire Temple)": the game's item name and the dungeon's place name.
 pub fn title(item: &[Tok], place: &[Tok]) -> Res<Vec<Tok>> {
     let mut out: Vec<Tok> = item.to_vec();
     out.extend(lit(" (")?);
@@ -359,7 +306,6 @@ fn msbt_of(es: &[sarc::Entry], name: &str) -> Res<Msbt> {
     msbt::parse(&e.data)
 }
 
-/// Gives every pack in `packs` its name, get message and get caption in one language archive.
 pub fn text_file(raw: &[u8], packs: &BS<Pack>, english: bool) -> Res<Vec<u8>> {
     let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
     let places: Msbt = msbt_of(&es, PLACES)?;
@@ -381,7 +327,6 @@ pub fn text_file(raw: &[u8], packs: &BS<Pack>, english: bool) -> Res<Vec<u8>> {
     sarc::write(&es)
 }
 
-/// Stages the names of the packs in every language.
 pub fn stage_text(rf: &mut Romfs, more: &mut Vec<Out>, packs: &BS<Pack>) -> Res<()> {
     if packs.is_empty() {
         return Ok(());
@@ -471,7 +416,6 @@ mod tests {
         })
     }
 
-    /// Walks from `from` with the message target naming `picked`, and lists the game data written.
     fn walk(f: &Flow, from: u16, picked: &str) -> (Vec<String>, u16) {
         let mut at: u16 = from;
         let mut out: Vec<String> = Vec::new();

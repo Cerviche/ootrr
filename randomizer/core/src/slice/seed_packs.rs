@@ -70,7 +70,6 @@ pub fn need(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Res<BM<Str
         if d.vanilla_of(loc) == Some(item.as_str()) {
             continue;
         }
-        // A dungeon item on a shelf: the shelf is built on its pack (crate::dungeon_packs).
         let shelf: bool = crate::shops::data::is_loc(loc) && crate::dungeon_packs::of(d, item).is_some();
         let Some(k) = kind_of(d, loc, item).or(shelf.then_some(Kind::Free)) else {
             continue;
@@ -439,13 +438,10 @@ mod tests {
             use crate::dungeon_packs::Spot::*;
             [("Small Key (Fire Temple)", Ground), ("Boss Key (Water Temple)", Holder), ("Map (Ice Cavern)", Ground), ("Compass (Deku Tree)", Holder), ("Small Key (Forest Temple)", Shelf)]
         };
-        // Overworld spots the rule lets the item take, chosen in name order.
         let list: Vec<String> = {
             let p = crate::slice::support::plan(&s).unwrap();
             let w: crate::world::World = crate::slice::logic::world_with(&d, &p.logic()).unwrap();
             let mut locs: Vec<crate::world::LocId> = crate::slice::pick::pick(&d, &w, &p).free;
-            // Shelves are filled through the deal layout, not the free spots: Item 7 is the first
-            // right side slot, a deal under deals_4.
             locs.extend((0..w.locs.len()).filter(|l| crate::shops::data::is_loc(&w.locs[*l].name) && w.locs[*l].name.ends_with("Item 7")));
             locs.sort_by(|a, b| w.locs[*a].name.cmp(&w.locs[*b].name));
             let mut used: Vec<crate::world::LocId> = Vec::new();

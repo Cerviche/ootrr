@@ -118,8 +118,6 @@ pub fn pouch_row(item_row: &Node, name: &str) -> Node {
     r
 }
 
-/// A pouch row whose get stores nothing and runs no special deal (the small key's deal credits
-/// the dungeon Link stands in), the deal of the game's Door Key.
 pub fn quiet(r: &mut Node) {
     r.set(DEAL, Node::Str(QUIET_DEAL.to_string()));
     r.remove(STOCK);

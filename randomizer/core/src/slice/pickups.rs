@@ -174,7 +174,6 @@ pub fn swap_gyaml(y: &mut Byml, hash: u64, old: &str, new: &str) -> usize {
 
 pub fn pack_actor(d: &Data, extra: &Extra, item: &str, tier: Option<&str>) -> Option<String> {
     let i: &crate::slice::data::Item = d.item(item)?;
-    // A dungeon item lies there as its own dungeon's pack (crate::dungeon_packs).
     if let Some(p) = crate::dungeon_packs::of_item(i) {
         return extra.has(&p.name()).then(|| p.name());
     }
@@ -275,7 +274,6 @@ pub fn at(d: &Data, name: &str, item: &str) -> Option<bool> {
             return Some(true);
         }
         let known: bool = ground_actor(item).is_some() || ks::shield(item).is_some() || ks::placeable(d, item, ks::Spot::Free);
-        // A spot that exists once per age shares one hash at build (crate::slice::copies::share).
         return Some(known);
     }
     None
@@ -523,8 +521,6 @@ mod tests {
         let d: Data = Data::load().unwrap();
         for n in 0..4 {
             let g: Generated = generate_data(&d, &on("all"), &format!("unsure {n}"), &GenOpts::default()).unwrap();
-            // Their logic follows the actors (the Hyrule Field chest is adult only, the Gerudo
-            // Valley chest stands on the crate ledge), so they take any item.
             for name in ["HF Tektite Grotto Freestanding PoH", "GV Crate Freestanding PoH"] {
                 assert!(g.seed_file.placements.contains_key(name), "{name}");
             }
@@ -564,8 +560,6 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let key: &str = KEY_SPOTS[0];
         assert_eq!(at(&d, key, "Small Key (Bottom of the Well)"), Some(true));
-        // Another dungeon's key stands as its own dungeon's pack and credits that dungeon after
-        // the get (crate::dungeon_packs), not the dungeon of the scene.
         assert_eq!(at(&d, key, "Small Key (Forest Temple)"), Some(true));
         let forest: Option<String> = crate::dungeon_packs::of(&d, "Small Key (Forest Temple)").map(|p| p.name());
         let well: Option<String> = crate::dungeon_packs::of(&d, "Small Key (Bottom of the Well)").map(|p| p.name());

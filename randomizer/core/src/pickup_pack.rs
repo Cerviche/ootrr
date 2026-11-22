@@ -41,16 +41,10 @@ pub struct Layers {
     pub ammo: bool,
     pub magic: bool,
     pub model: Option<String>,
-    /// The pickup turns in place, burns with the Fire Arrow flame and rests clear of the
-    /// ground (actor::SPIN, actor::GLINT_USER, crate::pickup_pack::lift). The seed build turns it on for every pack it writes.
     pub spin: bool,
     /// With spin: how far, in millimetres, the pickup's body reaches below its origin so that the
     /// turning item model clears the ground (crate::pickup_pack::lift). The pack builds fill it in.
     pub lift: u32,
-    /// The pickup is its own pouch identity, as the game's Door Key (Obj_MiniGame_SmallKey) is:
-    /// the get window and a shelf name it by its own `<name>_Name` text, and its pouch row is
-    /// NotPushToPouch, so the pouch add stores nothing and credits no dungeon by itself
-    /// (crate::dungeon_packs credits the dungeon it names).
     pub own: bool,
 }
 

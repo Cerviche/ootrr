@@ -505,9 +505,6 @@ mod tests {
                 let Some(i) = d.item(item).filter(|i| Kind::of(&i.kind).is_some_and(|k| gr.sweep.contains(&k))) else {
                     continue;
                 };
-                // A reward event holding a dungeon item (#24) is credited by crate::gift_keys, any
-                // other NPC or sale (a scrub too) by a location credit (crate::debug_names), a
-                // pickup spot or a shelf by crate::dungeon_packs.
                 if d.flow.by_name(loc).is_some() {
                     continue;
                 }
@@ -639,8 +636,6 @@ mod tests {
             };
             let k: Kind = Kind::of(&i.kind).unwrap();
             let want: &str = i.dungeon.as_deref().and_then(struct_of).unwrap();
-            // A reward event holding a dungeon item (#24) is credited by crate::gift_keys, a
-            // pickup spot or a shelf by crate::dungeon_packs.
             let Some(c) = d.cat.by_name(loc).filter(|_| !crate::dungeon_packs::handed(&d, loc, item)) else {
                 continue;
             };
@@ -681,9 +676,6 @@ mod tests {
                 let Some(i) = d.item(item).filter(|i| Kind::of(&i.kind).is_some_and(|k| gr.sweep.contains(&k))) else {
                     continue;
                 };
-                // A reward event holding a dungeon item (#24) is credited by crate::gift_keys; a
-                // story chest, a pickup spot and a shelf credit through their own events, not the
-                // chest flow.
                 if !d.cat.by_name(loc).is_some_and(|c| c.kind == "chest") || story_chest(&d, loc) || crate::dungeon_packs::handed(&d, loc, item) {
                     continue;
                 }

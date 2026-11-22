@@ -29,12 +29,6 @@ pub const XLINK_REF: &str = "XLinkRef";
 /// its bare pose, centred on the actor, half sunk in the floor, and never turns.
 pub const SPIN: &str = "Rotate_Obj";
 const AUTO_PLAY: &str = "AutoPlayASName";
-/// The effect user the pickups show: the Fire Arrow pickup's. Its Wait key plays the fire arrow
-/// aura, flame, light and far glow while Rotate_Obj plays, under the same trigger as the Gold
-/// Skulltula token's Wait (ELink2/elink2.Product.110.belnk.zs). Those effects sit on the bone
-/// Effect_0, which few item models have, so the seed moves them to Root (crate::pickup_pack::flame).
-/// Tried before: the token's ring (Skl_Root, on 152 of the 913 Item_/Obj_ models; testers found
-/// it jarring) and the Heart Piece's glow (Root; its heart shape reads poorly from afar).
 pub const GLINT_USER: &str = "Obj_Arrow_Fire";
 const ELINK_USER: &str = "UserName";
 
@@ -56,8 +50,6 @@ pub fn glint_file(name: &str) -> String {
     format!("Component/ELink/{name}.engine__component__ELinkParam.bgyml")
 }
 
-/// The actor name reference of a pickup that is its own identity ([`Layers::own`]), as the
-/// game's Door Key names itself.
 pub fn own_name_ref(name: &str) -> String {
     format!("?ActorSystem/ActorName/{name}.engine__actor__ActorName.bgyml")
 }
@@ -182,9 +174,6 @@ pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
     }
     comps.set(AS_REF, Node::Str(need(&donor, DONOR, AS_REF)?.to_string()));
     if l.own || s.name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
-        // The game names an actor by its ActorNameRef's file name (the file itself is optional):
-        // a dungeon item's own pickup is named by its own <name>_Name text (crate::dungeon_packs,
-        // and debug_names::name_keys for a Gold Skulltula drop).
         comps.set(NAME_REF, Node::Str(own_name_ref(&s.name)));
     } else {
         comps.set(NAME_REF, Node::Str(need(&item, &s.item, NAME_REF)?.to_string()));
@@ -220,8 +209,6 @@ pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
     pouch.set(PARENT, Node::Str(work(&item_pouch)));
     // Goron's Bracelet saves under its armor actor, as the shop shelf does (crate::shelf::actor).
     let who: String = if l.own || s.name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
-        // A dungeon item's own pickup is a pouch item of its own, named for its dungeon
-        // (crate::dungeon_packs; crate::debug_names::key_credits for a Gold Skulltula drop).
         s.name.clone()
     } else {
         crate::shelf::actor::shelf_identity(&identity(p, s, &item, &item_pouch)?).to_string()
