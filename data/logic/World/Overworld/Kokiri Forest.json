@@ -36,12 +36,12 @@
             "KF Bean Platform Green Rupee 6": "is_adult and (here(can_plant_bean) or Hover_Boots)",
             "KF Bean Platform Red Rupee": "is_adult and (here(can_plant_bean) or Hover_Boots)",
             "KF GS Know It All House": "
-                is_child and can_child_attack and (at_night or gold_skulls_ignore_daytime) and
+                is_child and can_child_attack and can_get_night_gs and
                 (had_night_start or can_leave_forest or can_play(Suns_Song) or gold_skulls_ignore_daytime)",
             "KF GS Bean Patch": "
                 can_plant_bugs and can_child_attack",
             "KF GS House of Twins": "
-                is_adult and (at_night or gold_skulls_ignore_daytime) and
+                is_adult and can_get_night_gs and
                 (Hookshot or (logic_adult_kokiri_gs_hovers and Hover_Boots) or logic_adult_kokiri_gs_nothing)",
             "KF Gossip Stone": "True",
             "Gossip Stone Fairy": "can_summon_gossip_fairy_without_suns and has_bottle",

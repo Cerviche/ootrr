@@ -89,9 +89,9 @@ pub struct Plan {
     pub debug_names: bool,
     pub silver: bool,
     /// crate::medal_gate: Some(n) when the Light Arrows scene waits for n dungeon rewards.
-    pub lacs: Option<u8>,
+    pub lacs: Option<crate::medal_gate::Goal>,
     /// crate::rainbow_bridge: Some(n) when the bridge waits for n dungeon rewards.
-    pub rainbow: Option<u8>,
+    pub rainbow: Option<crate::medal_gate::Goal>,
     pub trials: crate::ganon_trials::Trials,
     pub door: crate::door_gate::Opts,
     pub nocturne: bool,
@@ -204,7 +204,7 @@ impl Plan {
             out.push((crate::prelude_gate::LOGIC_KEY, "true"));
         }
         if let Some(n) = self.lacs {
-            out.extend(crate::medal_gate::lacs_logic(n));
+            out.extend(crate::medal_gate::lacs_goal_logic(n));
         }
         if let Some(n) = self.rainbow {
             out.extend(crate::rainbow_bridge::logic(n));
@@ -299,8 +299,8 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let bridge: bool = crate::deku_bridge::mode(s, &mut bad);
     let debug_names: bool = toggle(s, crate::debug_names::SETTING, &mut bad);
     let silver: bool = crate::slice::silver::mode(s, chests, &mut bad);
-    let lacs: Option<u8> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
-    let rainbow: Option<u8> = crate::rainbow_bridge::read(s, &mut bad);
+    let lacs: Option<crate::medal_gate::Goal> = crate::medal_gate::read_lacs(s, keys.ganon, &mut bad);
+    let rainbow: Option<crate::medal_gate::Goal> = crate::rainbow_bridge::read(s, &mut bad);
     let door: crate::door_gate::Opts = crate::door_gate::read(s, gates.door, &mut bad);
     let nocturne: bool = crate::nocturne_gate::read(s, &mut bad);
     let prelude: bool = crate::prelude_gate::read(s, &mut bad);

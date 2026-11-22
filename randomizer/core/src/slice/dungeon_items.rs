@@ -48,7 +48,7 @@ use crate::world::{LocId, World};
 
 pub const BOSS_OK: [&str; 7] = ["remove", "vanilla", "dungeon", "regional", "overworld", "any_dungeon", "keysanity"];
 pub const MAP_OK: [&str; 7] = ["remove", "startwith", "vanilla", "dungeon", "regional", "any_dungeon", "keysanity"];
-pub const GANON_OK: [&str; 8] = ["remove", "vanilla", "dungeon", "regional", "overworld", "any_dungeon", "keysanity", crate::lacs_key::VALUE];
+pub const GANON_OK: [&str; 9] = ["remove", "vanilla", "dungeon", "regional", "overworld", "any_dungeon", "keysanity", crate::lacs_key::VALUE, crate::medal_gate::LACS_MEDALLIONS_VALUE];
 
 pub const BOSS_DUNGEONS: [&str; 5] = ["ForestTemple", "FireTemple", "WaterTemple", "ShadowTemple", "SpiritTemple"];
 pub const GANON: &str = "InsideGanonCastle";
@@ -125,7 +125,7 @@ pub fn keep_value(v: &str) -> Keep {
         "keysanity" => Keep::Anywhere,
         "overworld" => Keep::Overworld,
         "regional" => Keep::Regional,
-        crate::lacs_key::VALUE => Keep::Lacs,
+        crate::lacs_key::VALUE | crate::medal_gate::LACS_MEDALLIONS_VALUE => Keep::Lacs,
         _ => Keep::Start,
     }
 }
