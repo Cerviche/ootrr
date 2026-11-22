@@ -1,0 +1,118 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even when main has not changed since the last nightly
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.p.outputs.build }}
+      version: ${{ steps.p.outputs.version }}
+      since: ${{ steps.p.outputs.since }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: p
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          head="$(git rev-parse HEAD)"
+          since="$(git rev-parse -q --verify 'refs/tags/nightly^{commit}' || true)"
+          echo "since=$since" >> "$GITHUB_OUTPUT"
+          if [ "$since" = "$head" ] && [ "$FORCE" != "true" ]; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "No new commits on main since the last nightly (${head:0:10}), so nothing was built." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          version="$(python3 -I tools/nightly_version.py next "$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}")"
+          echo "build=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Building nightly $version from ${head:0:10}." >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release.yml
+    with:
+      nightly: ${{ needs.plan.outputs.version }}
+
+  publish:
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      SINCE: ${{ needs.plan.outputs.since }}
+      NIGHTLY_REPO: ${{ vars.NIGHTLY_REPO || 'ootrando/ootrr-nightly' }}
+      NIGHTLY_KEEP: ${{ vars.NIGHTLY_KEEP || '14' }}
+      NIGHTLY_TOKEN: ${{ secrets.NIGHTLY_TOKEN }}
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_NIGHTLY_WEBHOOK }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Release
+        id: r
+        run: |
+          if [ -z "$NIGHTLY_TOKEN" ]; then
+            url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+            echo "NIGHTLY_TOKEN is not set, so the files stay as this run's artifacts: $url" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          tag="v$VERSION"
+          url="https://github.com/${NIGHTLY_REPO}/releases/tag/${tag}"
+          python3 -I tools/nightly_post.py notes "$VERSION" "$SINCE" "$url" "$RUNNER_TEMP/notes.md"
+          GH_TOKEN="$NIGHTLY_TOKEN" gh release create "$tag" dist/* \
+            --repo "$NIGHTLY_REPO" \
+            --title "OOTRR nightly $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --latest
+          GH_TOKEN="$NIGHTLY_TOKEN" gh release list --repo "$NIGHTLY_REPO" --limit 200 --json tagName,createdAt \
+            --jq "sort_by(.createdAt) | reverse | .[${NIGHTLY_KEEP}:] | .[].tagName" |
+            while read -r old; do
+              GH_TOKEN="$NIGHTLY_TOKEN" gh release delete "$old" --repo "$NIGHTLY_REPO" --cleanup-tag --yes
+            done
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Published $url" >> "$GITHUB_STEP_SUMMARY"
+      - name: Mark the commit
+        run: |
+          git tag -f nightly "$GITHUB_SHA"
+          git push -f origin refs/tags/nightly
+      - name: Discord
+        if: env.DISCORD_WEBHOOK != ''
+        env:
+          URL: ${{ steps.r.outputs.url }}
+        run: |
+          python3 -I tools/nightly_post.py discord "$VERSION" "$SINCE" "$URL" "$RUNNER_TEMP/discord.json"
+          curl -fsS -H "Content-Type: application/json" --data @"$RUNNER_TEMP/discord.json" "$DISCORD_WEBHOOK"
