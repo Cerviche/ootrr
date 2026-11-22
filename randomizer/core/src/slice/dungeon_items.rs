@@ -500,7 +500,7 @@ mod tests {
                 }
             }
             let gr: Grants = grants(d, &g.seed_file, &p).unwrap();
-            let picks: Vec<crate::debug_names::KeyCredit> = crate::debug_names::key_credits(d, &g.seed_file, p.keys_roam());
+            let picks: Vec<crate::debug_names::KeyCredit> = crate::debug_names::key_credits(d, &g.seed_file);
             for (loc, item) in &g.seed_file.placements {
                 let Some(i) = d.item(item).filter(|i| Kind::of(&i.kind).is_some_and(|k| gr.sweep.contains(&k))) else {
                     continue;
