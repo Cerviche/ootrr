@@ -21,10 +21,6 @@ pub const GORONS: [(&str, &str); 9] = [
     ("Room_23_Prefab_612a", "Npc_Goron_007_Adult_FireTemple_6279"),
 ];
 
-/// The eight small key chests read their Goron's Npc_Goron_NNN_Delete straight into Unlock. The
-/// Boss Key chest (Room 17) reads an AND of Npc_Goron_010_Delete and the player being outside
-/// Area_ccd2. Only the Goron's own talk flow sets that flag, so with the Goron gone the chest
-/// stayed locked and gave no prompt.
 pub const CHESTS: [(&str, &str); 9] = [
     ("Room_02_Prefab_3004", "Obj_TBox_A_01_435b"),
     ("Room_04_Prefab_d826", "Obj_TBox_A_01_d31e"),
