@@ -30,8 +30,6 @@ pub const NOTE: &str = "The owls on the Death Mountain Trail and at Lake Hylia s
 pub const KAKARIKO_SPOT: [f32; 3] = [-49.33, 118.84, 21.58];
 pub const KAKARIKO_TURN: f32 = 2.1206;
 
-/// Maps whose vanilla owl is kept. The game only places each of them while the Temple of Time
-/// owl scene (Dm_TimeTemple_0086) is unplayed.
 pub const STAY: [(&str, &str); 2] = [("DeathMountainTrail", "DeathMountainTrail_Child"), ("HyruleField", "HyruleField_Child")];
 pub const LAKE_LOGIC: &str = "Logic/HyruleField_LakeHylia_Child_Prefab_32f1.logic.module.ainb";
 pub const LAKE_READ: &str = "GameDataNameBool";
@@ -52,7 +50,6 @@ pub struct Ride {
     pub ask: &'static str,
 }
 
-/// One row per new owl: the map he stands in, where, where he carries Link, and what he asks.
 pub const RIDES: [Ride; 1] = [Ride {
     name: "kakariko_to_kokiri_forest",
     dir: "KakarikoVillage",
@@ -89,9 +86,6 @@ pub fn files() -> Vec<String> {
     out
 }
 
-/// The Lake Hylia owl's own logic group creates him only while the Temple of Time owl scene
-/// is unplayed, as well as the map's presence entry. Its check reads the played flag of that
-/// scene; it reads the flag of the credits scene instead, which a running game never has set.
 pub fn lake_logic(raw: &[u8]) -> Res<Vec<u8>> {
     let mut a: Ainb = Ainb::parse(raw)?;
     let hits: Vec<usize> = a.find_els(LAKE_ELEMENT).into_iter().filter(|&i| a.in_str(i, LAKE_READ) == Some(LEFT)).collect();
@@ -349,8 +343,6 @@ mod tests {
         }
     }
 
-    /// Walks the Talk entry on `map`, answering the question yes or no. Returns the messages
-    /// shown and the map change reached, or None when the walk leaves the flow without ending.
     fn walk(f: &Flow, map: &str, yes: bool) -> Option<(Vec<String>, Option<(String, String)>, bool)> {
         let mut i: u16 = f.entries.iter().find(|e| e.name == "Talk")?.main;
         let mut said: Vec<String> = Vec::new();
