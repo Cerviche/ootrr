@@ -41,22 +41,17 @@ pub struct Plan {
     pub source: Source,
     /// Add the v1.1.1 update's own files to the mod.
     pub with_update: bool,
-    /// After the build, delete the other seeds beside this one (see [`delete_others`]).
     pub delete_others: bool,
 }
 
 pub const SPOILER_FILE: &str = "Spoiler.txt";
 
-/// Deletes the other seeds in the folder that holds `root`: every folder beside it with both a
-/// Spoiler.txt and a romfs folder, which only a randomizer seed has. Returns their names.
 pub fn delete_others(root: &std::path::Path) -> std::io::Result<Vec<String>> {
     let Some(parent) = root.parent() else {
         return Ok(Vec::new());
     };
     let own = root.file_name();
     let mut gone: Vec<String> = Vec::new();
-    // A seed under the title id also clears the seeds written straight into the mods folder
-    // (the layout Longshot builds used before), since Longshot loads both at once.
     let mut folders: Vec<&std::path::Path> = vec![parent];
     if parent.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.eq_ignore_ascii_case(TITLE_ID)) {
         if let Some(up) = parent.parent() {

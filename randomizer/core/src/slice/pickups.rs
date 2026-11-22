@@ -51,18 +51,12 @@ pub fn ground_actor(item: &str) -> Option<&'static str> {
 /// Freestanding small keys that join the pool when small keys roam (keysanity: any dungeon,
 /// anywhere, overworld, regional). Own dungeon keeps them, as the new saved row
 /// (NEW_ROWS) is not yet checked in the game. The key credits the dungeon of its scene, so the spot takes its own key back
-/// unchanged, or any pickup that can lie on the ground. The Shadow Temple jar key joins too: its
 /// jar event (ShadowTemple_Gimmick, entry LargeJar_Key) binds the key actor by name and plays
-/// Act_Pop on it, so when another pickup stands there that animation becomes a short wait
-/// ([`jar_patch`]). The Thieves' Hideout keys stay out: they follow shuffle_hideoutkeys.
 pub const KEY_SPOTS: [&str; 2] = ["Bottom of the Well Freestanding Key", "Shadow Temple Freestanding Key"];
 
 pub const JAR_SPOT: &str = "Shadow Temple Freestanding Key";
 pub const JAR_FLOW: &str = "ShadowTemple_Gimmick";
 
-/// The jar key event pops the key out (Event116, Act_Pop, then Event70, Rotate_Obj) on the bound
-/// Obj_Dungeon_SmallKey. With another pickup at the spot no actor of that name stands there, so
-/// the pop becomes a one frame wait and the event ends.
 pub fn jar_patch(b: &mut crate::bfevfl::Bf) -> Res<()> {
     use crate::bfevfl::{Cont, Kind, Val};
     let f = b.flows.iter_mut().find(|f| f.name == JAR_FLOW).ok_or(E::Format("jar key: ShadowTemple_Gimmick has no flow of its name"))?;
@@ -84,10 +78,8 @@ pub fn jar_patch(b: &mut crate::bfevfl::Bf) -> Res<()> {
 /// Ground spots whose actor keeps no saved row of its own (Ruto's Letter checks the letter,
 /// the key its room flag). When another pickup stands there the build adds a permanent row for
 /// the hash (pot_slice::rows::stage_new), or that pickup would come back on every load.
-/// The Dampé race Heart Piece is a new actor (crate::qol::dampe_race) with no row of its own.
 pub const NEW_ROWS: [&str; 4] = ["LH Underwater Item", "Bottom of the Well Freestanding Key", "Graveyard Dampe Race Freestanding PoH", "Shadow Temple Freestanding Key"];
 
-/// Ground spots shuffled whatever the freestanding setting, like the Heart Pieces: Ruto's Letter.
 pub const ALWAYS: [&str; 1] = ["LH Underwater Item"];
 
 pub fn is_key_spot(l: &Loc) -> bool {

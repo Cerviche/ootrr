@@ -31,8 +31,6 @@ impl Host {
         matches!(self, Host::Hookshot | Host::Longshot | Host::Nx2navi)
     }
 
-    /// Whether the mod goes straight into the mods folder (mods/<name>) instead of under the
-    /// title id (<folder>/<TITLE ID>/<name>). Longshot loads both and takes the title id layout.
     pub fn no_title(self) -> bool {
         matches!(self, Host::Hookshot | Host::Nx2navi)
     }

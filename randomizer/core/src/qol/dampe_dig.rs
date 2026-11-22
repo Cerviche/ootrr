@@ -1,21 +1,14 @@
 use crate::bfevfl::{Bf, Event, Flow, Kind, Val};
 use crate::error::{Error, Res};
 
-/// Dampé's gravedigging tour, in both copies of his flow (the base game's and the 1.1.0 one).
 pub const FLOWS: [&str; 2] = ["Npc_Hylia_Dampe_001", "Npc_Hylia_Dampe_001.110"];
 const NAME: &str = "Npc_Hylia_Dampe_001";
 pub const DROPPED: &str = "GraveYard_DiggingHoleTour_Drop_HeartPiece";
-/// The dig lottery (Event219) and its rupee share: 0 makes every dig a hit.
 const LOTTERY: &str = "Event219";
 const RUPEE_RATE: &str = "LotteryHitSoil_RupeeRate";
-/// The lottery's rupee results (Event219 cases 0 to 5).
 const RUPEES: [u32; 6] = [0, 1, 2, 3, 4, 5];
-/// Has the Heart Piece dropped yet (Event119: 0 yes, 1 no).
 const ASK: &str = "Event119";
-/// Dampé's two "found something" reactions; vanilla then asks for a second fee (Event136 or
-/// Event157, the choice, Event88's -5) before the Heart Piece dig.
 const FOUND: [&str; 2] = ["Event48", "Event259"];
-/// The Heart Piece dig: find the soil spot, then the Heart Piece demo and the check's grant.
 const DIG: &str = "Event314";
 
 pub const NOTE: &str = "Dampé's gravedigging tour gives its check on the first dig, with no second fee: the dig lottery (Event219) has no rupee share, a rupee result goes to the Heart Piece dig while the check is not taken, and Dampé's find (Event48, Event259) goes straight to the Heart Piece dig (Event314), skipping the question and the second fee. Once the check is taken, every dig gives rupees as before. Always on.";
@@ -37,7 +30,6 @@ pub fn patch(b: &mut Bf) -> Res<()> {
         return Err(Error::Format("first dig: Event119 no longer asks whether the Heart Piece dropped"));
     }
     let dig: u16 = idx(named(f, DIG)?)?;
-    // Dampé's find goes straight to the Heart Piece dig: no question, no second fee.
     for n in FOUND {
         let i: usize = named(f, n)?;
         match &mut f.events[i].kind {
@@ -45,7 +37,6 @@ pub fn patch(b: &mut Bf) -> Res<()> {
             _ => return Err(Error::Msg(format!("first dig: {n} is not an action"))),
         }
     }
-    // The lottery is still asked (it sets up the dig), with no rupee share.
     let lottery: usize = named(f, LOTTERY)?;
     let mut found: bool = false;
     if let Some(c) = f.events[lottery].kind.params_mut() {
@@ -59,8 +50,6 @@ pub fn patch(b: &mut Bf) -> Res<()> {
     if !found {
         return Err(Error::Format("first dig: the dig lottery has no rupee rate"));
     }
-    // A rupee result still goes to the Heart Piece dig until the check is taken: a copy of
-    // Event119 per case, taken goes on to the rupee, not taken to the dig.
     let targets: Vec<(u32, u16)> = match &f.events[lottery].kind {
         Kind::Switch { cases, .. } => cases.iter().filter(|c| RUPEES.contains(&c.val)).map(|c| (c.val, c.ev)).collect(),
         _ => return Err(Error::Format("first dig: the dig lottery is not a switch")),

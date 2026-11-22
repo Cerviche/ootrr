@@ -120,7 +120,6 @@ pub const GROUPS: &[Group] = &[
     Group { id: "goron_tunic", logic: "Goron Tunic", offset: 0, strip: Strip::Unique, recipe: Recipe::Grant(&["Armor_Adult_Goron"]) },
     Group { id: "zora_tunic", logic: "Zora Tunic", offset: 0, strip: Strip::Unique, recipe: Recipe::Grant(&["Armor_Adult_Zora"]) },
     Group { id: "hylian_shield", logic: "Hylian Shield", offset: 0, strip: Strip::Unique, recipe: Recipe::Grant(&["Weapon_Shield_Hylian"]) },
-    // The Mask Shop still sells its own Bunny Hood, so nothing leaves the pool.
     Group { id: "bunny_hood", logic: "Bunny Hood", offset: 0, strip: Strip::Keep, recipe: Recipe::Grant(&["Armor_Child_Mask_Bunny"]) },
     Group { id: "mirror_shield", logic: "Mirror Shield", offset: 0, strip: Strip::Unique, recipe: Recipe::Grant(&["Weapon_Shield_Mirror"]) },
     Group { id: "stone_of_agony", logic: "Stone of Agony", offset: 0, strip: Strip::Unique, recipe: Recipe::Grant(&["Item_AgonyStone"]) },

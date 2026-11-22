@@ -1,16 +1,9 @@
-//! LH Sun: shooting the sun at Lake Hylia after the Water Temple. In the remake the Lake Hylia AI
-//! (HyruleField_LakeHylia_Adult_Prefab) reveals a Fire Arrows pickup (Obj_Arrow_Fire) when
-//! SubEvent_GetFireArrow's FireArrow_Appear entry runs. No flow grants the arrows, so the check
-//! is a gated reward: the pickup is hidden for good, and FireArrow_Appear runs the standard item
-//! get with the placed item (crate::story_skip::patch_sun_give) after its scene.
-
 use crate::byml::{Byml, Node};
 use crate::error::{Error as E, Res};
 
 pub const LOC: &str = "LH Sun";
 pub const FLOW: &str = "SubEvent_GetFireArrow";
 pub const MAP: &str = "Banc/HyruleField/HyruleField_Adult_Static.bcett.byml.zs";
-/// The Fire Arrows pickup the Lake Hylia AI reveals.
 pub const ARROW: u64 = 4598657944866228526;
 pub const ARROW_ACTOR: &str = "Obj_Arrow_Fire";
 
@@ -20,7 +13,6 @@ pub fn is(name: &str) -> bool {
     name == LOC
 }
 
-/// Hides the Fire Arrows pickup for good: its presence reads the always true flag, negated.
 pub fn hide(raw: &[u8]) -> Res<Vec<u8>> {
     let mut y: Byml = Byml::parse(raw)?;
     let list: &mut Vec<Node> = y.root.get_mut("Actors").and_then(|a| a.as_arr_mut()).ok_or(E::Format("lh sun: the Hyrule Field map has no actors"))?;

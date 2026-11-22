@@ -1,4 +1,3 @@
-// The map side of night Gold Skulltulas lives in crate::slice::skull_day (Skulltulas by day).
 pub const SUNS: &str = "night_skulls_suns_song";
 pub const SUNS_NUM: u16 = 161;
 pub const LOGIC_SUNS: &str = "night_skulls_suns_song";

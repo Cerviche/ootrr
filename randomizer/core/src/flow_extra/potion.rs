@@ -12,7 +12,6 @@ pub const LOCS: [&str; 2] = [BOTTLE, POTION];
 pub const RULE: &str = "'Zelda Met' and has_bottle";
 pub const SHELF: &str = "Market Potion Shop ";
 
-/// One of the eight shelves ('Market Potion Shop Left Side Top Left' and so on).
 pub fn shelf(name: &str) -> bool {
     name.strip_prefix(SHELF).is_some_and(|r| r.starts_with("Left Side ") || r.starts_with("Right Side "))
 }

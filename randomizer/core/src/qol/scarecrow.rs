@@ -5,14 +5,10 @@ pub const SETTING: &str = "free_scarecrow";
 pub const NUM: u16 = 163;
 pub const LOGIC_KEY: &str = "scarecrow_behavior";
 pub const LOGIC_ON: &str = "free";
-/// The Ocarina flow: taking the Ocarina out runs its PlayOcarinaFree entry.
 pub const FLOW: &str = "Dm_SY_Ocarina";
 const FREE: &str = "PlayOcarinaFree";
-/// The Scarecrow's Song's own branch: which Pierre call area Link stands in, each case moving to
-/// that spot's AppearPierre event (Event109 of the AppearPierreEventTransition entry).
 const CALL: &str = "Event109";
 const IN_AREA: &str = "EventQueryCheckContactAreaCanCallPierre";
-/// The area answer when Link stands in no Pierre call area.
 const NO_AREA: u32 = 0;
 
 pub const NOTE: &str = "Free Scarecrow's Song: taking out the Ocarina in one of Pierre's call areas makes him appear there at once, with no song to record or play. PlayOcarinaFree in Dm_SY_Ocarina starts with a copy of the Scarecrow's Song area check (Event109): in a call area it moves to that spot's AppearPierre event, anywhere else the Ocarina plays as usual. A call area goes once its Pierre is out. The logic treats the Scarecrow's Song as known (OoTR's Free Scarecrow's Song). Bonooru and the adult Pierre at Lake Hylia still talk as usual.";

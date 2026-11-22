@@ -171,7 +171,6 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let blocks: bool = flag(blocks::SETTING);
     let owls: bool = flag(owl::SETTING);
     let suns_skulls: bool = flag(night_skulls::SUNS);
-    // Always on, not a setting.
     let any_fish: bool = true;
     let free_scarecrow: bool = flag(scarecrow::SETTING);
     let skip_escape: bool = flag(tower_escape::SETTING);

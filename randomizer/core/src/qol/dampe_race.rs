@@ -4,21 +4,14 @@ use crate::error::{Error, Res};
 
 pub const FLOW: &str = "MiniGame_DampeRace";
 pub const STATE: &str = "Minigame_DampeRace_TreasureBoxState";
-/// The map of Dampé's grave race, where the race goal and its chests are.
 pub const GRAVE: &str = "Banc/Graveyard/Graveyard_Adult_Static.bcett.byml.zs";
 
-/// The Heart Piece of the race (Graveyard Dampe Race Freestanding PoH) lies on the ground at the
-/// goal: with Dampé (DampePos) and the goal chest it makes a triangle, mirrored from Dampé across
-/// the chest on the floor. Copied from the Graveyard's own ground Heart Piece.
 pub const HEART: u64 = 7277816997830770001;
 pub const HEART_AT: [f32; 3] = [-3.157, 82.6, 75.47];
 const HEART_FROM: u64 = 2157466067026784951;
 
-/// A Song of Time block that only stands there as a platform: no Song of Time group, no link.
-/// Placed in the race course where the owner stood, raised a little.
 pub const BLOCK: u64 = 7277816997830770002;
 pub const BLOCK_AT: [f32; 3] = [-19.6769, 84.1, 77.4768];
-/// Turned a quarter turn about the vertical axis.
 pub const BLOCK_TURN: f32 = std::f32::consts::FRAC_PI_2;
 const BLOCK_ACTOR: &str = "Obj_SongOfTimeBlock_A_01";
 
@@ -41,8 +34,6 @@ fn is(e: &Event, k: &str, v: &str) -> bool {
     param(e, k) == Some(&Val::Str(v.to_string()))
 }
 
-/// A fast second race (Event364, TreasureBoxState = AppearHeartPiece) shows the rupee chest:
-/// the Heart Piece is on the ground now, and its chest never appears.
 pub fn patch(b: &mut Bf) -> Res<()> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == FLOW).ok_or(Error::Format("one dampe race: MiniGame_DampeRace has no flow of its name"))?;
     let heart: usize = named(f, "Event364")?;
@@ -74,7 +65,6 @@ fn actor(gyaml: &str, hash: u64, pos: [f32; 3], rot: Node, srt: u32) -> Node {
     ])
 }
 
-/// Adds the ground Heart Piece and the Song of Time block platform to the grave race map.
 pub fn place(raw: &[u8]) -> Res<Vec<u8>> {
     let mut y: Byml = Byml::parse(raw)?;
     let list: &mut Vec<Node> = y.root.get_mut("Actors").and_then(|a| a.as_arr_mut()).ok_or(Error::Format("one dampe race: the grave map has no actors"))?;

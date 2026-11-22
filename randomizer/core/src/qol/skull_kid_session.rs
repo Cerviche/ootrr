@@ -56,7 +56,6 @@ fn set_int(name: &str, v: i32) -> crate::bfevfl::Cont {
 pub fn patch(b: &mut Bf) -> Res<()> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == FLOW).ok_or(Error::Format("faster ocarina minigame: Npc_SkullKid_Child_02 has no flow of its name"))?;
     let idx = |i: usize| crate::dungeon_credit::idx(i);
-    // The Heart Piece check (Event64), reached from the 8-note clear through Event68 (CurrentRallyCount = 1).
     let ask: usize = named(f, "Event64")?;
     let ok: bool = call(f, &f.events[ask]).as_deref() == Some(&format!("{DATA}.{BOOL_QUERY}")) && param(&f.events[ask], "GameDataName") == Some(&Val::Str(HEART.to_string()));
     if !ok {
@@ -67,8 +66,6 @@ pub fn patch(b: &mut Bf) -> Res<()> {
     if !reaches {
         return Err(Error::Format("faster ocarina minigame: Event68 no longer leads to the Heart Piece check"));
     }
-    // After a clear, Event10 asks whether the game is below 8 notes: it was the 6-note game, so
-    // that case goes the 8-note way, to the check, and the game stays at 6 (no Red Rupee).
     let eight: usize = named(f, "Event10")?;
     let ok: bool = call(f, &f.events[eight]).as_deref() == Some(&format!("{DATA}.{INT_QUERY}")) && param(&f.events[eight], "GameDataName") == Some(&Val::Str(GRADE.to_string())) && param(&f.events[eight], "Value") == Some(&Val::Int(LAST));
     if !ok {
@@ -83,9 +80,6 @@ pub fn patch(b: &mut Bf) -> Res<()> {
         }
         _ => return Err(Error::Format("faster ocarina minigame: Event10 has no below-8 case")),
     }
-    // One turn only: the example prep (Event143) builds the note count from a base of 3, +1 for
-    // the 6-note game and +3 for the 8-note one. The 6-note game takes the +3 way, so its first
-    // turn is already 6 notes, which clears the game (IsPlayedCurrentGradeSoundNum).
     let prep: usize = named(f, "Event143")?;
     let plus3: u16 = match &f.events[prep].kind {
         Kind::Switch { cases, .. } => cases.iter().find(|c| c.val == LAST as u32).map(|c| c.ev),
@@ -100,7 +94,6 @@ pub fn patch(b: &mut Bf) -> Res<()> {
         }
         _ => return Err(Error::Format("faster ocarina minigame: Event143 has no 6-note case")),
     }
-    // The turn counter shows 1/1: every MaxRallyCount set says 1.
     let mut n: usize = 0;
     for ev in f.events.iter_mut() {
         if param(ev, "GameDataName") == Some(&Val::Str(MAX_RALLY.to_string())) {
@@ -117,7 +110,6 @@ pub fn patch(b: &mut Bf) -> Res<()> {
     if n != 2 {
         return Err(Error::Msg(format!("faster ocarina minigame: expected two MaxRallyCount sets, found {n}")));
     }
-    // Saves from before the setting still hold 5 and 3: every session starts at 6 notes, one turn.
     let (a, set): (u16, u16) = crate::dungeon_credit::action_slot(f, DATA, SET_INT)?;
     let e: usize = f.entries.iter().position(|e| e.name == ENTRY).ok_or(Error::Format("faster ocarina minigame: no SessionStart entry"))?;
     let at: u16 = idx(f.events.len())?;

@@ -31,7 +31,6 @@ pub fn open(l: &Loc, p: &Plan) -> bool {
     if crate::flow_extra::potion::is(&l.name) {
         return p.rewards.potion;
     }
-    // LH Sun is shuffled with the other rewards, no setting of its own.
     if crate::flow_extra::sun::is(&l.name) {
         return true;
     }

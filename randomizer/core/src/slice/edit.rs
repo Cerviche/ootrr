@@ -212,7 +212,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             resized_n += n;
             b
         });
-        // The grave race map gains the ground Heart Piece and the block platform (crate::qol::dampe_race).
         let resized: Option<Vec<u8>> = if seed.placements.contains_key(crate::flow_extra::sun::LOC) && f == crate::flow_extra::sun::MAP {
             Some(crate::flow_extra::sun::hide(resized.as_deref().unwrap_or(&vanilla))?)
         } else if p.qol.one_race && f == crate::qol::dampe_race::GRAVE {
@@ -394,7 +393,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     crate::slice::stages::run(&mut rf, &c, &mut more)?;
     // Ground spots whose actor kept no saved row get one when another pickup stands there.
     let mut fresh: Vec<u64> = ts.iter().filter(|t| !t.heart_chest && crate::slice::pickups::needs_row(&t.name) && t.new_actor != t.old_actor).map(|t| t.hash).collect();
-    // The Dampé race Heart Piece is a new actor: it needs its row even when it keeps the Heart Piece.
     if p.qol.one_race && !fresh.contains(&crate::qol::dampe_race::HEART) {
         fresh.push(crate::qol::dampe_race::HEART);
     }
@@ -521,16 +519,13 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if p.qol.any_fish {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::fishing::FLOW, crate::qol::fishing::patch)?;
     }
-    // A child can buy a tunic in every shop, shopsanity or not (the shelf build makes the same edit).
     crate::story_skip::stage_late(&mut rf, &mut late, &work, "DisplayShop", |b| {
         let f = b.flows.first_mut().ok_or(crate::error::Error::Format("child tunics: DisplayShop holds no flow"))?;
         crate::shelf::hook::child_tunics(f).map(|_| ())
     })?;
-    // The Shadow Temple jar key pops a key actor; another pickup there skips the pop.
     if ts.iter().any(|t| t.name == crate::slice::pickups::JAR_SPOT && t.new_actor != t.old_actor) {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::slice::pickups::JAR_FLOW, crate::slice::pickups::jar_patch)?;
     }
-    // LH Sun gives its placed item after the sun scene (crate::flow_extra::sun).
     if seed.placements.contains_key(crate::flow_extra::sun::LOC) {
         crate::story_skip::stage_sun_give(&mut rf, &mut late, &work, &give_for(crate::flow_extra::sun::LOC))?;
     }

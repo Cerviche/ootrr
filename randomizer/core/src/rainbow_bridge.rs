@@ -38,8 +38,6 @@ const LACS_FLOW: &str = "AllSage";
 /// AllSage's last write after the Light Arrows scene: Defeat_Ganon to Step01.
 const STEP01: (&str, &str) = ("Event11", "ChallengeSystemActor.EventExecuteProgressChallengeStep");
 
-/// Some(goal) when the bridge waits for a number of dungeon rewards or Medallions. Vanilla keeps
-/// the game's own condition.
 pub fn read(s: &Settings, bad: &mut Vec<String>) -> Option<Goal> {
     let (key, top, make): (&str, i64, fn(u8) -> Goal) = match s.text(SETTING) {
         Ok("vanilla") => return None,
@@ -75,7 +73,6 @@ pub fn logic(g: Goal) -> [(&'static str, &'static str); 2] {
     [(SETTING, g.kind()), (key, g.count())]
 }
 
-/// At least the goal's count of its rewards, and the bridge event not played yet.
 pub fn terms(g: Goal) -> Vec<(i32, String)> {
     g.terms(PLAYED)
 }

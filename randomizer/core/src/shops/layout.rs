@@ -112,7 +112,6 @@ fn deal_slots(t: &Table, o: &Opts, room: Room, rng: &mut Rng, forced: &[String])
         }
         out.insert(name);
     }
-    // Slots a plando names are deals whatever the level, so a test seed can fill any shelf.
     for f in forced.iter().filter(|f| t.slots.iter().any(|s| &s.name == *f)) {
         out.insert(f.clone());
     }
@@ -131,9 +130,6 @@ fn rupee(t: &Table, rng: &mut Rng) -> String {
     t.rupees[0].0.clone()
 }
 
-/// The pool item a deal shelf's own shop goods become: shopsanity puts the goods of the shelves
-/// that turn into deals into the item pool, so a Deku Shield or Hylian Shield is still found.
-/// Goods with no pool item (bottle contents, Magic Jar) leave filler instead.
 pub fn own_pool(item: &str) -> Option<&'static str> {
     Some(match item {
         "Buy Deku Shield" => "Deku Shield",
@@ -157,8 +153,6 @@ pub fn own_pool(item: &str) -> Option<&'static str> {
     })
 }
 
-/// Shop goods a child can buy in any shop (shelf::hook::child_tunics, always applied). They keep
-/// their own price wherever the shuffle puts them.
 pub const TUNICS: [&str; 2] = ["Buy Goron Tunic", "Buy Zora Tunic"];
 
 /// Whether `item` is a tunic standing in a shop other than its own.
@@ -170,15 +164,12 @@ pub fn make(o: &Opts, seed: &str, room: Room) -> Res<Layout> {
     make_with(o, seed, room, &[])
 }
 
-/// `make`, with the shop slots in `forced` (plando locations) always deals.
 pub fn make_with(o: &Opts, seed: &str, room: Room, forced: &[String]) -> Res<Layout> {
     let t: &Table = table()?;
     let mut rng: Rng = Rng::from_text(&format!("{seed}/shops"));
     let (deals, cut): (BS<String>, usize) = deal_slots(t, o, room, &mut rng, forced);
     let us: Vec<(String, Vec<&Slot>)> = units(t);
     let open: Vec<&(String, Vec<&Slot>)> = us.iter().filter(|(_, ss)| !ss.iter().any(|s| deals.contains(&s.name))).collect();
-    // Shop goods keep their shelf position: the open shelves at one position (say Left Side
-    // Bottom Left) share out the goods of those same shelves, across every shop.
     let mut given: BM<String, Goods> = BM::new();
     for at in 0..8usize {
         let here: Vec<&(String, Vec<&Slot>)> = open.iter().copied().filter(|(_, ss)| ss[0].slot == at).collect();
@@ -212,7 +203,6 @@ pub fn make_with(o: &Opts, seed: &str, room: Room, forced: &[String]) -> Res<Lay
             continue;
         }
         let g: &Goods = given.get(&t.unit(s)).ok_or_else(|| E::Msg(format!("shops: {} got no goods", s.name)))?;
-        // Shop goods keep their own price wherever they land, a tunic too (600 rupees).
         places.push(Place { loc: s.name.clone(), item: g.item.clone(), actor: g.actor.clone(), price: g.price, deal: false, pool: String::new() });
     }
     Ok(Layout { places, cut })

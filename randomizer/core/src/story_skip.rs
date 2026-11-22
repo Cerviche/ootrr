@@ -1762,9 +1762,6 @@ const RAURU_GIVE: &str = "OOTRRRauruGive";
 /// chain. That add becomes a fade in and the standard item get with what the check holds (with
 /// its tier checks or its dungeon credit), still before the transition to the adult temple.
 /// Runs after patch_draw.
-/// LH Sun (crate::flow_extra::sun): FireArrow_Appear runs the item get with the placed item after
-/// its scene and the quest's Step03 (Event1), then completes the Fire Arrows quest (Event2), which
-/// the arrow pickup's own get used to do. Event2's Navi line is dropped.
 pub fn patch_sun_give(b: &mut Bf, g: &SceneGive) -> Res<()> {
     let f: &mut Flow = flow_mut(b, crate::flow_extra::sun::FLOW)?;
     let named = |f: &Flow, n: &str| -> Res<usize> {
