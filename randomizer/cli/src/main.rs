@@ -32,6 +32,7 @@ mod progressive_cmd;
 mod qol_cmd;
 mod save_cmd;
 mod mem_watch_cmd;
+mod ap_cmd;
 mod serve_cmd;
 mod settings_cmd;
 mod shelf_cmd;
@@ -113,6 +114,8 @@ const USAGE: &str = "usage:
   ootrr spot-audit <seed.ootrr> [--all]
   ootrr spot-regions <out_tsv>
   ootrr pots-persist <romfs_root> <load_dir> <mod_name>
+  ootrr ap-test-mod <romfs_root> <load_dir> <mod_name> <item_actor>...
+  ootrr ap-flag <flag_name> [on|off]
   ootrr pack-add <romfs_root> <load_dir> <mod_name> <Item_Actor> [--name <Obj_Actor>] [--press] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--place <ActorHash>]... [--tag <TagName>]... [--ammo] [--magic] [--model-from <Actor>] [--dry]
   ootrr pack-kit <romfs_root> <load_dir> <mod_name> <Item_Actor|Obj_Actor> [--name <Obj_Actor_GS>] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--drop <SkulltulaHash>]... [--model-from <Actor>] [--dry]
   ootrr flags-build <romfs_root> <out_json>
@@ -390,6 +393,8 @@ fn main() -> ExitCode {
         Some("settings-dump") => settings_cmd::run(&a[1..]),
         Some("serve") => serve_cmd::run(&a[1..]),
         Some("mem-watch") => mem_watch_cmd::run(&a[1..]),
+        Some("ap-test-mod") => ap_cmd::test_mod(&a[1..]),
+        Some("ap-flag") => ap_cmd::flag(&a[1..]),
         None => serve_cmd::run(&[]),
         Some("help") | Some("--help") | Some("-h") => {
             println!("{USAGE}");
