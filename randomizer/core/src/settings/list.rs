@@ -694,7 +694,7 @@ pub fn build() -> Schema {
     s.push(
         Setting::choice(78, crate::qol::NAVI, "world", "Return with Navi", "everywhere")
             .wire_as(Value::s("off"))
-            .tip("Calling Navi with the D-pad asks whether to head back, like the original game restarting a saved file at the dungeon entrance, in Kokiri Forest or in the Temple of Time. Needs no item. The D-pad calls Navi from the start of a new game, and her room tutorial hints are replaced by the question; enemy hints while targeting stay. Boss rooms, miniboss rooms, the boss rush and the final battle never offer it, since leaving a fight that way left the save button disabled. Experimental, untested in the game.")
+            .tip("Calling Navi with the D-pad asks whether to head back, like the original game restarting a saved file at the dungeon entrance, in Kokiri Forest or in the Temple of Time. Needs no item. The D-pad calls Navi from the start of a new game, and her room tutorial hints are replaced by the question; enemy hints while targeting stay. Boss rooms, miniboss rooms, the boss rush and the final battle never offer it, since leaving a fight that way left the save button disabled. Navi also stays quiet while a minigame timer runs, such as the one in Dampe's race, since leaving the race that way kept its timer running. Experimental, untested in the game.")
             .opt("off", "Off", "Navi stays quiet when she has no hint.")
             .opt("dungeons", "Dungeons", "Inside a dungeon, Navi offers a trip back to the dungeon entrance.")
             .opt("everywhere", "Dungeons and overworld", "Also outside dungeons: back to Kokiri Forest as a child, or the Temple of Time as an adult."),
