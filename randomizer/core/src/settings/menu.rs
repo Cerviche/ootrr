@@ -753,8 +753,8 @@ pub const MENU: &[Page] = &[
         heading: GAMEPLAY,
         sections: &[
             sec("Cutscenes", &["skip_intro", "skip_cutscenes", "skip_story_scenes", "faster_chests", "skip_first_pickup_text", "skip_area_intros"]),
-            sec("Side quests", &["skip_mask_quest", "anju_one_cucco", "skulls_by_day"]),
-            sec("Dungeons", &["deku_bridge_safe"]),
+            sec("Side quests", &["skip_mask_quest", "anju_one_cucco", "skulls_by_day", "free_scarecrow"]),
+            sec("Dungeons", &["deku_bridge_safe", "skip_tower_escape"]),
             sec("Travel", &["owl_warps"]),
             sec("Puzzles", &["faster_blocks"]),
         ],
@@ -786,8 +786,6 @@ pub const MENU: &[Page] = &[
         sections: &[
             sec("Gold Skulltulas", &["night_skulls_suns_song"]),
             sec("Minigames", &["fishing_any_fish", "faster_ocarina_minigame"]),
-            sec("Songs", &["free_scarecrow"]),
-            sec("Ganon's Tower", &["skip_tower_escape"]),
         ],
     },
     Page { id: "cosmetics", label: "Cosmetics", heading: GAMEPLAY, sections: &[sec("Looks", &["mega_like_likes"])] },

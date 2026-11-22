@@ -235,6 +235,9 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     if c.p.prelude && !c.p.rewards.dungeon_rewards {
         edits.push(crate::prelude_gate::exp());
     }
+    if c.p.qol.fast_session {
+        edits.push(crate::qol::skull_kid_session::default());
+    }
     edits.push(crate::always::exp());
     crate::start_defaults::stage(rf, more, &edits)
 }

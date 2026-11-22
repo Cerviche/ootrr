@@ -202,11 +202,11 @@ pub fn settings() -> Vec<crate::settings::Setting> {
         Setting::toggle(fishing::NUM, fishing::SETTING, "world", "Any fish wins the fishing prizes", false)
             .tip("The fishing pond owner gives his prize for any fish you hand in, whatever its size: one prize as child and one as adult. Loaches and fish caught with the sinking lure count too. Experimental, untested in the game."),
         Setting::toggle(skull_kid_session::NUM, skull_kid_session::SETTING, "world", "Faster Ocarina minigame", false)
-            .tip("The Skull Kids' Ocarina memory game in the Lost Woods starts at its last round, and winning it the first time gives all three prizes: the Blue Rupee, the Red Rupee and the check. Experimental, untested in the game."),
+            .tip("The Skull Kids' Ocarina memory game in the Lost Woods is only the 6-note game, and winning it gives the check. The rupee prizes of the other rounds are gone. Experimental, untested in the game."),
         Setting::toggle(scarecrow::NUM, scarecrow::SETTING, "world", "Free Scarecrow's Song", false)
-            .tip("Start with Scarecrow's Song and an instant scarecrow: Pierre already stands at every scarecrow spot, so there is no song to record or play. The logic counts the song as known, like the OoTR option of the same name. Experimental, untested in the game."),
+            .tip("Start with Scarecrow's Song and an instant scarecrow: Pierre already stands at every scarecrow spot, so there is no song to record or play. The logic counts the song as known, like the OoTR option of the same name. Tested in the game."),
         Setting::toggle(tower_escape::NUM, tower_escape::SETTING, "goal", "Skip the tower escape", false)
-            .tip("After Ganondorf falls, Link goes straight to the field below the collapsing tower and the Ganon fight, with no escape run down the tower, so the logic no longer needs the Longshot to finish. Without this, the logic needs the Longshot for the escape. Experimental, untested in the game."),
+            .tip("After Ganondorf falls, Link goes straight to the field below the collapsing tower and the Ganon fight, with no escape run down the tower, so the logic no longer needs the Longshot to finish. Without this, the logic needs the Longshot for the escape. Tested in the game."),
     ]
 }
 

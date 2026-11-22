@@ -6,16 +6,16 @@ pub const NUM: u16 = 165;
 pub const FLOW: &str = "Npc_SkullKid_Child_02";
 pub const ENTRY: &str = "SessionStart";
 pub const GRADE: &str = "Minigame_SkullKidSession_CurrentGradeSoundNumForSession";
+pub const PLAYED: i32 = 6;
 pub const LAST: i32 = 8;
 pub const HEART: &str = "Minigame_SkullKidSession_IsGetHeartPiece";
 const SET_INT: &str = "EventTriggerSetGameDataInt";
 const BOOL_QUERY: &str = "EventQueryIsGameDataBool";
 const DATA: &str = "GameDataActor";
-const GET: &str = "Dm_SY_GetInEvent";
-const CLOSE: &str = "UISystemActor.EventCloseRupeeDisplay";
-const NO: u32 = 1;
+const INT_QUERY: &str = "EventQueryIsGameDataInt";
+const LESS: u32 = 0;
 
-pub const NOTE: &str = "Faster Ocarina minigame: the Skull Kids in the Lost Woods start straight at the last round (8 notes), and clearing it the first time gives all three prizes in a row: the Blue Rupee, the Red Rupee, then the check. SessionStart in Npc_SkullKid_Child_02 sets CurrentGradeSoundNumForSession to 8 first, and the not-yet-won branch of the Heart Piece check runs the Blue Rupee and Red Rupee gets before it. Experimental, untested in the game.";
+pub const NOTE: &str = "Faster Ocarina minigame: the Skull Kids in the Lost Woods play only the 6-note game, and winning it gives the check. CurrentGradeSoundNumForSession starts at 6 (save default, and SessionStart in Npc_SkullKid_Child_02 sets it too), and clearing 6 goes to the Heart Piece branch instead of raising the game to 8 with the Red Rupee. The Blue Rupee and Red Rupee prizes of the 5 and 6 note games are gone. Experimental, untested in the game.";
 
 fn named(f: &Flow, name: &str) -> Res<usize> {
     let hits: Vec<usize> = (0..f.events.len()).filter(|&i| f.events[i].name == name).collect();
@@ -37,52 +37,41 @@ fn param<'a>(e: &'a Event, k: &str) -> Option<&'a Val> {
     e.kind.params().and_then(|c| c.get(k))
 }
 
-/// A rupee get: the GetInEvent sub giving `rupee`, followed by the rupee display closing.
-fn rupee(f: &Flow, name: &str, rupee: &str) -> Res<(usize, usize)> {
-    let i: usize = named(f, name)?;
-    let e: &Event = &f.events[i];
-    let next: u16 = match &e.kind {
-        Kind::Sub { next, flow, .. } if flow == GET && param(e, "ActorName") == Some(&Val::Str(rupee.to_string())) => *next,
-        _ => return Err(Error::Msg(format!("faster ocarina minigame: {name} no longer gives {rupee}, the game files differ"))),
-    };
-    let c: usize = next as usize;
-    if f.events.get(c).and_then(|x| call(f, x)).as_deref() != Some(CLOSE) {
-        return Err(Error::Msg(format!("faster ocarina minigame: {name} is not followed by the rupee display closing")));
-    }
-    Ok((i, c))
-}
-
-fn set_next(e: &mut Event, to: u16) {
-    if let Kind::Action { next, .. } = &mut e.kind {
-        *next = to;
-    }
+pub fn default() -> crate::start_defaults::Edit {
+    crate::start_defaults::Edit::Int(GRADE.to_string(), PLAYED)
 }
 
 pub fn patch(b: &mut Bf) -> Res<()> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == FLOW).ok_or(Error::Format("faster ocarina minigame: Npc_SkullKid_Child_02 has no flow of its name"))?;
     let idx = |i: usize| crate::dungeon_credit::idx(i);
-    // The Heart Piece check (Event64): its not-yet-won case leads to the check's get.
+    // The Heart Piece check (Event64), reached from the 8-note clear through Event68 (CurrentRallyCount = 1).
     let ask: usize = named(f, "Event64")?;
     let ok: bool = call(f, &f.events[ask]).as_deref() == Some(&format!("{DATA}.{BOOL_QUERY}")) && param(&f.events[ask], "GameDataName") == Some(&Val::Str(HEART.to_string()));
     if !ok {
         return Err(Error::Format("faster ocarina minigame: Event64 no longer asks for the Heart Piece flag"));
     }
-    let check: u16 = match &f.events[ask].kind {
-        Kind::Switch { cases, .. } => cases.iter().find(|c| c.val == NO).map(|c| c.ev),
-        _ => None,
+    let way: usize = named(f, "Event68")?;
+    let reaches: bool = matches!(&f.events[way].kind, Kind::Action { next, .. } if f.events.get(*next as usize).is_some_and(|e| matches!(e.kind, Kind::Action { next, .. } if next as usize == ask)));
+    if !reaches {
+        return Err(Error::Format("faster ocarina minigame: Event68 no longer leads to the Heart Piece check"));
     }
-    .ok_or(Error::Format("faster ocarina minigame: Event64 has no not-yet-won case"))?;
-    // Blue Rupee (first round prize) then Red Rupee (second round prize), then the check.
-    let (blue, blue_close): (usize, usize) = rupee(f, "Event22", "Obj_Rupee_Blue")?;
-    let (red, red_close): (usize, usize) = rupee(f, "Event23", "Obj_Rupee_Red")?;
-    set_next(&mut f.events[blue_close], idx(red)?);
-    set_next(&mut f.events[red_close], check);
-    if let Kind::Switch { cases, .. } = &mut f.events[ask].kind {
-        for c in cases.iter_mut().filter(|c| c.val == NO) {
-            c.ev = idx(blue)?;
+    // After a clear, Event10 asks whether the game is below 8 notes: it was the 6-note game, so
+    // that case goes the 8-note way, to the check, and the game stays at 6 (no Red Rupee).
+    let eight: usize = named(f, "Event10")?;
+    let ok: bool = call(f, &f.events[eight]).as_deref() == Some(&format!("{DATA}.{INT_QUERY}")) && param(&f.events[eight], "GameDataName") == Some(&Val::Str(GRADE.to_string())) && param(&f.events[eight], "Value") == Some(&Val::Int(LAST));
+    if !ok {
+        return Err(Error::Format("faster ocarina minigame: Event10 no longer asks for the 8-note game"));
+    }
+    let to: u16 = idx(way)?;
+    match &mut f.events[eight].kind {
+        Kind::Switch { cases, .. } if cases.iter().any(|c| c.val == LESS) => {
+            for c in cases.iter_mut().filter(|c| c.val == LESS) {
+                c.ev = to;
+            }
         }
+        _ => return Err(Error::Format("faster ocarina minigame: Event10 has no below-8 case")),
     }
-    // Every session starts at the last round.
+    // Saves from before the setting still hold 5: every session starts at 6.
     let (a, set): (u16, u16) = crate::dungeon_credit::action_slot(f, DATA, SET_INT)?;
     let e: usize = f.entries.iter().position(|e| e.name == ENTRY).ok_or(Error::Format("faster ocarina minigame: no SessionStart entry"))?;
     let at: u16 = idx(f.events.len())?;
@@ -90,10 +79,10 @@ pub fn patch(b: &mut Bf) -> Res<()> {
         items: vec![
             ("GameDataName".to_string(), Val::Str(GRADE.to_string())),
             ("Index".to_string(), Val::Int(-1)),
-            ("Value".to_string(), Val::Int(LAST)),
+            ("Value".to_string(), Val::Int(PLAYED)),
         ],
     };
-    f.events.push(Event { name: "OOTRRLastRound".to_string(), kind: Kind::Action { next: f.entries[e].main, actor: a, act: set, params: Some(params) } });
+    f.events.push(Event { name: "OOTRRSixNotes".to_string(), kind: Kind::Action { next: f.entries[e].main, actor: a, act: set, params: Some(params) } });
     f.entries[e].main = at;
     Ok(())
 }
