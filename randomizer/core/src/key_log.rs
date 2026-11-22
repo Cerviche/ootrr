@@ -220,6 +220,14 @@ pub fn edit_table(y: &mut Byml) -> Res<usize> {
     Ok(qs.len())
 }
 
+fn formula_names() -> Vec<String> {
+    std::iter::once(ALWAYS.to_string()).chain(DUNGEONS.iter().filter(|d| d.boss).map(no_boss)).collect()
+}
+
+pub fn added_hashes() -> Vec<u32> {
+    ids().iter().map(|q| hash_name(&flag(q))).chain(formula_names().iter().map(|n| hash_name(n))).collect()
+}
+
 fn tok(op: u64, a: Option<u64>) -> Node {
     Node::Arr(std::iter::once(Node::U64(op)).chain(a.map(Node::U64)).collect())
 }
