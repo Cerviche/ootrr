@@ -90,7 +90,20 @@ pub fn skipped_items(d: &Data, seed: &SeedFile, locs: &[&str]) -> Res<Vec<String
         given.insert(name.clone(), k + 1);
         out.push(actor);
     }
-    Ok(out)
+    // Ammo whose bag the new game does not give turns into 10 rupees, like a chest or an NPC give
+    // to a player without the bag (crate::progressive::NO_BAG): two Blue Rupees.
+    let have: Vec<String> = out.clone();
+    let mut kept: Vec<String> = Vec::new();
+    for a in out {
+        match crate::progressive::bags_of(&a) {
+            Some(bags) if !bags.iter().any(|b| have.iter().any(|x| x == b)) => {
+                kept.push(crate::progressive::NO_BAG.to_string());
+                kept.push(crate::progressive::NO_BAG.to_string());
+            }
+            _ => kept.push(a),
+        }
+    }
+    Ok(kept)
 }
 
 /// The story state a plan writes at new game. The Door of Time is not driven this way: moving
