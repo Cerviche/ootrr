@@ -97,6 +97,8 @@ fn picks() -> &'static BM<String, Pick> {
     M.get_or_init(|| entries().iter().filter_map(|e| pick_in(entries(), &e.item)).map(|p| (p.content.clone(), p)).collect())
 }
 
+pub const DUNGEON_PREFIX: &str = "Obj_OOTRR_";
+
 /// The pickup a dungeon item stands as: one actor per kind and dungeon (its pouch item is the
 /// game's shared one), so the get can tell which dungeon it credits (crate::debug_names::key_credits).
 pub fn dungeon_pick(d: &Data, item: &str) -> Option<Pick> {
@@ -110,7 +112,7 @@ pub fn dungeon_pick(d: &Data, item: &str) -> Option<Pick> {
         _ => return None,
     };
     let actor: String = i.actor.clone()?;
-    let name: String = format!("Obj_OOTRR_{tag}_{dungeon}");
+    let name: String = format!("{DUNGEON_PREFIX}{tag}_{dungeon}");
     Some(Pick { content: actor, pack: name.clone(), args: vec!["--name".to_string(), name, "--heap".to_string(), "199928".to_string()] })
 }
 

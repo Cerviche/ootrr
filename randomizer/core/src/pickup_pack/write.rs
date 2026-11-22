@@ -127,7 +127,11 @@ pub(crate) fn tables(rf: &mut Romfs, o: &Opts, modded: bool, s: &Spec, l: &Layer
         return Err(E::Msg(format!("the new row sits at {} in the actor table and at {} in the game actor table, the two tables no longer line up", at[0], at[1])));
     }
     let q: File = table(rf, o, modded, POUCH_INFO, |y: &mut Byml| {
-        let r: Node = rows::pouch_row(rows::need(y, &s.item, POUCH_INFO)?, &s.name);
+        let mut r: Node = rows::pouch_row(rows::need(y, &s.item, POUCH_INFO)?, &s.name);
+        if s.name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
+            r.remove("PouchSpecialDeal");
+            r.set("PouchStockable", Node::Bool(true));
+        }
         rows::insert(y, r)?;
         if l.ammo {
             ammo::apply(y, &s.name, identity)?;

@@ -977,6 +977,10 @@ pub fn hook_sale(b: &mut Bf, entry: &str, id: &str) -> Res<bool> {
     say_after(f, usize::from(set), id.to_string())
 }
 
+const POUCH_SYS: &str = "PouchSystemActor";
+const IN_POUCH: &str = "EventQueryIsExistInPouch";
+const POUCH_ADD: &str = "EventTriggerAddOrRemovePouchContent";
+
 /// The String64 flag the pickup AI fills with the class of the actor it adds to the pouch.
 pub const KEY_PICK: &str = "OOTRRKeyPick";
 const KEY_SWEEP: &str = "OOTRRKeySweep";
@@ -987,6 +991,10 @@ const KEY_SWEEP: &str = "OOTRRKeySweep";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyCredit {
     pub names: Vec<String>,
+    /// The item's name, such as Small Key (Forest Temple): the get window shows it.
+    pub label: String,
+    /// The game's shared actor of the item (Item_Dungeon_SmallKey): its texts are copied.
+    pub base: String,
     pub item: crate::gift_keys::Item,
     pub dungeon: &'static str,
 }
@@ -1018,7 +1026,7 @@ pub fn key_credits(d: &Data, seed: &crate::settings::seed::SeedFile, roam: bool)
         names.sort();
         names.dedup();
         if !out.iter().any(|c| c.names == names) {
-            out.push(KeyCredit { names, item: k, dungeon: dg });
+            out.push(KeyCredit { names, label: item.clone(), base: i.actor.clone().unwrap_or_default(), item: k, dungeon: dg });
         }
     }
     out
@@ -1038,12 +1046,26 @@ pub fn add_key_sweep(b: &mut Bf, cs: &[KeyCredit]) -> Res<usize> {
     let text_of = |v: &str| -> Cont {
         Cont { items: vec![("GameDataName".to_string(), Val::Str(KEY_PICK.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(v.to_string()))] }
     };
+    let _ = (qa, qt, st, &text_of);
+    let (pa, pq): (u16, u16) = crate::start_state::query_slot(f, POUCH_SYS, IN_POUCH)?;
+    let (ra, rm): (u16, u16) = action_slot(f, POUCH_SYS, POUCH_ADD)?;
     let mut next: u16 = NONE;
     for c in cs.iter().rev() {
-        let credit: u16 = crate::gift_keys::credit(f, c.item, c.dungeon, NONE)?;
-        let clear: u16 = push(f, Kind::Action { next: credit, actor: qa, act: st, params: Some(text_of("")) })?;
         for n in c.names.iter().rev() {
-            next = push(f, Kind::Switch { actor: qa, query: qt, cases: vec![Case { val: 0, ev: clear }, Case { val: 1, ev: next }], params: Some(text_of(n)) })?;
+            // In the pouch: take it out again, then credit its dungeon, then look again.
+            let credit: u16 = crate::gift_keys::credit(f, c.item, c.dungeon, next)?;
+            let take: Cont = Cont {
+                items: vec![
+                    ("Actor".to_string(), Val::Str(n.clone())),
+                    ("Num".to_string(), Val::Int(-1)),
+                    ("IsSetMessageTargetActorName".to_string(), Val::Bool(0)),
+                    ("IsEquipDIrect".to_string(), Val::Bool(0)),
+                    ("IsGetEvent".to_string(), Val::Bool(0)),
+                ],
+            };
+            let out: u16 = push(f, Kind::Action { next: credit, actor: ra, act: rm, params: Some(take) })?;
+            let ask: Cont = Cont { items: vec![("Actor".to_string(), Val::Str(n.clone())), ("Num".to_string(), Val::Int(1))] };
+            next = push(f, Kind::Switch { actor: pa, query: pq, cases: vec![Case { val: 0, ev: out }, Case { val: 1, ev: next }], params: Some(ask) })?;
         }
     }
     f.entries.push(Entry { name: KEY_SWEEP.to_string(), subs: Vec::new(), vars: Vec::new(), main: next, pad });
@@ -1125,10 +1147,8 @@ pub fn stage_key_credit(rf: &mut Romfs, work: &P, tail: &mut Vec<Out>, cs: &[Key
     if cs.is_empty() {
         return Ok(0);
     }
-    stage_late_file(rf, tail, work, crate::chest_slot::LIST, |raw: &[u8]| add_text_flag(raw, KEY_PICK))?;
-    let raw: Vec<u8> = current(rf, tail, work, GLOBAL_AI)?;
-    if patch_key_pack(&raw)?.is_some() {
-        edit_pack(rf, tail, work, GLOBAL_AI, |raw: &[u8]| Ok(patch_key_pack(raw)?.unwrap_or_else(|| raw.to_vec())))?;
+    for l in crate::hints::languages(rf)? {
+        stage_late_file(rf, tail, work, &l, |raw: &[u8]| name_keys(raw, cs))?;
     }
     let mut n: usize = 0;
     stage_late(rf, tail, work, GET_FLOW, |b| add_key_sweep(b, cs).map(|k| n = k))?;
@@ -1138,6 +1158,33 @@ pub fn stage_key_credit(rf: &mut Romfs, work: &P, tail: &mut Vec<Out>, cs: &[Key
     Ok(n)
 }
 
+/// Names every dungeon item pickup in the item texts: its _Name is the item's own name (Small
+/// Key (Forest Temple)), its other texts are the shared item's.
+fn name_keys(raw: &[u8], cs: &[KeyCredit]) -> Res<Vec<u8>> {
+    let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
+    let names: &str = crate::dungeon_text::NAMES;
+    let e: &sarc::Entry = sarc::get(&es, names).ok_or_else(|| E::Msg(format!("the language archive has no {names}")))?;
+    let mut m: Msbt = msbt::parse(&e.data)?;
+    for c in cs {
+        for n in &c.names {
+            for sfx in ["_Caption", "_GetCaption", "_ShopCaption"] {
+                let own: String = format!("{n}{sfx}");
+                if m.find(&own).is_some() {
+                    continue;
+                }
+                if let Some(b) = m.raw(&format!("{}{sfx}", c.base)).map(|b| b.to_vec()) {
+                    m.add_raw(&own, b)?;
+                }
+            }
+            let t = msbt::from_markup(&c.label)?;
+            m.put_tokens(&format!("{n}_Name"), &t)?;
+        }
+    }
+    sarc::set(&mut es, names, m.write()?);
+    sarc::write(&es)
+}
+
+#[allow(dead_code)]
 fn patch_key_pack(raw: &[u8]) -> Res<Option<Vec<u8>>> {
     let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
     let mut any: bool = false;

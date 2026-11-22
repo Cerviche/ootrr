@@ -204,7 +204,13 @@ pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
     let mut pouch: Node = Node::Map(Vec::new());
     pouch.set(PARENT, Node::Str(work(&item_pouch)));
     // Goron's Bracelet saves under its armor actor, as the shop shelf does (crate::shelf::actor).
-    let who: String = crate::shelf::actor::shelf_identity(&identity(p, s, &item, &item_pouch)?).to_string();
+    let who: String = if s.name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
+        // A dungeon item's own pickup is a pouch item of its own, named for its dungeon
+        // (crate::debug_names::key_credits), so the get names the dungeon and a sweep credits it.
+        s.name.clone()
+    } else {
+        crate::shelf::actor::shelf_identity(&identity(p, s, &item, &item_pouch)?).to_string()
+    };
     pouch.set(POUCH_ACTOR, Node::Str(work(&actor_file(&who))));
     pouch.set(FIRST_CHECK, Node::Bool(false));
     if s.style == Style::Touch {
