@@ -524,6 +524,10 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         let f = b.flows.first_mut().ok_or(crate::error::Error::Format("child tunics: DisplayShop holds no flow"))?;
         crate::shelf::hook::child_tunics(f).map(|_| ())
     })?;
+    // The Shadow Temple jar key pops a key actor; another pickup there skips the pop.
+    if ts.iter().any(|t| t.name == crate::slice::pickups::JAR_SPOT && t.new_actor != t.old_actor) {
+        crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::slice::pickups::JAR_FLOW, crate::slice::pickups::jar_patch)?;
+    }
     if p.qol.first_dig {
         for flow in crate::qol::dampe_dig::FLOWS {
             crate::story_skip::stage_late(&mut rf, &mut late, &work, flow, crate::qol::dampe_dig::patch)?;
