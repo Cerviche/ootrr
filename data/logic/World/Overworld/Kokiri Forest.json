@@ -148,14 +148,14 @@
         "scene": "KF Kokiri Shop",
         "locations": {
             "KF Shop Wonderitem": "True",
-            "KF Shop Item 1": "True",
-            "KF Shop Item 2": "True",
-            "KF Shop Item 3": "True",
-            "KF Shop Item 4": "True",
-            "KF Shop Item 5": "True",
-            "KF Shop Item 6": "True",
-            "KF Shop Item 7": "True",
-            "KF Shop Item 8": "True"
+            "KF Shop Right Side Bottom Left": "True",
+            "KF Shop Left Side Bottom Left": "True",
+            "KF Shop Left Side Bottom Right": "True",
+            "KF Shop Right Side Bottom Right": "True",
+            "KF Shop Right Side Top Left": "True",
+            "KF Shop Left Side Top Right": "True",
+            "KF Shop Right Side Top Right": "True",
+            "KF Shop Left Side Top Left": "True"
         },
         "exits": {
             "Kokiri Forest": "True"

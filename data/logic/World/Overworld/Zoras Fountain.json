@@ -76,14 +76,14 @@
         "region_name": "ZD Shop",
         "scene": "ZD Shop",
         "locations": {
-            "ZD Shop Item 1": "True",
-            "ZD Shop Item 2": "True",
-            "ZD Shop Item 3": "True",
-            "ZD Shop Item 4": "True",
-            "ZD Shop Item 5": "True",
-            "ZD Shop Item 6": "True",
-            "ZD Shop Item 7": "True",
-            "ZD Shop Item 8": "True"
+            "ZD Shop Left Side Bottom Right": "True",
+            "ZD Shop Right Side Top Left": "True",
+            "ZD Shop Left Side Top Right": "True",
+            "ZD Shop Right Side Top Right": "True",
+            "ZD Shop Left Side Bottom Left": "True",
+            "ZD Shop Right Side Bottom Right": "True",
+            "ZD Shop Right Side Bottom Left": "True",
+            "ZD Shop Left Side Top Left": "True"
         },
         "exits": {
             "Zoras Domain": "True"

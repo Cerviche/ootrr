@@ -509,6 +509,11 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if p.qol.any_fish {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::fishing::FLOW, crate::qol::fishing::patch)?;
     }
+    // A child can buy a tunic in every shop, shopsanity or not (the shelf build makes the same edit).
+    crate::story_skip::stage_late(&mut rf, &mut late, &work, "DisplayShop", |b| {
+        let f = b.flows.first_mut().ok_or(crate::error::Error::Format("child tunics: DisplayShop holds no flow"))?;
+        crate::shelf::hook::child_tunics(f).map(|_| ())
+    })?;
     if p.qol.one_race {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::dampe_race::FLOW, crate::qol::dampe_race::patch)?;
     }

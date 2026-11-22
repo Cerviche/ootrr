@@ -131,32 +131,34 @@ fn rupee(t: &Table, rng: &mut Rng) -> String {
     t.rupees[0].0.clone()
 }
 
-fn survivors(t: &Table, mut goods: Vec<Goods>, room: usize, bottles: usize) -> Res<Vec<Goods>> {
-    let mut kept: Vec<Goods> = Vec::new();
-    for k in &t.keep {
-        if kept.len() >= room {
-            break;
-        }
-        if let Some(i) = goods.iter().position(|g| &g.item == k) {
-            kept.push(goods.remove(i));
-        }
-    }
-    while kept.iter().filter(|g| t.bottle.contains(&g.item)).count() < bottles && kept.len() < room {
-        match goods.iter().position(|g| t.bottle.contains(&g.item)) {
-            Some(i) => kept.push(goods.remove(i)),
-            None => break,
-        }
-    }
-    let rest: usize = room.saturating_sub(kept.len());
-    kept.extend(goods.into_iter().take(rest));
-    if kept.len() != room {
-        return Err(E::Msg(format!("shops: {} shop goods for {room} shelf slots", kept.len())));
-    }
-    Ok(kept)
+/// The pool item a deal shelf's own shop goods become: shopsanity puts the goods of the shelves
+/// that turn into deals into the item pool, so a Deku Shield or Hylian Shield is still found.
+/// Goods with no pool item (bottle contents, Magic Jar) leave filler instead.
+pub fn own_pool(item: &str) -> Option<&'static str> {
+    Some(match item {
+        "Buy Deku Shield" => "Deku Shield",
+        "Buy Hylian Shield" => "Hylian Shield",
+        "Buy Goron Tunic" => "Goron Tunic",
+        "Buy Zora Tunic" => "Zora Tunic",
+        "Buy Arrows (10)" => "Arrows (10)",
+        "Buy Arrows (30)" | "Buy Arrows (50)" => "Arrows (30)",
+        "Buy Bombs (5) for 25 Rupees" | "Buy Bombs (5) for 35 Rupees" => "Bombs (5)",
+        "Buy Bombs (10)" => "Bombs (10)",
+        "Buy Bombs (20)" | "Buy Bombs (30)" => "Bombs (20)",
+        "Buy Deku Nut (5)" => "Deku Nuts (5)",
+        "Buy Deku Nut (10)" => "Deku Nuts (10)",
+        "Buy Deku Stick (1)" | "Buy Deku Stick (5)" => "Deku Stick (1)",
+        "Buy Deku Seeds (10)" | "Buy Deku Seeds (30)" => "Deku Seeds (30)",
+        "Buy Heart" => "Recovery Heart",
+        "Buy Bombchu (1)" | "Buy Bombchu (3)" | "Buy Bombchu (5)" => "Bombchus (5)",
+        "Buy Bombchu (8)" | "Buy Bombchu (10)" => "Bombchus (10)",
+        "Buy Bombchu (15)" | "Buy Bombchu (20)" | "Buy Bombchu (30)" => "Bombchus (20)",
+        _ => return None,
+    })
 }
 
-/// Shop goods a child can buy in any shop (shelf::hook::child_tunics). Moved out of the shop that
-/// sells them in the game, they cost a random shopsanity price instead of their own.
+/// Shop goods a child can buy in any shop (shelf::hook::child_tunics, always applied). Moved out
+/// of the shop that sells them in the game, they cost a random shopsanity price instead of their own.
 pub const TUNICS: [&str; 2] = ["Buy Goron Tunic", "Buy Zora Tunic"];
 
 /// Whether `item` is a tunic standing in a shop other than its own.
@@ -174,38 +176,38 @@ pub fn make_with(o: &Opts, seed: &str, room: Room, forced: &[String]) -> Res<Lay
     let mut rng: Rng = Rng::from_text(&format!("{seed}/shops"));
     let (deals, cut): (BS<String>, usize) = deal_slots(t, o, room, &mut rng, forced);
     let us: Vec<(String, Vec<&Slot>)> = units(t);
-    let mut goods: Vec<Goods> = us.iter().map(|(_, ss)| Goods { item: ss[0].item.clone(), actor: ss[0].actor.clone(), price: ss[0].price }).collect();
-    rng.shuffle(&mut goods);
     let open: Vec<&(String, Vec<&Slot>)> = us.iter().filter(|(_, ss)| !ss.iter().any(|s| deals.contains(&s.name))).collect();
-    let potion = |ss: &[&Slot]| ss.len() > 1;
-    let bottles: usize = open.iter().filter(|(_, ss)| potion(ss)).count();
-    let mut kept: Vec<Goods> = survivors(t, goods, open.len(), bottles)?;
-    rng.shuffle(&mut kept);
+    // Shop goods keep their shelf position: the open shelves at one position (say Left Side
+    // Bottom Left) share out the goods of those same shelves, across every shop.
     let mut given: BM<String, Goods> = BM::new();
-    for (item, shop) in &t.pin {
-        let Some(i) = kept.iter().position(|g| &g.item == item) else {
-            continue;
-        };
-        let homes: Vec<String> = open.iter().filter(|(k, ss)| !potion(ss) && ss[0].shop == *shop && !given.contains_key(k)).map(|(k, _)| k.clone()).collect();
-        if !homes.is_empty() {
-            let k: String = homes[rng.below(homes.len() as u64) as usize].clone();
-            given.insert(k, kept.remove(i));
+    for at in 0..8usize {
+        let here: Vec<&(String, Vec<&Slot>)> = open.iter().copied().filter(|(_, ss)| ss[0].slot == at).collect();
+        let mut goods: Vec<Goods> = here.iter().map(|(_, ss)| Goods { item: ss[0].item.clone(), actor: ss[0].actor.clone(), price: ss[0].price }).collect();
+        rng.shuffle(&mut goods);
+        let mut keys: Vec<String> = here.iter().map(|(k, _)| k.clone()).collect();
+        for (item, shop) in &t.pin {
+            let Some(i) = goods.iter().position(|g| &g.item == item) else {
+                continue;
+            };
+            if let Some((k, _)) = here.iter().find(|(k, ss)| ss[0].shop == *shop && keys.contains(k)) {
+                keys.retain(|x| x != k);
+                given.insert(k.clone(), goods.remove(i));
+            }
         }
-    }
-    for (k, ss) in open.iter().filter(|(_, ss)| potion(ss)) {
-        let i: usize = kept.iter().position(|g| t.bottle.contains(&g.item)).ok_or_else(|| E::Msg(format!("shops: no bottle goods left for the shared Potion Shop slot {}", ss[0].slot)))?;
-        given.insert(k.clone(), kept.remove(i));
-    }
-    let left: Vec<String> = open.iter().filter(|(k, ss)| !potion(ss) && !given.contains_key(k)).map(|(k, _)| k.clone()).collect();
-    for k in left {
-        given.insert(k, kept.remove(0));
+        for (k, g) in keys.into_iter().zip(goods) {
+            given.insert(k, g);
+        }
     }
     let mut places: Vec<Place> = Vec::new();
     for s in &t.slots {
         if deals.contains(&s.name) {
             let cap: i32 = t.shop(&s.shop).and_then(|x| x.cap).unwrap_or(i32::MAX);
             let p: i32 = price::draw(o, &mut rng).min(cap);
-            let pool: String = if o.kinds != Kinds::default() && !t.flex.is_empty() { t.flex[rng.below(t.flex.len() as u64) as usize].clone() } else { rupee(t, &mut rng) };
+            let pool: String = match own_pool(&s.item) {
+                Some(own) => own.to_string(),
+                None if o.kinds != Kinds::default() && !t.flex.is_empty() => t.flex[rng.below(t.flex.len() as u64) as usize].clone(),
+                None => rupee(t, &mut rng),
+            };
             places.push(Place { loc: s.name.clone(), item: String::new(), actor: String::new(), price: p, deal: true, pool });
             continue;
         }
