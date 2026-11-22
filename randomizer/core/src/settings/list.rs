@@ -243,6 +243,8 @@ fn difficulty() -> Vec<Setting> {
             .tip("Hit a Cucco once and the whole flock attacks, instead of after a few hits. Anju's Cuccos and the ones you have to find keep their usual temper."),
         Setting::toggle(d::BOWLING_NUM, d::BOWLING, "difficulty", "Unbreakable Bombchu Bowling grass", false)
             .tip("The grass in the Bombchu Bowling lanes can't be broken, so steer your Bombchus around it."),
+        Setting::toggle(d::TALON_NUM, d::TALON, "difficulty", "Harder cucco game at Lon Lon Ranch", false)
+            .tip("In Talon's game there are more cuccos to dig through, they don't stay put after they land, and you get 20 seconds instead of 30. Anju's cuccos are not changed."),
         Setting::toggle(d::FIREBALLS_NUM, d::FIREBALLS, "difficulty", "Fireball storms", false)
             .tip("Burning rocks rain down on quiet stretches of Hyrule Field, Desert Colossus, the Haunted Wasteland and the Castle garden, and on every visit to the Death Mountain Trail. Dodge them."),
         Setting::toggle(d::SPAWN_COMBO_NUM, d::SPAWN_COMBO, "difficulty", "Spawn enemies (sticks + D-pad)", false)
@@ -451,7 +453,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(crate::first_pickups::NUM, crate::first_pickups::SETTING, "world", "Skip first pickup text", false)
-            .tip("No \"You got X!\" box the first time you pick up a rupee, a heart, a magic jar, arrows or Deku seeds. Chests and real items still show theirs."),
+            .tip("No \"You got X!\" box the first time you pick up a rupee, a heart, a magic jar, arrows, Deku seeds, a Deku Nut, a Deku Stick, a bomb or a bombchu. Chests and real items still show theirs."),
     );
     s.push(
         Setting::toggle(crate::area_intros::NUM, crate::area_intros::SETTING, "world", "Skip area intros", false)
@@ -642,6 +644,10 @@ pub fn build() -> Schema {
     s.push(
         Setting::toggle(141, crate::qol::blocks::SETTING, "world", "Faster sliding blocks", false)
             .tip("Pushable and pullable blocks slide twice as fast."),
+    );
+    s.push(
+        Setting::toggle(crate::qol::owl::NUM, crate::qol::owl::SETTING, "world", "More owl rides", false)
+            .tip("The owls on the Death Mountain Trail and at Lake Hylia stay all game and offer their flights every time, and a new owl in Kakariko Village flies you to Kokiri Forest. Child Link only."),
     );
     s.push(
         Setting::toggle(45, crate::chest_size::SETTING, "world", "Chest size matches contents", false)
