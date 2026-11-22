@@ -239,7 +239,7 @@ fn difficulty() -> Vec<Setting> {
             .tip("Bosses bring a few Keese or Biri, and King Dodongo calls more Baby Dodongos. They appear when the fight starts (Bongo Bongo's are there from the start) and leave when the boss is beaten. Ganondorf and Ganon are unchanged. Played with Gohma and Phantom Ganon; the other bosses are untested."),
         Setting::toggle(d::GATES_NUM, d::GATES, "difficulty", "Enemies block the way", false)
             .tip("At ten narrow spots a barrier blocks the way until you beat its guards. It comes back when the area reloads. As a child they only appear once you have the Kokiri Sword. Off with shuffled entrances."),
-        Setting::toggle(d::CUCCO_NUM, d::CUCCO, "difficulty", "Cuccos take revenge at once", false)
+        Setting::toggle(d::CUCCO_NUM, d::CUCCO, "difficulty", "Short-Tempered Cuccos", false)
             .tip("Hit a Cucco once and the whole flock attacks, instead of after a few hits. Anju's Cuccos and the ones you have to find keep their usual temper."),
         Setting::toggle(d::BOWLING_NUM, d::BOWLING, "difficulty", "Unbreakable Bombchu Bowling grass", false)
             .tip("The grass in the Bombchu Bowling lanes can't be broken, so steer your Bombchus around it."),
@@ -252,7 +252,7 @@ fn difficulty() -> Vec<Setting> {
         Setting::toggle(d::VOLVAGIA_NUM, d::VOLVAGIA, "difficulty", "Volvagia roams Hyrule Field (Functional WIP)", false)
             .tip("Functional WIP: when beaten in the field she freezes before her death animation; she should drop a red rupee and flee (planned). As an adult, a copy of Volvagia flies over the open middle of Hyrule Field, coming out of the ground and diving back in around one spot as in its own fight, and breathes fire at you. It is its own actor: it plays no intro or death scene, has no boss music, gives nothing when beaten and changes no story flag, and the Fire Temple fight is unchanged. It comes back when the field loads again. It never blocks a path and the logic ignores it. Experimental, untested in the game."),
         Setting::toggle(d::MEGA_LIKE_NUM, d::MEGA_LIKE, "difficulty", "Shield-eating mega Like Likes", false)
-            .tip("Three bigger, tougher Like Likes wait in the Deku Tree meadow of Kokiri Forest, as a child and as an adult. When one swallows you it takes one of your shields, any of them, the Mirror Shield first, then the Hylian Shield, then the Deku Shield. The shield stays gone until a mega Like Like is killed: any one of them gives back one shield you have owned and no longer have, the Mirror Shield first. Nothing is saved for this: the missing shield is the record. They come back every time the area loads. A shield that a normal Like Like swallowed, or a Deku Shield that burned, is also given back by a mega Like Like. If you build without this setting while a shield is missing, nothing gives it back. Experimental, untested in the game."),
+            .tip("Three big Like Likes wait in the Deku Tree meadow of Kokiri Forest. One that swallows you eats a shield, the Mirror Shield first, and keeps it until you beat it. A look for a shield-free run, not a harder game. Experimental, untested."),
         Setting::toggle(d::FUSES_NUM, d::FUSES, "difficulty", "Random fuses", false)
             .tip("Each bomb, Bombchu and lit Deku Stick gets a random fuse, from one second up to its usual time."),
         Setting::choice(d::timers::NUM, d::timers::SETTING, "difficulty", "Shorter timers", "off")
