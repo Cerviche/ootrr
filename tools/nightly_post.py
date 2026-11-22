@@ -53,7 +53,11 @@ def notes(version: str, since: str, url: str) -> str:
     c = changes(since)
     heading = "Changes since the last nightly" if is_ancestor(since) else f"Latest {len(c)} changes"
     return "\n".join([
-        f"Nightly build {version} of OOTRR, built from [{head[:10]}](https://github.com/{repo}/commit/{head}) on main.",
+        f"Nightly build {version} of OOTRR, built from [{head[:10]}](https://github.com/{repo}/commit/{head}) on main. "
+        f"Its source is on the [nightly/{version}](https://github.com/{repo}/tree/nightly/{version}) branch.",
+        "",
+        "This release is replaced by the next nightly. The Source code downloads GitHub adds below only hold a placeholder, "
+        "so get the source from the branch above.",
         "",
         "**Nightly builds are untested.** They can have bugs that break a seed or a save, so back up your saves first. "
         "Report bugs in the nightly-bug-reports forum on Discord, with the version above in your post. "
@@ -72,8 +76,6 @@ def notes(version: str, since: str, url: str) -> str:
         "Windows: run the setup exe, or unpack the portable zip anywhere and double-click ootrr.exe. "
         "macOS: open the pkg. Linux: use the deb, or unpack the tar.gz and run install.sh. "
         "Check SHA256SUMS.txt to verify a download.",
-        "",
-        f"Downloads: {url}",
         "",
     ])
 
