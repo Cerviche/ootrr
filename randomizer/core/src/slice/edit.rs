@@ -212,6 +212,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             resized_n += n;
             b
         });
+        // The grave race map gains the ground Heart Piece and the block platform (crate::qol::dampe_race).
+        let resized: Option<Vec<u8>> = if p.qol.one_race && f == crate::qol::dampe_race::GRAVE { Some(crate::qol::dampe_race::place(resized.as_deref().unwrap_or(&vanilla))?) } else { resized };
         let raw: &[u8] = resized.as_deref().unwrap_or(&vanilla);
         let e: Option<Edited> = edit_file_with(&f, raw, &ts, roam, &small_hearts, &lifts, &wrapped_chests)?;
         let e: Option<Edited> = match (e, &resized) {
@@ -385,7 +387,11 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     };
     crate::slice::stages::run(&mut rf, &c, &mut more)?;
     // Ground spots whose actor kept no saved row get one when another pickup stands there.
-    let fresh: Vec<u64> = ts.iter().filter(|t| !t.heart_chest && crate::slice::pickups::needs_row(&t.name) && t.new_actor != t.old_actor).map(|t| t.hash).collect();
+    let mut fresh: Vec<u64> = ts.iter().filter(|t| !t.heart_chest && crate::slice::pickups::needs_row(&t.name) && t.new_actor != t.old_actor).map(|t| t.hash).collect();
+    // The Dampé race Heart Piece is a new actor: it needs its row even when it keeps the Heart Piece.
+    if p.qol.one_race && !fresh.contains(&crate::qol::dampe_race::HEART) {
+        fresh.push(crate::qol::dampe_race::HEART);
+    }
     crate::pot_slice::rows::stage_new(&mut rf, &mut more, &fresh)?;
     for o in more {
         pk.write_romfs(&o.path, &o.z)?;

@@ -16,15 +16,14 @@ use crate::world::{LocId, World};
 
 pub const SETTING: &str = "shuffle_freestanding_items";
 
-pub const HELD: [(&str, bool); 3] = [
+pub const HELD: [(&str, bool); 2] = [
     ("HF Tektite Grotto Freestanding PoH", false),
     ("GV Crate Freestanding PoH", false),
-    ("Graveyard Dampe Race Freestanding PoH", true),
 ];
 
-pub const PIECES_NOTE: &str = "Freestanding heart pieces are shuffled. Heart pieces on the ground swap their actor for another world pickup, and three heart piece chests join the chest pool. Rupees and recovery hearts on the ground keep their items. Rupees, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
+pub const PIECES_NOTE: &str = "Freestanding heart pieces are shuffled. Heart pieces on the ground swap their actor for another world pickup, and two heart piece chests join the chest pool. Rupees and recovery hearts on the ground keep their items. Rupees, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
 
-pub const NOTE: &str = "Freestanding items are shuffled. Heart pieces, rupees and recovery hearts on the ground swap their actor for another world pickup, and three heart piece chests join the chest pool. Rupees, recovery hearts, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
+pub const NOTE: &str = "Freestanding items are shuffled. Heart pieces, rupees and recovery hearts on the ground swap their actor for another world pickup, and two heart piece chests join the chest pool. Rupees, recovery hearts, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
 
 pub const WORLD_ONLY: [&str; 1] = ["Recovery Heart"];
 
@@ -60,7 +59,8 @@ pub const KEY_SPOTS: [&str; 1] = ["Bottom of the Well Freestanding Key"];
 /// Ground spots whose actor keeps no saved row of its own (Ruto's Letter checks the letter,
 /// the key its room flag). When another pickup stands there the build adds a permanent row for
 /// the hash (pot_slice::rows::stage_new), or that pickup would come back on every load.
-pub const NEW_ROWS: [&str; 2] = ["LH Underwater Item", "Bottom of the Well Freestanding Key"];
+/// The Dampé race Heart Piece is a new actor (crate::qol::dampe_race) with no row of its own.
+pub const NEW_ROWS: [&str; 3] = ["LH Underwater Item", "Bottom of the Well Freestanding Key", "Graveyard Dampe Race Freestanding PoH"];
 
 pub fn is_key_spot(l: &Loc) -> bool {
     l.via == Via::Actor && l.kind == "key" && KEY_SPOTS.contains(&l.name.as_str())
