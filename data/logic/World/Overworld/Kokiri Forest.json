@@ -7,7 +7,6 @@
             "Showed Mido Sword & Shield": "is_child and Kokiri_Sword and Deku_Shield"
         },
         "locations": {
-            "KF West Ledge Chest": "can_use(Hookshot)",
             "KF Kokiri Sword Chest": "is_child",
             "KF Grass Near Ramp Green Rupee 1": "is_child",
             "KF Grass Near Ramp Green Rupee 2": "is_child",

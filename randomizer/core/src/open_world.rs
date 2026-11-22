@@ -685,7 +685,7 @@ mod tests {
         for k in 0..3 {
             let g = crate::slice::generate::generate_data(&d, &s, &format!("beans {k}"), &crate::slice::GenOpts::default()).unwrap();
             let it: &str = &g.seed_file.placements[skips::BEAN_SALESMAN];
-            assert!(crate::flow_extra::pouch(d.item(it).unwrap()), "{it}");
+            assert!(d.item(it).is_some_and(|i| i.actor.is_some()), "{it}");
             assert!(g.seed_file.placements.values().all(|v| !skips::BEAN_ITEMS.contains(&v.as_str())), "seed {k}");
         }
     }

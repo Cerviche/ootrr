@@ -252,6 +252,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             }
         }
     }
+    // Spots that exist once per age share one actor hash, so their item is taken once.
+    crate::slice::copies::share(&mut rf, &d, &seed.placements, &mut edits)?;
     let pk: Pack = Pack::begin_for(load, TITLE_ID, mod_name, host)?;
     let mut rst: Option<Rst> = None;
     let mut grown: usize = 0;
@@ -999,7 +1001,7 @@ mod tests {
         assert!(!flows.is_empty());
         for c in &flows {
             // Reward events hand out any item a chest gives, through its chest content actor (#24).
-            let allowed: bool = g.seed_file.placements.get(&c.location).and_then(|it| d.item(it)).is_some_and(|i| crate::slice::flow_rules::allows(&d, &c.location, i));
+            let allowed: bool = g.seed_file.placements.get(&c.location).and_then(|it| d.item(it)).is_some_and(|i| crate::slice::flow_rules::allows(&d, &c.location, i) || crate::slice::flow_rules::linked(i, &c.item));
             assert!(d.flow.usable(&c.item) || crate::slice::flow_rules::ANY_POUCH.contains(&c.location.as_str()) || crate::ocarina_hold::is_form(&c.item) || allowed, "{} -> {}", c.location, c.item);
             assert!(d.flow_ok(&c.location), "{}", c.location);
         }
@@ -1035,7 +1037,7 @@ mod tests {
                 crate::flow_locations::plan(&d.flow, &flows, &FlowOpts { songs, untested: true }).unwrap_or_else(|e| panic!("seed split {n}: {e}"));
             for c in &flows {
                 // Reward events hand out any item a chest gives, through its chest content actor (#24).
-                let allowed: bool = g.seed_file.placements.get(&c.location).and_then(|it| d.item(it)).is_some_and(|i| crate::slice::flow_rules::allows(&d, &c.location, i));
+                let allowed: bool = g.seed_file.placements.get(&c.location).and_then(|it| d.item(it)).is_some_and(|i| crate::slice::flow_rules::allows(&d, &c.location, i) || crate::slice::flow_rules::linked(i, &c.item));
                 let known: bool = d.flow.usable(&c.item) || crate::slice::flow_rules::ANY_POUCH.contains(&c.location.as_str()) || crate::ocarina_hold::is_form(&c.item) || allowed;
                 assert!(known || untested.contains(&c.item), "{} -> {}", c.location, c.item);
             }
