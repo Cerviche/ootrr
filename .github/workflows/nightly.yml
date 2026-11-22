@@ -127,9 +127,13 @@ jobs:
               --prerelease \
               --latest=false
           fi
-          newest="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=1" --jq '.[0].tag_name')"
+          for try in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            newest="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=1" --jq '.[0].tag_name')"
+            [ "$newest" != "$RELEASE_TAG" ] && break
+            sleep 5
+          done
           if [ "$newest" = "$RELEASE_TAG" ]; then
-            echo "The nightly release sorts as the newest release, so the app's update check would see it" >&2
+            echo "The nightly release still sorts as the newest release after a minute, so the app's update check would see it" >&2
             exit 1
           fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
