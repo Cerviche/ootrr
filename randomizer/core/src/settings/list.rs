@@ -644,6 +644,10 @@ pub fn build() -> Schema {
             .tip("Pushable and pullable blocks slide twice as fast."),
     );
     s.push(
+        Setting::toggle(crate::qol::owl::NUM, crate::qol::owl::SETTING, "world", "More owl rides", false)
+            .tip("The owls on the Death Mountain Trail and at Lake Hylia stay all game and offer their flights every time, and a new owl in Kakariko Village flies you to Kokiri Forest. Child Link only."),
+    );
+    s.push(
         Setting::toggle(45, crate::chest_size::SETTING, "world", "Chest size matches contents", false)
             .tip("Chests holding major items, the items that can unlock progress, and boss keys become big chests, and chests holding anything else (rupees, ammo, hearts, maps, compasses and small keys) become small chests, like the OoTR option Chest Appearance Matches Contents. Only the plain wooden chests change; chests that run a story scene, invisible chests and the minigame chests keep their size. A big chest is wider than a small one, so a chest that grows may stand closer to a wall. Experimental, untested in the game."),
     );
