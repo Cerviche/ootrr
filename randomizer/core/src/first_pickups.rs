@@ -1,6 +1,9 @@
+use crate::start_items::table::{Bag, NUTS, STICKS};
+use crate::start_items::{Kit, Set};
+
 pub const SETTING: &str = "skip_first_pickup_text";
 pub const NUM: u16 = 136;
-pub const NOTE: &str = "Rupees, recovery hearts, magic jars, arrow bundles, Deku seeds, Deku Nuts, Deku Sticks, bombs and bombchus are picked up without the first time \"You got X!\" box. Chests, quest items, equipment and every other item keep their box.";
+pub const NOTE: &str = "Rupees, recovery hearts, magic jars, arrow bundles, Deku seeds, bombs, bombchus, Deku Nuts and Deku Sticks are picked up without the first time \"You got X!\" box. A new game starts with the small nut and stick bags (empty), so the first nut or stick is counted like any later one. Chests, quest items, equipment and every other item keep their box.";
 
 pub const PICKUPS: [&str; 16] = [
     "Obj_Rupee_Green",
@@ -15,10 +18,10 @@ pub const PICKUPS: [&str; 16] = [
     "Obj_ArrowBundle_Large",
     "Obj_DekuSeed",
     "Item_DekuSeed",
-    "Item_DekuNut",
-    "Item_DekuStick",
     "Item_Bomb",
     "Item_Bombchu",
+    "Item_DekuNut",
+    "Item_DekuStick",
 ];
 
 pub const WORLD_PICKUPS: [(&str, &str); 15] = [
@@ -33,13 +36,30 @@ pub const WORLD_PICKUPS: [(&str, &str); 15] = [
     ("Obj_ArrowBundle_Medium", "Obj_ArrowBundle_Medium"),
     ("Obj_ArrowBundle_Large", "Obj_ArrowBundle_Large"),
     ("Obj_DekuSeed", "Item_DekuSeed"),
-    ("Obj_DekuNut", "Item_DekuNut"),
-    ("Obj_DekuStick", "Item_DekuStick"),
     ("Obj_Bomb", "Item_Bomb"),
     ("Obj_Bombchu", "Item_Bombchu"),
+    ("Obj_DekuNut", "Item_DekuNut"),
+    ("Obj_DekuStick", "Item_DekuStick"),
 ];
 
 pub const PREFIX: &str = "HavePlayedGetEvent.";
+pub const BAGS: [Bag; 2] = [NUTS, STICKS];
+
+fn owned(k: &Kit, b: &Bag) -> bool {
+    k.sets.iter().any(|s| matches!(s, Set::Bool(n, true) if b.tiers.iter().any(|t| *n == format!("IsGet.{t}"))))
+}
+
+pub fn bag_sets(k: &Kit) -> Vec<Set> {
+    let mut out: Vec<Set> = Vec::new();
+    for b in BAGS.iter().filter(|b| !owned(k, b)) {
+        let t: &str = b.tiers[0];
+        out.push(Set::Bool(format!("IsGet.{t}"), true));
+        out.push(Set::Int(format!("PouchData.{t}.StockNum"), 1));
+        out.push(Set::Int(b.max.to_string(), b.caps[0]));
+        out.push(Set::Str(format!("CurrentExpansionActor_{}", b.kind), t.to_string()));
+    }
+    out
+}
 
 pub fn start_flags() -> Vec<(String, bool)> {
     PICKUPS.iter().map(|a| (format!("{PREFIX}{a}"), true)).collect()
@@ -79,6 +99,33 @@ mod tests {
         for keep in ["Obj_Heart_Piece", "Obj_Heart_Container", "Obj_Rupee_Gold", "Obj_Rupee_Silver", "Item_BombBundle_Small", "Obj_Fairy"] {
             assert!(!f.iter().any(|(n, _)| n == &format!("{PREFIX}{keep}")), "{keep}");
         }
+    }
+
+    #[test]
+    fn a_new_game_gets_the_small_nut_and_stick_bags_unless_the_start_items_bring_one() {
+        let none: Vec<Set> = bag_sets(&Kit::default());
+        assert!(none.contains(&Set::Bool("IsGet.Item_NutBag_Small".to_string(), true)));
+        assert!(none.contains(&Set::Int(NUTS.max.to_string(), 20)));
+        assert!(none.contains(&Set::Str("CurrentExpansionActor_DekuStick".to_string(), "Item_StickBag_Small".to_string())));
+        assert!(!none.iter().any(|s| matches!(s, Set::Int(n, _) if n.contains("Item_DekuNut") || n.contains("Item_DekuStick"))));
+        let mut k: Kit = Kit::default();
+        k.sets.push(Set::Bool("IsGet.Item_NutBag_Medium".to_string(), true));
+        let some: Vec<Set> = bag_sets(&k);
+        assert!(!some.iter().any(|s| matches!(s, Set::Bool(n, _) if n.contains("NutBag"))));
+        assert!(some.contains(&Set::Bool("IsGet.Item_StickBag_Small".to_string(), true)));
+    }
+
+    #[test]
+    fn the_bag_flags_are_new_game_defaults_in_the_real_flag_list() {
+        let p: std::path::PathBuf = ootrr_game::test_romfs::path();
+        if !p.is_dir() {
+            eprintln!("skipped: no romfs at {}, set OOTRR_ROMFS", p.display());
+            return;
+        }
+        let mut rf: crate::romfs::Romfs = crate::romfs::Romfs::open(&p).unwrap();
+        let raw: Vec<u8> = rf.read_zs(crate::chest_slot::LIST).unwrap();
+        let mut y: crate::byml::Byml = crate::byml::Byml::parse(&raw).unwrap();
+        crate::start_items::stage::apply(&mut y, &bag_sets(&Kit::default())).unwrap();
     }
 
     #[test]
