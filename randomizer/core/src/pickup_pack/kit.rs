@@ -250,9 +250,8 @@ pub fn plan_with(packs: &[Vec<Entry>], s: &Spec, l: &Layers) -> Res<Plan> {
     let first: Made = if from_pickup {
         child(&p, s, &own)?
     } else {
-        if let Some(f) = select(&p, &s.item)?.iter().find(|f| !p.get(f).is_some_and(is_byml)) {
-            return Err(E::Msg(format!("{f} is not a parameter file, an item whose pack carries graph or binary files needs a hand made template")));
-        }
+        // The kit's own files are checked once selected (below): a graph file of the item's own
+        // pack, such as the dungeon map's AI, is never reached through the thin template.
         make_with(&p, s, l)?
     };
     let m: Made = with_kit(&p, first, hangs(&s.name))?;

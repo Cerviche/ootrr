@@ -191,6 +191,22 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, i: &Item, l: LocId) -> bool {
     spot && i.dungeon.is_some() && (chest || crate::gift_keys::spot(d, name))
 }
 
+/// Whether the setting of a dungeon item allows the location, wherever it is.
+pub fn spot_ok(d: &Data, w: &World, p: &Plan, i: &Item, l: LocId) -> bool {
+    let Some(k) = keep_of(p, &i.kind) else {
+        return false;
+    };
+    let here: Option<&str> = w.regions[w.locs[l].region].dungeon.as_deref();
+    let spot: bool = match k {
+        Keep::AnyDungeon => here.is_some(),
+        Keep::Overworld => here.is_none(),
+        Keep::Regional => here == i.dungeon.as_deref() || near(d, i, &w.locs[l].name),
+        Keep::Anywhere | Keep::Start => true,
+        Keep::Vanilla | Keep::Dungeon | Keep::Lacs => false,
+    };
+    spot && i.dungeon.is_some()
+}
+
 pub fn chest_ok(d: &Data, name: &str) -> bool {
     match d.state_of(name) {
         Some(State::Eligible) => !d.keeps_event(name),
@@ -255,6 +271,7 @@ pub fn grants(d: &Data, seed: &SeedFile, p: &Plan) -> Res<Grants> {
     let skip: Vec<Kind> = KINDS.iter().copied().filter(|k| keeps(p, *k).into_iter().any(credited)).collect();
     let sweep: Vec<Kind> = KINDS.iter().copied().filter(|k| keeps(p, *k).into_iter().any(|x| credited(x) && x != Keep::Start)).collect();
     let mut credits: BM<u64, (Kind, &'static str)> = BM::new();
+    let mut wrapped: std::collections::BTreeSet<u64> = std::collections::BTreeSet::new();
     for (loc, item) in &seed.placements {
         // Gift scenes give dungeon items through their own scene edit (crate::gift_keys).
         if crate::gift_keys::spot(d, loc) {
@@ -271,19 +288,23 @@ pub fn grants(d: &Data, seed: &SeedFile, p: &Plan) -> Res<Grants> {
             .as_deref()
             .and_then(struct_of)
             .ok_or_else(|| E::Msg(format!("{item} at {loc} belongs to no dungeon this build can credit")))?;
-        let l: &crate::catalog::Loc = d
-            .cat
-            .by_name(loc)
-            .filter(|c| c.kind == "chest")
-            .ok_or_else(|| E::Msg(format!("{item} at {loc} is not in a chest, this build can only hand out dungeon items from chests")))?;
+        // Ground spots, skulltulas, shops and NPCs credit their dungeon items themselves
+        // (crate::debug_names key and location credits, crate::shelf::hook::Credit).
+        // A boss heart stands as the dungeon item's own pickup (crate::debug_names::key_credits).
+        let Some(l) = d.cat.by_name(loc).filter(|c| c.kind == "chest") else {
+            continue;
+        };
+        // A chest whose get runs a story event, and the Treasure Chest Game prize, keep their
+        // event and credit after it (crate::debug_names::stage_credit_chests).
+        if loc == crate::slice::treasure::LOC || l.refs.iter().any(|r| d.events.keep.contains(&r.hash)) {
+            wrapped.extend(l.refs.iter().map(|r| r.hash));
+            continue;
+        }
         for r in &l.refs {
-            if d.events.keep.contains(&r.hash) {
-                return Err(E::Msg(format!("{item} at {loc} would replace a story event that has to stay")));
-            }
             credits.insert(r.hash, (k, s));
         }
     }
-    Ok(Grants { skip, sweep, credits })
+    Ok(Grants { skip, sweep, credits, wrapped })
 }
 
 pub fn apply(file: &str, raw: &[u8], prev: Option<Edited>, g: &Grants, m: &mut Marks) -> Res<Option<Edited>> {

@@ -393,12 +393,19 @@ pub fn credit_keys(f: &mut Flow, dungeons: &[&str], big: bool) -> Res<usize> {
 }
 
 pub fn sweep(y: &mut Byml, file: &str) -> Res<usize> {
+    sweep_except(y, file, &BS::new())
+}
+
+pub fn sweep_except(y: &mut Byml, file: &str, skip: &BS<u64>) -> Res<usize> {
     let scene: Option<&'static str> = scene_dungeon(file);
     let Some(list) = y.root.get_mut("Actors").and_then(|a| a.as_arr_mut()) else {
         return Ok(0);
     };
     let mut n: usize = 0;
     for a in list.iter_mut() {
+        if hash_of(a).is_some_and(|h| skip.contains(&h)) {
+            continue;
+        }
         let size: Size = Size::of_gyaml(text(a, "Gyaml"));
         let Some(d) = a.get_mut("Dynamic") else {
             continue;
@@ -979,3 +986,4 @@ mod tests {
         assert_eq!(event_name("ForestTemple", Size::Big), "OOTRR_Key_ForestTemple_Big");
     }
 }
+

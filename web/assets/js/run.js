@@ -165,11 +165,10 @@ function instructions() {
   );
 }
 
-async function open_file(pick, out, redraw) {
-  const f = pick.files && pick.files[0];
-  pick.value = "";
-  if (!f) return;
-  if (f.size > 8 * 1024 * 1024) return fill(out, notice("error", "That file is too large to be a seed file."));
+// Loads a seed file as the current seed (its settings too). Returns an error text, or "" when it worked.
+export async function load_seed_file(f) {
+  if (!f) return "Pick a seed file first.";
+  if (f.size > 8 * 1024 * 1024) return "That file is too large to be a seed file.";
   const text = await f.text();
   try {
     const res = await post("/api/seed/read", { seed_text: text });
@@ -179,10 +178,19 @@ async function open_file(pick, out, redraw) {
     state.result = res;
     Object.assign(run, { phase: "idle", job: null, error: "", target: "" });
     touch();
-    redraw();
+    return "";
   } catch (e) {
-    fill(out, notice("error", e.message));
+    return e.message;
   }
+}
+
+async function open_file(pick, out, redraw) {
+  const f = pick.files && pick.files[0];
+  pick.value = "";
+  if (!f) return;
+  const err = await load_seed_file(f);
+  if (err) return fill(out, notice("error", err));
+  redraw();
 }
 
 function summary(res) {

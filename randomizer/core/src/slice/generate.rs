@@ -5,11 +5,10 @@ use std::time::Duration;
 
 use crate::error::{Error as E, Res};
 use crate::logic_items::ItemId;
-use crate::progressive::family_of;
 use crate::rng::Rng;
 use crate::settings::Settings;
 use crate::settings::seed::SeedFile;
-use crate::slice::data::{Data, State};
+use crate::slice::data::Data;
 use crate::slice::fill::{changed, fill_ordered, vanilla_place, SWITCH};
 use crate::slice::logic::world_with;
 use crate::slice::pick::{pick, scoped, Pick};
@@ -62,54 +61,72 @@ pub fn is_song(actor: &str) -> bool {
     actor.starts_with("Item_Melody_") && actor != "Item_Melody_ScarecrowSong"
 }
 
-pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
-    if let Some(ok) = crate::slice::place_rules::verdict(&crate::slice::place_rules::Spot { d, w, p, it, l, name: &w.locs[l].name, item: &w.items.names[it] }) {
+/// Whether `it` may be placed at `l`. Every item may go to every shuffled location; only the
+/// rules the settings ask for remain (crate::slice::place_rules::SETTING_RULES, songs at song
+/// spots, and where dungeon items may go). Where a location's give path cannot yet hand out an
+/// item, the mod build says so, or the item misbehaves in game and is fixed at that path.
+/// Whether the mod build has a form for `it` at `l`: a pickup actor at a ground spot or a Gold
+/// Skulltula, a shelf actor at a shop deal. Every other spot gives any item through its grant,
+/// and every spot credits a dungeon item to its dungeon (a chest or boss heart chest through its
+/// own credit, an NPC grant through crate::gift_keys, ground and skulltula pickups through their
+/// dungeon's pickup actor, shop deals through the shelf hook, the other NPCs, sale offers and
+/// story chests through crate::debug_names location credits).
+pub fn buildable(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
+    let name: &str = &w.locs[l].name;
+    let item: &str = &w.items.names[it];
+    // The adult trade sequence is not shuffled: its spots clone their chain event, and a trade
+    // quest item shares the menu slot with the chain.
+    if crate::flow_extra::trade::is(name) && d.item(item).and_then(|i| i.actor.as_deref()).is_some_and(crate::flow_extra::trade::chain) && d.vanilla_of(name) != Some(item) {
+        return false;
+    }
+    if crate::shops::is_loc(name) && p.shops.on() {
+        return crate::shops::rules::class(d, item).is_some_and(|c| c.on(&p.shops, p.songs == Songs::Anywhere));
+    }
+    if let Some(ok) = crate::slice::skulls::accepts(d, w, it, l).filter(|_| p.skulls != crate::slice::skulls::Mode::Off) {
         return ok;
     }
-    match d.item(&w.items.names[it]) {
-        Some(i) if scoped(p, &i.kind) => {
-            i.dungeon.is_some()
-                && i.dungeon.as_deref() == w.regions[w.locs[l].region].dungeon.as_deref()
-                && (d.flow.by_name(&w.locs[l].name).is_none() || d.flow_accepts(i) || crate::gift_keys::spot(d, &w.locs[l].name))
-                && !crate::slice::dungeon_items::blocked(d, p, &i.kind, &w.locs[l].name)
-        }
-        Some(i) if crate::slice::dungeon_items::handles(p, &i.kind) => crate::slice::dungeon_items::allowed(d, w, p, i, l),
-        Some(i) if p.keys_roam() && i.kind == "SmallKey" => {
-            let name: &str = &w.locs[l].name;
-            let dungeon: bool = w.regions[w.locs[l].region].dungeon.is_some();
-            let place: bool = match p.keys.small {
-                Keep::AnyDungeon => dungeon,
-                _ => true,
-            };
-            let chest: bool = d.flow.by_name(name).is_none() && !d.special(name) && d.state_of(name) == Some(State::Eligible) && d.cat.by_name(name).is_some_and(|c| c.kind == "chest");
-            place && i.dungeon.is_some() && (chest || crate::gift_keys::spot(d, name))
-        }
-        Some(i) => {
-            let name: &str = &w.locs[l].name;
-            let up: bool = family_of(&i.tiers).is_some();
-            let song_item: bool = i.actor.as_deref().is_some_and(is_song);
-            let song_loc: bool = d.song_ok(name);
-            let heart_loc: bool = d.cat.by_name(name).is_some_and(|c| c.kind == "bossheart");
-            if p.songs == Songs::Own && song_item != song_loc {
-                return false;
-            }
-            i.actor.is_some()
-                && crate::slice::flow_rules::allows(d, name, i)
-                && (!p.rewards.extra || crate::flow_extra::fits(d, name, i))
-                && (!p.rewards.scrubs || crate::scrubs_a::fits(d, name, i))
-                && (!p.rewards.scrubs_b || crate::scrubs_b::fits(d, name, i))
-                && (!crate::open_world::skips::is_bean_sale(name) || crate::flow_extra::pouch(i))
-                && !(up && ((d.keeps_event(name) && !d.special(name)) || heart_loc))
-                // A token cannot lie on the ground (its death table writes the dropping
-                // skulltula's rows), so at a boss heart it fell back to a chest.
-                && !(heart_loc && i.kind == "Token")
-                && !(d.keeps_event(name) && i.actor.as_deref().is_some_and(crate::progressive::guarded))
-                // A spot with an actor per age (the remake chests that follow Chests) hands its
-                // item out twice, so it only takes items a second copy does no harm.
-                && crate::slice::copies::fits(d, name, &i.name)
-        }
-        None => false,
+    if d.cat.by_name(name).is_some_and(pu::is_world) {
+        return pu::ground_actor(item).is_some() || crate::slice::key_spots::shield(item).is_some() || crate::slice::key_spots::placeable(d, item, crate::slice::key_spots::Spot::Free);
     }
+    if let Some(ok) = crate::pot_slice::rules::at(d, name, item) {
+        return ok;
+    }
+    true
+}
+
+pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
+    let name: &str = &w.locs[l].name;
+    if let Some(ok) = crate::slice::place_rules::setting_verdict(&crate::slice::place_rules::Spot { d, w, p, it, l, name, item: &w.items.names[it] }) {
+        return ok;
+    }
+    let Some(i) = d.item(&w.items.names[it]) else {
+        return false;
+    };
+    if !buildable(d, w, p, it, l) {
+        return false;
+    }
+    let here: Option<&str> = w.regions[w.locs[l].region].dungeon.as_deref();
+    if scoped(p, &i.kind) {
+        return i.dungeon.is_some() && i.dungeon.as_deref() == here;
+    }
+    if crate::slice::dungeon_items::handles(p, &i.kind) {
+        return crate::slice::dungeon_items::spot_ok(d, w, p, i, l);
+    }
+    if p.keys_roam() && i.kind == "SmallKey" {
+        return i.dungeon.is_some() && (p.keys.small != Keep::AnyDungeon || here.is_some());
+    }
+    // A token cannot lie on the ground (its death table writes the dropping skulltula's rows),
+    // so at a boss heart it fell back to a chest.
+    if i.kind == "Token" && d.cat.by_name(name).is_some_and(|c| c.kind == "bossheart") {
+        return false;
+    }
+    if p.songs == Songs::Own {
+        let song_item: bool = i.actor.as_deref().is_some_and(is_song);
+        if song_item != d.song_ok(name) {
+            return false;
+        }
+    }
+    true
 }
 
 fn item_name(w: &World, v: &Placement, l: LocId) -> String {
@@ -310,10 +327,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         let fix: bool = crate::slice::tier_fix::active(d, &w, &pk.free);
         let narrow = |it: ItemId, l: LocId| ok(it, l) && !crate::slice::key_spots::widened(d, &w.locs[l].name, &w.items.names[it]);
         let order: Option<&dyn Fn(ItemId, LocId) -> bool> = if fix { Some(&narrow) } else { None };
-        let mut caps: HM<LocId, usize> = crate::pot_slice::rules::caps(d, &w, &pk.free, &base, order.unwrap_or(ok));
-        if caps.is_empty() && lay.is_some() {
-            caps = crate::shops::rules::caps(&w, &pk.free, &base, order.unwrap_or(ok));
-        }
+        let caps: HM<LocId, usize> = crate::pot_slice::rules::caps(d, &w, &pk.free, &base, order.unwrap_or(ok));
         let rank = |l: LocId| caps.get(&l).copied().unwrap_or(0);
         let r: Option<&dyn Fn(LocId) -> usize> = if caps.is_empty() { None } else { Some(&rank) };
         let mut sr: Rng = Rng::from_text(&format!("{seed} songs first{}{}", if careful { " careful" } else { "" }, if reach { " reach" } else { "" }));

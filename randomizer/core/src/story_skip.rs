@@ -342,6 +342,9 @@ fn ends(f: &Flow, start: usize) -> Res<u16> {
             k => {
                 // A Bow or Slingshot tier is followed by its bag adds (crate::starter_bags::line).
                 let n: u16 = crate::starter_bags::skip(f, next_of(k).ok_or(Error::Format("story skip: a gift event has no single next"))?);
+                // Ammo given to a player without its bag is followed by its extra rupees
+                // (crate::progressive::NO_BAG_EXTRA).
+                let n: u16 = crate::progressive::skip_extra_rupees(f, n);
                 if !seen.contains(&n) {
                     seen.push(n);
                 }
@@ -1970,11 +1973,34 @@ pub fn patch_sheik(b: &mut Bf, c: &SheikCut) -> Res<()> {
     let f: &mut Flow = flow_mut(b, c.scene)?;
     guard(f, SHEIK_PREFIX)?;
     let grant: usize = find(f, c.grant)?;
-    if !matches!(&f.events[grant].kind, Kind::Sub { entry, .. } if entry == "GetPouchContentByActorName") {
-        return Err(Error::Msg(format!("story skip: {} in {} is not the song grant, the game files differ", c.grant, c.scene)));
-    }
+    // The grant may be wrapped: a dungeon item turns it into the get window and its credit
+    // (crate::gift_keys::edit_flow), an upgrade or ammo into tier and owner checks (flow_wrap).
+    // Every such form still runs into the message close.
     let close: usize = find_action(f, (c.close, "GameSystemActor.EventCloseMessageDialog"))?;
-    if next_of(&f.events[grant].kind) != Some(idx(close)?) {
+    let mut seen: Vec<u16> = Vec::new();
+    let mut todo: Vec<u16> = vec![idx(grant)?];
+    let mut reached: bool = false;
+    while let Some(i) = todo.pop() {
+        if i == NONE || seen.contains(&i) || seen.len() > 256 {
+            continue;
+        }
+        if i == idx(close)? {
+            reached = true;
+            continue;
+        }
+        seen.push(i);
+        if let Some(e) = f.events.get(i as usize) {
+            match &e.kind {
+                Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => todo.extend(cases.iter().map(|c| c.ev)),
+                Kind::Fork { join, forks } => {
+                    todo.extend(forks.iter().copied());
+                    todo.push(*join);
+                }
+                k => todo.extend(next_of(k)),
+            }
+        }
+    }
+    if !reached {
         return Err(Error::Msg(format!("story skip: the song grant of {} is not followed by its message close", c.scene)));
     }
     let start: usize = find(f, c.start)?;

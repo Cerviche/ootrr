@@ -37,7 +37,33 @@ const EXISTS: &str = "EventQueryIsExistInPouch";
 const HOLDER: &str = "GameDataActor";
 const ROOT_ENTRY: &str = "Success_";
 const GUARD: &str = "AmmoGuard_";
-pub const NO_BAG: &str = "TBox_Rupee_Green";
+/// What ammo gives to a player without its bag: a Blue Rupee get, then 5 rupees more
+/// (NO_BAG_EXTRA), 10 rupees in all.
+pub const NO_BAG: &str = "TBox_Rupee_Blue";
+pub const NO_BAG_EXTRA: i32 = 5;
+
+/// The event after the extra rupees of a no-bag give, when `at` is that event; `at` otherwise.
+pub fn skip_extra_rupees(f: &Flow, at: u16) -> u16 {
+    if at == NONE {
+        return at;
+    }
+    match f.events.get(usize::from(at)).map(|e| &e.kind) {
+        Some(Kind::Action { next, actor, act, params }) => {
+            let a = f.actors.get(usize::from(*actor));
+            let rupee: bool = a.is_some_and(|a| a.name == "PouchSystemActor" && a.actions.get(usize::from(*act)).is_some_and(|x| x == "EventTriggerIncreaseRupee"));
+            let ours: bool = params.as_ref().is_some_and(|c| c.items.iter().any(|(k, v)| k == "Value" && *v == Val::Int(NO_BAG_EXTRA)));
+            if rupee && ours { *next } else { at }
+        }
+        _ => at,
+    }
+}
+
+/// Runs `then` after the extra rupees of a no-bag give: PouchSystemActor.EventTriggerIncreaseRupee.
+fn extra_rupees(f: &mut Flow, then: u16) -> Res<u16> {
+    let (a, x): (u16, u16) = crate::dungeon_credit::action_slot(f, "PouchSystemActor", "EventTriggerIncreaseRupee")?;
+    let c: Cont = Cont { items: vec![("Value".to_string(), Val::Int(NO_BAG_EXTRA))] };
+    push(f, Kind::Action { next: then, actor: a, act: x, params: Some(c) })
+}
 const BOMB_BAGS: &[&str] = &["Item_BombBag_Small", "Item_BombBag_Medium", "Item_BombBag_Large"];
 const QUIVERS: &[&str] = &["Item_Quiver_Small", "Item_Quiver_Medium", "Item_Quiver_Large"];
 const BULLET_BAGS: &[&str] = &["Item_BulletBag_Small", "Item_BulletBag_Medium", "Item_BulletBag_Large"];
@@ -237,6 +263,10 @@ pub fn guard(f: &mut Flow, actor: &str) -> Res<()> {
     let (a, q) = ensure_query(f)?;
     let keep: u16 = give(f, actor)?;
     let none: u16 = give(f, NO_BAG)?;
+    let more: u16 = extra_rupees(f, NONE)?;
+    if let Kind::Sub { next, .. } = &mut f.events[usize::from(none)].kind {
+        *next = more;
+    }
     let mut at: u16 = none;
     for owner in bags {
         let c: Cont = Cont { items: vec![("ActorName".to_string(), Val::Str(owner.to_string()))] };
@@ -426,7 +456,17 @@ pub fn ammo_guard(f: &mut Flow, index: usize, event: &str, param: &str) -> Res<b
     let Some(bags) = actor.as_deref().and_then(bags_of) else {
         return Ok(false);
     };
-    let rupee: Kind = with_param(&kept, param, NO_BAG)?;
+    let mut rupee: Kind = with_param(&kept, param, NO_BAG)?;
+    let then: Option<u16> = match &rupee {
+        Kind::Action { next, .. } | Kind::Sub { next, .. } => Some(*next),
+        _ => None,
+    };
+    if let Some(t) = then {
+        let more: u16 = extra_rupees(f, t)?;
+        if let Kind::Action { next, .. } | Kind::Sub { next, .. } = &mut rupee {
+            *next = more;
+        }
+    }
     let (a, q) = ensure_query(f)?;
     let keep: u16 = push(f, kept)?;
     let none: u16 = push(f, rupee)?;
@@ -1086,3 +1126,4 @@ mod tests {
         assert_eq!(Size::of_gyaml("Obj_TBox_A_01"), Size::Small);
     }
 }
+

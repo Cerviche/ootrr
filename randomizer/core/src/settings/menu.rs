@@ -628,9 +628,9 @@ const SHOPSANITY: View = View {
 const SHOPSANITY_PRICES: View = View {
     id: "shopsanity_prices",
     label: "Shopsanity Prices",
-    tip: "The price range of the non-vanilla shop items, named by the wallet that can pay the highest price. Prices lean to the middle of the range, in steps of 5 rupees, and vanilla shop items keep their own price.\n\nAffordable - Every item costs 10 rupees.\n\nStarting Wallet - 10 to 200 rupees.\n\nAdult Wallet - 10 to 500 rupees. Items above 200 need the Adult's Wallet in logic.\n\nGiant's Wallet - 10 to 995 rupees. Items above 500 need the Giant's Wallet in logic.\n\nThe remake's wallets hold 200, 500 and 1000 rupees, and there is no Tycoon's Wallet. Kokiri Shop items never cost more than 200, so the Kokiri Sword and other early items stay in reach.",
+    tip: "The price range of the non-vanilla shop items. Prices lean to the middle of the range, in steps of 5 rupees, and vanilla shop items keep their own price.\n\nAffordable - Every item costs 10 rupees.\n\nCheap - 0 to 95 rupees, no wallet upgrade needed.\n\nAdult Wallet - 10 to 500 rupees. Items above 200 need the Adult's Wallet in logic.\n\nGiant's Wallet - 10 to 995 rupees. Items above 500 need the Giant's Wallet in logic.\n\nThe remake's wallets hold 200, 500 and 1000 rupees, and there is no Tycoon's Wallet. Kokiri Shop items never cost more than 200, so the Kokiri Sword and other early items stay in reach.",
     kind: Kind::Pick,
-    opts: &[yes("Affordable", "affordable"), yes("Starting Wallet", "starting"), yes("Adult Wallet", "adult"), yes("Giant's Wallet", "giant")],
+    opts: &[yes("Affordable", "affordable"), yes("Cheap", "cheap"), yes("Adult Wallet", "adult"), yes("Giant's Wallet", "giant")],
 };
 
 const LOCATIONS_TAB: &[PortSection] = &[

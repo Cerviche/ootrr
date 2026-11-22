@@ -85,7 +85,7 @@ pub fn slots(d: &Data, placed: &BM<String, String>) -> Vec<Slot> {
             } else {
                 Give::Open
             }
-        } else if fixed_spot(d, loc) {
+        } else if fixed_spot(d, loc) || (crate::slice::flow_rules::priced_sale(d, loc) && !crate::scrubs_a::home(d, loc, item)) {
             Give::Open
         } else if is_sale(d, loc) {
             if crate::scrubs_a::home(d, loc, item) {

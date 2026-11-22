@@ -175,7 +175,13 @@ pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
         comps.set(AS_INFO_REF, Node::Str(need(&donor, DONOR, AS_INFO_REF)?.to_string()));
     }
     comps.set(AS_REF, Node::Str(need(&donor, DONOR, AS_REF)?.to_string()));
-    comps.set(NAME_REF, Node::Str(need(&item, &s.item, NAME_REF)?.to_string()));
+    if s.name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
+        // The game names an actor by its ActorNameRef's file name (the file itself is optional):
+        // a dungeon item's own pickup is named by its own <name>_Name text (debug_names::name_keys).
+        comps.set(NAME_REF, Node::Str(format!("?ActorSystem/ActorName/{}.engine__actor__ActorName.bgyml", s.name)));
+    } else {
+        comps.set(NAME_REF, Node::Str(need(&item, &s.item, NAME_REF)?.to_string()));
+    }
     match &l.model {
         Some(m) => {
             let (r, f, b): (String, String, Vec<u8>) = model::anim(&s.name, version)?;
@@ -205,7 +211,14 @@ pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
     actor.set(COMPONENTS, comps);
     let mut pouch: Node = Node::Map(Vec::new());
     pouch.set(PARENT, Node::Str(work(&item_pouch)));
-    let who: String = identity(p, s, &item, &item_pouch)?;
+    // Goron's Bracelet saves under its armor actor, as the shop shelf does (crate::shelf::actor).
+    let who: String = if s.name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
+        // A dungeon item's own pickup is a pouch item of its own, named for its dungeon
+        // (crate::debug_names::key_credits), so the get names the dungeon and a sweep credits it.
+        s.name.clone()
+    } else {
+        crate::shelf::actor::shelf_identity(&identity(p, s, &item, &item_pouch)?).to_string()
+    };
     pouch.set(POUCH_ACTOR, Node::Str(work(&actor_file(&who))));
     pouch.set(FIRST_CHECK, Node::Bool(false));
     if s.style == Style::Touch {
@@ -441,3 +454,5 @@ pub(crate) mod tests {
         assert!(make_with(&p, &spec(Style::Touch), &on).is_err());
     }
 }
+
+

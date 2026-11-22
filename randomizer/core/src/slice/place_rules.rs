@@ -35,6 +35,30 @@ pub const RULES: [(&str, Rule); 16] = [
     ("world only pickups", world_only),
 ];
 
+/// The rules the settings ask for: they stay when every item may go everywhere.
+pub const SETTING_RULES: [(&str, Rule); 7] = [
+    ("ganon's boss key on the light arrows cutscene", lacs_key),
+    ("dungeon rewards at the end of dungeons", end_of_dungeons),
+    ("excluded locations", excluded),
+    ("silver rupees", silver),
+    ("adult trade items", adult_trade),
+    ("skipped locations", skipped),
+    ("song spots", songs),
+];
+
+pub fn setting_verdict(s: &Spot) -> Option<bool> {
+    SETTING_RULES.iter().find_map(|(_, r)| r(s))
+}
+
+/// The adult trade chain keeps its items at home: the sequence is not shuffled.
+fn adult_trade(s: &Spot) -> Option<bool> {
+    let child: [&str; 2] = ["Item_WeirdEgg", "Item_ZeldaLetter"];
+    s.d.item(s.item)
+        .filter(|i| i.actor.as_deref().is_some_and(|a| crate::flow_extra::trade::chain(a) && !child.contains(&a)))
+        .is_some_and(|i| !crate::flow_extra::trade::keeps(s.d, s.name, i))
+        .then_some(false)
+}
+
 pub fn verdict(s: &Spot) -> Option<bool> {
     RULES.iter().find_map(|(_, r)| r(s))
 }

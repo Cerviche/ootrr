@@ -63,8 +63,8 @@ pub fn parse(d: &Data, spec: &str) -> Res<Job> {
     let (loc, rest) = spec.split_once('=').ok_or_else(|| E::Msg(format!("{spec} is not Location=Item@price")))?;
     let (item, price) = rest.rsplit_once('@').ok_or_else(|| E::Msg(format!("{spec} has no @price")))?;
     let price: i32 = price.trim().parse().map_err(|_| E::Msg(format!("{spec} has a price that is not a number")))?;
-    if !(1..=999).contains(&price) {
-        return Err(E::Msg(format!("{spec} has a price outside 1 to 999")));
+    if !(0..=999).contains(&price) {
+        return Err(E::Msg(format!("{spec} has a price outside 0 to 999")));
     }
     let s: &Slot = t.slot(loc.trim()).ok_or_else(|| E::Msg(format!("{} is not a shelf slot, use a name like KF Shop Item 1", loc.trim())))?;
     let item: &str = crate::spoiler::unshown(item.trim());
@@ -121,6 +121,6 @@ mod tests {
         assert!(deal(&d, "Progressive Strength Upgrade", None, 25).is_err());
         assert!(parse(&d, "GC Shop Item 6=Small Key (Forest Temple)@50").is_err());
         assert!(parse(&d, "Nowhere=Boomerang@5").is_err());
-        assert!(parse(&d, "KF Shop Item 1=Boomerang@0").is_err());
+        assert!(parse(&d, "KF Shop Item 1=Boomerang@1000").is_err());
     }
 }
