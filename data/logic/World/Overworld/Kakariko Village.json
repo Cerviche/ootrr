@@ -199,9 +199,7 @@
             "Drain Well": "is_child and can_play(Song_of_Storms)"
         },
         "locations": {
-            "Kak Windmill Freestanding PoH": "
-                can_use(Boomerang) or
-                (logic_windmill_poh and is_adult) or 'Dampes Windmill Access'",
+            "Kak Windmill Freestanding PoH": "(logic_windmill_poh and is_adult) or 'Dampes Windmill Access'",
             "Song from Windmill": "is_adult and Ocarina"
         },
         "exits": {

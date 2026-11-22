@@ -61,7 +61,7 @@
         "region_name": "Graveyard Dampes Grave",
         "scene": "Windmill and Dampes Grave",
         "events": {
-            "Dampes Windmill Access": "is_adult and can_play(Song_of_Time)"
+            "Dampes Windmill Access": "True"
         },
         "locations": {
             "Graveyard Dampe Race High Rupee Chest": "is_adult",

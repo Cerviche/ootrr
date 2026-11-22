@@ -215,8 +215,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         // The grave race map gains the ground Heart Piece and the block platform (crate::qol::dampe_race).
         let resized: Option<Vec<u8>> = if p.qol.one_race && f == crate::qol::dampe_race::GRAVE {
             Some(crate::qol::dampe_race::place(resized.as_deref().unwrap_or(&vanilla))?)
-        } else if p.qol.one_race && f == crate::qol::dampe_race::GRAVE_DYNAMIC {
-            Some(crate::qol::dampe_race::clear(resized.as_deref().unwrap_or(&vanilla))?)
         } else {
             resized
         };
@@ -526,6 +524,11 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         let f = b.flows.first_mut().ok_or(crate::error::Error::Format("child tunics: DisplayShop holds no flow"))?;
         crate::shelf::hook::child_tunics(f).map(|_| ())
     })?;
+    if p.qol.first_dig {
+        for flow in crate::qol::dampe_dig::FLOWS {
+            crate::story_skip::stage_late(&mut rf, &mut late, &work, flow, crate::qol::dampe_dig::patch)?;
+        }
+    }
     if p.qol.one_race {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::dampe_race::FLOW, crate::qol::dampe_race::patch)?;
     }

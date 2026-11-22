@@ -17,14 +17,11 @@ const HEART_FROM: u64 = 2157466067026784951;
 /// A Song of Time block that only stands there as a platform: no Song of Time group, no link.
 /// Placed in the race course where the owner stood, raised a little.
 pub const BLOCK: u64 = 7277816997830770002;
-pub const BLOCK_AT: [f32; 3] = [-21.9615, 84.1, 77.3986];
+pub const BLOCK_AT: [f32; 3] = [-19.6769, 84.1, 77.4768];
+/// Turned a quarter turn about the vertical axis.
+pub const BLOCK_TURN: f32 = std::f32::consts::FRAC_PI_2;
 const BLOCK_ACTOR: &str = "Obj_SongOfTimeBlock_A_01";
 
-/// The grave's dynamic map, which holds the glowing floor boards of the goal room.
-pub const GRAVE_DYNAMIC: &str = "Banc/Graveyard/Graveyard_Adult_Dynamic.bcett.byml.zs";
-/// The two glowing broken boards (Land_DampeGrave_Floor_A_01) by the ground Heart Piece. Nothing
-/// links to them; they go so the item does not sit among them.
-pub const BOARDS: [u64; 2] = [12927524056370954305, 4234627562618720374];
 
 pub const NOTE: &str = "One Dampé race: the first race gives the Hookshot chest as before, and the race's Heart Piece lies on the ground at the goal, across from Dampé, with no second race to win. A fast second race shows the rupee chest instead of the Heart Piece chest. A Song of Time block stands in the race course as an extra platform. Always on.";
 
@@ -77,18 +74,6 @@ fn actor(gyaml: &str, hash: u64, pos: [f32; 3], rot: Node, srt: u32) -> Node {
     ])
 }
 
-/// Takes the glowing floor boards by the ground Heart Piece out of the grave's dynamic map.
-pub fn clear(raw: &[u8]) -> Res<Vec<u8>> {
-    let mut y: Byml = Byml::parse(raw)?;
-    let list: &mut Vec<Node> = y.root.get_mut("Actors").and_then(|a| a.as_arr_mut()).ok_or(Error::Format("one dampe race: the grave dynamic map has no actors"))?;
-    let before: usize = list.len();
-    list.retain(|a| !matches!(a.get("Hash"), Some(Node::U64(h)) if BOARDS.contains(h)));
-    if before - list.len() != BOARDS.len() {
-        return Err(Error::Msg(format!("one dampe race: found {} of the {} floor boards, the game files differ", before - list.len(), BOARDS.len())));
-    }
-    y.write()
-}
-
 /// Adds the ground Heart Piece and the Song of Time block platform to the grave race map.
 pub fn place(raw: &[u8]) -> Res<Vec<u8>> {
     let mut y: Byml = Byml::parse(raw)?;
@@ -107,6 +92,6 @@ pub fn place(raw: &[u8]) -> Res<Vec<u8>> {
         _ => 0,
     };
     list.push(actor("Obj_Heart_Piece", HEART, HEART_AT, rot, srt));
-    list.push(actor(BLOCK_ACTOR, BLOCK, BLOCK_AT, at([0.0, 0.0, 0.0]), srt));
+    list.push(actor(BLOCK_ACTOR, BLOCK, BLOCK_AT, at([0.0, BLOCK_TURN, 0.0]), srt));
     y.write()
 }

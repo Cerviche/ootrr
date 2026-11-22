@@ -1,6 +1,7 @@
 pub mod anju;
 pub mod blocks;
 pub mod chest_anim;
+pub mod dampe_dig;
 pub mod dampe_race;
 pub mod fishing;
 pub mod night_skulls;
@@ -53,6 +54,7 @@ pub struct Opts {
     pub skip_escape: bool,
     pub fast_session: bool,
     pub one_race: bool,
+    pub first_dig: bool,
 }
 
 pub type Have<'a> = &'a dyn Fn(&str) -> Option<Vec<u8>>;
@@ -132,6 +134,9 @@ impl Opts {
         if self.one_race {
             out.push(dampe_race::NOTE.to_string());
         }
+        if self.first_dig {
+            out.push(dampe_dig::NOTE.to_string());
+        }
         out
     }
 
@@ -172,6 +177,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let skip_escape: bool = flag(tower_escape::SETTING);
     let fast_session: bool = true;
     let one_race: bool = true;
+    let first_dig: bool = true;
     let navi: navi_return::Mode = match s.text(NAVI) {
         Ok("off") => navi_return::Mode::Off,
         Ok("dungeons") => navi_return::Mode::Dungeons,
@@ -198,7 +204,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             bunny::Mode::Off
         }
     };
-    Opts { skip, anju, poe, navi, bunny, big_chests, blocks, owls, suns_skulls, any_fish, free_scarecrow, skip_escape, fast_session, one_race }
+    Opts { skip, anju, poe, navi, bunny, big_chests, blocks, owls, suns_skulls, any_fish, free_scarecrow, skip_escape, fast_session, one_race, first_dig }
 }
 
 pub fn settings() -> Vec<crate::settings::Setting> {

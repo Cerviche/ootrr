@@ -21,7 +21,7 @@ pub const HELD: [(&str, bool); 2] = [
     ("GV Crate Freestanding PoH", false),
 ];
 
-pub const PIECES_NOTE: &str = "Freestanding heart pieces are shuffled. Heart pieces on the ground swap their actor for another world pickup, and two heart piece chests join the chest pool. Rupees and recovery hearts on the ground keep their items. Rupees, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
+pub const PIECES_NOTE: &str = "Freestanding heart pieces and Ruto's Letter are shuffled. Heart pieces on the ground swap their actor for another world pickup, and two heart piece chests join the chest pool. Rupees and recovery hearts on the ground keep their items. Rupees, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
 
 pub const NOTE: &str = "Freestanding items are shuffled. Heart pieces, rupees and recovery hearts on the ground swap their actor for another world pickup, and two heart piece chests join the chest pool. Rupees, recovery hearts, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
 
@@ -61,6 +61,9 @@ pub const KEY_SPOTS: [&str; 1] = ["Bottom of the Well Freestanding Key"];
 /// the hash (pot_slice::rows::stage_new), or that pickup would come back on every load.
 /// The Dampé race Heart Piece is a new actor (crate::qol::dampe_race) with no row of its own.
 pub const NEW_ROWS: [&str; 3] = ["LH Underwater Item", "Bottom of the Well Freestanding Key", "Graveyard Dampe Race Freestanding PoH"];
+
+/// Ground spots shuffled whatever the freestanding setting, like the Heart Pieces: Ruto's Letter.
+pub const ALWAYS: [&str; 1] = ["LH Underwater Item"];
 
 pub fn is_key_spot(l: &Loc) -> bool {
     l.via == Via::Actor && l.kind == "key" && KEY_SPOTS.contains(&l.name.as_str())
@@ -123,7 +126,7 @@ impl Free {
     }
 
     fn covers(self, l: &Loc, dungeon: bool) -> bool {
-        let piece: bool = l.kind == "heart" || is_held(&l.name);
+        let piece: bool = l.kind == "heart" || is_held(&l.name) || ALWAYS.contains(&l.name.as_str());
         match self {
             Free::Off => false,
             Free::Pieces => piece,
