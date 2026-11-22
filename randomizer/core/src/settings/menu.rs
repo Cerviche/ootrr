@@ -785,7 +785,7 @@ pub const MENU: &[Page] = &[
         heading: IN_DEV,
         sections: &[
             sec("Gold Skulltulas", &["night_skulls_suns_song"]),
-            sec("Minigames", &["fishing_any_fish"]),
+            sec("Minigames", &["fishing_any_fish", "faster_ocarina_minigame"]),
             sec("Songs", &["free_scarecrow"]),
             sec("Ganon's Tower", &["skip_tower_escape"]),
         ],

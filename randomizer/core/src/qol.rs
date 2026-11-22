@@ -4,6 +4,7 @@ pub mod chest_anim;
 pub mod fishing;
 pub mod night_skulls;
 pub mod scarecrow;
+pub mod skull_kid_session;
 pub mod tower_escape;
 pub mod bunny;
 pub mod navi_return;
@@ -49,6 +50,7 @@ pub struct Opts {
     pub any_fish: bool,
     pub free_scarecrow: bool,
     pub skip_escape: bool,
+    pub fast_session: bool,
 }
 
 pub type Have<'a> = &'a dyn Fn(&str) -> Option<Vec<u8>>;
@@ -122,6 +124,9 @@ impl Opts {
         if self.skip_escape {
             out.push(tower_escape::NOTE.to_string());
         }
+        if self.fast_session {
+            out.push(skull_kid_session::NOTE.to_string());
+        }
         out
     }
 
@@ -159,6 +164,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let any_fish: bool = flag(fishing::SETTING);
     let free_scarecrow: bool = flag(scarecrow::SETTING);
     let skip_escape: bool = flag(tower_escape::SETTING);
+    let fast_session: bool = flag(skull_kid_session::SETTING);
     let navi: navi_return::Mode = match s.text(NAVI) {
         Ok("off") => navi_return::Mode::Off,
         Ok("dungeons") => navi_return::Mode::Dungeons,
@@ -185,7 +191,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             bunny::Mode::Off
         }
     };
-    Opts { skip, anju, poe, navi, bunny, big_chests, blocks, owls, suns_skulls, any_fish, free_scarecrow, skip_escape }
+    Opts { skip, anju, poe, navi, bunny, big_chests, blocks, owls, suns_skulls, any_fish, free_scarecrow, skip_escape, fast_session }
 }
 
 pub fn settings() -> Vec<crate::settings::Setting> {
@@ -195,6 +201,8 @@ pub fn settings() -> Vec<crate::settings::Setting> {
             .tip("The logic only expects you to get a night Gold Skulltula once you can play Sun's Song, so no check is placed behind one before that. Like the OoTR trick option of the same name. Has no effect with Skulltulas by day."),
         Setting::toggle(fishing::NUM, fishing::SETTING, "world", "Any fish wins the fishing prizes", false)
             .tip("The fishing pond owner gives his prize for any fish you hand in, whatever its size: one prize as child and one as adult. Loaches and fish caught with the sinking lure count too. Experimental, untested in the game."),
+        Setting::toggle(skull_kid_session::NUM, skull_kid_session::SETTING, "world", "Faster Ocarina minigame", false)
+            .tip("The Skull Kids' Ocarina memory game in the Lost Woods starts at its last round, and winning it the first time gives all three prizes: the Blue Rupee, the Red Rupee and the check. Experimental, untested in the game."),
         Setting::toggle(scarecrow::NUM, scarecrow::SETTING, "world", "Free Scarecrow's Song", false)
             .tip("Start with Scarecrow's Song and an instant scarecrow: Pierre already stands at every scarecrow spot once you own an Ocarina, so there is no song to record or play. The logic counts the song as known, like the OoTR option of the same name. Experimental, untested in the game."),
         Setting::toggle(tower_escape::NUM, tower_escape::SETTING, "goal", "Skip the tower escape", false)

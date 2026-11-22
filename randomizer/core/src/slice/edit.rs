@@ -509,6 +509,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if p.qol.any_fish {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::fishing::FLOW, crate::qol::fishing::patch)?;
     }
+    if p.qol.fast_session {
+        crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::skull_kid_session::FLOW, crate::qol::skull_kid_session::patch)?;
+    }
     if p.qol.skip_escape {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::tower_escape::FLOW, crate::qol::tower_escape::patch_flow)?;
     }
