@@ -213,7 +213,13 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             b
         });
         // The grave race map gains the ground Heart Piece and the block platform (crate::qol::dampe_race).
-        let resized: Option<Vec<u8>> = if p.qol.one_race && f == crate::qol::dampe_race::GRAVE { Some(crate::qol::dampe_race::place(resized.as_deref().unwrap_or(&vanilla))?) } else { resized };
+        let resized: Option<Vec<u8>> = if p.qol.one_race && f == crate::qol::dampe_race::GRAVE {
+            Some(crate::qol::dampe_race::place(resized.as_deref().unwrap_or(&vanilla))?)
+        } else if p.qol.one_race && f == crate::qol::dampe_race::GRAVE_DYNAMIC {
+            Some(crate::qol::dampe_race::clear(resized.as_deref().unwrap_or(&vanilla))?)
+        } else {
+            resized
+        };
         let raw: &[u8] = resized.as_deref().unwrap_or(&vanilla);
         let e: Option<Edited> = edit_file_with(&f, raw, &ts, roam, &small_hearts, &lifts, &wrapped_chests)?;
         let e: Option<Edited> = match (e, &resized) {
