@@ -156,7 +156,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let roam: bool = p.keys_roam();
     let gift_keys: Vec<crate::gift_keys::Gift> = crate::gift_keys::gifts(&d, seed)?;
-    let key_cs: Vec<crate::debug_names::KeyCredit> = crate::debug_names::key_credits(&d, seed, roam);
+    let key_cs: Vec<crate::debug_names::KeyCredit> = crate::debug_names::key_credits(&d, seed);
     // Dungeon items at NPCs with their own events, sale offers, story chests and the Treasure
     // Chest Game prize credit their dungeon after the get.
     let mut flow_cs: Vec<crate::debug_names::LocCredit> = Vec::new();
