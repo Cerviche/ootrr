@@ -49,8 +49,29 @@ pub fn ground_actor(item: &str) -> Option<&'static str> {
     world_actor(item).or_else(|| crate::pot_slice::pickup::of(item).filter(|a| !NOT_ON_GROUND.contains(a)))
 }
 
+/// Freestanding small keys that join the pool when small keys roam (keysanity: any dungeon,
+/// anywhere, overworld, regional). Own dungeon keeps them, as the new saved row
+/// (NEW_ROWS) is not yet checked in the game. The key credits the dungeon of its scene, so the spot takes its own key back
+/// unchanged, or any pickup that can lie on the ground. The Shadow Temple key stays out: its
+/// jar event (ShadowTemple_Gimmick, entry LargeJar_Key) binds the key actor by name and plays
+/// Act_Pop on it, which another pickup may not have. The Thieves' Hideout keys stay out too.
+pub const KEY_SPOTS: [&str; 1] = ["Bottom of the Well Freestanding Key"];
+
+/// Ground spots whose actor keeps no saved row of its own (Ruto's Letter checks the letter,
+/// the key its room flag). When another pickup stands there the build adds a permanent row for
+/// the hash (pot_slice::rows::stage_new), or that pickup would come back on every load.
+pub const NEW_ROWS: [&str; 2] = ["LH Underwater Item", "Bottom of the Well Freestanding Key"];
+
+pub fn is_key_spot(l: &Loc) -> bool {
+    l.via == Via::Actor && l.kind == "key" && KEY_SPOTS.contains(&l.name.as_str())
+}
+
+pub fn needs_row(name: &str) -> bool {
+    NEW_ROWS.contains(&name)
+}
+
 pub fn is_world(l: &Loc) -> bool {
-    l.via == Via::Actor && matches!(l.kind.as_str(), "heart" | "freestanding")
+    l.via == Via::Actor && (matches!(l.kind.as_str(), "heart" | "freestanding") || is_key_spot(l))
 }
 
 /// A spot whose actor is swapped for the placed item's ground pickup: the freestanding spots,
@@ -231,7 +252,13 @@ pub fn select(d: &Data, w: &World, p: &Plan, free: &mut Vec<LocId>, left: &mut B
             continue;
         };
         let dungeon: bool = w.regions[w.locs[x].region].dungeon.is_some();
-        if !p.world.covers(l, dungeon) {
+        if is_key_spot(l) {
+            if !p.keys_roam() {
+                count(left, "small keys do not roam");
+            } else {
+                free.push(x);
+            }
+        } else if !p.world.covers(l, dungeon) {
             count(left, "freestanding item shuffle does not cover its kind");
         } else if held(&l.name) == Some(true) && !d.event_ok(&l.name) {
             count(left, "chest runs a story event that can grant its own item");
@@ -245,6 +272,10 @@ pub fn select(d: &Data, w: &World, p: &Plan, free: &mut Vec<LocId>, left: &mut B
 
 pub fn at(d: &Data, name: &str, item: &str) -> Option<bool> {
     if d.cat.by_name(name).is_some_and(is_world) {
+        // The spot's own item needs no swap, even one with no ground pickup (the key, the letter).
+        if d.vanilla_of(name) == Some(item) {
+            return Some(true);
+        }
         let known: bool = ground_actor(item).is_some() || ks::shield(item).is_some() || ks::placeable(d, item, ks::Spot::Free);
         return Some(known && crate::slice::copies::fits(d, name, item));
     }
@@ -340,10 +371,10 @@ mod tests {
             n += 1;
             assert!(w.loc(&l.name).is_some(), "{}", l.name);
             let v: &str = d.vanilla_of(&l.name).unwrap();
-            assert!(world_actor(v).is_some(), "{} holds {v}", l.name);
+            assert!(world_actor(v).is_some() || needs_row(&l.name), "{} holds {v}", l.name);
             assert!(!l.refs.is_empty() && l.refs.iter().all(|r| !r.files.is_empty()), "{}", l.name);
         }
-        assert_eq!(n, 14 + 7 + 8 + 1 + 98);
+        assert_eq!(n, 14 + 7 + 8 + 1 + 98 + NEW_ROWS.len());
         for (name, _) in HELD {
             let l: &Loc = d.cat.by_name(name).unwrap();
             assert_eq!((l.kind.as_str(), l.via), ("chest", Via::Drop), "{name}");
@@ -396,9 +427,11 @@ mod tests {
             select(&d, &w, &p, &mut free, &mut left, &mut flow);
             (free.len(), flow)
         };
+        // Ruto's Letter joins with the overworld spots; the Bottom of the Well key is seen but
+        // stays, since small keys do not roam by default.
         let (all, seen): (usize, usize) = count_of("all");
-        assert_eq!(seen, 33 + 98);
-        assert_eq!(all, 33 + 98);
+        assert_eq!(seen, 33 + 98 + 2);
+        assert_eq!(all, 33 + 98 + 1);
         let (pieces, _): (usize, usize) = count_of("pieces");
         assert_eq!(pieces, 17);
         let p: Plan = plan(&on("pieces")).unwrap();
@@ -496,6 +529,69 @@ mod tests {
             }
             assert!(g.report.contains(NOTE));
         }
+    }
+
+    fn keysanity() -> Settings {
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_smallkeys", Value::s("keysanity")).unwrap();
+        s
+    }
+
+    #[test]
+    fn the_well_key_spot_joins_only_when_small_keys_roam() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let key: &str = KEY_SPOTS[0];
+        let freed = |s: &Settings| {
+            let p: Plan = plan(s).unwrap();
+            let mut free: Vec<LocId> = Vec::new();
+            let mut left: BM<String, usize> = BM::new();
+            let mut flow: usize = 0;
+            select(&d, &w, &p, &mut free, &mut left, &mut flow);
+            free.iter().any(|l| w.locs[*l].name == key)
+        };
+        assert!(!freed(&Settings::default()));
+        assert!(freed(&keysanity()));
+        for n in ["Shadow Temple Freestanding Key", "Hideout 1 Torch Jail Gerudo Key"] {
+            assert!(!d.cat.by_name(n).is_some_and(is_world), "{n}");
+        }
+        assert!(d.cat.by_name(key).is_some_and(|l| is_world(l) && is_key_spot(l) && on_ground(l)));
+    }
+
+    #[test]
+    fn the_well_key_spot_takes_its_own_key_or_a_ground_pickup_but_no_other_key() {
+        let d: Data = Data::load().unwrap();
+        let key: &str = KEY_SPOTS[0];
+        assert_eq!(at(&d, key, "Small Key (Bottom of the Well)"), Some(true));
+        assert_eq!(at(&d, key, "Small Key (Forest Temple)"), Some(false));
+        assert_eq!(at(&d, key, "Rupees (20)"), Some(true));
+        assert_eq!(at(&d, "LH Underwater Item", "Rutos Letter"), Some(true));
+        assert_eq!(at(&d, "LH Underwater Item", "Rupees (50)"), Some(true));
+        assert_eq!(pool_actor(&d, key).as_deref(), Some("Item_Dungeon_SmallKey"));
+        assert_eq!(pool_actor(&d, "LH Underwater Item").as_deref(), Some("Item_Bottle_Letter"));
+        let l: &Loc = d.cat.by_name(key).unwrap();
+        let t: Vec<Target> = targets(&d, l, "Rupees (20)").unwrap();
+        assert_eq!((t.len(), t[0].old_actor.as_str(), t[0].new_actor.as_str()), (1, "Obj_Dungeon_SmallKey", "Obj_Rupee_Red"));
+        assert!(targets(&d, l, "Small Key (Bottom of the Well)").unwrap().is_empty());
+    }
+
+    #[test]
+    fn keysanity_seeds_move_the_well_key_and_the_letter_and_stay_valid() {
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = keysanity();
+        s.set(SETTING, Value::s("all")).unwrap();
+        let p: Plan = plan(&s).unwrap();
+        let w: World = crate::slice::logic::world_with(&d, &p.logic()).unwrap();
+        let mut moved: [bool; 2] = [false; 2];
+        for n in 0..6 {
+            let g: Generated = generate_data(&d, &s, &format!("well key {n}"), &GenOpts::default()).unwrap();
+            for (i, name) in [KEY_SPOTS[0], "LH Underwater Item"].iter().enumerate() {
+                let it: &str = &g.seed_file.placements[*name];
+                assert!(crate::slice::generate::allowed(&d, &w, &p, w.item(it).unwrap(), w.loc(name).unwrap()), "{it} at {name}");
+                moved[i] |= d.vanilla_of(name) != Some(it);
+            }
+        }
+        assert_eq!(moved, [true, true]);
     }
 
     #[test]

@@ -31,6 +31,7 @@ pub mod door_fix;
 pub mod door_gate;
 pub mod water_gate;
 pub mod door_open;
+pub mod dungeon_fixes;
 pub mod dungeon_credit;
 pub mod dungeon_grant;
 pub mod entr;

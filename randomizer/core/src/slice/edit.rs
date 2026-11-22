@@ -329,6 +329,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         scrub_rows,
     };
     crate::slice::stages::run(&mut rf, &c, &mut more)?;
+    // Ground spots whose actor kept no saved row get one when another pickup stands there.
+    let fresh: Vec<u64> = ts.iter().filter(|t| !t.heart_chest && crate::slice::pickups::needs_row(&t.name) && t.new_actor != t.old_actor).map(|t| t.hash).collect();
+    crate::pot_slice::rows::stage_new(&mut rf, &mut more, &fresh)?;
     for o in more {
         pk.write_romfs(&o.path, &o.z)?;
         extra += 1;
@@ -450,6 +453,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     // A Bow or Slingshot from any gift or pickup brings its starting bag, as a chest's does.
     crate::starter_bags::stage(&mut rf, &mut late, &work)?;
+    // Rooms that could lock Link in once their item is shuffled away (crate::dungeon_fixes).
+    crate::dungeon_fixes::stage(&mut rf, &mut late, &work)?;
     if p.short {
         crate::short_get::stage(&mut rf, &mut late, &work)?;
     }
@@ -879,12 +884,13 @@ mod tests {
         for n in 0..4 {
             let g = generate_data(&d, &Settings::default(), &format!("wrap {n}"), &GenOpts::default()).unwrap();
             let (ts, _, _): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
+            let views: BM<String, String> = crate::slice::tier_order::chest_views(&d, &g.seed_file).unwrap();
             // Freestanding spots hand out a fixed tier (slice::tier_order), not a chest wrapper.
             for t in ts.iter().filter(|t| !d.cat.by_name(&t.name).is_some_and(crate::slice::pickups::is_world)) {
                 match (t.family, d.family(&t.new_item)) {
                     (Some(f), _) => {
                         seen.insert(f);
-                        assert_eq!(t.new_actor, crate::pregrant::chest_drop(f).unwrap());
+                        assert_eq!(t.new_actor, crate::slice::chest_targets::view_drop(f, views.get(&t.name).map(|s| s.as_str())).unwrap());
                         assert!(
                             !needs_every_holder(f) || d.holders(f).iter().all(|h| g.seed_file.placements.contains_key(*h) || d.wrappable(h)),
                             "{f}"

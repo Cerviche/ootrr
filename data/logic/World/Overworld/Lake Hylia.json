@@ -9,6 +9,8 @@
         "locations": {
             "Pierre": "is_adult and Bonooru and scarecrow_behavior != 'free'",
             "LH Sun": "'Water Temple Clear' and can_use(Bow)",
+            # A field Poe's chest on the lake shore, reached once the lake is refilled (tester run).
+            "LH Poe Chest": "is_adult and 'Water Temple Clear'",
             "LH Freestanding PoH": "
                 is_adult and (can_use(Scarecrow) or here(can_plant_bean))",
             "LH Underwater Item": "is_child and can_dive",

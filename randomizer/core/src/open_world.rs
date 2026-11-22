@@ -5,6 +5,8 @@ pub mod gerudo;
 pub mod guard;
 pub mod quest_order;
 pub mod skips;
+pub mod trade;
+pub mod zora_tunic;
 
 use std::fs;
 use std::path::PathBuf as PB;
@@ -277,6 +279,8 @@ pub fn stage_last(rf: &mut Romfs, late: &mut Vec<Out>, work: &std::path::Path) -
     crate::story_skip::stage_late_file(rf, late, work, WATER_FILE, |raw| flow_edit(raw, |b| guard::guard_steps(b, WATER_FLOW, WATER, &BACK_STEPS, MOVED_EXP, Run::WhenFalse, ZORA_PREFIX).map(|_| ())))?;
     crate::story_skip::stage_late_file(rf, late, work, ARRIVE_FILE, |raw| flow_edit(raw, |b| guard::guard_steps(b, ARRIVE_FLOW, WATER, &BACK_STEPS, MOVED_EXP, Run::WhenFalse, ZORA_PREFIX).map(|_| ())))?;
     darunia::stage_late(rf, late, work)?;
+    trade::stage_late(rf, late, work)?;
+    zora_tunic::stage_late(rf, late, work)?;
     quest_order::stage_late(rf, late, work)
 }
 

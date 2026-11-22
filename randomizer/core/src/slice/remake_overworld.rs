@@ -12,10 +12,10 @@ pub const NEW: [&str; 18] = [
     "GC Maze Silver Chest",
     "Graveyard Dampe Race Low Rupee Chest",
     "Graveyard Dampe Race High Rupee Chest",
-    "HF Lake Poe Chest",
+    "LH Poe Chest",
     "HF South Poe Chest",
     "HF East Poe Chest",
-    "HF Tunnel Ledge Chest",
+    "LLR Tunnel Ledge Chest",
     "HF Redead Grotto Chest",
     "Kak Windmill Roof Chest",
     "KF West Ledge Chest",
@@ -125,7 +125,8 @@ mod tests {
     #[test]
     fn twin_hashes_are_edited_with_their_chest() {
         let d: Data = Data::load().unwrap();
-        for (n, h) in [("Kak Windmill Roof Chest", 13080955777249750889u64), ("GV Storms Grotto Lens Chest", 6205043616869463865u64)] {
+        // The west ledge chest stands in the Kokiri Forest and the Lost Woods scene files alike.
+        for (n, h) in [("Kak Windmill Roof Chest", 13080955777249750889u64), ("GV Storms Grotto Lens Chest", 6205043616869463865u64), ("KF West Ledge Chest", 17479747339356189279u64)] {
             let l: &Loc = d.cat.by_name(n).unwrap();
             assert_eq!(l.refs.len(), 2, "{n}");
             assert!(l.refs.iter().any(|r| r.hash == h), "{n}");
@@ -178,8 +179,25 @@ mod tests {
         for n in ["DMT Chest", "GC Maze Center Chest", "GC Maze Silver Chest", "SFM Time Block Grotto Chest", "DMC Upper Grotto Chest"] {
             assert!(!s.loc_access(w.loc(n).unwrap()), "{n}");
         }
-        assert!(s.loc_access(w.loc("HF Tunnel Ledge Chest").unwrap()));
         assert!(s.loc_access(w.loc("Kak Open Grotto Chest").unwrap()));
+    }
+
+    #[test]
+    fn the_tester_run_rules_bind() {
+        let d: Data = Data::load().unwrap();
+        let w: World = world(&d).unwrap();
+        let g: Vec<ItemId> = vec![w.item("Progressive Strength Upgrade").unwrap(); 3];
+        let s: Search = explore(&w, &without(&w, &d, &["Progressive Hookshot"]), &g);
+        for n in ["LLR Tunnel Ledge Chest", "LH Poe Chest"] {
+            assert!(!s.loc_access(w.loc(n).unwrap()), "{n}");
+        }
+        let s: Search = explore(&w, &without(&w, &d, &["Iron Boots"]), &g);
+        assert!(s.loc_access(w.loc("HF Tektite Grotto Freestanding PoH").unwrap()));
+        for (n, r) in [("HF Tektite Grotto Freestanding PoH", "Hyrule Field"), ("LLR Tunnel Ledge Chest", "LLR Tower"), ("LH Poe Chest", "Lake Hylia")] {
+            assert_eq!(w.regions[w.locs[w.loc(n).unwrap()].region].name, r, "{n}");
+        }
+        let s: Search = explore(&w, &without(&w, &d, &["Progressive Hookshot", "Boomerang", "Slingshot"]), &g);
+        assert!(!s.loc_access(w.loc("Dodongos Cavern GS Vines Above Stairs").unwrap()));
     }
 
     #[test]

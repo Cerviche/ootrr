@@ -274,10 +274,17 @@ pub fn mark(y: &mut Byml, g: &BM<u64, &'static str>, used: &mut BS<&'static str>
             continue;
         };
         let size: Size = Size::of_gyaml(text(a, "Gyaml"));
-        let Some(dy) = a.get_mut("Dynamic").filter(|d| d.get(DROP).is_some()) else {
+        // A chest without the drop field gives its actor's default (banc::DEFAULT_DROPS).
+        let default: bool = crate::slice::banc::default_drop(h).is_some();
+        let Some(dy) = a.get_mut("Dynamic").filter(|d| d.get(DROP).is_some() || default) else {
             continue;
         };
         dy.set(DROP, Node::Str(CONTENT.to_string()));
+        // A chest that swaps its content for a substitute (the Bow check of the GTG Hammer Room)
+        // must give the Silver Rupee either way, as banc::set_drop_ev does for other items.
+        if dy.get("Drop__DropActor_Substitute").is_some() {
+            dy.set("Drop__DropActor_Substitute", Node::Str(CONTENT.to_string()));
+        }
         dy.set("GetEventName", Node::Str(event_name(tag, size)));
         used.insert(tag);
         hit.insert(h);
