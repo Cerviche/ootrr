@@ -468,7 +468,9 @@ pub fn quiet_pouch(y: &mut Byml) -> Res<bool> {
 
 pub fn size_of(y: &Byml, hash: u64) -> Option<Size> {
     let list: &[Node] = y.root.get("Actors")?.as_arr()?;
-    let a: &Node = list.iter().find(|a| hash_of(a) == Some(hash) && a.get("Dynamic").is_some_and(|d| d.get(DROP).is_some()))?;
+    // A chest without the drop field gives its actor's default (banc::DEFAULT_DROPS).
+    let default: bool = crate::slice::banc::default_drop(hash).is_some();
+    let a: &Node = list.iter().find(|a| hash_of(a) == Some(hash) && a.get("Dynamic").is_some_and(|d| default || d.get(DROP).is_some()))?;
     Some(Size::of_gyaml(text(a, "Gyaml")))
 }
 
@@ -476,8 +478,12 @@ pub fn plain(y: &mut Byml, hash: u64) -> Option<Size> {
     let size: Size = size_of(y, hash)?;
     let list: &mut Vec<Node> = y.root.get_mut("Actors")?.as_arr_mut()?;
     for a in list.iter_mut().filter(|a| hash_of(a) == Some(hash)) {
-        if let Some(d) = a.get_mut("Dynamic").filter(|d| d.get(DROP).is_some()) {
+        let default: bool = crate::slice::banc::default_drop(hash).is_some();
+        if let Some(d) = a.get_mut("Dynamic").filter(|d| default || d.get(DROP).is_some()) {
             d.set(DROP, Node::Str(KEY.to_string()));
+            if d.get("Drop__DropActor_Substitute").is_some() {
+                d.set("Drop__DropActor_Substitute", Node::Str(KEY.to_string()));
+            }
         }
     }
     Some(size)

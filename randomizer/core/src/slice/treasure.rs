@@ -260,7 +260,7 @@ mod tests {
         let s: Settings = on();
         let p: Plan = plan(&s).unwrap();
         let mut seen: BM<String, usize> = BM::new();
-        for n in 0..12 {
+        for n in 0..24 {
             let g: Generated = generate_data(&d, &s, &format!("treasure {n}"), &GenOpts::default()).unwrap();
             let it: &str = &g.seed_file.placements[LOC];
             assert!(ITEMS.contains(&it), "{it}");

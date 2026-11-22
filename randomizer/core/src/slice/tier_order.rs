@@ -208,6 +208,54 @@ pub fn pinned(d: &Data, w: &World, free: &[LocId]) -> Vec<&'static str> {
     FAMILIES.iter().map(|(f, _)| *f).filter(|f| d.holders(f).iter().any(|h| !names.contains(h))).collect()
 }
 
+/// The sphere in which each location is first reached (None: never).
+fn spheres(w: &World, place: &Placement) -> Vec<Option<usize>> {
+    let mut out: Vec<Option<usize>> = vec![None; w.locs.len()];
+    let mut s: Search = Search::new(w);
+    let mut n: usize = 0;
+    let mut found: Vec<LocId> = s.settle(place, false);
+    while !found.is_empty() {
+        for l in &found {
+            out[*l].get_or_insert(n);
+            if let Some(i) = place.get(*l) {
+                s.add(i, 1);
+            }
+        }
+        n += 1;
+        found = s.settle(place, false);
+    }
+    out
+}
+
+/// The tier a chain chest of an upgrade most likely gives, for the model its chest raises: a
+/// chest raises its drop actor (PouchContentGuestPerformer), while the chain grants the next
+/// tier at run time. Every holder of the family is ordered by the sphere that reaches it, and
+/// the k-th one shows tier k past the copies the player starts with. Found in that order, the
+/// model matches the item; the item granted is right either way.
+pub fn chest_views(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
+    let chests: Vec<Slot> = slots(d, &seed.placements).into_iter().filter(|s| s.give == Give::Flow && seed.placements.contains_key(&s.loc) && !is_sale(d, &s.loc) && !fixed_spot(d, &s.loc)).collect();
+    let mut out: BM<String, String> = BM::new();
+    if chests.is_empty() {
+        return Ok(out);
+    }
+    let (w, place): (World, Placement) = crate::slice::starts::rebuild(d, seed)?;
+    let when: Vec<Option<usize>> = spheres(&w, &place);
+    let fams: BS<&'static str> = chests.iter().map(|s| s.family).collect();
+    for f in fams {
+        let t: &[&str] = tiers(f)?;
+        let Some(name) = chests.iter().find(|s| s.family == f).map(|s| s.item.as_str()) else { continue };
+        let Some(it) = w.item(name) else { continue };
+        let mut holders: Vec<(usize, &str)> = (0..w.locs.len()).filter(|l| place.get(*l) == Some(it)).map(|l| (when[l].unwrap_or(usize::MAX), w.locs[l].name.as_str())).collect();
+        holders.sort();
+        let start: usize = held_at_start(&w, it);
+        for s in chests.iter().filter(|s| s.family == f) {
+            let Some(k) = holders.iter().position(|h| h.1 == s.loc) else { continue };
+            out.insert(s.loc.clone(), t[(start + k).min(t.len() - 1)].to_string());
+        }
+    }
+    Ok(out)
+}
+
 pub fn fixed_actors(d: &Data, seed: &SeedFile) -> Res<Verdict> {
     if !slots(d, &seed.placements).iter().any(|s| s.give == Give::Open) {
         return Ok(Verdict::default());
@@ -224,6 +272,44 @@ mod tests {
     use crate::slice::generate::{generate_data, GenOpts, Generated};
     use crate::slice::logic::world_with;
     use crate::slice::support::{plan, Plan};
+
+    #[test]
+    fn chain_chests_show_the_tiers_in_reach_order() {
+        let d: Data = Data::load().unwrap();
+        let mut later: usize = 0;
+        for n in 0..6 {
+            let g: Generated = generate_data(&d, &Settings::default(), &format!("views {n}"), &GenOpts::default()).unwrap();
+            let v: BM<String, String> = chest_views(&d, &g.seed_file).unwrap();
+            let (w, place): (World, Placement) = crate::slice::starts::rebuild(&d, &g.seed_file).unwrap();
+            let when: Vec<Option<usize>> = spheres(&w, &place);
+            for (f, _) in FAMILIES.iter().copied() {
+                let mut mine: Vec<(Option<usize>, usize)> = v
+                    .iter()
+                    .filter(|(l, _)| g.seed_file.placements.get(*l).is_some_and(|i| d.family(i) == Some(f)))
+                    .map(|(l, a)| (when[w.loc(l).unwrap()], rank(f, a).unwrap()))
+                    .collect();
+                mine.sort();
+                // A chest reached in a later sphere never shows a lower tier than an earlier one.
+                assert!(mine.windows(2).all(|x| x[0].1 <= x[1].1 || x[0].0 == x[1].0), "{f} {mine:?}");
+                later += mine.iter().filter(|m| m.1 > 0).count();
+            }
+            for (l, a) in &v {
+                let f: &str = d.family(&g.seed_file.placements[l]).unwrap();
+                assert!(rank(f, a).is_some(), "{l} {a}");
+            }
+        }
+        assert!(later > 0);
+    }
+
+    #[test]
+    fn a_viewed_tier_that_sets_off_the_pre_grant_falls_back_to_the_safe_drop() {
+        use crate::slice::chest_targets::view_drop;
+        assert_eq!(view_drop("Strength", Some("Item_Gauntlet_Silver")).unwrap(), "Item_Gauntlet_Silver");
+        assert_eq!(view_drop("Hookshot", Some("Item_Longshot")).unwrap(), "Item_Longshot");
+        assert_eq!(view_drop("Hookshot", None).unwrap(), "Item_Hookshot");
+        assert_eq!(view_drop("BombBag", Some("Item_BombBag_Small")).unwrap(), "Item_BombBag_Medium");
+        assert_eq!(view_drop("Strength", Some("Item_Longshot")).unwrap(), crate::pregrant::chest_drop("Strength").unwrap());
+    }
 
     fn map(pairs: &[(&str, &str)]) -> BM<String, String> {
         pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()

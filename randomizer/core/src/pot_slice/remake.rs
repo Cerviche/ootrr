@@ -249,8 +249,8 @@ mod tests {
                 }
                 let want: usize = match remake {
                     "all" => 213,
-                    "dungeons" => 113,
-                    _ => 100,
+                    "dungeons" => 114,
+                    _ => 99,
                 };
                 assert_eq!(here, want, "{remake} {pots} {n}");
             }

@@ -66,6 +66,8 @@
         "scene": "LLR Tower",
         "locations": {
             "LLR Freestanding PoH": "is_child",
+            # High on the wall of the crawl tunnel room, taken as an adult with the Hookshot.
+            "LLR Tunnel Ledge Chest": "can_use(Hookshot)",
             "LLR Tower Left Cow": "can_play(Eponas_Song)",
             "LLR Tower Right Cow": "can_play(Eponas_Song)"
         },

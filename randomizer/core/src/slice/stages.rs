@@ -219,6 +219,7 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     }
     edits.extend(crate::gerudo_card::exps());
     edits.extend(crate::open_world::fortress::exps());
+    edits.extend(crate::open_world::trade::edits());
     edits.extend(c.p.trials.edits());
     c.p.trials.stage(rf, more, c.work)?;
     if let Some(n) = c.p.rainbow {

@@ -481,12 +481,17 @@ pub fn shown_flag(h: u64) -> String {
     format!("OOTRRDbgGs_{h}")
 }
 
+/// Every skulltula hash with the catalog row whose name it shows. A `skull_names.json` row wins
+/// over the catalog hash of its name, as it does where the token's item is placed
+/// (`skull_names::hashes`), so the box names the location whose item the skulltula drops.
 pub fn skulls(d: &Data) -> Vec<(u64, usize)> {
     let mut out: Vec<(u64, usize)> = Vec::new();
-    for (i, l) in d.cat.locs.iter().enumerate().filter(|(_, l)| l.kind == SKULL_KIND) {
-        for r in &l.refs {
-            if !out.iter().any(|x| x.0 == r.hash) {
-                out.push((r.hash, i));
+    let named = d.cat.locs.iter().enumerate().filter(|(_, l)| l.kind == SKULL_KIND).map(|(i, l)| (i, l.name.as_str()));
+    let extra = crate::slice::skull_names::extra(d).into_iter().filter_map(|n| d.cat.locs.iter().position(|l| l.name == n).map(|i| (i, n)));
+    for (i, n) in named.chain(extra) {
+        for h in crate::slice::skull_names::hashes(d, n) {
+            if !out.iter().any(|x| x.0 == h) {
+                out.push((h, i));
             }
         }
     }
@@ -961,4 +966,33 @@ pub fn hook_sale(b: &mut Bf, entry: &str, id: &str) -> Res<bool> {
     };
     let Some(set) = case_to(&f.events[usize::from(chk)].kind, 0) else { return Ok(false) };
     say_after(f, usize::from(set), id.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn shown(d: &Data, h: u64) -> Option<String> {
+        skulls(d).into_iter().find(|x| x.0 == h).map(|x| d.cat.locs[x.1].name.clone())
+    }
+
+    #[test]
+    fn skulltula_boxes_name_the_skull_names_row_of_their_hash() {
+        let d: Data = Data::load().unwrap();
+        for (h, n) in [
+            (8470399761714006011u64, "Dodongos Cavern GS Vines Above Stairs"),
+            (4565265801822094851, "Dodongos Cavern GS Alcove Above Stairs"),
+            (6789992996625105554, "Fire Temple GS Song of Time Room"),
+            (12751796212121957464, "Fire Temple GS Boulder Maze"),
+            (17796658857969527112, "LW GS Bean Patch Near Theater"),
+        ] {
+            assert_eq!(shown(&d, h).as_deref(), Some(n), "{h}");
+        }
+        let gs: Vec<(u64, usize)> = skulls(&d);
+        for (i, l) in d.cat.locs.iter().enumerate().filter(|(_, l)| l.kind == SKULL_KIND) {
+            for h in crate::slice::skull_names::hashes(&d, &l.name) {
+                assert!(gs.contains(&(h, i)), "{} {h}", l.name);
+            }
+        }
+    }
 }

@@ -21,12 +21,17 @@ pub const GORONS: [(&str, &str); 9] = [
     ("Room_23_Prefab_612a", "Npc_Goron_007_Adult_FireTemple_6279"),
 ];
 
-pub const CHESTS: [(&str, &str); 8] = [
+/// The eight small key chests read their Goron's Npc_Goron_NNN_Delete straight into Unlock. The
+/// Boss Key chest (Room 17) reads an AND of Npc_Goron_010_Delete and the player being outside
+/// Area_ccd2. Only the Goron's own talk flow sets that flag, so with the Goron gone the chest
+/// stayed locked and gave no prompt.
+pub const CHESTS: [(&str, &str); 9] = [
     ("Room_02_Prefab_3004", "Obj_TBox_A_01_435b"),
     ("Room_04_Prefab_d826", "Obj_TBox_A_01_d31e"),
     ("Room_05_Prefab_5b8f", "Obj_TBox_A_01_c516"),
     ("Room_10_Prefab_b3bc", "Obj_TBox_A_01_ade4"),
     ("Room_11_Prefab_c20f", "Obj_TBox_A_01_58b1"),
+    ("Room_17_Prefab_a4ce", "Obj_TBox_A_03_30dc"),
     ("Room_20_Prefab_7421", "Obj_TBox_A_01_ac82"),
     ("Room_22_Prefab_e0c9", "Obj_TBox_A_01_221a"),
     ("Room_23_Prefab_efdf", "Obj_TBox_A_01_e720"),
@@ -117,7 +122,7 @@ mod tests {
             return;
         };
         let outs: Vec<Out> = stage(&mut rf).unwrap();
-        assert_eq!(outs.len(), 17);
+        assert_eq!(outs.len(), 18);
         for (room, goron) in GORONS {
             let mut a: Ainb = Ainb::parse(&rf.read(&path(room)).unwrap()).unwrap();
             assert_eq!(remove(&mut a, goron).unwrap(), 2, "{room}");

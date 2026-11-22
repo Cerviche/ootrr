@@ -309,18 +309,18 @@ mod tests {
         use crate::slice::support::plan;
         let p: crate::slice::support::Plan = plan(&quiet()).unwrap();
         assert!(!p.qol.any());
-        assert_eq!(p.logic(), vec![(crate::open_world::EPONA, "1")]);
+        assert_eq!(p.logic(), vec![(crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0]]);
         let base: usize = p.notes.len();
         assert_eq!(plan(&Settings::default()).unwrap().notes.len(), base + 1, "Return with Navi adds its note");
         for (k, v, key) in [(ANJU, Value::Bool(true), "chicken_count"), (POE, Value::Bool(true), "big_poe_count")] {
             let p: crate::slice::support::Plan = plan(&with(&[(NAVI, Value::s("off")), (k, v)])).unwrap();
             assert!(p.qol.any());
-            assert_eq!(p.logic(), vec![(key, "1"), (crate::open_world::EPONA, "1")]);
+            assert_eq!(p.logic(), vec![(key, "1"), (crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0]]);
             assert_eq!(p.notes.len(), base + 1);
         }
         let p: crate::slice::support::Plan = plan(&with(&[(SKIP, Value::s("all"))])).unwrap();
         assert_eq!(p.qol.skip, Skip::All);
-        assert_eq!(p.logic(), vec![(crate::open_world::EPONA, "1")]);
+        assert_eq!(p.logic(), vec![(crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0]]);
         assert!(Settings::default().set(SKIP, Value::s("everything")).is_err());
     }
 
