@@ -236,7 +236,7 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
         edits.push(crate::prelude_gate::exp());
     }
     if c.p.qol.fast_session {
-        edits.push(crate::qol::skull_kid_session::default());
+        edits.extend(crate::qol::skull_kid_session::defaults());
     }
     edits.push(crate::always::exp());
     crate::start_defaults::stage(rf, more, &edits)

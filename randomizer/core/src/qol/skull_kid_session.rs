@@ -8,6 +8,8 @@ pub const ENTRY: &str = "SessionStart";
 pub const GRADE: &str = "Minigame_SkullKidSession_CurrentGradeSoundNumForSession";
 pub const PLAYED: i32 = 6;
 pub const LAST: i32 = 8;
+pub const MAX_RALLY: &str = "Minigame_SkullKidSession_MaxRallyCount";
+pub const RALLIES: i32 = 1;
 pub const HEART: &str = "Minigame_SkullKidSession_IsGetHeartPiece";
 const SET_INT: &str = "EventTriggerSetGameDataInt";
 const BOOL_QUERY: &str = "EventQueryIsGameDataBool";
@@ -15,7 +17,7 @@ const DATA: &str = "GameDataActor";
 const INT_QUERY: &str = "EventQueryIsGameDataInt";
 const LESS: u32 = 0;
 
-pub const NOTE: &str = "Faster Ocarina minigame: the Skull Kids in the Lost Woods play only the 6-note game, and winning it gives the check. CurrentGradeSoundNumForSession starts at 6 (save default, and SessionStart in Npc_SkullKid_Child_02 sets it too), and clearing 6 goes to the Heart Piece branch instead of raising the game to 8 with the Red Rupee. The Blue Rupee and Red Rupee prizes of the 5 and 6 note games are gone. Experimental, untested in the game.";
+pub const NOTE: &str = "Faster Ocarina minigame: the Skull Kids in the Lost Woods play one turn of 6 notes, and winning it gives the check. CurrentGradeSoundNumForSession starts at 6 and MaxRallyCount at 1 (save defaults, and SessionStart in Npc_SkullKid_Child_02 sets both), the example prep builds 6 notes at once (the 8-note +3 way), and clearing goes to the Heart Piece branch instead of raising the game to 8. The Blue Rupee and Red Rupee prizes are gone. Experimental, untested in the game.";
 
 fn named(f: &Flow, name: &str) -> Res<usize> {
     let hits: Vec<usize> = (0..f.events.len()).filter(|&i| f.events[i].name == name).collect();
@@ -37,8 +39,18 @@ fn param<'a>(e: &'a Event, k: &str) -> Option<&'a Val> {
     e.kind.params().and_then(|c| c.get(k))
 }
 
-pub fn default() -> crate::start_defaults::Edit {
-    crate::start_defaults::Edit::Int(GRADE.to_string(), PLAYED)
+pub fn defaults() -> Vec<crate::start_defaults::Edit> {
+    vec![crate::start_defaults::Edit::Int(GRADE.to_string(), PLAYED), crate::start_defaults::Edit::Int(MAX_RALLY.to_string(), RALLIES)]
+}
+
+fn set_int(name: &str, v: i32) -> crate::bfevfl::Cont {
+    crate::bfevfl::Cont {
+        items: vec![
+            ("GameDataName".to_string(), Val::Str(name.to_string())),
+            ("Index".to_string(), Val::Int(-1)),
+            ("Value".to_string(), Val::Int(v)),
+        ],
+    }
 }
 
 pub fn patch(b: &mut Bf) -> Res<()> {
@@ -71,18 +83,46 @@ pub fn patch(b: &mut Bf) -> Res<()> {
         }
         _ => return Err(Error::Format("faster ocarina minigame: Event10 has no below-8 case")),
     }
-    // Saves from before the setting still hold 5: every session starts at 6.
+    // One turn only: the example prep (Event143) builds the note count from a base of 3, +1 for
+    // the 6-note game and +3 for the 8-note one. The 6-note game takes the +3 way, so its first
+    // turn is already 6 notes, which clears the game (IsPlayedCurrentGradeSoundNum).
+    let prep: usize = named(f, "Event143")?;
+    let plus3: u16 = match &f.events[prep].kind {
+        Kind::Switch { cases, .. } => cases.iter().find(|c| c.val == LAST as u32).map(|c| c.ev),
+        _ => None,
+    }
+    .ok_or(Error::Format("faster ocarina minigame: Event143 no longer branches on the 8-note game"))?;
+    match &mut f.events[prep].kind {
+        Kind::Switch { cases, .. } if cases.iter().any(|c| c.val == PLAYED as u32) => {
+            for c in cases.iter_mut().filter(|c| c.val == PLAYED as u32) {
+                c.ev = plus3;
+            }
+        }
+        _ => return Err(Error::Format("faster ocarina minigame: Event143 has no 6-note case")),
+    }
+    // The turn counter shows 1/1: every MaxRallyCount set says 1.
+    let mut n: usize = 0;
+    for ev in f.events.iter_mut() {
+        if param(ev, "GameDataName") == Some(&Val::Str(MAX_RALLY.to_string())) {
+            if let Some(c) = ev.kind.params_mut() {
+                for (k, v) in c.items.iter_mut() {
+                    if k == "Value" {
+                        *v = Val::Int(RALLIES);
+                        n += 1;
+                    }
+                }
+            }
+        }
+    }
+    if n != 2 {
+        return Err(Error::Msg(format!("faster ocarina minigame: expected two MaxRallyCount sets, found {n}")));
+    }
+    // Saves from before the setting still hold 5 and 3: every session starts at 6 notes, one turn.
     let (a, set): (u16, u16) = crate::dungeon_credit::action_slot(f, DATA, SET_INT)?;
     let e: usize = f.entries.iter().position(|e| e.name == ENTRY).ok_or(Error::Format("faster ocarina minigame: no SessionStart entry"))?;
     let at: u16 = idx(f.events.len())?;
-    let params = crate::bfevfl::Cont {
-        items: vec![
-            ("GameDataName".to_string(), Val::Str(GRADE.to_string())),
-            ("Index".to_string(), Val::Int(-1)),
-            ("Value".to_string(), Val::Int(PLAYED)),
-        ],
-    };
-    f.events.push(Event { name: "OOTRRSixNotes".to_string(), kind: Kind::Action { next: f.entries[e].main, actor: a, act: set, params: Some(params) } });
+    f.events.push(Event { name: "OOTRRSixNotes".to_string(), kind: Kind::Action { next: at + 1, actor: a, act: set, params: Some(set_int(GRADE, PLAYED)) } });
+    f.events.push(Event { name: "OOTRROneTurn".to_string(), kind: Kind::Action { next: f.entries[e].main, actor: a, act: set, params: Some(set_int(MAX_RALLY, RALLIES)) } });
     f.entries[e].main = at;
     Ok(())
 }
