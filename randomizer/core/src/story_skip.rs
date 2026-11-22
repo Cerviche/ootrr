@@ -342,6 +342,9 @@ fn ends(f: &Flow, start: usize) -> Res<u16> {
             k => {
                 // A Bow or Slingshot tier is followed by its bag adds (crate::starter_bags::line).
                 let n: u16 = crate::starter_bags::skip(f, next_of(k).ok_or(Error::Format("story skip: a gift event has no single next"))?);
+                // Ammo given to a player without its bag is followed by its extra rupees
+                // (crate::progressive::NO_BAG_EXTRA).
+                let n: u16 = crate::progressive::skip_extra_rupees(f, n);
                 if !seen.contains(&n) {
                     seen.push(n);
                 }
