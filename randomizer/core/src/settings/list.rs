@@ -453,7 +453,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(crate::first_pickups::NUM, crate::first_pickups::SETTING, "world", "Skip first pickup text", false)
-            .tip("No \"You got X!\" box the first time you pick up a rupee, a heart, a magic jar, arrows or Deku seeds. Chests and real items still show theirs."),
+            .tip("No \"You got X!\" box the first time you pick up a rupee, a heart, a magic jar, arrows, Deku seeds, a Deku Nut, a Deku Stick, a bomb or a bombchu. Chests and real items still show theirs."),
     );
     s.push(
         Setting::toggle(crate::area_intros::NUM, crate::area_intros::SETTING, "world", "Skip area intros", false)
