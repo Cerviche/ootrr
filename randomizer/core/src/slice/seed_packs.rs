@@ -103,7 +103,7 @@ fn opts(host: Host, base: Option<PB>, dry: bool) -> Opts {
 
 fn run_one(romfs: &P, load: &P, mod_name: &str, w: &Want, o: &Opts) -> Res<Done> {
     let (s, mut l): (Spec, Layers) = w.spec()?;
-    // Every pickup the seed places turns in place, off the floor, and glints.
+    // Every pickup the seed places turns in place, off the floor.
     l.spin = true;
     if w.kind.kit() {
         return kit::run_with(romfs, load, mod_name, &s, o, &[], &l);

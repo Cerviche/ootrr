@@ -451,7 +451,6 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let mut late: Vec<crate::staging::Out> = if p.qol.any() { crate::qol::worked(&mut rf, &pk, &p.qol)? } else { Vec::new() };
     late.extend(crate::open_world::worked(&mut rf, &pk, &p.open)?);
     let difficulty_notes: Vec<String> = crate::difficulty::worked(&mut rf, &pk, &p.difficulty, &seed.seed, &mut late)?;
-    crate::pickup_pack::flame::stage(&mut rf, &mut late, &work)?;
     crate::merchant_prices::stage_bean(&mut rf, seed, p.rewards.merchant_prices, p.rewards.bean_sale, &mut late)?;
     // Scenes that are dropped: Link runs the item get with what their check holds.
     let give_for = |loc: &str| -> crate::story_skip::SceneGive {

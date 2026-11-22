@@ -68,7 +68,7 @@ pub fn layers(rf: &mut Romfs, item: &str, l: &Layers) -> Res<Layers> {
 
 /// The lift of the seed pickup pack `pack` (a pickup the catalog builds), in metres.
 pub fn for_pack(t: &Byml, pack: &str) -> Option<f32> {
-    let p: crate::slice::key_spots::Pick = crate::slice::key_spots::by_pack(pack)?;
+    let p: crate::slice::key_spots::Pick = pick_of(pack)?;
     let (s, l) = p.spec().ok()?;
     let mm: u32 = lift_of(t, l.model.as_deref().unwrap_or(&s.item));
     (mm > 0).then_some(mm as f32 / 1000.0)
@@ -84,8 +84,12 @@ pub fn grow(reach: f32) -> f32 {
     (LOOK / reach).clamp(1.0, GROW_MAX)
 }
 
+pub fn pick_of(pack: &str) -> Option<crate::slice::key_spots::Pick> {
+    crate::slice::key_spots::by_pack(pack).or_else(|| crate::dungeon_packs::by_name(pack).map(|p| p.pick()))
+}
+
 pub fn look_for_pack(t: &Byml, pack: &str) -> Option<(f32, f32)> {
-    let p: crate::slice::key_spots::Pick = crate::slice::key_spots::by_pack(pack)?;
+    let p: crate::slice::key_spots::Pick = pick_of(pack)?;
     let (s, l) = p.spec().ok()?;
     let reach: f32 = lift_of(t, l.model.as_deref().unwrap_or(&s.item)) as f32 / 1000.0;
     if reach <= 0.0 {
@@ -195,6 +199,14 @@ mod tests {
         assert!((grow(0.3) - 1.5).abs() < 1e-5);
         assert_eq!(grow(0.6), 1.0);
         assert_eq!(grow(0.0), 1.0);
+    }
+
+    #[test]
+    fn dungeon_item_packs_find_their_pick_for_the_lift() {
+        for n in ["Obj_BossKey_FireTemple", "Obj_SmallKey_WaterTemple", "Obj_Map_ForestTemple", "Obj_Compass_SpiritTemple"] {
+            assert_eq!(pick_of(n).map(|p| p.pack), Some(n.to_string()), "{n}");
+        }
+        assert!(pick_of("Obj_BossKey_Nowhere").is_none());
     }
 
     #[test]

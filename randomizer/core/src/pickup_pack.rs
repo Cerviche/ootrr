@@ -4,7 +4,6 @@ pub mod build;
 pub mod catalog;
 pub mod closure;
 pub mod fall;
-pub mod flame;
 pub mod guard;
 pub mod kit;
 pub mod lift;
