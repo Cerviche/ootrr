@@ -171,6 +171,7 @@ fn starting_items() -> Setting {
             ("three_bottles", "Three Empty Bottles"),
             ("four_bottles", "Four Empty Bottles"),
             ("hylian_shield", "Hylian Shield"),
+            ("bunny_hood", "Bunny Hood"),
         ])
 }
 

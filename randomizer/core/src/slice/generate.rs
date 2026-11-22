@@ -259,7 +259,8 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     let mut p: Plan = plan(s)?;
     p.notes.extend(p.trials.note());
     let room: crate::shops::layout::Room = crate::shops::rules::room(d, &p)?;
-    let mut lay: Option<crate::shops::Layout> = crate::shops::layout::of(&p.shops, seed, room)?;
+    let forced: Vec<String> = o.plando.iter().map(|e| e.location.clone()).collect();
+    let mut lay: Option<crate::shops::Layout> = crate::shops::layout::of_with(&p.shops, seed, room, &forced)?;
     p.notes.extend(lay.as_ref().and_then(|l| crate::shops::rules::cut_note(l.cut, room)));
     let owned: Option<Data> = lay.as_ref().map(|l| crate::shops::logic::data_with(d, l)).transpose()?;
     let d: &Data = owned.as_ref().unwrap_or(d);

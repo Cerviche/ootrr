@@ -82,7 +82,7 @@ fn units(t: &Table) -> Vec<(String, Vec<&Slot>)> {
     out
 }
 
-fn deal_slots(t: &Table, o: &Opts, room: Room, rng: &mut Rng) -> (BS<String>, usize) {
+fn deal_slots(t: &Table, o: &Opts, room: Room, rng: &mut Rng, forced: &[String]) -> (BS<String>, usize) {
     let mut all: Vec<(usize, usize, String)> = Vec::new();
     for (si, sh) in t.shops.iter().enumerate().filter(|(_, s)| s.deals) {
         let n: usize = match o.level {
@@ -111,6 +111,10 @@ fn deal_slots(t: &Table, o: &Opts, room: Room, rng: &mut Rng) -> (BS<String>, us
             continue;
         }
         out.insert(name);
+    }
+    // Slots a plando names are deals whatever the level, so a test seed can fill any shelf.
+    for f in forced.iter().filter(|f| t.slots.iter().any(|s| &s.name == *f)) {
+        out.insert(f.clone());
     }
     (out, cut)
 }
@@ -161,9 +165,14 @@ pub fn moved_tunic(t: &Table, item: &str, shop: &str) -> bool {
 }
 
 pub fn make(o: &Opts, seed: &str, room: Room) -> Res<Layout> {
+    make_with(o, seed, room, &[])
+}
+
+/// `make`, with the shop slots in `forced` (plando locations) always deals.
+pub fn make_with(o: &Opts, seed: &str, room: Room, forced: &[String]) -> Res<Layout> {
     let t: &Table = table()?;
     let mut rng: Rng = Rng::from_text(&format!("{seed}/shops"));
-    let (deals, cut): (BS<String>, usize) = deal_slots(t, o, room, &mut rng);
+    let (deals, cut): (BS<String>, usize) = deal_slots(t, o, room, &mut rng, forced);
     let us: Vec<(String, Vec<&Slot>)> = units(t);
     let mut goods: Vec<Goods> = us.iter().map(|(_, ss)| Goods { item: ss[0].item.clone(), actor: ss[0].actor.clone(), price: ss[0].price }).collect();
     rng.shuffle(&mut goods);
@@ -219,10 +228,14 @@ pub fn home() -> Res<Layout> {
 }
 
 pub fn of(o: &Opts, seed: &str, room: Room) -> Res<Option<Layout>> {
+    of_with(o, seed, room, &[])
+}
+
+pub fn of_with(o: &Opts, seed: &str, room: Room, forced: &[String]) -> Res<Option<Layout>> {
     if !o.on() {
         return Ok(None);
     }
-    make(o, seed, room).map(Some)
+    make_with(o, seed, room, forced).map(Some)
 }
 
 pub fn fill_deals(l: &mut Layout, got: &BM<String, String>) -> Res<()> {
