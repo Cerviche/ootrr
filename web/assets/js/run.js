@@ -54,6 +54,7 @@ async function build(res) {
     ...color_request(state.cosmetic),
     cosmetic_seed: state.cosmetic.seed,
     title_logo: state.cosmetic.title !== false,
+    delete_others: !!state.delete_others,
     spoiler_text: spoiler_for(res),
   });
   run.target = r.target || run.target;
