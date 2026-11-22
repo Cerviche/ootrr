@@ -34,7 +34,8 @@ export function mod_target() {
   const base = state.paths.mod.trim();
   if (!base || !state.info) return "";
   const sep = state.info.sep;
-  const flat = ["hookshot", "longshot", "nx2navi"].includes(state.paths.host);
+  // Hookshot and NX2navi take mods/<name>; Longshot and Lichii/Eden put the title id between.
+  const flat = ["hookshot", "nx2navi"].includes(state.paths.host);
   const mid = flat ? "" : `${state.info.title_id}${sep}`;
   return `${base}${base.endsWith(sep) ? "" : sep}${mid}${state.paths.name}`;
 }

@@ -55,16 +55,27 @@ pub fn delete_others(root: &std::path::Path) -> std::io::Result<Vec<String>> {
     };
     let own = root.file_name();
     let mut gone: Vec<String> = Vec::new();
-    for e in fs::read_dir(parent)? {
-        let p: PB = e?.path();
-        if !p.is_dir() || p.file_name() == own {
-            continue;
-        }
-        if p.join(SPOILER_FILE).is_file() && p.join("romfs").is_dir() {
-            fs::remove_dir_all(&p)?;
-            gone.push(p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default());
+    // A seed under the title id also clears the seeds written straight into the mods folder
+    // (the layout Longshot builds used before), since Longshot loads both at once.
+    let mut folders: Vec<&std::path::Path> = vec![parent];
+    if parent.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.eq_ignore_ascii_case(TITLE_ID)) {
+        if let Some(up) = parent.parent() {
+            folders.push(up);
         }
     }
+    for folder in folders {
+        for e in fs::read_dir(folder)? {
+            let p: PB = e?.path();
+            if !p.is_dir() || p == root {
+                continue;
+            }
+            if p.join(SPOILER_FILE).is_file() && p.join("romfs").is_dir() {
+                fs::remove_dir_all(&p)?;
+                gone.push(p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default());
+            }
+        }
+    }
+    let _ = own;
     gone.sort();
     Ok(gone)
 }
@@ -169,7 +180,7 @@ pub fn plan(b: &Json) -> Hr<Plan> {
         Some(t) if t.len() > SPOILER_MAX => return Err(refuse("Spoiler: the spoiler log is too large.")),
         Some(t) => Some(t.to_string()),
     };
-    let target: PB = if host.flat() { md.join(name) } else { md.join(TITLE_ID).join(name) };
+    let target: PB = if host.no_title() { md.join(name) } else { md.join(TITLE_ID).join(name) };
     let delete_others: bool = b.get("delete_others").and_then(|x| x.as_bool()) == Some(true);
     Ok(Plan { seed, load: md, name: name.to_string(), target, host, cos, spoiler, source, with_update, delete_others })
 }
