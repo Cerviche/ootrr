@@ -213,7 +213,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             b
         });
         // The grave race map gains the ground Heart Piece and the block platform (crate::qol::dampe_race).
-        let resized: Option<Vec<u8>> = if p.qol.one_race && f == crate::qol::dampe_race::GRAVE {
+        let resized: Option<Vec<u8>> = if seed.placements.contains_key(crate::flow_extra::sun::LOC) && f == crate::flow_extra::sun::MAP {
+            Some(crate::flow_extra::sun::hide(resized.as_deref().unwrap_or(&vanilla))?)
+        } else if p.qol.one_race && f == crate::qol::dampe_race::GRAVE {
             Some(crate::qol::dampe_race::place(resized.as_deref().unwrap_or(&vanilla))?)
         } else {
             resized
@@ -527,6 +529,10 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     // The Shadow Temple jar key pops a key actor; another pickup there skips the pop.
     if ts.iter().any(|t| t.name == crate::slice::pickups::JAR_SPOT && t.new_actor != t.old_actor) {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::slice::pickups::JAR_FLOW, crate::slice::pickups::jar_patch)?;
+    }
+    // LH Sun gives its placed item after the sun scene (crate::flow_extra::sun).
+    if seed.placements.contains_key(crate::flow_extra::sun::LOC) {
+        crate::story_skip::stage_sun_give(&mut rf, &mut late, &work, &give_for(crate::flow_extra::sun::LOC))?;
     }
     if p.qol.free_scarecrow {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::scarecrow::FLOW, crate::qol::scarecrow::patch_flow)?;
