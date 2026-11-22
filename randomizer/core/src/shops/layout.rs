@@ -157,8 +157,8 @@ pub fn own_pool(item: &str) -> Option<&'static str> {
     })
 }
 
-/// Shop goods a child can buy in any shop (shelf::hook::child_tunics, always applied). Moved out
-/// of the shop that sells them in the game, they cost a random shopsanity price instead of their own.
+/// Shop goods a child can buy in any shop (shelf::hook::child_tunics, always applied). They keep
+/// their own price wherever the shuffle puts them.
 pub const TUNICS: [&str; 2] = ["Buy Goron Tunic", "Buy Zora Tunic"];
 
 /// Whether `item` is a tunic standing in a shop other than its own.
@@ -212,13 +212,8 @@ pub fn make_with(o: &Opts, seed: &str, room: Room, forced: &[String]) -> Res<Lay
             continue;
         }
         let g: &Goods = given.get(&t.unit(s)).ok_or_else(|| E::Msg(format!("shops: {} got no goods", s.name)))?;
-        let price: i32 = if moved_tunic(t, &g.item, &s.shop) {
-            let cap: i32 = t.shop(&s.shop).and_then(|x| x.cap).unwrap_or(i32::MAX);
-            price::draw(o, &mut rng).min(cap)
-        } else {
-            g.price
-        };
-        places.push(Place { loc: s.name.clone(), item: g.item.clone(), actor: g.actor.clone(), price, deal: false, pool: String::new() });
+        // Shop goods keep their own price wherever they land, a tunic too (600 rupees).
+        places.push(Place { loc: s.name.clone(), item: g.item.clone(), actor: g.actor.clone(), price: g.price, deal: false, pool: String::new() });
     }
     Ok(Layout { places, cut })
 }
@@ -278,11 +273,8 @@ mod tests {
         assert!(moved > 30, "{moved}");
         for p in &a.places {
             let s: &Slot = t.slot(&p.loc).unwrap();
-            if moved_tunic(t, &p.item, &s.shop) {
-                assert!((10..=300).contains(&p.price) && p.price % 5 == 0, "{} {}", p.loc, p.price);
-            } else {
-                assert!(t.slots.iter().any(|x| x.item == p.item && x.price == p.price), "{} keeps the price of {}", p.loc, p.item);
-            }
+            let _ = s;
+            assert!(t.slots.iter().any(|x| x.item == p.item && x.price == p.price), "{} keeps the price of {}", p.loc, p.item);
         }
         let differ: bool = (0..20).any(|n| {
             let l: Layout = make(&opts(Level::Shuffle), &format!("p{n}"), Room::any(64)).unwrap();
@@ -292,7 +284,7 @@ mod tests {
     }
 
     #[test]
-    fn a_tunic_out_of_its_own_shop_costs_a_random_price() {
+    fn a_tunic_out_of_its_own_shop_keeps_its_price() {
         let t: &Table = table().unwrap();
         assert!(!moved_tunic(t, "Buy Goron Tunic", "GC Shop"));
         assert!(moved_tunic(t, "Buy Goron Tunic", "KF Shop"));
@@ -305,8 +297,7 @@ mod tests {
                 let shop: &str = &t.slot(&p.loc).unwrap().shop;
                 if moved_tunic(t, &p.item, shop) {
                     seen += 1;
-                    let cap: i32 = t.shop(shop).unwrap().cap.unwrap_or(500);
-                    assert!((10..=cap.min(500)).contains(&p.price), "{} {}", p.loc, p.price);
+                    assert_eq!(p.price, 600, "{}", p.loc);
                 }
             }
         }

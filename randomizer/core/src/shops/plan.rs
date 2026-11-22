@@ -87,7 +87,7 @@ fn with_deals(s: Setting) -> Setting {
 pub fn settings() -> Vec<Setting> {
     vec![
         Setting::choice(58, SETTING, "shuffle", "Shopsanity", "off")
-            .tip("Whether the shelves of the eight shelf shops sell shuffled goods or random items, like shopsanity in the N64 randomizer. A slot that sells a random item is a special deal. The Happy Mask Shop gets no special deals. A Goron or Zora Tunic moved to another shop costs a random price in the shopsanity range, and a child can buy it. Prices above 200 rupees need a bigger wallet in the logic. Experimental, none of these edits are tested in the game yet except one Kokiri Shop deal.")
+            .tip("Whether the shelves of the eight shelf shops sell shuffled goods or random items, like shopsanity in the N64 randomizer. A slot that sells a random item is a special deal. The Happy Mask Shop gets no special deals. Shop goods keep their own price wherever they go (a tunic costs 600), and a child can buy a tunic. Prices above 200 rupees need a bigger wallet in the logic. Experimental, none of these edits are tested in the game yet except one Kokiri Shop deal.")
             .opt("off", "Off", "Every shop sells its usual goods.")
             .opt("shuffle", "0 Items", "The usual shop goods move between the shops, each to the same shelf position in another shop, and keep their prices. Nothing new is sold.")
             .opt("deals_1", "1 Item", "One right side shelf in each shop is a special deal that sells a random item once, its goods join the item pool. The other shelves sell shop goods shuffled by shelf position.")
