@@ -67,7 +67,7 @@
             "Graveyard Dampe Race High Rupee Chest": "is_adult",
             "Graveyard Dampe Race Low Rupee Chest": "is_adult",
             "Graveyard Dampe Race Hookshot Chest": "True",
-            "Graveyard Dampe Race Freestanding PoH": "is_adult or logic_child_dampe_race_poh",
+            "Graveyard Dampe Race Freestanding PoH": "True",
             "Graveyard Dampe Race Rupee 1": "True",
             "Graveyard Dampe Race Rupee 2": "True",
             "Graveyard Dampe Race Rupee 3": "True",

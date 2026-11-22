@@ -17,7 +17,7 @@ const DATA: &str = "GameDataActor";
 const INT_QUERY: &str = "EventQueryIsGameDataInt";
 const LESS: u32 = 0;
 
-pub const NOTE: &str = "Faster Ocarina minigame: the Skull Kids in the Lost Woods play one turn of 6 notes, and winning it gives the check. CurrentGradeSoundNumForSession starts at 6 and MaxRallyCount at 1 (save defaults, and SessionStart in Npc_SkullKid_Child_02 sets both), the example prep builds 6 notes at once (the 8-note +3 way), and clearing goes to the Heart Piece branch instead of raising the game to 8. The Blue Rupee and Red Rupee prizes are gone. Experimental, untested in the game.";
+pub const NOTE: &str = "Faster Ocarina minigame: the Skull Kids in the Lost Woods play one turn of 6 notes, and winning it gives the check. CurrentGradeSoundNumForSession starts at 6 and MaxRallyCount at 1 (save defaults, and SessionStart in Npc_SkullKid_Child_02 sets both), the example prep builds 6 notes at once (the 8-note +3 way), and clearing goes to the Heart Piece branch instead of raising the game to 8. The Blue Rupee and Red Rupee prizes are gone. Always on.";
 
 fn named(f: &Flow, name: &str) -> Res<usize> {
     let hits: Vec<usize> = (0..f.events.len()).filter(|&i| f.events[i].name == name).collect();

@@ -785,7 +785,6 @@ pub const MENU: &[Page] = &[
         heading: IN_DEV,
         sections: &[
             sec("Gold Skulltulas", &["night_skulls_suns_song"]),
-            sec("Minigames", &["fishing_any_fish", "faster_ocarina_minigame"]),
         ],
     },
     Page { id: "cosmetics", label: "Cosmetics", heading: GAMEPLAY, sections: &[sec("Looks", &["mega_like_likes"])] },

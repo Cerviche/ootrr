@@ -15,7 +15,7 @@ const TALK: &str = "Npc_EventStarter.EventTalk";
 const YES: u32 = 0;
 const NO: u32 = 1;
 
-pub const NOTE: &str = "The fishing pond owner gives the child prize and the adult prize for any fish you hand in, whatever its size, a loach or a fish caught with the sinking lure. The size checks at 40, 50 and 60 in MiniGame_Fishing read 0, and the loach and sinking lure branches go the normal prize way. The size record and the texts are unchanged. Experimental, untested in the game.";
+pub const NOTE: &str = "The fishing pond owner gives the child prize and the adult prize for any fish you hand in, whatever its size, a loach or a fish caught with the sinking lure. The size checks at 40, 50 and 60 in MiniGame_Fishing read 0, and the loach and sinking lure branches go the normal prize way. The size record and the texts are unchanged. Always on.";
 
 fn call(f: &Flow, e: &Event) -> Option<String> {
     match &e.kind {

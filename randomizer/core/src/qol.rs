@@ -1,6 +1,7 @@
 pub mod anju;
 pub mod blocks;
 pub mod chest_anim;
+pub mod dampe_race;
 pub mod fishing;
 pub mod night_skulls;
 pub mod scarecrow;
@@ -51,6 +52,7 @@ pub struct Opts {
     pub free_scarecrow: bool,
     pub skip_escape: bool,
     pub fast_session: bool,
+    pub one_race: bool,
 }
 
 pub type Have<'a> = &'a dyn Fn(&str) -> Option<Vec<u8>>;
@@ -127,6 +129,9 @@ impl Opts {
         if self.fast_session {
             out.push(skull_kid_session::NOTE.to_string());
         }
+        if self.one_race {
+            out.push(dampe_race::NOTE.to_string());
+        }
         out
     }
 
@@ -161,10 +166,12 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let blocks: bool = flag(blocks::SETTING);
     let owls: bool = flag(owl::SETTING);
     let suns_skulls: bool = flag(night_skulls::SUNS);
-    let any_fish: bool = flag(fishing::SETTING);
+    // Always on, not a setting.
+    let any_fish: bool = true;
     let free_scarecrow: bool = flag(scarecrow::SETTING);
     let skip_escape: bool = flag(tower_escape::SETTING);
-    let fast_session: bool = flag(skull_kid_session::SETTING);
+    let fast_session: bool = true;
+    let one_race: bool = true;
     let navi: navi_return::Mode = match s.text(NAVI) {
         Ok("off") => navi_return::Mode::Off,
         Ok("dungeons") => navi_return::Mode::Dungeons,
@@ -191,7 +198,7 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
             bunny::Mode::Off
         }
     };
-    Opts { skip, anju, poe, navi, bunny, big_chests, blocks, owls, suns_skulls, any_fish, free_scarecrow, skip_escape, fast_session }
+    Opts { skip, anju, poe, navi, bunny, big_chests, blocks, owls, suns_skulls, any_fish, free_scarecrow, skip_escape, fast_session, one_race }
 }
 
 pub fn settings() -> Vec<crate::settings::Setting> {
@@ -199,10 +206,6 @@ pub fn settings() -> Vec<crate::settings::Setting> {
     vec![
         Setting::toggle(night_skulls::SUNS_NUM, night_skulls::SUNS, "world", "Night Gold Skulltulas expect Sun's Song", false)
             .tip("The logic only expects you to get a night Gold Skulltula once you can play Sun's Song, so no check is placed behind one before that. Like the OoTR trick option of the same name. Has no effect with Skulltulas by day."),
-        Setting::toggle(fishing::NUM, fishing::SETTING, "world", "Any fish wins the fishing prizes", false)
-            .tip("The fishing pond owner gives his prize for any fish you hand in, whatever its size: one prize as child and one as adult. Loaches and fish caught with the sinking lure count too. Experimental, untested in the game."),
-        Setting::toggle(skull_kid_session::NUM, skull_kid_session::SETTING, "world", "Faster Ocarina minigame", false)
-            .tip("The Skull Kids' Ocarina memory game in the Lost Woods is a single turn of 6 notes, and winning it gives the check. The rupee prizes of the other rounds are gone. Experimental, untested in the game."),
         Setting::toggle(scarecrow::NUM, scarecrow::SETTING, "world", "Free Scarecrow's Song", false)
             .tip("Start with Scarecrow's Song and an instant scarecrow: Pierre already stands at every scarecrow spot, so there is no song to record or play. The logic counts the song as known, like the OoTR option of the same name. Tested in the game."),
         Setting::toggle(tower_escape::NUM, tower_escape::SETTING, "goal", "Skip the tower escape", false)
