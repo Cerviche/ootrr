@@ -173,7 +173,13 @@ pub fn make_with(p: &Pool, s: &Spec, l: &Layers) -> Res<Made> {
         comps.set(AS_INFO_REF, Node::Str(need(&donor, DONOR, AS_INFO_REF)?.to_string()));
     }
     comps.set(AS_REF, Node::Str(need(&donor, DONOR, AS_REF)?.to_string()));
-    comps.set(NAME_REF, Node::Str(need(&item, &s.item, NAME_REF)?.to_string()));
+    if s.name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
+        // The game names an actor by its ActorNameRef's file name (the file itself is optional):
+        // a dungeon item's own pickup is named by its own <name>_Name text (debug_names::name_keys).
+        comps.set(NAME_REF, Node::Str(format!("?ActorSystem/ActorName/{}.engine__actor__ActorName.bgyml", s.name)));
+    } else {
+        comps.set(NAME_REF, Node::Str(need(&item, &s.item, NAME_REF)?.to_string()));
+    }
     match &l.model {
         Some(m) => {
             let (r, f, b): (String, String, Vec<u8>) = model::anim(&s.name, version)?;
@@ -446,3 +452,5 @@ pub(crate) mod tests {
         assert!(make_with(&p, &spec(Style::Touch), &on).is_err());
     }
 }
+
+

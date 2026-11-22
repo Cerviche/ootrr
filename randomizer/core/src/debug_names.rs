@@ -1069,6 +1069,15 @@ pub fn add_key_sweep(b: &mut Bf, cs: &[KeyCredit]) -> Res<usize> {
         }
     }
     f.entries.push(Entry { name: KEY_SWEEP.to_string(), subs: Vec::new(), vars: Vec::new(), main: next, pad });
+    // Also at the start of every get window: a dungeon item still in the pouch from a get the
+    // sweeps after it missed is credited at the next get.
+    let firsts: Vec<usize> = f.entries.iter().enumerate().filter(|(_, e)| e.name.starts_with(WINDOW_PREFIX)).map(|(j, _)| j).collect();
+    for j in firsts {
+        let old: u16 = f.entries[j].main;
+        let call: u16 = push(f, Kind::Sub { next: old, params: None, flow: String::new(), entry: KEY_SWEEP.to_string() })?;
+        f.entries[j].main = call;
+        f.entries[j].subs.push(call);
+    }
     let starts: Vec<u16> = f.entries.iter().filter(|e| e.name.starts_with(WINDOW_PREFIX)).map(|e| e.main).collect();
     let mut seen: BS<u16> = BS::new();
     let mut todo: Vec<u16> = starts;

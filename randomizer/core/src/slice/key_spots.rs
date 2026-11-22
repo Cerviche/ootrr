@@ -113,7 +113,15 @@ pub fn dungeon_pick(d: &Data, item: &str) -> Option<Pick> {
     };
     let actor: String = i.actor.clone()?;
     let name: String = format!("{DUNGEON_PREFIX}{tag}_{dungeon}");
-    Some(Pick { content: actor, pack: name.clone(), args: vec!["--name".to_string(), name, "--heap".to_string(), "199928".to_string()] })
+    // Pressed, so its get runs the Dm_SY_Get add that the key sweep follows
+    // (crate::debug_names::key_sweep_after_add). A skulltula kit is always taken by touch.
+    Some(Pick { content: actor, pack: name.clone(), args: vec!["--name".to_string(), name, "--heap".to_string(), "199928".to_string(), "--press".to_string()] })
+}
+
+/// The same pick taken by touch, as a skulltula kit must be.
+pub fn touch(mut p: Pick) -> Pick {
+    p.args.retain(|a| a != "--press");
+    p
 }
 
 pub fn pick(content: &str) -> Option<Pick> {
@@ -175,7 +183,7 @@ pub fn placeable(d: &Data, item: &str, at: Spot) -> bool {
 
 fn judge(d: &Data, item: &str, at: Spot) -> bool {
     if let Some(p) = dungeon_pick(d, item) {
-        return at == Spot::Free || p.kit_spec().is_ok();
+        return at == Spot::Free || touch(p).kit_spec().is_ok();
     }
     let cs: Vec<String> = contents(d, item);
     !cs.is_empty()
@@ -210,6 +218,7 @@ pub fn resolve(d: &Data, item: &str, tier: Option<&str>) -> Res<Pick> {
 /// resolve for a kit spot (a Gold Skulltula drop or a holder): the kit-capable build.
 pub fn resolve_kit(d: &Data, item: &str, tier: Option<&str>) -> Res<Pick> {
     if let Some(p) = dungeon_pick(d, item) {
+        let p: Pick = touch(p);
         p.kit_spec()?;
         return Ok(p);
     }
