@@ -121,6 +121,7 @@ pub fn read_flags() -> Vec<String> {
     let mut v: Vec<String> = vec![ANY_FLAG.to_string()];
     for dn in &DUNGEONS {
         v.push(key_flag(dn, "SmallKeyTotalNum"));
+        v.push(key_flag(dn, "SmallKeyNum"));
         if dn.boss {
             v.push(key_flag(dn, "IsGetBossKey"));
         }
@@ -152,7 +153,7 @@ fn quests(p: &Plan) -> Res<Vec<Quest>> {
             ("Ready_NextAction".to_string(), HEADING.to_string()),
             (STEP.to_string(), DESCRIPTION.to_string()),
             (format!("{STEP}_NextAction"), HEADING.to_string()),
-            (format!("{STEP}_NextActionContent_00"), format!("Small Keys: {}/{cap}", number_tag(&key_flag(dn, "SmallKeyTotalNum"))?)),
+            (format!("{STEP}_NextActionContent_00"), format!("Small Keys: {} ({}/{cap} Found)", number_tag(&key_flag(dn, "SmallKeyNum"))?, number_tag(&key_flag(dn, "SmallKeyTotalNum"))?)),
             ("Complete".to_string(), DESCRIPTION.to_string()),
         ];
         if dn.boss {
