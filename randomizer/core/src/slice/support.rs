@@ -74,6 +74,7 @@ pub struct Plan {
     pub chus: bool,
     pub qol: crate::qol::Opts,
     pub treasure: bool,
+    pub day_skulls: bool,
     pub kit: crate::start_items::Kit,
     pub open: crate::open_world::Opts,
     pub difficulty: crate::difficulty::Opts,
@@ -101,6 +102,7 @@ pub struct Plan {
     pub kokiri_sword: bool,
     pub short: bool,
     pub first_pickups: bool,
+    pub area_intros: bool,
 }
 
 pub use crate::slice::unsupported::not_yet;
@@ -151,6 +153,9 @@ impl Plan {
         out.extend(di::start_flags(self));
         if self.first_pickups {
             out.extend(crate::first_pickups::start_flags());
+        }
+        if self.area_intros {
+            out.extend(crate::area_intros::start_flags());
         }
         out
     }
@@ -207,6 +212,9 @@ impl Plan {
         out.extend(self.door.logic());
         if self.rewards.potion {
             out.push((crate::flow_extra::potion::KEY, crate::flow_extra::potion::ON));
+        }
+        if self.day_skulls {
+            out.push((crate::slice::skull_day::KEY, crate::slice::skull_day::ON));
         }
         out
     }
@@ -276,6 +284,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let qol: crate::qol::Opts = crate::qol::read(s, &mut bad);
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, gates.kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
+    let day_skulls: bool = toggle(s, crate::slice::skull_day::SETTING, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
     let trials: crate::ganon_trials::Trials = crate::ganon_trials::read(s, &mut bad);
     let difficulty: crate::difficulty::Opts = crate::difficulty::read(s, &mut bad);
@@ -297,6 +306,10 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let prelude: bool = crate::prelude_gate::read(s, &mut bad);
     let short: bool = true;
     let first_pickups: bool = s.flag(crate::first_pickups::SETTING).unwrap_or_else(|e| {
+        bad.push(e.to_string());
+        false
+    });
+    let area_intros: bool = s.flag(crate::area_intros::SETTING).unwrap_or_else(|e| {
         bad.push(e.to_string());
         false
     });
@@ -346,6 +359,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (rewards.frog_songs, crate::flow_extra::frogs::SONGS_NOTE),
         (rewards.frog_bug, crate::flow_extra::frogs::BUG_NOTE),
         (rewards.potion, crate::flow_extra::potion::NOTE),
+        (day_skulls, crate::slice::skull_day::NOTE),
     ] {
         if on {
             notes.push(text.to_string());
@@ -411,11 +425,14 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if first_pickups {
         notes.push(crate::first_pickups::NOTE.to_string());
     }
+    if area_intros {
+        notes.push(crate::area_intros::NOTE.to_string());
+    }
     if lacs.is_some() {
         notes.push(crate::lacs_key::NOTE.to_string());
         notes.push(crate::medal_gate::LACS_NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, debug_names, silver, lacs, rainbow, trials, door, nocturne, prelude, short, first_pickups, story, endings, ocarinas, kokiri_sword, difficulty })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, day_skulls, kit, open, npc, shops, bridge, debug_names, silver, lacs, rainbow, trials, door, nocturne, prelude, short, first_pickups, area_intros, story, endings, ocarinas, kokiri_sword, difficulty })
 }
 
 #[cfg(test)]
@@ -461,6 +478,24 @@ mod tests {
             assert!(f.contains(&x), "{x:?}");
         }
         assert_eq!(f.len(), off.start_flags().len() + crate::first_pickups::PICKUPS.len());
+    }
+
+    #[test]
+    fn the_area_intro_setting_is_off_by_default_and_writes_the_start_flags_when_on() {
+        let off: Plan = plan(&Settings::default()).unwrap();
+        assert!(!off.area_intros);
+        assert!(!off.notes.iter().any(|n| n == crate::area_intros::NOTE));
+        assert!(!off.start_flags().iter().any(|(n, _)| n.starts_with(crate::area_intros::VISIT) || n.contains("Goto_")));
+        let mut s: Settings = Settings::default();
+        s.set(crate::area_intros::SETTING, Value::Bool(true)).unwrap();
+        let on: Plan = plan(&s).unwrap();
+        assert!(on.area_intros && on.notes.iter().any(|n| n == crate::area_intros::NOTE));
+        let f: Vec<(String, bool)> = on.start_flags();
+        let want: Vec<(String, bool)> = crate::area_intros::start_flags();
+        for x in &want {
+            assert!(f.contains(x), "{x:?}");
+        }
+        assert_eq!(f.len(), off.start_flags().len() + want.len());
     }
 
     #[test]

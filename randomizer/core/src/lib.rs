@@ -14,6 +14,7 @@ pub use ootrr_game::{bfevfl, bfres, byml, catalog, catalog_json, chest_slot, dun
 pub use ootrr_logic::{fill, logic_demo, logic_items, logic_json, logic_synth, logic_val, rule_ast, rules, search, spoiler, tier_chain, world};
 pub use ootrr_cosmetics::{colors, cosmetic, sfx, slink, title_logo};
 
+pub mod ap;
 pub mod ainb;
 pub mod boss_heart;
 pub mod calibrate;
@@ -73,6 +74,7 @@ pub mod settings;
 pub mod shelf;
 pub mod shops;
 pub mod first_pickups;
+pub mod area_intros;
 pub mod short_get;
 pub mod slice;
 pub mod song_lessons;
