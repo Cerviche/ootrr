@@ -40,7 +40,7 @@ pub struct Layers {
     pub ammo: bool,
     pub magic: bool,
     pub model: Option<String>,
-    /// The pickup turns in place, glints like a Gold Skulltula token and rests clear of the
+    /// The pickup turns in place, glows and glitters like a Heart Piece and rests clear of the
     /// ground (actor::SPIN, actor::GLINT_USER, crate::pickup_pack::lift). The seed build turns it on for every pack it writes.
     pub spin: bool,
     /// With spin: how far, in millimetres, the pickup's body reaches below its origin so that the

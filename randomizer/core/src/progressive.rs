@@ -598,10 +598,14 @@ pub fn edit_chest(y: &mut Byml, hash: u64, drop: &str, event: &str) -> Option<Si
         let Some(d) = a.get_mut("Dynamic") else {
             continue;
         };
-        if d.get("Drop__DropActor").is_none() {
+        // A chest without the drop field gives its actor's default (banc::DEFAULT_DROPS).
+        if d.get("Drop__DropActor").is_none() && crate::slice::banc::default_drop(hash).is_none() {
             continue;
         }
         d.set("Drop__DropActor", Node::Str(drop.to_string()));
+        if d.get("Drop__DropActor_Substitute").is_some() {
+            d.set("Drop__DropActor_Substitute", Node::Str(drop.to_string()));
+        }
         d.set("GetEventName", Node::Str(event.to_string()));
         out = Some(Size::of_gyaml(&g));
     }

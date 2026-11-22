@@ -29,11 +29,13 @@ pub const XLINK_REF: &str = "XLinkRef";
 /// its bare pose, centred on the actor, half sunk in the floor, and never turns.
 pub const SPIN: &str = "Rotate_Obj";
 const AUTO_PLAY: &str = "AutoPlayASName";
-/// The effect user the pickups show: the Gold Skulltula token's. Its Wait key plays the token's
-/// glint (Obj_TokenGold_Wait_00) on the bone Skl_Root, which item models have, while Rotate_Obj
-/// plays. The Heart Piece's Wait effect sits on the bone Root, which item models lack, so it
-/// showed nothing (ELink2/elink2.Product.110.belnk.zs).
-pub const GLINT_USER: &str = "Obj_Token_Gold";
+/// The effect user the pickups show: the Heart Piece's. Its Wait key plays the heart piece glow
+/// and glitter (Obj_HeartPiece_Wait_01) on the bone Root, under the same trigger as the Gold
+/// Skulltula token's Wait, while Rotate_Obj plays (ELink2/elink2.Product.110.belnk.zs). Root is on
+/// 912 of the 913 Item_/Obj_ models; the token's ring binds Skl_Root (152 of them) and the Fire
+/// Arrow's flame binds Effect_0 (16), so either would show on only some items. The first Heart
+/// Piece try showed nothing because the pickups had no XLinkRef then, not because of the bone.
+pub const GLINT_USER: &str = "Obj_Heart_Piece";
 const ELINK_USER: &str = "UserName";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -423,7 +425,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn the_spin_layer_plays_the_turn_and_names_the_token_glint() {
+    fn the_spin_layer_plays_the_turn_and_names_the_heart_piece_glow() {
         let on: Layers = Layers { spin: true, ..Layers::default() };
         let m: Made = make_with(&pool(), &spec(Style::Touch), &on).unwrap();
         assert_eq!(m.extra.iter().map(|e| e.0.clone()).collect::<Vec<String>>(), vec![spin_file("Obj_Test"), glint_file("Obj_Test")]);

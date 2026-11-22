@@ -192,6 +192,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let gr: crate::dungeon_grant::Grants = crate::slice::dungeon_items::grants(&d, seed, &p)?;
     let silver: BM<u64, &'static str> = crate::slice::silver::grants(&d, seed)?;
     let mut passes: crate::slice::map_passes::State = crate::slice::map_passes::State::new(&silver, &gr, &skull_drops);
+    passes.day = p.day_skulls;
     let mut edits: Vec<Edited> = Vec::new();
     let size_ctx: crate::chest_size::Ctx = crate::chest_size::Ctx { chus: p.chus, owned: p.start.owned.clone() };
     let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.keys.map)) } else { BM::new() };
@@ -382,6 +383,9 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         scrub_rows,
     };
     crate::slice::stages::run(&mut rf, &c, &mut more)?;
+    // Ground spots whose actor kept no saved row get one when another pickup stands there.
+    let fresh: Vec<u64> = ts.iter().filter(|t| !t.heart_chest && crate::slice::pickups::needs_row(&t.name) && t.new_actor != t.old_actor).map(|t| t.hash).collect();
+    crate::pot_slice::rows::stage_new(&mut rf, &mut more, &fresh)?;
     for o in more {
         pk.write_romfs(&o.path, &o.z)?;
         extra += 1;
@@ -447,7 +451,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     let mut late: Vec<crate::staging::Out> = if p.qol.any() { crate::qol::worked(&mut rf, &pk, &p.qol)? } else { Vec::new() };
     late.extend(crate::open_world::worked(&mut rf, &pk, &p.open)?);
-    crate::difficulty::worked(&mut rf, &pk, &p.difficulty, &seed.seed, &mut late)?;
+    let difficulty_notes: Vec<String> = crate::difficulty::worked(&mut rf, &pk, &p.difficulty, &seed.seed, &mut late)?;
     crate::merchant_prices::stage_bean(&mut rf, seed, p.rewards.merchant_prices, p.rewards.bean_sale, &mut late)?;
     // Scenes that are dropped: Link runs the item get with what their check holds.
     let give_for = |loc: &str| -> crate::story_skip::SceneGive {
@@ -503,6 +507,8 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     // A Bow or Slingshot from any gift or pickup brings its starting bag, as a chest's does.
     crate::starter_bags::stage(&mut rf, &mut late, &work)?;
+    // Rooms that could lock Link in once their item is shuffled away (crate::dungeon_fixes).
+    crate::dungeon_fixes::stage(&mut rf, &mut late, &work)?;
     if p.short {
         crate::short_get::stage(&mut rf, &mut late, &work)?;
     }
@@ -542,6 +548,32 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     extra += crate::slice::skull_kit::write(&mut rf, &pk, &mut rst, &skull_drops, kit_pool)?;
     let (cow_files, cow_lines): (usize, Vec<String>) = crate::cow_clone::write(&mut rf, &pk, &mut rst)?;
     extra += cow_files;
+    let leever_classes: Vec<&str> = if p.difficulty.gate_list().iter().any(|g| g.new_kind == crate::difficulty::gates::LEEVER_GIANT) { vec![crate::difficulty::leevers::SMALL_CLASS, crate::difficulty::leevers::GIANT_CLASS] } else { Vec::new() };
+    extra += crate::difficulty::leevers::write(&mut rf, &pk, &mut rst, &leever_classes)?;
+    if p.difficulty.encounters {
+        extra += crate::difficulty::beamos::write(&mut rf, &pk, &mut rst)?;
+    }
+    let volvagia_lines: Vec<String> = if p.difficulty.volvagia {
+        let (n, l): (usize, Vec<String>) = crate::difficulty::volvagia::write(&mut rf, &pk, &mut rst)?;
+        extra += n;
+        l
+    } else {
+        Vec::new()
+    };
+    let mega_lines: Vec<String> = if p.difficulty.mega_like {
+        let (n, l): (usize, Vec<String>) = crate::difficulty::mega_like::write(&mut rf, &pk, &mut rst)?;
+        extra += n;
+        l
+    } else {
+        Vec::new()
+    };
+    let size_lines: Vec<String> = if p.difficulty.sizes.on() && p.difficulty.sized_health {
+        let (n, l): (usize, Vec<String>) = crate::difficulty::sizes::write(&mut rf, &pk, &mut rst)?;
+        extra += n;
+        l
+    } else {
+        Vec::new()
+    };
     if p.open.epona {
         extra += crate::open_world::write_epona_event(&mut rf, &pk, &mut rst)?;
     }
@@ -614,6 +646,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         flows: flows.len() + placed.len(),
     };
     let mut notes: Vec<String> = p.notes.clone();
+    notes.extend(difficulty_notes);
     if !debug_missed.is_empty() {
         notes.push(format!("Debug location names could not hook: {}", debug_missed.join(", ")));
     }
@@ -667,6 +700,18 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     if !cow_lines.is_empty() {
         notes.push("Cows made into actor classes of their own, untested in the game:".to_string());
         notes.extend(cow_lines.iter().map(|l| format!("  {l}")));
+    }
+    if !volvagia_lines.is_empty() {
+        notes.push("Volvagia roams, files made:".to_string());
+        notes.extend(volvagia_lines.iter().map(|l| format!("  {l}")));
+    }
+    if !mega_lines.is_empty() {
+        notes.push("Mega Like Likes, files made:".to_string());
+        notes.extend(mega_lines.iter().map(|l| format!("  {l}")));
+    }
+    if !size_lines.is_empty() {
+        notes.push("Random enemy sizes, files made:".to_string());
+        notes.extend(size_lines.iter().map(|l| format!("  {l}")));
     }
     if let Some((_, a)) = &loads {
         notes.push(format!("{} events now load the flows their edited events call:", a.len()));
@@ -899,12 +944,13 @@ mod tests {
         for n in 0..4 {
             let g = generate_data(&d, &Settings::default(), &format!("wrap {n}"), &GenOpts::default()).unwrap();
             let (ts, _, _): (Vec<Target>, usize, Vec<Choice>) = targets(&d, &g.seed_file).unwrap();
+            let views: BM<String, String> = crate::slice::tier_order::chest_views(&d, &g.seed_file).unwrap();
             // Freestanding spots hand out a fixed tier (slice::tier_order), not a chest wrapper.
             for t in ts.iter().filter(|t| !d.cat.by_name(&t.name).is_some_and(crate::slice::pickups::is_world)) {
                 match (t.family, d.family(&t.new_item)) {
                     (Some(f), _) => {
                         seen.insert(f);
-                        assert_eq!(t.new_actor, crate::pregrant::chest_drop(f).unwrap());
+                        assert_eq!(t.new_actor, crate::slice::chest_targets::view_drop(f, views.get(&t.name).map(|s| s.as_str())).unwrap());
                         assert!(
                             !needs_every_holder(f) || d.holders(f).iter().all(|h| g.seed_file.placements.contains_key(*h) || d.wrappable(h)),
                             "{f}"

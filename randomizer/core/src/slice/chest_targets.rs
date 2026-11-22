@@ -56,6 +56,18 @@ fn vanilla_actor(d: &Data, loc: &str) -> Res<String> {
         .ok_or_else(|| E::Msg(format!("{loc} is not in the catalog")))
 }
 
+/// The drop of an upgrade chain chest: the viewed tier, unless that tier sets off the chest
+/// pre-grant (pregrant::clashes), then the first tier that does not.
+pub fn view_drop(f: &str, view: Option<&str>) -> Res<&'static str> {
+    let t: &[&'static str] = crate::progressive::tiers(f)?;
+    if let Some(k) = view.and_then(|v| t.iter().position(|x| *x == v)) {
+        if !crate::pregrant::clashes(f, k)? {
+            return Ok(t[k]);
+        }
+    }
+    crate::pregrant::chest_drop(f)
+}
+
 pub fn is_sale(d: &Data, loc: &str) -> bool {
     d.flow.by_name(loc).is_some() && d.cat.by_name(loc).is_none_or(|c| c.kind == "scrub" || (c.kind == "cow" && crate::flow_extra::cows::is(loc)))
 }
@@ -131,6 +143,7 @@ pub(crate) fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<Str
     let mut flows: Vec<Choice> = Vec::new();
     let mut same: usize = 0;
     let given: BM<String, String> = actors_for(d, seed)?;
+    let views: BM<String, String> = crate::slice::tier_order::chest_views(d, seed)?;
     let wrapped: BM<String, &'static str> = flow_wraps(d, seed);
     for (loc, item) in &seed.placements {
         if crate::pot_slice::targets::is_loc(d, loc) || crate::slice::skulls::is_skull(d, loc) || crate::shops::seed::skip(loc) || crate::slice::silver::is_item(item) {
@@ -231,7 +244,9 @@ pub(crate) fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<Str
             .family(item)
             .filter(|f| !needs_every_holder(f) || d.holders(f).iter().all(|h| seed.placements.contains_key(*h) || d.wrappable(h)));
         let new_actor: String = match family {
-            Some(f) => crate::pregrant::chest_drop(f)?.to_string(),
+            // The chest raises its drop actor, so it holds the tier the player most likely gets
+            // there (tier_order::chest_views); the chain grants the right tier either way.
+            Some(f) => view_drop(f, views.get(loc.as_str()).map(|s| s.as_str()))?.to_string(),
             None => fixed.get(loc).or_else(|| given.get(loc)).cloned().ok_or_else(|| E::Msg(format!("{loc} was given no item actor")))?,
         };
         // A story chest or the Treasure Chest Game prize keeps its event; its key is credited

@@ -74,6 +74,7 @@ pub struct Plan {
     pub chus: bool,
     pub qol: crate::qol::Opts,
     pub treasure: bool,
+    pub day_skulls: bool,
     pub kit: crate::start_items::Kit,
     pub open: crate::open_world::Opts,
     pub difficulty: crate::difficulty::Opts,
@@ -101,6 +102,7 @@ pub struct Plan {
     pub kokiri_sword: bool,
     pub short: bool,
     pub first_pickups: bool,
+    pub area_intros: bool,
 }
 
 pub use crate::slice::unsupported::not_yet;
@@ -152,6 +154,9 @@ impl Plan {
         if self.first_pickups {
             out.extend(crate::first_pickups::start_flags());
         }
+        if self.area_intros {
+            out.extend(crate::area_intros::start_flags());
+        }
         out
     }
 
@@ -175,6 +180,7 @@ impl Plan {
         }
         out.extend(self.qol.logic());
         out.extend(self.open.logic());
+        out.extend(crate::open_world::trade::LOGIC);
         out.extend(self.trials.logic());
         if self.skulls != crate::slice::skulls::Mode::Off {
             out.push((crate::slice::skull_rules::KEY, crate::slice::skull_rules::ON));
@@ -206,6 +212,9 @@ impl Plan {
         out.extend(self.door.logic());
         if self.rewards.potion {
             out.push((crate::flow_extra::potion::KEY, crate::flow_extra::potion::ON));
+        }
+        if self.day_skulls {
+            out.push((crate::slice::skull_day::KEY, crate::slice::skull_day::ON));
         }
         out
     }
@@ -275,6 +284,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let qol: crate::qol::Opts = crate::qol::read(s, &mut bad);
     let npc: crate::npc_hints::Opts = crate::npc_hints::read(s, gates.kakariko, &mut bad);
     let treasure: bool = crate::slice::treasure::mode(s, &mut bad);
+    let day_skulls: bool = toggle(s, crate::slice::skull_day::SETTING, &mut bad);
     let open: crate::open_world::Opts = crate::open_world::read(s, &mut bad);
     let trials: crate::ganon_trials::Trials = crate::ganon_trials::read(s, &mut bad);
     let difficulty: crate::difficulty::Opts = crate::difficulty::read(s, &mut bad);
@@ -296,6 +306,10 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     let prelude: bool = crate::prelude_gate::read(s, &mut bad);
     let short: bool = true;
     let first_pickups: bool = s.flag(crate::first_pickups::SETTING).unwrap_or_else(|e| {
+        bad.push(e.to_string());
+        false
+    });
+    let area_intros: bool = s.flag(crate::area_intros::SETTING).unwrap_or_else(|e| {
         bad.push(e.to_string());
         false
     });
@@ -325,6 +339,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (world.on(), world.note().unwrap_or_default()),
         (fast, "Chest and item pickup scenes are sped up."),
         (true, crate::fire_gorons::NOTE),
+        (true, crate::open_world::trade::NOTE),
         (intro, "The new game intro is skipped. The opening movie and the wake up scene are bypassed, and the harmless first-visit scenes of the areas are marked as played."),
         (start.reward != Reward::Off, "You start the game with one random Stone or Medallion."),
         (!start.pouch.is_empty(), "The ticked Kokiri Sword, Deku Shield or Slingshot is added to the pouch when a new game starts. A ticked Big or Biggest Bullet Bag brings the Slingshot with it."),
@@ -338,12 +353,13 @@ pub fn plan(s: &Settings) -> Res<Plan> {
         (endings, crate::story_skip::NOTE_ENDINGS),
         (hints, "Gossip stones give hints. Their text is replaced in every language."),
         (rewards.extra, "Kak 20 Gold Skulltula Reward, DMT Biggoron and GC Medigoron are shuffled with structural event edits."),
-        (rewards.trade, "The ten adult trade quest hand ins each give one extra shuffled item the first time. The trade chain itself stays vanilla."),
+        (rewards.trade, "The ten adult trade quest hand ins each give one extra shuffled item the first time. The trade items themselves stay in their chain."),
         (rewards.cows, crate::flow_extra::cows::NOTE),
         (rewards.cows_other, crate::flow_extra::cows::NOTE_OTHER),
         (rewards.frog_songs, crate::flow_extra::frogs::SONGS_NOTE),
         (rewards.frog_bug, crate::flow_extra::frogs::BUG_NOTE),
         (rewards.potion, crate::flow_extra::potion::NOTE),
+        (day_skulls, crate::slice::skull_day::NOTE),
     ] {
         if on {
             notes.push(text.to_string());
@@ -409,11 +425,14 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     if first_pickups {
         notes.push(crate::first_pickups::NOTE.to_string());
     }
+    if area_intros {
+        notes.push(crate::area_intros::NOTE.to_string());
+    }
     if lacs.is_some() {
         notes.push(crate::lacs_key::NOTE.to_string());
         notes.push(crate::medal_gate::LACS_NOTE.to_string());
     }
-    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, kit, open, npc, shops, bridge, debug_names, silver, lacs, rainbow, trials, door, nocturne, prelude, short, first_pickups, story, endings, ocarinas, kokiri_sword, difficulty })
+    Ok(Plan { chests, keys, rewards, hearts, world, songs, harp_colors, hints, fast, chest_sizes, intro, start, gates, excluded, notes, drops, skulls, remake, chus, qol, treasure, day_skulls, kit, open, npc, shops, bridge, debug_names, silver, lacs, rainbow, trials, door, nocturne, prelude, short, first_pickups, area_intros, story, endings, ocarinas, kokiri_sword, difficulty })
 }
 
 #[cfg(test)]
@@ -428,7 +447,7 @@ mod tests {
         assert_eq!(p.keys.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 18);
+        assert_eq!(p.notes.len(), 19);
         assert!(p.short && p.notes.iter().any(|n| n == crate::short_get::NOTE));
         assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
         assert!(p.remake && p.hearts && p.rewards.extra);
@@ -462,6 +481,24 @@ mod tests {
     }
 
     #[test]
+    fn the_area_intro_setting_is_off_by_default_and_writes_the_start_flags_when_on() {
+        let off: Plan = plan(&Settings::default()).unwrap();
+        assert!(!off.area_intros);
+        assert!(!off.notes.iter().any(|n| n == crate::area_intros::NOTE));
+        assert!(!off.start_flags().iter().any(|(n, _)| n.starts_with(crate::area_intros::VISIT) || n.contains("Goto_")));
+        let mut s: Settings = Settings::default();
+        s.set(crate::area_intros::SETTING, Value::Bool(true)).unwrap();
+        let on: Plan = plan(&s).unwrap();
+        assert!(on.area_intros && on.notes.iter().any(|n| n == crate::area_intros::NOTE));
+        let f: Vec<(String, bool)> = on.start_flags();
+        let want: Vec<(String, bool)> = crate::area_intros::start_flags();
+        for x in &want {
+            assert!(f.contains(x), "{x:?}");
+        }
+        assert_eq!(f.len(), off.start_flags().len() + want.len());
+    }
+
+    #[test]
     fn the_kakariko_setting_becomes_logic_values_and_a_note() {
         let mut s: Settings = Settings::default();
         s.set("open_door_of_time", Value::Bool(false)).unwrap();
@@ -469,12 +506,12 @@ mod tests {
         s.set("open_kakariko", Value::s("open")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.gates.kakariko);
-        assert_eq!(p.logic(), vec![("open_forest", "open"), ("open_kakariko", "open"), ("skip_child_zelda", "true"), (crate::open_world::EPONA, "1")]);
+        assert_eq!(p.logic(), vec![("open_forest", "open"), ("open_kakariko", "open"), ("skip_child_zelda", "true"), (crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0]]);
         assert_eq!(p.start_flags(), vec![(MIDO_WALL.to_string(), false), (EXIT_WALL.to_string(), false)]);
         s.set("open_kakariko", Value::s("closed")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(!p.gates.kakariko);
-        assert_eq!(p.logic(), vec![("open_forest", "open"), (crate::open_world::EPONA, "1")]);
+        assert_eq!(p.logic(), vec![("open_forest", "open"), (crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0]]);
         assert!(!p.notes.iter().any(|n| n.contains("Kakariko")));
     }
 
@@ -532,13 +569,13 @@ mod tests {
         s.set("open_kakariko", Value::s("closed")).unwrap();
         s.set("open_forest", Value::s("closed")).unwrap();
         assert!(!plan(&s).unwrap().keys_roam());
-        assert_eq!(plan(&s).unwrap().logic(), vec![(crate::open_world::EPONA, "1")]);
+        assert_eq!(plan(&s).unwrap().logic(), vec![(crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0]]);
         for v in ["any_dungeon", "keysanity"] {
             s.set("shuffle_smallkeys", Value::s(v)).unwrap();
             let p: Plan = plan(&s).unwrap();
             assert!(p.keys_roam());
-            assert_eq!(p.logic().len(), 4);
-            assert!(p.logic().iter().filter(|(k, _)| *k != crate::open_world::EPONA).all(|(k, v)| k.ends_with("_key_layout") && *v == "shuffled"));
+            assert_eq!(p.logic().len(), 5);
+            assert!(p.logic().iter().filter(|(k, _)| *k != crate::open_world::EPONA && *k != crate::open_world::trade::LOGIC[0].0).all(|(k, v)| k.ends_with("_key_layout") && *v == "shuffled"));
             assert!(p.notes.iter().any(|n| n.contains("Small keys can be found")));
         }
         s.set("shuffle_smallkeys", Value::s("overworld")).unwrap();
@@ -557,12 +594,12 @@ mod tests {
         s.set("open_door_of_time", Value::Bool(true)).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert_eq!(p.start_flags(), vec![(DOOR_OPENED.to_string(), true)]);
-        assert_eq!(p.logic(), vec![("open_door_of_time", "open"), (crate::open_world::EPONA, "1"), ("door_of_time_escape", "moat")]);
+        assert_eq!(p.logic(), vec![("open_door_of_time", "open"), (crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0], ("door_of_time_escape", "moat")]);
         assert!(p.notes.iter().any(|n| n.contains("Door of Time starts open")));
         s.set("open_door_of_time", Value::Bool(false)).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.start_flags().is_empty());
-        assert_eq!(p.logic(), vec![(crate::open_world::EPONA, "1")]);
+        assert_eq!(p.logic(), vec![(crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0]]);
         assert!(!p.notes.iter().any(|n| n.contains("Door of Time starts open")));
     }
 
@@ -612,7 +649,7 @@ mod tests {
         s.set("open_forest", Value::s("open")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert_eq!(p.start_flags().len(), 2);
-        assert_eq!(p.logic(), vec![("open_forest", "open"), (crate::open_world::EPONA, "1")]);
+        assert_eq!(p.logic(), vec![("open_forest", "open"), (crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0]]);
         assert!(p.notes.iter().any(|n| n.contains("Kokiri Forest starts open")));
     }
 
@@ -621,14 +658,14 @@ mod tests {
         let mut s: Settings = Settings::default();
         assert_eq!(s.text("open_kakariko").unwrap(), "closed");
         let p: Plan = plan(&s).unwrap();
-        assert!(!p.gates.kakariko && p.defaults() == vec![(crate::open_world::TIME, "true")] && p.logic() == vec![(crate::open_world::EPONA, "1")]);
+        assert!(!p.gates.kakariko && p.defaults() == vec![(crate::open_world::TIME, "true")] && p.logic() == vec![(crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0]]);
         assert!(!p.notes.iter().any(|n| n.contains("open_kakariko")));
         s.set("open_forest", Value::s("open")).unwrap();
         s.set("open_kakariko", Value::s("open")).unwrap();
         let p: Plan = plan(&s).unwrap();
         assert!(p.gates.kakariko);
         assert_eq!(p.defaults(), vec![KAKARIKO, (crate::open_world::TIME, "true"), ("open_forest", "open")]);
-        assert_eq!(p.logic(), vec![("open_forest", "open"), KAKARIKO, ("skip_child_zelda", "true"), (crate::open_world::EPONA, "1")]);
+        assert_eq!(p.logic(), vec![("open_forest", "open"), KAKARIKO, ("skip_child_zelda", "true"), (crate::open_world::EPONA, "1"), crate::open_world::trade::LOGIC[0]]);
         assert!(p.notes.iter().any(|n| n.contains("Death Mountain starts open") && n.contains("Mask Shop")));
         assert_eq!(p.start_flags(), vec![(MIDO_WALL.to_string(), false), (EXIT_WALL.to_string(), false)]);
         s.set("open_kakariko", Value::s("closed")).unwrap();

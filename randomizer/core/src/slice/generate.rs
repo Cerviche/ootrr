@@ -115,6 +115,11 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
     if p.keys_roam() && i.kind == "SmallKey" {
         return i.dungeon.is_some() && (p.keys.small != Keep::AnyDungeon || here.is_some());
     }
+    // A token cannot lie on the ground (its death table writes the dropping skulltula's rows),
+    // so at a boss heart it fell back to a chest.
+    if i.kind == "Token" && d.cat.by_name(name).is_some_and(|c| c.kind == "bossheart") {
+        return false;
+    }
     if p.songs == Songs::Own {
         let song_item: bool = i.actor.as_deref().is_some_and(is_song);
         if song_item != d.song_ok(name) {
@@ -338,7 +343,8 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             let (tries, switch): (u32, u32) = if quick { (o.tries.min(crate::slice::song_spots::QUICK_TRIES), o.switch.min(crate::slice::song_spots::QUICK_SWITCH)) } else { (o.tries, o.switch) };
             let g: Placement = match fill_ordered(&w, &base, &pk.free, ok, order, &mut rng, tries, &fixed, !p.keys_roam() && gates.is_none(), r, reach, switch, &watch) {
                 Ok(g) => g,
-                Err(_) if quick => {
+                // A run out of time (or cancelled) stops here with that message, not a retry's.
+                Err(_) if quick && watch.check().is_ok() => {
                     redo += 1;
                     fixed = plan.clone();
                     fixed.extend(crate::slice::song_spots::first_with(d, &w, &base, &pk.free, &plan, ok, &mut sr, careful)?);
@@ -845,7 +851,25 @@ mod tests {
             for (loc, item) in &g.seed_file.placements {
                 if loc.ends_with(" Heart") {
                     assert!(d.family(item).is_none(), "{loc} holds {item}");
+                    assert!(d.item(item).is_none_or(|i| i.kind != "Token"), "{loc} holds {item}");
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn no_boss_heart_takes_a_token() {
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_boss_hearts", Value::Bool(true)).unwrap();
+        let p: Plan = plan(&s).unwrap();
+        let w: World = world(&d).unwrap();
+        let t: ItemId = w.item("Gold Skulltula Token").unwrap();
+        let hearts: Vec<&str> = d.cat.locs.iter().filter(|c| c.kind == "bossheart").map(|c| c.name.as_str()).collect();
+        assert!(!hearts.is_empty());
+        for n in hearts {
+            if let Some(l) = w.loc(n) {
+                assert!(!allowed(&d, &w, &p, t, l), "{n}");
             }
         }
     }

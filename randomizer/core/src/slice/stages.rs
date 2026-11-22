@@ -197,6 +197,9 @@ fn start_reward(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn start_items(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    if c.p.first_pickups {
+        crate::start_items::stage::stage_list(rf, more, &crate::first_pickups::bag_sets(&c.p.kit))?;
+    }
     crate::start_items::stage::stage(rf, more, &c.p.kit)
 }
 
@@ -219,6 +222,7 @@ fn start_defaults(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     }
     edits.extend(crate::gerudo_card::exps());
     edits.extend(crate::open_world::fortress::exps());
+    edits.extend(crate::open_world::trade::edits());
     edits.extend(c.p.trials.edits());
     c.p.trials.stage(rf, more, c.work)?;
     if let Some(n) = c.p.rainbow {
