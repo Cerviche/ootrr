@@ -26,7 +26,6 @@ pub mod flow_rules;
 pub mod flow_wrap;
 pub mod generate;
 pub mod held_chests;
-pub mod junk_spots;
 pub mod key_spots;
 pub mod logic;
 pub mod map_passes;

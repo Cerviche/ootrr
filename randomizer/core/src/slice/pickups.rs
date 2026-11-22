@@ -28,8 +28,6 @@ pub const NOTE: &str = "Freestanding items are shuffled. Heart pieces, rupees an
 
 pub const WORLD_ONLY: [&str; 1] = ["Recovery Heart"];
 
-pub const UNSURE: [&str; 2] = ["HF Tektite Grotto Freestanding PoH", "GV Crate Freestanding PoH"];
-
 const ACTORS: [(&str, &str); 6] = [
     ("Piece of Heart", "Obj_Heart_Piece"),
     ("Recovery Heart", "Obj_Heart"),
@@ -90,10 +88,6 @@ pub fn is_held(name: &str) -> bool {
 
 pub fn listed(d: &Data, name: &str) -> bool {
     is_held(name) || d.cat.by_name(name).is_some_and(is_world)
-}
-
-pub fn keeps_out(d: &Data, name: &str, item: &str) -> bool {
-    UNSURE.contains(&name) && d.vanilla_of(name) != Some(item) && d.item(item).is_some_and(|i| i.adv)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -277,7 +271,8 @@ pub fn at(d: &Data, name: &str, item: &str) -> Option<bool> {
             return Some(true);
         }
         let known: bool = ground_actor(item).is_some() || ks::shield(item).is_some() || ks::placeable(d, item, ks::Spot::Free);
-        return Some(known && crate::slice::copies::fits(d, name, item));
+        // A spot that exists once per age shares one hash at build (crate::slice::copies::share).
+        return Some(known);
     }
     None
 }
@@ -520,13 +515,14 @@ mod tests {
     }
 
     #[test]
-    fn the_two_unsure_heart_chests_never_hold_progression_and_the_note_follows_the_pool() {
+    fn the_two_heart_chests_join_the_pool_and_the_note_follows_it() {
         let d: Data = Data::load().unwrap();
         for n in 0..4 {
             let g: Generated = generate_data(&d, &on("all"), &format!("unsure {n}"), &GenOpts::default()).unwrap();
-            for name in UNSURE {
-                let it: &str = &g.seed_file.placements[name];
-                assert!(d.vanilla_of(name) == Some(it) || !d.item(it).unwrap().adv, "{name} holds {it}");
+            // Their logic follows the actors (the Hyrule Field chest is adult only, the Gerudo
+            // Valley chest stands on the crate ledge), so they take any item.
+            for name in ["HF Tektite Grotto Freestanding PoH", "GV Crate Freestanding PoH"] {
+                assert!(g.seed_file.placements.contains_key(name), "{name}");
             }
             assert!(g.report.contains(NOTE));
         }

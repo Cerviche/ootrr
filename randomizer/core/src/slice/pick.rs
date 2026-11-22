@@ -180,7 +180,6 @@ pub fn pick(d: &Data, w: &World, p: &Plan) -> Pick {
     free.extend(sk);
     flow += n;
     flow += crate::slice::silver::select(w, p, &mut free, &mut left);
-    crate::slice::junk_spots::trim(d, w, p, &mut free, &mut left);
     free.sort_unstable();
     free.dedup();
     Pick { free, left, flow }

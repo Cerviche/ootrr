@@ -100,9 +100,6 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
     if let Some(ok) = crate::slice::place_rules::setting_verdict(&spot) {
         return ok;
     }
-    if crate::slice::place_rules::safety_refuses(&spot) {
-        return false;
-    }
     let Some(i) = d.item(&w.items.names[it]) else {
         return false;
     };
@@ -118,11 +115,6 @@ pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
     }
     if p.keys_roam() && i.kind == "SmallKey" {
         return i.dungeon.is_some() && (p.keys.small != Keep::AnyDungeon || here.is_some());
-    }
-    // A token cannot lie on the ground (its death table writes the dropping skulltula's rows),
-    // so at a boss heart it fell back to a chest.
-    if i.kind == "Token" && d.cat.by_name(name).is_some_and(|c| c.kind == "bossheart") {
-        return false;
     }
     if p.songs == Songs::Own {
         let song_item: bool = i.actor.as_deref().is_some_and(is_song);
@@ -295,7 +287,6 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             && !ok(i, *l)
             && !d.item(&w.items.names[i]).is_some_and(|x| crate::slice::dungeon_items::exempt(&p, &x.kind))
             && !(lay.is_some() && crate::shops::is_loc(&w.locs[*l].name))
-            && !crate::slice::junk_spots::only(&p, &w.locs[*l].name)
             && !(p.silver && crate::slice::silver::is_spot(&w.locs[*l].name))
             // The Light Arrows Cutscene holds Ganon's Boss Key in this mode; its Light Arrows join the pool.
             && !(p.keys.ganon == Keep::Lacs && w.locs[*l].name == crate::lacs_key::LOC)
@@ -820,16 +811,17 @@ mod tests {
     }
 
     #[test]
-    fn dungeon_items_never_land_on_event_locations_that_cannot_hand_them_out() {
+    fn every_item_on_an_event_location_is_one_its_grant_gives() {
         let d: Data = Data::load().unwrap();
         let s: Settings = with(&[("shuffle_songs", "own"), ("shuffle_rewards", "supported")]);
         for n in 0..3 {
             let g: Generated = generate_data(&d, &s, &format!("dungeon items {n}"), &GenOpts::default()).unwrap();
             for (loc, item) in &g.seed_file.placements {
                 if d.flow.by_name(loc).is_some() {
-                    // An event hands out what its routine can (flow_rules::allows, any pouch item at the
-                    // reward events since #24); a dungeon item needs a spot crate::gift_keys can credit.
-                    let fits = |i: &crate::slice::data::Item| crate::slice::flow_rules::allows(&d, loc, i) && (i.dungeon.is_none() || crate::gift_keys::spot(&d, loc));
+                    // An event hands out any item its grant can give (an upgrade through the tier checks
+                    // around every edit of the scene, crate::slice::flow_wrap::grants); a dungeon item
+                    // is credited by crate::gift_keys or a location credit (crate::debug_names).
+                    let fits = |i: &crate::slice::data::Item| crate::slice::flow_rules::gift_takes(&d, i) || d.flow_accepts(i);
                     assert!(d.item(item).is_some_and(fits) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}");
                 }
             }
@@ -857,12 +849,10 @@ mod tests {
                 if !d.cat.by_name(loc).is_some_and(|c| c.kind == "bossheart") {
                     continue;
                 }
-                assert!(d.item(item).is_none_or(|i| i.kind != "Token"), "{loc} holds {item}");
                 let Some(f) = d.family(item) else {
                     continue;
                 };
-                // The heart's pickup is the tier slice::tier_order fixes there, never the heart
-                // chest fallback, which has no tier wrapper.
+                // The heart's pickup is the tier slice::tier_order fixes there.
                 assert!(crate::slice::key_spots::placeable(&d, item, crate::slice::key_spots::Spot::Free), "{loc} holds {item}");
                 let tier: Option<&String> = order.assign.get(loc);
                 assert!(tier.is_some_and(|t| crate::slice::tier_order::rank(f, t).is_some()), "{loc} holds {item} as {tier:?}");
@@ -871,7 +861,7 @@ mod tests {
     }
 
     #[test]
-    fn no_boss_heart_takes_a_token() {
+    fn a_boss_heart_takes_a_token() {
         let d: Data = Data::load().unwrap();
         let mut s: Settings = Settings::default();
         s.set("shuffle_boss_hearts", Value::Bool(true)).unwrap();
@@ -882,7 +872,8 @@ mod tests {
         assert!(!hearts.is_empty());
         for n in hearts {
             if let Some(l) = w.loc(n) {
-                assert!(!allowed(&d, &w, &p, t, l), "{n}");
+                // It stands there as the ground token pickup (Obj_Token_GoldLand).
+                assert!(allowed(&d, &w, &p, t, l), "{n}");
             }
         }
     }
@@ -1305,14 +1296,13 @@ mod tests {
     }
 
     #[test]
-    fn keysanity_with_crates_leaves_the_kokiri_sword_a_forest_chest() {
+    fn keysanity_with_crates_places_the_kokiri_sword_once() {
         let d: Data = Data::load().unwrap();
         let s: Settings = with(&[("shuffle_smallkeys", "keysanity"), ("shuffle_crates", "all")]);
         let o: GenOpts = GenOpts { tries: 20, ..GenOpts::default() };
         let g: Generated = generate_data(&d, &s, "a", &o).unwrap_or_else(|e| panic!("{e}"));
         let at: Vec<&String> = g.seed_file.placements.iter().filter(|(_, i)| i.as_str() == "Kokiri Sword").map(|(l, _)| l).collect();
         assert_eq!(at.len(), 1, "{at:?}");
-        assert!(at[0].starts_with("KF "), "{at:?}");
     }
 
     #[test]
