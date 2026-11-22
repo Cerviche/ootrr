@@ -1053,8 +1053,9 @@ mod tests {
         for (item, bag) in [("Item_BombBundle_Small", "Item_BombBag_Medium"), ("Item_Bomb", "Item_BombBag_Small"), ("TBox_ArrowBundle_Large", "Item_Quiver_Large"), ("TBox_DekuSeedBundle", "Item_BulletBag_Small")] {
             let mut f: Flow = prize_flow(item, ("Dm_SY_GetInEvent", "GetInEvent_NotTurn"));
             assert!(ammo_guard(&mut f, 0, "Event378", "ReveiveItem").unwrap());
-            assert_eq!(f.entries[0].subs, vec![1, 2]);
-            let pick = |owned: &[&str]| -> String {
+            // Event 1 is the extra rupees of the no-bag give, so the kept give and the rupee are 2 and 3.
+            assert_eq!(f.entries[0].subs, vec![2, 3]);
+            let pick = |owned: &[&str]| -> (String, u16) {
                 let mut at: u16 = 0;
                 loop {
                     match &f.events[at as usize].kind {
@@ -1063,16 +1064,19 @@ mod tests {
                             at = cases.iter().find(|c| c.val == if has { 0 } else { 1 }).unwrap().ev;
                         }
                         Kind::Sub { next, params, .. } => {
-                            assert_eq!(*next, 7);
                             let Some(Val::Str(s)) = params.as_ref().and_then(|c| c.get("ReveiveItem")) else { panic!("no item") };
-                            return s.clone();
+                            return (s.clone(), *next);
                         }
                         _ => panic!("unexpected event"),
                     }
                 }
             };
-            assert_eq!(pick(&[]), NO_BAG, "{item}");
-            assert_eq!(pick(&[bag]), item, "{item}");
+            // No bag: the Blue Rupee, then NO_BAG_EXTRA rupees, then on to the vanilla next event.
+            let (rupee, after): (String, u16) = pick(&[]);
+            assert_eq!(rupee, NO_BAG, "{item}");
+            assert_ne!(after, 7, "{item}");
+            assert_eq!(skip_extra_rupees(&f, after), 7, "{item}");
+            assert_eq!(pick(&[bag]), (item.to_string(), 7), "{item}");
             let before: Flow = f.clone();
             assert!(!ammo_guard(&mut f, 0, "Event378", "ReveiveItem").unwrap());
             assert_eq!(f, before);

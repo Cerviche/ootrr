@@ -107,6 +107,8 @@ mod tests {
         let mut moved: usize = 0;
         for (chests, pots) in [("all", "all"), ("off", "all"), ("all", "dungeons")] {
             let s: Settings = with(&[("shuffle_chests", chests), ("shuffle_pots", pots), ("shuffle_crates", "all")]);
+            let p: Plan = plan(&s).unwrap();
+            let w: World = world_with(&d, &p.logic()).unwrap();
             for n in 0..3 {
                 let g: Generated = generate_data(&d, &s, &format!("pots {chests} {pots} {n}"), &GenOpts::default()).unwrap();
                 assert!(beatable(&d, &s, &g), "{chests} {pots} {n}");
@@ -121,10 +123,10 @@ mod tests {
                         if d.vanilla_of(loc) != Some(item.as_str()) {
                             moved += 1;
                         }
-                    } else {
-                        // A freestanding spot (Pieces of Heart are always shuffled) can take a pot's ground pickup.
-                        let ground: bool = d.cat.by_name(loc).is_some_and(crate::slice::pickups::is_world);
-                        assert!(ground || !d.pots.only.contains(item), "{loc} holds {item}");
+                    } else if d.pots.only.contains(item) {
+                        // Pot junk may leave the pots now (any item may go to any shuffled spot), but only
+                        // to a spot the build has a form for it at.
+                        assert!(crate::slice::generate::buildable(&d, &w, &p, w.item(item).unwrap(), w.loc(loc).unwrap()), "{loc} holds {item}");
                     }
                 }
                 assert!(here > 20, "{here}");

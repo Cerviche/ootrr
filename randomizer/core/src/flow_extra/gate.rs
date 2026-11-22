@@ -112,6 +112,12 @@ mod tests {
         let mut s: Settings = with(Some(true));
         s.set(crate::flow_extra::MERCHANTS_SETTING, Value::s("no_beans")).unwrap();
         let off: Generated = generate_data(&d, &with(Some(false)), "extra", &GenOpts::default()).unwrap();
+        // Every item may go to these rewards: Kak 20 and Biggoron hand out through the generic
+        // pouch get, Medigoron's priced sale sells any item (an upgrade at the tier the reach order
+        // fixes, crate::slice::tier_order), and a dungeon item at any of them credits its dungeon.
+        // So only crate::slice::generate::allowed judges them.
+        let p: crate::slice::support::Plan = plan(&s).unwrap();
+        let w: crate::world::World = crate::slice::logic::world_with(&d, &p.logic()).unwrap();
         for n in 0..3 {
             let g: Generated = generate_data(&d, &s, &format!("extra {n}"), &GenOpts::default()).unwrap();
             for x in SHUFFLED {
@@ -122,10 +128,8 @@ mod tests {
             assert!(g.report.contains("structural event edits"));
             for x in SHUFFLED {
                 let it: &str = &g.seed_file.placements[x];
-                assert!(d.item(it).is_some_and(|i| crate::slice::flow_rules::allows(&d, x, i)), "{x} holds {it}");
+                assert!(crate::slice::generate::allowed(&d, &w, &p, w.item(it).unwrap(), w.loc(x).unwrap()), "{x} holds {it}");
             }
-            let medi: &str = &g.seed_file.placements["GC Medigoron"];
-            assert!(d.item(medi).is_some_and(super::pouch), "GC Medigoron holds {medi}");
         }
     }
 

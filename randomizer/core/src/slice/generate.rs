@@ -96,8 +96,12 @@ pub fn buildable(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
 
 pub fn allowed(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
     let name: &str = &w.locs[l].name;
-    if let Some(ok) = crate::slice::place_rules::setting_verdict(&crate::slice::place_rules::Spot { d, w, p, it, l, name, item: &w.items.names[it] }) {
+    let spot: crate::slice::place_rules::Spot = crate::slice::place_rules::Spot { d, w, p, it, l, name, item: &w.items.names[it] };
+    if let Some(ok) = crate::slice::place_rules::setting_verdict(&spot) {
         return ok;
+    }
+    if crate::slice::place_rules::safety_refuses(&spot) {
+        return false;
     }
     let Some(i) = d.item(&w.items.names[it]) else {
         return false;
@@ -842,17 +846,26 @@ mod tests {
     }
 
     #[test]
-    fn upgrade_items_never_land_on_a_boss_heart() {
+    fn an_upgrade_on_a_boss_heart_stands_as_the_pickup_of_a_fixed_tier() {
         let d: Data = Data::load().unwrap();
         let mut s: Settings = Settings::default();
         s.set("shuffle_boss_hearts", Value::Bool(true)).unwrap();
         for n in 0..2 {
             let g: Generated = generate_data(&d, &s, &format!("up {n}"), &GenOpts::default()).unwrap();
+            let order: crate::slice::tier_order::Verdict = crate::slice::tier_order::fixed_actors(&d, &g.seed_file).unwrap();
             for (loc, item) in &g.seed_file.placements {
-                if loc.ends_with(" Heart") {
-                    assert!(d.family(item).is_none(), "{loc} holds {item}");
-                    assert!(d.item(item).is_none_or(|i| i.kind != "Token"), "{loc} holds {item}");
+                if !d.cat.by_name(loc).is_some_and(|c| c.kind == "bossheart") {
+                    continue;
                 }
+                assert!(d.item(item).is_none_or(|i| i.kind != "Token"), "{loc} holds {item}");
+                let Some(f) = d.family(item) else {
+                    continue;
+                };
+                // The heart's pickup is the tier slice::tier_order fixes there, never the heart
+                // chest fallback, which has no tier wrapper.
+                assert!(crate::slice::key_spots::placeable(&d, item, crate::slice::key_spots::Spot::Free), "{loc} holds {item}");
+                let tier: Option<&String> = order.assign.get(loc);
+                assert!(tier.is_some_and(|t| crate::slice::tier_order::rank(f, t).is_some()), "{loc} holds {item} as {tier:?}");
             }
         }
     }
@@ -974,8 +987,17 @@ mod tests {
         let seen: usize = off_state.flags.iter().filter(|(n, _)| n.starts_with(crate::start_state::VISIT)).count();
         assert_eq!(seen, 13);
         assert_eq!(off_state.flags.len(), crate::start_state::FIRST_VISIT.len() + crate::story_skip::TEMPLE_FLAGS.len() + crate::story_skip::OWL_FLAGS.len() + seen);
-        let vanilla: Vec<String> = crate::slice::edit::skipped_items(&d, &g.seed_file, &crate::start_state::KAKARIKO_LOCATIONS).unwrap();
+        // Zelda's Letter is in the pool and may go anywhere: a skipped check hands out what the
+        // seed put there, an unshuffled one its vanilla item.
+        let mut bare: SeedFile = g.seed_file.clone();
+        for l in crate::start_state::KAKARIKO_LOCATIONS {
+            bare.placements.remove(l);
+        }
+        let vanilla: Vec<String> = crate::slice::edit::skipped_items(&d, &bare, &crate::start_state::KAKARIKO_LOCATIONS).unwrap();
         assert_eq!(vanilla, vec!["Item_ZeldaLetter", "Item_Melody_ZeldaLullaby"]);
+        bare.placements.insert("HC Zeldas Letter".to_string(), "Boomerang".to_string());
+        let moved: Vec<String> = crate::slice::edit::skipped_items(&d, &bare, &crate::start_state::KAKARIKO_LOCATIONS).unwrap();
+        assert_eq!(moved, vec!["Item_Boomerang", "Item_Melody_ZeldaLullaby"]);
     }
 
     #[test]

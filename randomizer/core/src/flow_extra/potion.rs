@@ -299,12 +299,17 @@ mod tests {
         for l in LOCS {
             assert!(!off.seed_file.placements.contains_key(l), "{l}");
         }
+        // Every item may go to the potion shop keeper: the build turns both hand overs into the
+        // plain GetInEvent_NotTurn give and a dungeon item there credits its dungeon
+        // (crate::debug_names), so only crate::slice::generate::allowed judges it.
+        let p: crate::slice::support::Plan = plan_of(&with(true)).unwrap();
+        let w: World = world_with(&d, &p.logic()).unwrap();
         for n in 0..3 {
             let g: Generated = generate_data(&d, &with(true), &format!("potion {n}"), &GenOpts::default()).unwrap();
             assert_eq!(g.seed_file.placements.len(), off.seed_file.placements.len() + LOCS.len());
             for l in LOCS {
                 let it: &str = &g.seed_file.placements[l];
-                assert!(d.item(it).is_some_and(|i| d.flow_accepts(i) || it == "Rupees (5)"), "{l} holds {it}");
+                assert!(crate::slice::generate::allowed(&d, &w, &p, w.item(it).unwrap(), w.loc(l).unwrap()), "{l} holds {it}");
             }
             assert!(g.seed_file.placements.values().any(|i| i == "Bottle"));
         }

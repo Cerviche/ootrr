@@ -280,9 +280,14 @@ mod tests {
     }
 
     #[test]
-    fn toggle_on_adds_the_ten_checks_and_no_trade_item_leaves_its_spot() {
+    fn toggle_on_adds_the_ten_checks_and_no_adult_trade_item_leaves_its_spot() {
         let d: Data = Data::load().unwrap();
         let off: Generated = generate_data(&d, &with(false), "trade", &GenOpts::default()).unwrap();
+        let p: crate::slice::support::Plan = plan_of(&with(true)).unwrap();
+        let w: crate::world::World = crate::slice::logic::world_with(&d, &p.logic()).unwrap();
+        // The adult trade sequence is not shuffled (place_rules adult_trade); the child chain items
+        // may move like any other item.
+        let child: [&str; 2] = ["Item_WeirdEgg", "Item_ZeldaLetter"];
         for n in 0..3 {
             let g: Generated = generate_data(&d, &with(true), &format!("trade {n}"), &GenOpts::default()).unwrap();
             for l in LOCS {
@@ -291,9 +296,12 @@ mod tests {
             assert_eq!(g.seed_file.placements.len(), off.seed_file.placements.len() + LOCS.len());
             for (loc, it) in &g.seed_file.placements {
                 let i: &Item = d.item(it).unwrap();
-                assert!(keeps(&d, loc, i), "{loc} holds {it}");
+                assert!(keeps(&d, loc, i) || i.actor.as_deref().is_some_and(|a| child.contains(&a)), "{loc} holds {it}");
                 if is(loc) {
-                    assert!(d.flow_accepts(i) || it == "Rupees (5)", "{loc} holds {it}");
+                    // A trade spot clones its chain event, so it holds any item but a second chain
+                    // item (generate::buildable), which would hide the chain in the shared menu slot.
+                    assert!(keeps(&d, loc, i), "{loc} holds {it}");
+                    assert!(crate::slice::generate::allowed(&d, &w, &p, w.item(it).unwrap(), w.loc(loc).unwrap()), "{loc} holds {it}");
                 }
             }
         }

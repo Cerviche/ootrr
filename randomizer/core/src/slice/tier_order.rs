@@ -389,30 +389,58 @@ mod tests {
         assert_eq!((n.held, n.tight), (1, true));
     }
 
-    #[test]
-    fn a_shop_deal_gets_the_tier_of_the_reach_order_and_not_the_top_tier() {
-        let d: Data = Data::load().unwrap();
-        let s: Settings = with(&[("shuffle_chests", "overworld"), ("shuffle_shops", "deals_2")]);
-        let (w, mut place): (World, Placement) = world_of(&d, &s);
+    /// A world whose only Slingshot stands at `at` (the Deku Tree chest holds Rupees (5)).
+    fn lone_slingshot(d: &Data, s: &Settings, at: &str) -> (World, Placement) {
+        let (w, mut place): (World, Placement) = world_of(d, s);
         let sling: ItemId = w.item("Slingshot").unwrap();
         let five: ItemId = w.item("Rupees (5)").unwrap();
-        let shop: LocId = w.loc("KF Shop Item 1").unwrap();
-        let chest: LocId = w.loc("Deku Tree Slingshot Chest").unwrap();
-        let alone: Vec<LocId> = (0..w.locs.len()).filter(|l| *l != chest && place.get(*l) == Some(sling)).collect();
+        let alone: Vec<LocId> = (0..w.locs.len()).filter(|l| place.get(*l) == Some(sling)).collect();
         for l in &alone {
             place.put(*l, five);
         }
-        place.put(chest, five);
-        place.put(shop, sling);
+        place.put(w.loc(at).unwrap(), sling);
+        (w, place)
+    }
+
+    #[test]
+    fn a_shop_deal_of_an_upgrade_gives_the_next_tier_at_run_time_like_a_chest_chain() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = with(&[("shuffle_chests", "overworld"), ("shuffle_shops", "deals_2")]);
+        // Every upgrade family sells on a shelf, tier by tier (shelf::hook), so the reach order fixes
+        // no tier there, however early another copy is found.
+        assert_eq!(crate::shops::jobs::tiered_family(&d, "Slingshot"), Some("Slingshot"));
+        let (w, mut place): (World, Placement) = lone_slingshot(&d, &s, "KF Shop Item 1");
         let placed: BM<String, String> = map(&[("KF Shop Item 1", "Slingshot"), ("Deku Tree Slingshot Chest", "Rupees (5)")]);
+        assert_eq!(give(&slots(&d, &placed), "KF Shop Item 1"), Some(Give::Flow));
         let v: Verdict = judge(&d, &w, &place, &placed).unwrap();
-        assert_eq!(v.assign.get("KF Shop Item 1").map(|s| s.as_str()), Some("Item_Range_SlingShot"));
+        assert!(!v.assign.contains_key("KF Shop Item 1"), "{:?}", v.assign);
         assert!(!v.bad.iter().any(|b| b.starts_with("KF Shop Item 1")), "{:?}", v.bad);
-        place.put(w.loc("KF Midos Top Left Chest").unwrap(), sling);
+        place.put(w.loc("KF Midos Top Left Chest").unwrap(), w.item("Slingshot").unwrap());
         let early: BM<String, String> = map(&[("KF Shop Item 1", "Slingshot"), ("KF Midos Top Left Chest", "Slingshot"), ("Deku Tree Slingshot Chest", "Rupees (5)")]);
+        assert_eq!(give(&slots(&d, &early), "KF Shop Item 1"), Some(Give::Flow));
         let v: Verdict = judge(&d, &w, &place, &early).unwrap();
-        assert_eq!(v.assign.get("KF Shop Item 1").map(|s| s.as_str()), Some("Item_BulletBag_Medium"));
-        assert!(v.bad.iter().any(|b| b.starts_with("KF Shop Item 1")), "{:?}", v.bad);
+        assert!(!v.assign.contains_key("KF Shop Item 1"), "{:?}", v.assign);
+        assert!(!v.bad.iter().any(|b| b.starts_with("KF Shop Item 1")), "{:?}", v.bad);
+    }
+
+    #[test]
+    fn a_priced_sale_gets_the_tier_of_the_reach_order_and_not_the_top_tier() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = with(&[("shuffle_chests", "overworld")]);
+        // A scrub sale stays one plain call (crate::slice::flow_rules::priced_sale), so an upgrade
+        // there sells the tier the copies reachable before it fix.
+        let sale: &str = "HF Deku Scrub Grotto";
+        assert!(crate::slice::flow_rules::priced_sale(&d, sale));
+        let (w, mut place): (World, Placement) = lone_slingshot(&d, &s, sale);
+        let placed: BM<String, String> = map(&[(sale, "Slingshot"), ("Deku Tree Slingshot Chest", "Rupees (5)")]);
+        assert_eq!(give(&slots(&d, &placed), sale), Some(Give::Open));
+        let v: Verdict = judge(&d, &w, &place, &placed).unwrap();
+        assert_eq!(v.assign.get(sale).map(|s| s.as_str()), Some("Item_Range_SlingShot"));
+        assert!(!v.bad.iter().any(|b| b.starts_with(sale)), "{:?}", v.bad);
+        place.put(w.loc("KF Midos Top Left Chest").unwrap(), w.item("Slingshot").unwrap());
+        let early: BM<String, String> = map(&[(sale, "Slingshot"), ("KF Midos Top Left Chest", "Slingshot"), ("Deku Tree Slingshot Chest", "Rupees (5)")]);
+        let v: Verdict = judge(&d, &w, &place, &early).unwrap();
+        assert_eq!(v.assign.get(sale).map(|s| s.as_str()), Some("Item_BulletBag_Medium"));
     }
 
     #[test]

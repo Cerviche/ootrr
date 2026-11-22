@@ -317,12 +317,19 @@ mod tests {
         assert!(bow.spec().unwrap().1.ammo);
         assert!(pick("Item_Range_SlingShot").unwrap().spec().unwrap().1.ammo);
         assert_eq!(pick("Item_Bottle_Letter").unwrap().pack, "Obj_Bottle_LetterLand");
-        assert!(pick("Item_Gauntlet_Goron").is_none());
+        // Goron's Bracelet saves under its armor actor now, so its in_game_first flag is lifted.
+        assert_eq!(pick("Item_Gauntlet_Goron").map(|p| p.pack), Some("Obj_Gauntlet_Goron".to_string()));
         assert!(pick("Item_NutBag_Medium").is_none());
         assert!(pick("Item_NutBag_Large").is_some());
         assert!(pick("Item_Bombchu").is_none());
-        assert!(pick("Item_BombchuBundle_Small").is_none());
+        // Marked built so a Gold Skulltula can drop Bombchus (5).
+        assert_eq!(pick("Item_BombchuBundle_Small").map(|p| p.pack), Some("Obj_BombchuBundle_Small".to_string()));
         assert!(pick("Item_Shield_Deku").is_none());
+        // The placement sweep packs: renamed ones keep their own name, chest ammo bundles take TBox_ items.
+        assert_eq!(pick("Item_Token_Gold").map(|p| p.pack), Some("Obj_Token_GoldLand".to_string()));
+        assert_eq!(pick("Item_Arrow_Fire").map(|p| p.pack), Some("Obj_Arrow_FireLand".to_string()));
+        assert_eq!(pick("TBox_ArrowBundle_Medium").map(|p| p.pack), Some("Obj_TBox_ArrowBundle_Medium".to_string()));
+        assert_eq!(pick("Item_Medal_Light").map(|p| p.pack), Some("Obj_Medal_Light".to_string()));
         assert_eq!(pick("Item_Ocarina_Fairy").map(|p| p.pack), Some("Obj_Ocarina_Fairy".to_string()));
         assert_eq!(pick("Item_Ocarina_Time").map(|p| p.pack), Some("Obj_Ocarina_TimeLand".to_string()));
         assert!(pick("Item_Nothing").is_none());
@@ -367,16 +374,33 @@ mod tests {
                 assert!(placeable(&d, item, at) || (at == Spot::Pot && crate::pot_slice::pickup::holds(item)), "{item} {at:?}");
             }
         }
-        assert!(!placeable(&d, "Bow", Spot::Skull));
-        assert!(!placeable(&d, "Slingshot", Spot::Skull));
+        // A skulltula kit cannot carry the ammo layer, so the Bow and Slingshot kits fall back to the
+        // plain build (the starter bag hook adds the bag after the pickup's get).
+        assert!(placeable(&d, "Bow", Spot::Skull));
+        assert!(placeable(&d, "Slingshot", Spot::Skull));
+        assert!(pick("Item_Range_Bow").unwrap().kit_spec().is_err());
+        assert!(!kit_pick("Item_Range_Bow").unwrap().args.iter().any(|a| a == AMMO));
+        assert_eq!(resolve_kit(&d, "Bow", Some("Item_Range_Bow")).unwrap().hang(), "Obj_Range_Bow_GH");
+        // The letter's built entry carries the LetterBottle tag, which a kit cannot carry, so it stays off skulltulas.
         assert!(!placeable(&d, "Rutos Letter", Spot::Skull));
         assert!(placeable(&d, "Rutos Letter", Spot::Free));
         assert!(placeable(&d, "Progressive Hookshot", Spot::Skull));
-        assert!(!placeable(&d, "Progressive Strength Upgrade", Spot::Free));
+        // Goron's Bracelet has a pack now, so every strength tier can lie anywhere.
+        for at in [Spot::Free, Spot::Pot, Spot::Skull] {
+            assert!(placeable(&d, "Progressive Strength Upgrade", at), "{at:?}");
+        }
         assert!(placeable(&d, "Ocarina", Spot::Free) && placeable(&d, "Ocarina", Spot::Skull));
         assert!(!placeable(&d, "Milk", Spot::Free));
-        assert!(!placeable(&d, "Small Key (Forest Temple)", Spot::Free));
+        // Dungeon items stand as one pickup per kind and dungeon, pressed on the ground and touched as a kit.
+        for at in [Spot::Free, Spot::Pot, Spot::Skull] {
+            assert!(placeable(&d, "Small Key (Forest Temple)", at), "{at:?}");
+        }
+        let key: Pick = resolve(&d, "Small Key (Forest Temple)", None).unwrap();
+        assert_eq!(key.pack, format!("{DUNGEON_PREFIX}SmallKey_ForestTemple"));
+        assert!(key.args.iter().any(|a| a == "--press"));
+        assert!(!resolve_kit(&d, "Small Key (Forest Temple)", None).unwrap().args.iter().any(|a| a == "--press"));
         assert!(!placeable(&d, "Rupees (5)", Spot::Free));
+        assert!(!placeable(&d, "Bunny Hood", Spot::Free));
         assert!(placeable(&d, "Deku Nut Capacity", Spot::Pot));
         assert_eq!(contents(&d, "Deku Nut Capacity"), vec!["Item_NutBag_Large".to_string()]);
         assert_eq!(resolve(&d, "Deku Stick Capacity", None).unwrap().pack, "Obj_StickBag_Large");

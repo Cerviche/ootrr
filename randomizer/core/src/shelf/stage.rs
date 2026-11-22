@@ -378,9 +378,11 @@ mod tests {
         let g = goods::goods(&sarc::get(&es, &f).unwrap().data).unwrap();
         assert_eq!(g[6].get("StockNum"), Some(&crate::byml::Node::I32(1)));
         assert!(g[6].get("Release").is_none_or(|r| r.get("SoldOutGameData").is_none() || r.get("IsCheckSoldOutGameData") != Some(&crate::byml::Node::Bool(true))));
-        let again: Done = run(&root, Some(&back), &load, "shelf", Host::Hookshot, &jobs(&d, &["ZD Shop Item 1=Iron Boots@60"])).unwrap();
+        // A second pass on a built mod adds a deal whose shop has one keeper: a shop with a keeper
+        // per age adds the shared sold out entry (hook::SYNC), which the first pass already wrote.
+        let again: Done = run(&root, Some(&back), &load, "shelf", Host::Hookshot, &jobs(&d, &["Market Bazaar Item 1=Iron Boots@60"])).unwrap();
         assert_eq!(again.root, done.root);
-        let both: Vec<Job> = jobs(&d, &["KF Shop Item 1=Boomerang@20", "ZD Shop Item 1=Iron Boots@60"]);
+        let both: Vec<Job> = jobs(&d, &["KF Shop Item 1=Boomerang@20", "Market Bazaar Item 1=Iron Boots@60"]);
         audit::run(&root, &back, &both).unwrap();
         let _ = fs::remove_dir_all(&load);
     }
