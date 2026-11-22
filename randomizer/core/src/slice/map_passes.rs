@@ -81,18 +81,13 @@ fn silver_found(st: &State) -> Res<()> {
     crate::slice::silver::all_found(st.silver, &st.silver_hit)
 }
 
-fn has(raw: &[u8], mark: &[u8]) -> bool {
-    raw.windows(mark.len()).any(|w| w == mark)
-}
-
 fn qol_maps(file: &str, raw: &[u8], e: Option<Edited>, st: &mut State) -> Res<Option<Edited>> {
     let o: crate::qol::Opts = st.qol;
     if !o.maps() {
         return Ok(e);
     }
-    let crow: bool = o.free_scarecrow && has(raw, crate::qol::scarecrow::MARK);
     let tower: bool = o.skip_escape && file == crate::qol::tower_escape::ANCHOR_FILE;
-    if !(crow || tower) {
+    if !tower {
         return Ok(e);
     }
     let mut y: Byml = match &e {
@@ -100,11 +95,6 @@ fn qol_maps(file: &str, raw: &[u8], e: Option<Edited>, st: &mut State) -> Res<Op
         None => Byml::parse(raw)?,
     };
     let mut n: usize = 0;
-    if crow {
-        let k: usize = crate::qol::scarecrow::patch(&mut y);
-        st.qol_hits[0] += k;
-        n += k;
-    }
     if tower {
         let k: usize = crate::qol::tower_escape::patch_anchor(&mut y);
         st.qol_hits[1] += k;
@@ -135,7 +125,7 @@ fn qol_maps(file: &str, raw: &[u8], e: Option<Edited>, st: &mut State) -> Res<Op
 fn qol_found(st: &State) -> Res<()> {
     let o: crate::qol::Opts = st.qol;
     let want: [(bool, usize, &str); 2] = [
-        (o.free_scarecrow, crate::qol::scarecrow::COUNT, "scarecrow spots"),
+        (false, 0, "unused"),
         (o.skip_escape, 1, "tower preload anchors"),
     ];
     for (i, (on, n, what)) in want.iter().enumerate() {

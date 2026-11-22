@@ -141,7 +141,7 @@ impl Opts {
     }
 
     pub fn maps(&self) -> bool {
-        self.free_scarecrow || self.skip_escape
+        self.skip_escape
     }
 }
 
@@ -213,7 +213,7 @@ pub fn settings() -> Vec<crate::settings::Setting> {
         Setting::toggle(night_skulls::SUNS_NUM, night_skulls::SUNS, "world", "Night Gold Skulltulas expect Sun's Song", false)
             .tip("The logic only expects you to get a night Gold Skulltula once you can play Sun's Song, so no check is placed behind one before that. Like the OoTR trick option of the same name. Has no effect with Skulltulas by day."),
         Setting::toggle(scarecrow::NUM, scarecrow::SETTING, "world", "Free Scarecrow's Song", false)
-            .tip("Start with Scarecrow's Song and an instant scarecrow: Pierre already stands at every scarecrow spot, so there is no song to record or play. The logic counts the song as known, like the OoTR option of the same name. Tested in the game."),
+            .tip("Start with Scarecrow's Song and an instant scarecrow: take out the Ocarina at one of Pierre's spots and he appears there, with no song to record or play. The logic counts the song as known, like the OoTR option of the same name. Tested in the game."),
         Setting::toggle(tower_escape::NUM, tower_escape::SETTING, "goal", "Skip the tower escape", false)
             .tip("After Ganondorf falls, Link goes straight to the field below the collapsing tower and the Ganon fight, with no escape run down the tower, so the logic no longer needs the Longshot to finish. Without this, the logic needs the Longshot for the escape. Tested in the game."),
     ]
