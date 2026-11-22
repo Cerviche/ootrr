@@ -15,14 +15,19 @@ use crate::start_state::{query_slot, slot};
 
 pub const FLOW: &str = "Get_StoneOfWater";
 pub const EAT: &str = "StoneOfWater_JabuJabuEat";
+pub const MEET: &str = "StoneOfWater_MeetRuto";
 pub const JABU: &str = "Jabu Jabus Belly";
 pub const JABU_MAP: &str = "InsideJabuJabuBelly";
+pub const MET: &str = "Meet_Ruto_First";
+pub const FED: &str = "GaveFishToJabJab";
+pub const KING_MOVED: &str = "HavePlayedEvent.Dm_Zora_0010";
 pub const ARRIVED: &str = "Step09";
 pub const PREFIX: &str = "OOTRREntrJabu";
 
 const SYSTEM: &str = "GameSystemActor";
 const CHANGE: &str = "EventReserveBancChange";
 const DATA: &str = "GameDataActor";
+const SET_BOOL: &str = "EventTriggerSetGameDataBool";
 const IS_BOOL: &str = "EventQueryIsGameDataBool";
 const CHALLENGE: &str = "ChallengeSystemActor";
 const PROGRESS: &str = "EventExecuteProgressChallengeStep";
@@ -147,6 +152,16 @@ fn repoint(f: &mut Flow, from: u16, to: u16) -> Res<usize> {
     Ok(n)
 }
 
+fn set_bool(f: &mut Flow, name: &str, flag: &str, next: u16) -> Res<u16> {
+    let (actor, act): (u16, u16) = slot(f, DATA, SET_BOOL)?;
+    let items: Vec<(String, Val)> = vec![
+        ("Index".to_string(), Val::Int(-1)),
+        ("Value".to_string(), Val::Bool(TRUE)),
+        ("GameDataName".to_string(), Val::Str(flag.to_string())),
+    ];
+    push(f, Event { name: name.to_string(), kind: Kind::Action { next, actor, act, params: Some(Cont { items }) } })
+}
+
 fn redirect(f: &mut Flow, d: &Dest) -> Res<()> {
     let hits: Vec<usize> = reach(f, EAT)?.into_iter().filter(|&i| is(f, i, SYSTEM, CHANGE) && text(&f.events[i], "NextBanc") == Some(JABU_MAP)).collect();
     let [change] = hits[..] else {
@@ -182,12 +197,29 @@ fn redirect(f: &mut Flow, d: &Dest) -> Res<()> {
     Ok(())
 }
 
+fn mark(f: &mut Flow) -> Res<()> {
+    let hits: Vec<usize> = reach(f, MEET)?.into_iter().filter(|&i| is(f, i, DATA, SET_BOOL) && text(&f.events[i], "GameDataName") == Some(MET)).collect();
+    let [met] = hits[..] else {
+        return Err(E::Msg(format!("entrance story: {MEET} sets {MET} {} times, expected once", hits.len())));
+    };
+    let Kind::Action { next, .. } = f.events[met].kind else {
+        return Err(E::Format("entrance story: the Ruto meeting flag is not an action"));
+    };
+    let king: u16 = set_bool(f, &format!("{PREFIX}King"), KING_MOVED, next)?;
+    let fed: u16 = set_bool(f, &format!("{PREFIX}Fed"), FED, king)?;
+    if let Kind::Action { next, .. } = &mut f.events[met].kind {
+        *next = fed;
+    }
+    Ok(())
+}
+
 pub fn patch(b: &mut Bf, d: &Dest) -> Res<()> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == FLOW).ok_or(E::Format("entrance story: Get_StoneOfWater has no flow of its name"))?;
     if f.events.iter().any(|e| e.name.starts_with(PREFIX)) {
         return Err(E::Format("entrance story: Get_StoneOfWater already follows the shuffle"));
     }
-    redirect(f, d)
+    redirect(f, d)?;
+    mark(f)
 }
 
 pub fn stage(rf: &mut Romfs, seed: &SeedFile, late: &mut Vec<Out>, work: &P) -> Res<()> {
@@ -239,6 +271,10 @@ mod tests {
             .filter(|&i| is(f, i, SYSTEM, CHANGE))
             .map(|i| (t(&f.events[i], "NextBanc"), t(&f.events[i], "NextStartPos"), t(&f.events[i], "BootEventName")))
             .collect()
+    }
+
+    fn writes(f: &Flow, entry: &str) -> Vec<String> {
+        reach(f, entry).unwrap().into_iter().filter(|&i| is(f, i, DATA, SET_BOOL)).filter_map(|i| text(&f.events[i], "GameDataName").map(|s| s.to_string())).collect()
     }
 
     fn swapped(d: usize) -> Layout {
@@ -300,6 +336,9 @@ mod tests {
             assert_eq!(all.len(), 1 + usize::from(x.first.is_some()));
             let steps: Vec<usize> = reach(f, EAT).unwrap().into_iter().filter(|&i| is(f, i, CHALLENGE, PROGRESS) && text(&f.events[i], "StepName") == Some(ARRIVED)).collect();
             assert_eq!(steps.len(), 1);
+            assert!(writes(f, EAT).contains(&FED.to_string()));
+            let met: Vec<String> = writes(f, MEET);
+            assert!(met.contains(&FED.to_string()) && met.contains(&KING_MOVED.to_string()), "{met:?}");
             assert!(patch(&mut b, &x).is_err());
         }
         assert!(tried >= 2, "{tried}");
