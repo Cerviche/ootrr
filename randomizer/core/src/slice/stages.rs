@@ -91,7 +91,9 @@ fn hints(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
 }
 
 fn dungeon_text(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
-    crate::dungeon_grant::stage_text(rf, more, c.marked)
+    crate::dungeon_grant::stage_text(rf, more, c.marked)?;
+    // "Small Key (Fire Temple)" and the rest for the dungeon item packs (crate::dungeon_packs).
+    crate::dungeon_packs::stage_text(rf, more, &crate::dungeon_packs::placed(c.d, c.seed))
 }
 
 fn scrub_hints(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {

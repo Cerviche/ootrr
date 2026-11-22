@@ -302,7 +302,15 @@ pub fn run_with(romfs: &P, base: Option<&P>, load: &P, mod_name: &str, host: Hos
     // Every shelf build lets a child buy a tunic, wherever the shuffle puts one.
     let sold: Vec<hook::Sold> = hook::plan(jobs);
     let shared: Vec<Vec<String>> = hook::shared(jobs);
-    files.push(c.file(hook::FLOW, |r: &[u8]| hook::edit_with(r, &sold, &shared, credits, true))?);
+    // A dungeon item's pack on a shelf credits its dungeon once bought (crate::dungeon_packs).
+    let keys: std::collections::BTreeSet<crate::dungeon_packs::Pack> = jobs
+        .iter()
+        .filter_map(|j| match &j.what {
+            What::Deal { item, .. } => crate::dungeon_packs::by_name(item),
+            _ => None,
+        })
+        .collect();
+    files.push(c.file(hook::FLOW, |r: &[u8]| crate::dungeon_packs::shop_file(&hook::edit_with(r, &sold, &shared, credits, true)?, &keys))?);
     files.extend(text_files(&mut c, &made)?);
     let mut note: String = String::new();
     let pk: Pack = Pack::create_for(load, TITLE_ID, mod_name, host)?;

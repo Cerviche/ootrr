@@ -74,6 +74,52 @@ pub fn for_pack(t: &Byml, pack: &str) -> Option<f32> {
     (mm > 0).then_some(mm as f32 / 1000.0)
 }
 
+/// How far, in metres, a freestanding seed pickup's model should reach once scaled up, so that
+/// small items read from afar like a Heart Piece (0.40 m) or a Heart Container (0.73 m) do.
+pub const LOOK: f32 = 0.45;
+/// The most a freestanding seed pickup is scaled up.
+pub const GROW_MAX: f32 = 2.0;
+
+/// The scale for a model that reaches `reach` metres: up to [`LOOK`], at most [`GROW_MAX`], and
+/// never smaller than the item.
+pub fn grow(reach: f32) -> f32 {
+    if reach <= 0.0 {
+        return 1.0;
+    }
+    (LOOK / reach).clamp(1.0, GROW_MAX)
+}
+
+/// The lift in metres and the scale of the seed pickup pack `pack` when it stands in a map:
+/// map placements carry a Scale, which vanilla maps use on plain objects (ice pillars, abyss
+/// planes). Drops have no placement, so they keep the item's size and [`for_pack`]'s lift.
+pub fn look_for_pack(t: &Byml, pack: &str) -> Option<(f32, f32)> {
+    let p: crate::slice::key_spots::Pick = crate::slice::key_spots::by_pack(pack)?;
+    let (s, l) = p.spec().ok()?;
+    let reach: f32 = lift_of(t, l.model.as_deref().unwrap_or(&s.item)) as f32 / 1000.0;
+    if reach <= 0.0 {
+        return None;
+    }
+    let k: f32 = grow(reach);
+    Some(((reach * k).min(CAP as f32 / 1000.0), k))
+}
+
+/// Sets the placement scale of the map actor `hash` of `y` to `k` on every axis. Returns how many
+/// actors changed.
+pub fn scale(y: &mut Byml, hash: u64, k: f32) -> usize {
+    let Some(list) = y.root.get_mut("Actors").and_then(|a| a.as_arr_mut()) else {
+        return 0;
+    };
+    let mut n: usize = 0;
+    for a in list.iter_mut() {
+        if crate::placement::hash_of(a) != Some(hash) {
+            continue;
+        }
+        a.set("Scale", Node::Arr(vec![Node::F32(k); 3]));
+        n += 1;
+    }
+    n
+}
+
 pub fn perimeter_file(name: &str) -> String {
     format!("Component/PerimeterAnalyserParam/{name}.game__component__PerimeterAnalyserParam.bgyml")
 }
@@ -151,6 +197,24 @@ mod tests {
         assert_eq!(of_row(&row(v(-0.10858154, -0.039733887, -0.120462894), v(0.10882568, 0.03945923, 0.5272422))), Some(527));
         assert_eq!(of_row(&row(v(-0.44, -0.27, -0.32), v(0.21, 0.27, 1.45))), Some(CAP));
         assert_eq!(of_row(&Node::Map(Vec::new())), None);
+    }
+
+    #[test]
+    fn small_items_grow_toward_the_look_size_and_big_ones_stay() {
+        assert_eq!(grow(0.1), GROW_MAX);
+        assert!((grow(0.3) - 1.5).abs() < 1e-5);
+        assert_eq!(grow(0.6), 1.0);
+        assert_eq!(grow(0.0), 1.0);
+    }
+
+    #[test]
+    fn a_scaled_placement_carries_the_scale_on_every_axis() {
+        let a = |h: u64| Node::Map(vec![("Hash".into(), Node::U64(h)), ("Translate".into(), Node::Arr(vec![Node::F32(0.0); 3]))]);
+        let mut y: Byml = Byml { root: Node::Map(vec![("Actors".into(), Node::Arr(vec![a(1), a(2)]))]), version: 7, big: false };
+        assert_eq!(scale(&mut y, 2, 1.5), 1);
+        let list = y.root.get("Actors").and_then(|v| v.as_arr()).unwrap();
+        assert_eq!(list[1].get("Scale"), Some(&Node::Arr(vec![Node::F32(1.5); 3])));
+        assert_eq!(list[0].get("Scale"), None);
     }
 
     #[test]

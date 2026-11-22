@@ -274,7 +274,7 @@ pub fn grants(d: &Data, seed: &SeedFile, p: &Plan) -> Res<Grants> {
     let mut wrapped: std::collections::BTreeSet<u64> = std::collections::BTreeSet::new();
     for (loc, item) in &seed.placements {
         // Gift scenes give dungeon items through their own scene edit (crate::gift_keys).
-        if crate::gift_keys::spot(d, loc) {
+        if crate::gift_keys::spot(d, loc) || crate::dungeon_packs::handed(d, loc, item) {
             continue;
         }
         let Some(i) = d.item(item) else {
@@ -506,11 +506,12 @@ mod tests {
                     continue;
                 };
                 // A reward event holding a dungeon item (#24) is credited by crate::gift_keys, any
-                // other NPC or sale (a scrub too) by a location credit (crate::debug_names).
+                // other NPC or sale (a scrub too) by a location credit (crate::debug_names), a
+                // pickup spot or a shelf by crate::dungeon_packs.
                 if d.flow.by_name(loc).is_some() {
                     continue;
                 }
-                let Some(c) = d.cat.by_name(loc) else {
+                let Some(c) = d.cat.by_name(loc).filter(|_| !crate::dungeon_packs::handed(d, loc, item)) else {
                     continue;
                 };
                 let want: Option<&str> = i.dungeon.as_deref().and_then(struct_of);
@@ -638,8 +639,9 @@ mod tests {
             };
             let k: Kind = Kind::of(&i.kind).unwrap();
             let want: &str = i.dungeon.as_deref().and_then(struct_of).unwrap();
-            // A reward event holding a dungeon item (#24) is credited by crate::gift_keys.
-            let Some(c) = d.cat.by_name(loc) else {
+            // A reward event holding a dungeon item (#24) is credited by crate::gift_keys, a
+            // pickup spot or a shelf by crate::dungeon_packs.
+            let Some(c) = d.cat.by_name(loc).filter(|_| !crate::dungeon_packs::handed(&d, loc, item)) else {
                 continue;
             };
             // A ground, skulltula or boss heart spot stands as the item's own pickup, credited by
@@ -680,8 +682,9 @@ mod tests {
                     continue;
                 };
                 // A reward event holding a dungeon item (#24) is credited by crate::gift_keys; a
-                // story chest and a pickup spot credit through their own events, not the chest flow.
-                if !d.cat.by_name(loc).is_some_and(|c| c.kind == "chest") || story_chest(&d, loc) {
+                // story chest, a pickup spot and a shelf credit through their own events, not the
+                // chest flow.
+                if !d.cat.by_name(loc).is_some_and(|c| c.kind == "chest") || story_chest(&d, loc) || crate::dungeon_packs::handed(&d, loc, item) {
                     continue;
                 }
                 let k: Kind = Kind::of(&i.kind).unwrap();

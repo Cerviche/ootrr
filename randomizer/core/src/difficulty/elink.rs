@@ -115,6 +115,10 @@ impl Call {
         u64::from_le_bytes(self.raw[0x20..0x28].try_into().unwrap_or([0; 8]))
     }
 
+    pub fn set_param_pos(&mut self, pos: u64) {
+        self.raw[0x20..0x28].copy_from_slice(&pos.to_le_bytes());
+    }
+
     pub fn new(key_pos: u64, asset: u16, guid: u32, key_hash: u32, param_pos: u64) -> Call {
         let mut raw: [u8; CALL] = [0; CALL];
         raw[0..8].copy_from_slice(&key_pos.to_le_bytes());

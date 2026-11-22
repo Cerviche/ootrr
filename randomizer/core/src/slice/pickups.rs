@@ -174,6 +174,10 @@ pub fn swap_gyaml(y: &mut Byml, hash: u64, old: &str, new: &str) -> usize {
 
 pub fn pack_actor(d: &Data, extra: &Extra, item: &str, tier: Option<&str>) -> Option<String> {
     let i: &crate::slice::data::Item = d.item(item)?;
+    // A dungeon item lies there as its own dungeon's pack (crate::dungeon_packs).
+    if let Some(p) = crate::dungeon_packs::of_item(i) {
+        return extra.has(&p.name()).then(|| p.name());
+    }
     let content: &str = match tier {
         Some(t) => t,
         None if i.tiers.is_empty() => i.actor.as_deref()?,
@@ -560,11 +564,11 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let key: &str = KEY_SPOTS[0];
         assert_eq!(at(&d, key, "Small Key (Bottom of the Well)"), Some(true));
-        // Another dungeon's key stands as its own pickup pack and credits its own dungeon after
-        // the get (crate::debug_names::key_credits), not the dungeon of the scene.
+        // Another dungeon's key stands as its own dungeon's pack and credits that dungeon after
+        // the get (crate::dungeon_packs), not the dungeon of the scene.
         assert_eq!(at(&d, key, "Small Key (Forest Temple)"), Some(true));
-        let forest: Option<String> = ks::dungeon_pick(&d, "Small Key (Forest Temple)").map(|p| p.pack);
-        let well: Option<String> = ks::dungeon_pick(&d, "Small Key (Bottom of the Well)").map(|p| p.pack);
+        let forest: Option<String> = crate::dungeon_packs::of(&d, "Small Key (Forest Temple)").map(|p| p.name());
+        let well: Option<String> = crate::dungeon_packs::of(&d, "Small Key (Bottom of the Well)").map(|p| p.name());
         assert!(forest.is_some() && well.is_some() && forest != well, "{forest:?} {well:?}");
         assert_eq!(at(&d, key, "Rupees (20)"), Some(true));
         assert_eq!(at(&d, "LH Underwater Item", "Rutos Letter"), Some(true));
