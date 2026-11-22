@@ -26,7 +26,7 @@ pub struct Ctx<'a> {
 
 pub type Stage = fn(&mut Romfs, &Ctx, &mut Vec<Out>) -> Res<()>;
 
-pub const STAGES: [(&str, Stage); 26] = [
+pub const STAGES: [(&str, Stage); 27] = [
     ("boss heart chests", boss_hearts),
     ("songs", songs),
     ("song models", song_models),
@@ -53,7 +53,12 @@ pub const STAGES: [(&str, Stage); 26] = [
     ("start defaults", start_defaults),
     ("scrub rows", scrub_rows),
     ("debug location names", debug_names),
+    ("threads of time keys", key_log),
 ];
+
+fn key_log(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
+    crate::key_log::stage(rf, more, &crate::key_log::plan(c.d, c.seed)?)
+}
 
 pub fn run(rf: &mut Romfs, c: &Ctx, more: &mut Vec<Out>) -> Res<()> {
     for (_, s) in STAGES {

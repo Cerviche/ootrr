@@ -124,6 +124,7 @@ pub fn start_state(d: &Data, seed: &SeedFile, p: &crate::slice::support::Plan) -
     if p.story {
         ops.extend(crate::story_skip::start());
     }
+    ops.extend(crate::key_log::start_ops());
     let seen: crate::start_state::Ops = crate::start_state::visits(&ops);
     ops.extend(seen);
     Ok(ops)
@@ -431,6 +432,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         if p.gates.kakariko {
             outs.push(crate::start_state::stage_free_quest(&mut rf)?);
         }
+        crate::key_log::stage_table(&mut rf, &mut outs)?;
         if clock {
             outs.push(crate::start_state::stage_field_clock(&mut rf)?);
         }
@@ -513,6 +515,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         crate::short_get::stage(&mut rf, &mut late, &work)?;
     }
     crate::entr::story::stage(&mut rf, seed, &mut late, &work)?;
+    crate::key_log::stage_flows(&mut rf, &mut late, &work)?;
     crate::open_world::stage_last(&mut rf, &mut late, &work)?;
     let mut debug_missed: Vec<String> = Vec::new();
     let mut paths: BS<&str> = BS::new();
