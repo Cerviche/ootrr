@@ -1,82 +1,102 @@
+//! Gives the Windows exe its version info, manifest and (if there is one)
+//! icon. An exe without them looks more like malware to antivirus heuristics,
+//! and the details show in Properties > Details and in Task Manager.
+//!
+//! This needs rc.exe from the Windows SDK, which comes with the Visual Studio
+//! C++ build tools and is on the GitHub Windows runners. Without it the build
+//! still works and only warns.
+
 use std::env;
-use std::fs;
-use std::path::PathBuf;
-
-const ICON: &str = "assets/ootrr.ico";
-const RT_ICON: u16 = 3;
-const RT_GROUP_ICON: u16 = 14;
-const GROUP_ID: u16 = 1;
-
-struct Image {
-    width: u8,
-    height: u8,
-    colors: u8,
-    planes: u16,
-    bits: u16,
-    data: Vec<u8>,
-}
-
-fn u16_at(b: &[u8], o: usize) -> u16 {
-    u16::from_le_bytes([b[o], b[o + 1]])
-}
-
-fn u32_at(b: &[u8], o: usize) -> u32 {
-    u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]])
-}
-
-fn images(ico: &[u8]) -> Vec<Image> {
-    assert!(ico.len() >= 6 && u16_at(ico, 0) == 0 && u16_at(ico, 2) == 1, "{ICON} is not an icon file");
-    (0..u16_at(ico, 4) as usize)
-        .map(|i| {
-            let e: usize = 6 + 16 * i;
-            let (size, at) = (u32_at(ico, e + 8) as usize, u32_at(ico, e + 12) as usize);
-            Image { width: ico[e], height: ico[e + 1], colors: ico[e + 2], planes: u16_at(ico, e + 4), bits: u16_at(ico, e + 6), data: ico[at..at + size].to_vec() }
-        })
-        .collect()
-}
-
-fn resource(out: &mut Vec<u8>, kind: u16, id: u16, flags: u16, data: &[u8]) {
-    out.extend((data.len() as u32).to_le_bytes());
-    out.extend(32u32.to_le_bytes());
-    out.extend([0xFFFFu16, kind, 0xFFFF, id].iter().flat_map(|v| v.to_le_bytes()));
-    out.extend(0u32.to_le_bytes());
-    out.extend(flags.to_le_bytes());
-    out.extend(0x0409u16.to_le_bytes());
-    out.extend(0u32.to_le_bytes());
-    out.extend(0u32.to_le_bytes());
-    out.extend(data);
-    while out.len() % 4 != 0 {
-        out.push(0);
-    }
-}
-
-fn res_file(imgs: &[Image]) -> Vec<u8> {
-    let mut out: Vec<u8> = Vec::new();
-    resource(&mut out, 0, 0, 0, &[]);
-    for (i, img) in imgs.iter().enumerate() {
-        resource(&mut out, RT_ICON, i as u16 + 1, 0x1010, &img.data);
-    }
-    let mut group: Vec<u8> = Vec::new();
-    group.extend([0u16, 1, imgs.len() as u16].iter().flat_map(|v| v.to_le_bytes()));
-    for (i, img) in imgs.iter().enumerate() {
-        group.extend([img.width, img.height, img.colors, 0]);
-        group.extend(img.planes.to_le_bytes());
-        group.extend(img.bits.to_le_bytes());
-        group.extend((img.data.len() as u32).to_le_bytes());
-        group.extend((i as u16 + 1).to_le_bytes());
-    }
-    resource(&mut out, RT_GROUP_ICON, GROUP_ID, 0x1030, &group);
-    out
-}
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed={ICON}");
-    if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") || env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("msvc") {
+    println!("cargo:rerun-if-env-changed=RC");
+    if !env::var("TARGET").unwrap_or_default().ends_with("windows-msvc") {
         return;
     }
-    let ico: Vec<u8> = fs::read(ICON).unwrap_or_else(|e| panic!("could not read {ICON}: {e}"));
-    let res: PathBuf = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR")).join("ootrr_icon.res");
-    fs::write(&res, res_file(&images(&ico))).unwrap_or_else(|e| panic!("could not write {}: {e}", res.display()));
+    let root: PathBuf = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("..").join("..").join("packaging").join("windows");
+    let manifest: PathBuf = root.join("ootrr.manifest");
+    let icon: PathBuf = root.join("ootrr.ico");
+    println!("cargo:rerun-if-changed={}", manifest.display());
+    println!("cargo:rerun-if-changed={}", icon.display());
+    let Some(rc) = find_rc() else {
+        println!("cargo:warning=rc.exe was not found, so ootrr.exe gets no version info or manifest. Install the Windows SDK or set RC.");
+        return;
+    };
+    let out: PathBuf = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let script: PathBuf = out.join("ootrr.rc");
+    let res: PathBuf = out.join("ootrr.res");
+    std::fs::write(&script, rc_script(&manifest, icon.is_file().then_some(&icon))).unwrap();
+    let ok: bool = Command::new(&rc).arg("/nologo").arg("/fo").arg(&res).arg(&script).status().map(|s| s.success()).unwrap_or(false);
+    if !ok {
+        panic!("rc.exe could not compile {}", script.display());
+    }
     println!("cargo:rustc-link-arg-bins={}", res.display());
+}
+
+fn quoted(p: &Path) -> String {
+    format!("\"{}\"", p.display().to_string().replace('\\', "\\\\"))
+}
+
+fn rc_script(manifest: &Path, icon: Option<&PathBuf>) -> String {
+    let v: String = env::var("CARGO_PKG_VERSION").unwrap();
+    let mut n: Vec<u16> = v.split(['.', '-', '+']).take(3).map(|x| x.parse().unwrap_or(0)).collect();
+    n.resize(4, 0);
+    let num: String = n.iter().map(u16::to_string).collect::<Vec<_>>().join(",");
+    let repo: String = env::var("CARGO_PKG_REPOSITORY").unwrap_or_default();
+    let mut s: String = String::new();
+    if let Some(i) = icon {
+        s += &format!("1 ICON {}\n", quoted(i));
+    }
+    s += &format!("1 24 {}\n", quoted(manifest));
+    s += &format!(
+        r#"1 VERSIONINFO
+FILEVERSION {num}
+PRODUCTVERSION {num}
+FILEFLAGSMASK 0x3F
+FILEFLAGS 0
+FILEOS 0x40004
+FILETYPE 1
+FILESUBTYPE 0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "CompanyName", "OOTRR contributors"
+      VALUE "FileDescription", "OOTRR randomizer"
+      VALUE "FileVersion", "{v}"
+      VALUE "InternalName", "ootrr"
+      VALUE "LegalCopyright", "OOTRR contributors. GPL-3.0-or-later."
+      VALUE "OriginalFilename", "ootrr.exe"
+      VALUE "ProductName", "OOTRR"
+      VALUE "ProductVersion", "{v}"
+      VALUE "Comments", "Open source: {repo}"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END
+"#
+    );
+    s
+}
+
+/// rc.exe from RC, the PATH, or the newest Windows 10/11 SDK.
+fn find_rc() -> Option<PathBuf> {
+    if let Some(p) = env::var_os("RC").map(PathBuf::from).filter(|p| p.is_file()) {
+        return Some(p);
+    }
+    if Command::new("rc.exe").arg("/?").output().is_ok() {
+        return Some(PathBuf::from("rc.exe"));
+    }
+    let arch: &str = if cfg!(target_arch = "aarch64") { "arm64" } else if cfg!(target_arch = "x86") { "x86" } else { "x64" };
+    let kits: PathBuf = PathBuf::from(env::var_os("ProgramFiles(x86)")?).join("Windows Kits").join("10").join("bin");
+    let mut vers: Vec<PathBuf> = std::fs::read_dir(&kits).ok()?.flatten().map(|e| e.path()).filter(|p| p.join(arch).join("rc.exe").is_file()).collect();
+    vers.sort_by_key(|p| p.file_name().and_then(|n| n.to_str()).map(|n| n.split('.').map(|x| x.parse::<u32>().unwrap_or(0)).collect::<Vec<u32>>()).unwrap_or_default());
+    vers.pop().map(|p| p.join(arch).join("rc.exe"))
 }
