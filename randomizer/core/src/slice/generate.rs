@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::collections::{BTreeMap as BM, HashMap as HM};
 use std::fmt::Write as W;
 use std::sync::Arc;
@@ -288,7 +289,19 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     p.notes.extend(gone);
     let ex: Vec<String> = check_excluded(&w, &p, &pk.free, &base)?;
     p.notes.extend(ex);
-    let ok = |it: ItemId, l: LocId| allowed(d, &w, &p, it, l);
+    let seen: Vec<Cell<u8>> = vec![Cell::new(0); w.items.len() * w.locs.len()];
+    let ok = |it: ItemId, l: LocId| {
+        let c: &Cell<u8> = &seen[it * w.locs.len() + l];
+        match c.get() {
+            1 => false,
+            2 => true,
+            _ => {
+                let v: bool = allowed(d, &w, &p, it, l);
+                c.set(1 + v as u8);
+                v
+            }
+        }
+    };
     for l in &pk.free {
         if let Some(i) = vanilla.get(*l)
             && !p.excluded.contains(&w.locs[*l].name)
