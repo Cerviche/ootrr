@@ -35,6 +35,7 @@ pub mod dungeon_fixes;
 pub mod dungeon_credit;
 pub mod dungeon_grant;
 pub mod key_log;
+pub mod dungeon_packs;
 pub mod entr;
 pub mod event_chests;
 pub mod fast;
