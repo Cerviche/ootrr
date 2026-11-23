@@ -414,6 +414,13 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
             },
         }
     };
+    let mut got: Placement = got;
+    let mut jr: Rng = Rng::from_text(&format!("{seed} excluded junk"));
+    for l in pk.free.iter().filter(|l| p.excluded.contains(&w.locs[**l].name)) {
+        if let Some(i) = crate::slice::place_rules::roll_low_junk(&w, *l, &ok, &mut jr) {
+            got.put(*l, i);
+        }
+    }
     if p.skulls != crate::slice::skulls::Mode::Off {
         crate::slice::skulls::check_tokens(&w, &vanilla, &got)?;
     }
