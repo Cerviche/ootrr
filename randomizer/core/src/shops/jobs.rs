@@ -13,6 +13,9 @@ pub fn job(t: &Table, s: &Slot, what: What) -> Res<Job> {
 
 pub fn deal(d: &Data, item: &str, tier: Option<&str>, price: i32) -> Res<What> {
     let t: &Table = table()?;
+    if let Some(p) = crate::dungeon_packs::of(d, item) {
+        return Ok(What::Deal { item: p.name(), price, model: None });
+    }
     let c: Class = class(d, item).ok_or_else(|| E::Msg(format!("{item} cannot be sold on a shelf by this build")))?;
     let actor = || d.item(item).and_then(|i| i.actor.clone()).ok_or_else(|| E::Msg(format!("{item} has no remake actor")));
     Ok(match c {
@@ -125,9 +128,7 @@ mod tests {
         assert_eq!(deal(&d, "Progressive Wallet", Some("Item_Wallet_Medium"), 25).unwrap(), What::Deal { item: "Item_Wallet_Medium".into(), price: 25, model: None });
         assert_eq!(deal(&d, "Progressive Strength Upgrade", Some("Item_Gauntlet_Silver"), 25).unwrap(), What::Deal { item: "Item_Gauntlet_Silver".into(), price: 25, model: None });
         assert!(deal(&d, "Progressive Strength Upgrade", None, 25).is_err());
-        // A dungeon item sells as itself (a seed deal credits its dungeon, shelf::seed::credits);
-        // the Treasure Chest Game key never stands on a shelf.
-        assert_eq!(parse(&d, "GC Shop Item 6=Small Key (Forest Temple)@50").unwrap().what, What::Deal { item: "Item_Dungeon_SmallKey".into(), price: 50, model: None });
+        assert_eq!(parse(&d, "GC Shop Item 6=Small Key (Forest Temple)@50").unwrap().what, What::Deal { item: "Obj_SmallKey_ForestTemple".into(), price: 50, model: None });
         assert!(parse(&d, "GC Shop Item 6=Small Key (Treasure Chest Game)@50").is_err());
         assert!(parse(&d, "Nowhere=Boomerang@5").is_err());
         assert_eq!(parse(&d, "KF Shop Item 1=Boomerang@0").unwrap().what, What::Deal { item: "Item_Boomerang".into(), price: 0, model: None });

@@ -11,7 +11,7 @@
             "Colossus Tree Wonderitem 4": "can_use(Slingshot) or can_use(Bow)",
             "Colossus Tree Wonderitem 5": "can_use(Slingshot) or can_use(Bow)",
             "Colossus GS Bean Patch": "can_plant_bugs and can_child_attack",
-            "Colossus GS Tree": "can_use(Hookshot) and (at_night or gold_skulls_ignore_daytime)",
+            "Colossus GS Tree": "can_use(Longshot) and (at_night or gold_skulls_ignore_daytime)",
             "Colossus GS Hill": "
                 is_adult and (at_night or gold_skulls_ignore_daytime) and
                 (here(can_plant_bean) or Longshot or (logic_colossus_gs and Hookshot))",

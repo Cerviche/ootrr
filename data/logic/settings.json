@@ -22,6 +22,7 @@
   "ensure_tod_access": true,
   "entrance_shuffle": false,
   "fire_key_layout": "vanilla",
+  "fire_loop_door": "locked",
   "fix_broken_drops": false,
   "free_bombchu_drops": false,
   "ganon_bosskey_hearts": 20,
