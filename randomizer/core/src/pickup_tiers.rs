@@ -18,6 +18,9 @@ const DATA: &str = "GameDataActor";
 const ASK: &str = "EventQueryIsGameDataString64";
 const SET_TEXT: &str = "EventTriggerSetGameDataString64";
 const ARG: &str = "ActorName";
+const WAITER: &str = "EventSystemActor";
+const WAIT: &str = "EventWait";
+pub const SETTLE: i32 = 5;
 const OWNS: &str = "EventQueryCheckIsGet";
 const POUCH: &str = "PouchSystemActor";
 const ADD: &str = "EventTriggerAddOrRemovePouchContent";
@@ -123,6 +126,12 @@ fn pouch(f: &mut Flow, tier: &str, num: i32, named: bool, next: u16) -> Res<u16>
     push(f, Kind::Action { next, actor: a, act: x, params: Some(c) })
 }
 
+fn settle(f: &mut Flow, next: u16) -> Res<u16> {
+    let (wa, wx): (u16, u16) = crate::start_state::slot(f, WAITER, WAIT)?;
+    let c: Cont = Cont { items: vec![("IsWaitEnd".to_string(), Val::Bool(1)), ("Frames".to_string(), Val::Int(SETTLE))] };
+    push(f, Kind::Action { next, actor: wa, act: wx, params: Some(c) })
+}
+
 fn ask(f: &mut Flow, value: &str, hit: u16, miss: u16) -> Res<u16> {
     let (a, q): (u16, u16) = crate::progressive::ensure(f, DATA, ASK)?;
     let c: Cont = Cont { items: vec![("GameDataName".to_string(), Val::Str(NAME.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(value.to_string()))] };
@@ -144,6 +153,9 @@ fn path(f: &mut Flow, t: &Tail, family: &str, picked: usize, given: usize) -> Re
     }
     if picked > given {
         next = pouch(f, ts[picked], -1, false, next)?;
+    }
+    if picked != given {
+        next = settle(f, next)?;
     }
     next = push(f, with_next(&t.own, next))?;
     if let Some(x) = &t.expand {
@@ -211,8 +223,9 @@ pub fn patch(f: &mut Flow, at: usize, name: &str, fams: &BS<&str>) -> Res<bool> 
             miss = ask(f, nm, *hit, miss)?;
         }
     }
+    let first: u16 = settle(f, miss)?;
     if let Kind::Action { next, .. } = &mut f.events[set].kind {
-        *next = miss;
+        *next = first;
     }
     let calls: Vec<u16> = (n..f.events.len()).filter(|&i| matches!(f.events[i].kind, Kind::Sub { .. })).filter_map(|i| idx(i).ok()).collect();
     for k in 0..f.entries.len() {
@@ -321,17 +334,18 @@ mod tests {
             assert_eq!(silver.first().map(|s| s.as_str()), Some("EventTriggerAddOrRemovePouchContent Item_Gauntlet_Goron 1"), "{flow} {silver:?}");
             assert!(silver.contains(&"GetPouchContent:OpenGetWindow".to_string()), "{silver:?}");
             let own: usize = silver.iter().position(|s| s == ADD_OWN).unwrap();
-            assert_eq!(&silver[own + 1..own + 3], ["EventTriggerAddOrRemovePouchContent Item_Gauntlet_Silver -1", "EventTriggerAddOrRemovePouchContent Item_Gauntlet_Goron 1"], "{silver:?}");
+            assert_eq!(&silver[own + 1..own + 4], [WAIT, "EventTriggerAddOrRemovePouchContent Item_Gauntlet_Silver -1", "EventTriggerAddOrRemovePouchContent Item_Gauntlet_Goron 1"], "{silver:?}");
             let again: Vec<String> = walk(f, entry_of(f, "Strength", 0), &["Armor_Child_Gauntlet_Goron"]);
             assert_eq!(again.first().map(|s| s.as_str()), Some("EventTriggerAddOrRemovePouchContent Item_Gauntlet_Silver 1"), "{again:?}");
             let own: usize = again.iter().position(|s| s == ADD_OWN).unwrap();
-            assert_eq!(again.get(own + 1).map(|s| s.as_str()), Some("EventTriggerAddOrRemovePouchContent Item_Gauntlet_Silver 1"), "{again:?}");
+            assert_eq!(&again[own + 1..own + 3], [WAIT, "EventTriggerAddOrRemovePouchContent Item_Gauntlet_Silver 1"], "{again:?}");
             let stick: Vec<String> = walk(f, entry_of(f, "StickBag", 1), &[]);
             assert_eq!(stick.first().map(|s| s.as_str()), Some("EventTriggerAddOrRemovePouchContent Item_StickBag_Medium 1"), "{stick:?}");
             let own: usize = stick.iter().position(|s| s == ADD_OWN).unwrap();
-            assert_eq!(&stick[own + 1..own + 3], ["EventTriggerAddOrRemovePouchContent Item_StickBag_Large -1", "EventTriggerAddOrRemovePouchContent Item_StickBag_Medium 1"], "{stick:?}");
+            assert_eq!(&stick[own + 1..own + 4], [WAIT, "EventTriggerAddOrRemovePouchContent Item_StickBag_Large -1", "EventTriggerAddOrRemovePouchContent Item_StickBag_Medium 1"], "{stick:?}");
             let set: &Event = f.events.iter().find(|e| matches!(&e.kind, Kind::Action { actor, act, .. } if f.actors[usize::from(*actor)].actions[usize::from(*act)] == SET_NAME) && !e.name.starts_with(PREFIX)).unwrap();
             let other: Vec<String> = walk(f, next_of(&set.kind).unwrap(), &[]);
+            assert_eq!(other.first().map(|s| s.as_str()), Some(WAIT), "{other:?}");
             let k: usize = other.iter().position(|s| s == SET_TEXT).unwrap();
             assert_eq!(&other[k + 1..k + 3], [SET_NAME, "GetPouchContent:OpenGetWindow"], "{other:?}");
             let mut twice: Bf = b.clone();
