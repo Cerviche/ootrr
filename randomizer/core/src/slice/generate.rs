@@ -1032,7 +1032,7 @@ mod tests {
         assert!(off_state.steps.is_empty() && off_state.enums.is_empty() && off_state.items.is_empty());
         let seen: usize = off_state.flags.iter().filter(|(n, _)| n.starts_with(crate::start_state::VISIT)).count();
         assert_eq!(seen, 13);
-        assert_eq!(off_state.flags.len(), crate::start_state::FIRST_VISIT.len() + crate::story_skip::TEMPLE_FLAGS.len() + crate::story_skip::OWL_FLAGS.len() + seen);
+        assert_eq!(off_state.flags.len(), crate::start_state::FIRST_VISIT.len() + crate::story_skip::TEMPLE_FLAGS.len() + crate::story_skip::OWL_FLAGS.len() + crate::key_log::start_ops().flags.len() + seen);
         // Zelda's Letter is in the pool and may go anywhere: a skipped check hands out what the
         // seed put there, an unshuffled one its vanilla item.
         let mut bare: SeedFile = g.seed_file.clone();
