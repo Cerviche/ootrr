@@ -61,7 +61,31 @@ fn end_of_dungeons(s: &Spot) -> Option<bool> {
 }
 
 fn excluded(s: &Spot) -> Option<bool> {
-    (!s.p.excluded.is_empty() && s.w.items.adv[s.it] && s.p.excluded.iter().any(|e| *e == s.name)).then_some(false)
+    (!s.p.excluded.is_empty() && s.p.excluded.iter().any(|e| *e == s.name) && !junk(s.d, s.item)).then_some(false)
+}
+
+pub const JUNK: [&str; 17] = [
+    "Rupee (1)",
+    "Rupees (5)",
+    "Rupees (20)",
+    "Bomb (1)",
+    "Bombs (5)",
+    "Bombs (10)",
+    "Bombs (20)",
+    "Arrows (5)",
+    "Arrows (10)",
+    "Arrows (30)",
+    "Deku Nuts (5)",
+    "Deku Nuts (10)",
+    "Deku Stick (1)",
+    "Deku Sticks (3)",
+    "Deku Seeds (30)",
+    "Recovery Heart",
+    "Magic Jar (Large)",
+];
+
+pub fn junk(d: &Data, item: &str) -> bool {
+    JUNK.contains(&item) || d.item(item).is_some_and(|i| !i.adv && (i.kind == "Refill" || (i.kind == "Shop" && item != "Sold Out")))
 }
 
 fn silver(s: &Spot) -> Option<bool> {

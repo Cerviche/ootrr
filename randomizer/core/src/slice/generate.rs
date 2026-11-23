@@ -224,22 +224,22 @@ pub fn restore_upgrades(w: &World, d: &Data, vanilla: &Placement, free: &[LocId]
     out
 }
 
-pub fn check_excluded(w: &World, p: &Plan, free: &[LocId], base: &Placement) -> Res<Vec<String>> {
+pub fn check_excluded(d: &Data, w: &World, p: &Plan, free: &[LocId], base: &Placement) -> Res<Vec<String>> {
     let here: Vec<&LocId> = free.iter().filter(|l| p.excluded.contains(&w.locs[**l].name)).collect();
     let mut notes: Vec<String> = Vec::new();
     if here.len() < p.excluded.len() {
         let gone: Vec<&str> = p.excluded.iter().filter(|e| !here.iter().any(|l| w.locs[**l].name == **e)).map(|e| e.as_str()).collect();
         notes.push(format!("Excluded but not shuffled with these settings, so they keep their vanilla item: {}.", gone.join(", ")));
     }
-    let junk: usize = free.iter().filter_map(|l| base.get(*l)).filter(|i| !w.items.adv[*i]).count();
+    let junk: usize = free.iter().filter_map(|l| base.get(*l)).filter(|i| crate::slice::place_rules::junk(d, &w.items.names[*i])).count();
     if here.len() > junk {
         return Err(E::Msg(format!(
-            "too many locations are excluded: {} excluded locations can only hold items that are not needed for progression, and these settings shuffle only {junk} of those. Exclude fewer locations or shuffle more items",
+            "too many locations are excluded: {} excluded locations can only hold junk (low rupees, ammo, refills), and these settings shuffle only {junk} junk items. Exclude fewer locations or shuffle more items",
             here.len()
         )));
     }
     if !here.is_empty() {
-        notes.push(format!("{} excluded locations hold only items that are not needed for progression.", here.len()));
+        notes.push(format!("{} excluded locations hold only junk; their own items are shuffled elsewhere.", here.len()));
     }
     Ok(notes)
 }
@@ -261,18 +261,25 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         Some(l) => crate::shops::logic::world(d, &p.logic(), l)?,
         None => world_with(d, &p.logic())?,
     };
-    if settle_keys(d, &mut p, &w) {
-        w = match &lay {
-            Some(l) => crate::shops::logic::world(d, &p.logic(), l)?,
-            None => world_with(d, &p.logic())?,
-        };
-    }
     let mut named: Vec<String> = Vec::with_capacity(p.excluded.len());
     for e in &p.excluded {
         let l: LocId = loc_of(&w, e).map_err(|x| E::Msg(x.to_string().replacen("plando:", "disabled locations:", 1)))?;
         named.push(w.locs[l].name.clone());
     }
     p.excluded = named;
+    if p.songs == Songs::Own {
+        let songs: Vec<String> = p.excluded.iter().filter(|e| d.song_ok(e)).cloned().collect();
+        if !songs.is_empty() {
+            p.excluded.retain(|e| !songs.contains(e));
+            p.notes.push(format!("Songs stay on song spots with these settings, so these are not excluded: {}.", songs.join(", ")));
+        }
+    }
+    if settle_keys(d, &mut p, &w) {
+        w = match &lay {
+            Some(l) => crate::shops::logic::world(d, &p.logic(), l)?,
+            None => world_with(d, &p.logic())?,
+        };
+    }
     crate::slice::starts::add(d, &p, &mut w, seed)?;
     let vanilla: Placement = vanilla_place(&w, d)?;
     let mut pk: Pick = pick(d, &w, &p);
@@ -286,7 +293,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     let pooled: Placement = restore_upgrades(&w, d, &vanilla, &pk.free, &|it: ItemId, l: LocId| allowed(d, &w, &p, it, l));
     let (base, gone): (Placement, Vec<String>) = crate::start_items::pool::base(d, &w, &p, &pooled, &pk.free)?;
     p.notes.extend(gone);
-    let ex: Vec<String> = check_excluded(&w, &p, &pk.free, &base)?;
+    let ex: Vec<String> = check_excluded(d, &w, &p, &pk.free, &base)?;
     p.notes.extend(ex);
     let seen: Vec<Cell<u8>> = vec![Cell::new(0); w.items.len() * w.locs.len()];
     let ok = |it: ItemId, l: LocId| {
@@ -739,7 +746,7 @@ mod tests {
     }
 
     #[test]
-    fn excluded_locations_hold_only_items_the_seed_does_not_need() {
+    fn excluded_locations_hold_only_junk() {
         let d: Data = Data::load().unwrap();
         let names: Vec<String> = eligible_names(&d).into_iter().filter(|n| n != FOREST_FIRST && !n.starts_with("Fire Temple") && d.vanilla_of(n).and_then(|v| d.item(v)).is_some_and(|i| i.adv)).take(12).collect();
         assert!(names.len() >= 8);
@@ -752,13 +759,11 @@ mod tests {
             for nm in &names {
                 if let Some(item) = g.seed_file.placements.get(nm) {
                     moved += 1;
-                    // Hearts are not progress without a "hearts" goal (crate::slice::logic::spec).
-                    let heart: bool = HEARTS.iter().any(|h| item.starts_with(h));
-                    assert!(heart || !d.item(item).is_some_and(|i| i.adv), "{nm} holds {item}");
+                    assert!(crate::slice::place_rules::junk(&d, item), "{nm} holds {item}");
                 }
             }
             assert!(moved >= 4, "{moved}");
-            assert!(g.report.contains("excluded locations hold only items that are not needed"));
+            assert!(g.report.contains("excluded locations hold only junk"));
         }
     }
 
