@@ -477,6 +477,46 @@ mod tests {
     }
 
     #[test]
+    fn only_the_guarded_flows_can_take_the_zora_quest_back_before_jabu_opens() {
+        let Some(root) = real() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut flows: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        for f in rf.list("Event/EventFlow").unwrap() {
+            let raw: Vec<u8> = rf.read_zs(&f).unwrap();
+            if !raw.windows(WATER.len()).any(|w| w == WATER.as_bytes()) {
+                continue;
+            }
+            let b: Bf = Bf::parse(&raw).unwrap();
+            for fl in &b.flows {
+                if steps(fl, WATER).iter().any(|s| BACK_STEPS.contains(&s.as_str())) {
+                    flows.insert(fl.name.clone());
+                }
+            }
+        }
+        assert_eq!(flows.into_iter().collect::<Vec<String>>(), vec![ARRIVE_FLOW.to_string(), WATER_FLOW.to_string()]);
+        let quest: String = ainb_edit::path(WATER);
+        for f in rf.list("Logic").unwrap() {
+            let raw: Vec<u8> = rf.read(&f).unwrap();
+            if !raw.windows(WATER.len()).any(|w| w == WATER.as_bytes()) {
+                continue;
+            }
+            let a: crate::ainb::Ainb = crate::ainb::Ainb::parse(&raw).unwrap();
+            for i in 0..a.params.len() {
+                let back: bool = a.in_str(i, ainb_edit::CHALLENGE) == Some(quest.as_str()) && a.in_str(i, "StepName").is_some_and(|s| BACK_STEPS.contains(&s));
+                assert!(!back, "{f} element {i} sets an early Zora quest step");
+            }
+        }
+        let arrive: Bf = Bf::parse(&rf.read_zs(ARRIVE_FILE).unwrap()).unwrap();
+        let early: Vec<String> = steps(flow_of(&arrive, ARRIVE_FLOW), WATER);
+        assert_eq!(early, vec!["Step03".to_string(), "Step03_Impa".to_string()], "the first Zora's Domain arrival asks for Step03");
+        let mut guarded_arrive: Bf = arrive.clone();
+        guard::guard_steps(&mut guarded_arrive, ARRIVE_FLOW, WATER, &BACK_STEPS, MOVED_EXP, Run::WhenFalse, ZORA_PREFIX).unwrap();
+        assert_eq!(guarded(flow_of(&guarded_arrive, ARRIVE_FLOW), ZORA_PREFIX).len(), early.len());
+    }
+
+    #[test]
     fn the_staged_files_parse_and_hold_exactly_the_planned_edits() {
         let Some(root) = real() else {
             return;
@@ -518,6 +558,7 @@ mod tests {
     fn plan_of(pairs: &[(&str, Value)]) -> crate::slice::support::Plan {
         let mut s: Settings = Settings::default();
         s.set(TIME, Value::Bool(false)).unwrap();
+        s.set("shuffle_smallkeys", Value::s("vanilla")).unwrap();
         for (k, v) in pairs {
             s.set(k, v.clone()).unwrap();
         }

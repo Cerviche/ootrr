@@ -32,6 +32,15 @@ const VIEWS: [(&str, &str); 4] = [
     ("TBox_Rupee_Red", "Obj_OrnamentalRupee_Red_MiniGame"),
 ];
 
+pub const REPEAT_OPEN: &str = "IsEnableRepeatOpen";
+
+const VIEWS: [(&str, &str); 4] = [
+    ("Obj_Heart_Piece", "Obj_Heart_Piece_MiniGame"),
+    ("TBox_Rupee_Green", "Obj_OrnamentalRupee_Green_MiniGame"),
+    ("TBox_Rupee_Blue", "Obj_OrnamentalRupee_Blue_MiniGame"),
+    ("TBox_Rupee_Red", "Obj_OrnamentalRupee_Red_MiniGame"),
+];
+
 pub fn mode(s: &Settings, bad: &mut Vec<String>) -> bool {
     s.flag(SETTING).unwrap_or_else(|e| {
         bad.push(e.to_string());

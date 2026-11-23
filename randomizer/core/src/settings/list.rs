@@ -90,7 +90,8 @@ fn ganon_key() -> Vec<Setting> {
         Setting::choice(18, "shuffle_ganon_bosskey", "keys", "Ganon's Boss Key", "dungeon")
             .tag(Tag::Core)
             .tip("Where Ganon's Castle Boss Key is, or what earns it.")
-            .opt(crate::lacs_key::VALUE, "LACS - Dungeon Rewards", "Zelda gives the key in the Light Arrows Cutscene, which plays once you hold a set number of Stones and Medallions together. The Light Arrows are shuffled into the item pool. Experimental, untested in the game."),
+            .opt(crate::lacs_key::VALUE, "LACS - Dungeon Rewards", "Zelda gives the key in the Light Arrows Cutscene, which plays once you hold a set number of Stones and Medallions together. The Light Arrows are shuffled into the item pool. Experimental, untested in the game.")
+            .opt(crate::medal_gate::LACS_MEDALLIONS_VALUE, "LACS - Medallions", "Zelda gives the key in the Light Arrows Cutscene, which plays once you hold a set number of Medallions. The Light Arrows are shuffled into the item pool. Experimental, untested in the game."),
     ));
     vec![
         k,
@@ -170,6 +171,7 @@ fn starting_items() -> Setting {
             ("three_bottles", "Three Empty Bottles"),
             ("four_bottles", "Four Empty Bottles"),
             ("hylian_shield", "Hylian Shield"),
+            ("bunny_hood", "Bunny Hood"),
         ])
 }
 
@@ -444,6 +446,7 @@ pub fn build() -> Schema {
     s.extend(ganon_key());
     s.extend(bridge());
     s.extend(crate::medal_gate::settings());
+    s.extend(crate::qol::settings());
     s.extend(crate::door_gate::settings());
     s.extend(crate::nocturne_gate::settings());
     s.extend(crate::prelude_gate::settings());
@@ -694,7 +697,7 @@ pub fn build() -> Schema {
     s.push(
         Setting::choice(78, crate::qol::NAVI, "world", "Return with Navi", "everywhere")
             .wire_as(Value::s("off"))
-            .tip("Calling Navi with the D-pad asks whether to head back, like the original game restarting a saved file at the dungeon entrance, in Kokiri Forest or in the Temple of Time. Needs no item. The D-pad calls Navi from the start of a new game, and her room tutorial hints are replaced by the question; enemy hints while targeting stay. Boss rooms, miniboss rooms, the boss rush and the final battle never offer it, since leaving a fight that way left the save button disabled. Experimental, untested in the game.")
+            .tip("Calling Navi with the D-pad asks whether to head back, like the original game restarting a saved file at the dungeon entrance, in Kokiri Forest or in the Temple of Time. Needs no item. The D-pad calls Navi from the start of a new game, and her room tutorial hints are replaced by the question; enemy hints while targeting stay. Boss rooms, miniboss rooms, the boss rush and the final battle never offer it, since leaving a fight that way left the save button disabled. Navi also stays quiet while a minigame timer runs, such as the one in Dampe's race, since leaving the race that way kept its timer running. Experimental, untested in the game.")
             .opt("off", "Off", "Navi stays quiet when she has no hint.")
             .opt("dungeons", "Dungeons", "Inside a dungeon, Navi offers a trip back to the dungeon entrance.")
             .opt("everywhere", "Dungeons and overworld", "Also outside dungeons: back to Kokiri Forest as a child, or the Temple of Time as an adult."),

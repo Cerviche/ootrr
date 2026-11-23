@@ -1004,20 +1004,15 @@ pub struct KeyCredit {
     pub dungeon: &'static str,
 }
 
-/// The dungeon items the seed puts at ground and skulltula spots. A small key credits itself in
-/// its own dungeon unless keys roam (the pouch add is quiet then), so it is listed only then.
-pub fn key_credits(d: &Data, seed: &crate::settings::seed::SeedFile, roam: bool) -> Vec<KeyCredit> {
+pub fn key_credits(d: &Data, seed: &crate::settings::seed::SeedFile) -> Vec<KeyCredit> {
     let mut out: Vec<KeyCredit> = Vec::new();
     for (loc, item) in &seed.placements {
-        let ground: bool = d.cat.by_name(loc).is_some_and(|l| crate::slice::pickups::on_ground(l) || l.kind == SKULL_KIND);
-        if !ground {
+        let skull: bool = d.cat.by_name(loc).is_some_and(|l| l.kind == SKULL_KIND);
+        if !skull {
             continue;
         }
         let Some(i) = d.item(item) else { continue };
         let Some(k) = crate::gift_keys::Item::of(&i.kind) else { continue };
-        if k == crate::gift_keys::Item::Small && !roam {
-            continue;
-        }
         let Some(dg) = i.dungeon.as_deref().and_then(crate::dungeon_grant::struct_of) else { continue };
         let Some(p) = crate::slice::key_spots::dungeon_pick(d, item) else { continue };
         let hang: String = p.hang();
@@ -1464,6 +1459,21 @@ pub fn stage_credit_chests(rf: &mut Romfs, d: &Data, work: &P, more: &mut Vec<Ou
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_small_key_in_a_pot_of_its_own_dungeon_gets_a_dungeon_credit() {
+        let d: Data = Data::load().unwrap();
+        let skull: String = d.cat.locs.iter().find(|l| l.kind == SKULL_KIND).map(|l| l.name.clone()).unwrap();
+        let m: std::collections::BTreeMap<String, String> = [("Forest Temple Center Room Left Pot 2", "Small Key (Forest Temple)"), ("Forest Temple First Room Chest", "Small Key (Forest Temple)"), (skull.as_str(), "Small Key (Forest Temple)")].iter().map(|(a, b)| (a.to_string(), b.to_string())).collect();
+        let seed: crate::settings::seed::SeedFile = crate::settings::seed::SeedFile::new("s", &crate::settings::Settings::default(), "g", m).unwrap();
+        let forest = crate::dungeon_packs::Pack { kind: crate::dungeon_packs::Kind::Small, dungeon: crate::dungeon_grant::struct_of("Forest Temple").unwrap() };
+        assert_eq!(crate::dungeon_packs::picked_up(&d, &seed), [forest].into_iter().collect());
+        let cs: Vec<KeyCredit> = key_credits(&d, &seed);
+        assert_eq!(cs.len(), 1, "only the skulltula key is swept");
+        assert_eq!((cs[0].item, cs[0].dungeon), (crate::gift_keys::Item::Small, forest.dungeon));
+        let pack: String = crate::slice::key_spots::dungeon_pick(&d, "Small Key (Forest Temple)").unwrap().pack;
+        assert!(cs[0].names.contains(&pack), "{:?} {pack}", cs[0].names);
+    }
 
     fn shown(d: &Data, h: u64) -> Option<String> {
         skulls(d).into_iter().find(|x| x.0 == h).map(|x| d.cat.locs[x.1].name.clone())

@@ -77,6 +77,8 @@ pub const FLAGGED: [&str; 2] = ["scrub", "cow"];
 
 /// The scene variant a Banc file belongs to: its static and dynamic layers load together and
 /// count as one, the child, adult and alternative variants count apart.
+pub const FLAGGED: [&str; 2] = ["scrub", "cow"];
+
 pub fn scene(file: &str) -> &str {
     let stem: &str = file.rsplit('/').next().unwrap_or(file);
     let stem: &str = stem.split('.').next().unwrap_or(stem);
