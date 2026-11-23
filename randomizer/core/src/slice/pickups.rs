@@ -294,6 +294,7 @@ pub fn at(d: &Data, name: &str, item: &str) -> Option<bool> {
             return Some(true);
         }
         let known: bool = ground_actor(item).is_some() || ks::shield(item).is_some() || ks::placeable(d, item, ks::Spot::Free);
+        // A spot that exists once per age shares one hash at build (crate::slice::copies::share).
         return Some(known);
     }
     None
@@ -541,6 +542,8 @@ mod tests {
         let d: Data = Data::load().unwrap();
         for n in 0..4 {
             let g: Generated = generate_data(&d, &on("all"), &format!("unsure {n}"), &GenOpts::default()).unwrap();
+            // Their logic follows the actors (the Hyrule Field chest is adult only, the Gerudo
+            // Valley chest stands on the crate ledge), so they take any item.
             for name in ["HF Tektite Grotto Freestanding PoH", "GV Crate Freestanding PoH"] {
                 assert!(g.seed_file.placements.contains_key(name), "{name}");
             }

@@ -259,6 +259,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             }
         }
     }
+    // Spots that exist once per age share one actor hash, so their item is taken once.
     crate::slice::copies::share(&mut rf, &d, &seed.placements, &mut edits)?;
     let pk: Pack = Pack::begin_for(load, TITLE_ID, mod_name, host)?;
     let mut rst: Option<Rst> = None;

@@ -878,6 +878,9 @@ mod tests {
             let g: Generated = generate_data(&d, &s, &format!("dungeon items {n}"), &GenOpts::default()).unwrap();
             for (loc, item) in &g.seed_file.placements {
                 if d.flow.by_name(loc).is_some() {
+                    // An event hands out any item its grant can give (an upgrade through the tier checks
+                    // around every edit of the scene, crate::slice::flow_wrap::grants); a dungeon item
+                    // is credited by crate::gift_keys or a location credit (crate::debug_names).
                     let fits = |i: &crate::slice::data::Item| crate::slice::flow_rules::gift_takes(&d, i) || d.flow_accepts(i);
                     assert!(d.item(item).is_some_and(fits) || d.vanilla_of(loc) == Some(item.as_str()), "{loc} holds {item}");
                 }
@@ -909,6 +912,7 @@ mod tests {
                 let Some(f) = d.family(item) else {
                     continue;
                 };
+                // The heart's pickup is the tier slice::tier_order fixes there.
                 assert!(crate::slice::key_spots::placeable(&d, item, crate::slice::key_spots::Spot::Free), "{loc} holds {item}");
                 let tier: Option<&String> = order.assign.get(loc);
                 assert!(tier.is_some_and(|t| crate::slice::tier_order::rank(f, t).is_some()), "{loc} holds {item} as {tier:?}");
@@ -928,6 +932,7 @@ mod tests {
         assert!(!hearts.is_empty());
         for n in hearts {
             if let Some(l) = w.loc(n) {
+                // It stands there as the ground token pickup (Obj_Token_GoldLand).
                 assert!(allowed(&d, &w, &p, t, l), "{n}");
             }
         }
