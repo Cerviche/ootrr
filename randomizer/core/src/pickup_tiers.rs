@@ -16,6 +16,8 @@ pub const PREFIX: &str = "OOTRR_PickTier";
 pub const SKIPPED: [&str; 1] = ["Ocarina"];
 const DATA: &str = "GameDataActor";
 const ASK: &str = "EventQueryIsGameDataString64";
+const SET_TEXT: &str = "EventTriggerSetGameDataString64";
+const ARG: &str = "ActorName";
 const OWNS: &str = "EventQueryCheckIsGet";
 const POUCH: &str = "PouchSystemActor";
 const ADD: &str = "EventTriggerAddOrRemovePouchContent";
@@ -25,13 +27,18 @@ const SET_NAME: &str = "EventTriggerSetOwnNameToMessage";
 const EXPAND: &str = "EventTriggerGetFirstExpansionMaxNumActor";
 const WINDOW: (&str, &str) = ("GetPouchContent", "OpenGetWindow");
 
+pub fn runtime(d: &Data, loc: &str, family: &str) -> bool {
+    crate::slice::tier_order::fixed_spot(d, loc) && !crate::shops::is_loc(loc) && loc != crate::slice::treasure::LOC && !SKIPPED.contains(&family)
+}
+
+pub fn base(family: &str) -> Res<&'static str> {
+    let t: &[&str] = tiers(family)?;
+    let at: Option<&&str> = if crate::slice::key_spots::TOP_ONLY.contains(&family) { t.last() } else { t.first() };
+    at.copied().ok_or_else(|| E::Msg(format!("pickup tiers: {family} has no tier")))
+}
+
 pub fn families(d: &Data, seed: &SeedFile) -> BS<&'static str> {
-    seed.placements
-        .iter()
-        .filter(|(loc, _)| crate::slice::tier_order::fixed_spot(d, loc) && !crate::shops::is_loc(loc))
-        .filter_map(|(_, item)| d.family(item))
-        .filter(|f| !SKIPPED.contains(f))
-        .collect()
+    seed.placements.iter().filter_map(|(loc, item)| d.family(item).filter(|f| runtime(d, loc, f))).collect()
 }
 
 pub fn names(family: &str, tier: usize) -> Res<Vec<String>> {
@@ -181,13 +188,27 @@ pub fn patch(f: &mut Flow, at: usize, name: &str, fams: &BS<&str>) -> Res<bool> 
     let expand: Option<Kind> = (0..f.events.len()).find(|&i| action_is(f, i, GUEST, EXPAND) && next_of(&f.events[i].kind) == Some(own_at)).map(|i| f.events[i].kind.clone());
     let t: Tail = Tail { window, expand, own: f.events[at].kind.clone(), then };
     let n: usize = f.events.len();
-    let mut miss: u16 = open;
-    for fam in fams.iter().rev() {
-        for picked in (0..tiers(fam)?.len()).rev() {
+    let mut hits: Vec<(Vec<String>, u16)> = Vec::new();
+    for fam in fams.iter() {
+        for picked in 0..tiers(fam)?.len() {
             let hit: u16 = give(f, &t, fam, picked)?;
-            for nm in names(fam, picked)?.iter().rev() {
-                miss = ask(f, nm, hit, miss)?;
-            }
+            hits.push((names(fam, picked)?, hit));
+        }
+    }
+    let rename: u16 = push(f, with_next(&f.events[set].kind.clone(), open))?;
+    let mut by_arg: u16 = rename;
+    for (ns, hit) in hits.iter().rev() {
+        for nm in ns.iter().rev() {
+            by_arg = ask(f, nm, *hit, by_arg)?;
+        }
+    }
+    let (da, dx): (u16, u16) = crate::start_state::slot(f, DATA, SET_TEXT)?;
+    let copy: Cont = Cont { items: vec![("GameDataName".to_string(), Val::Str(NAME.to_string())), ("Value".to_string(), Val::Arg(ARG.to_string())), ("Index".to_string(), Val::Int(-1))] };
+    let from_arg: u16 = push(f, Kind::Action { next: by_arg, actor: da, act: dx, params: Some(copy) })?;
+    let mut miss: u16 = from_arg;
+    for (ns, hit) in hits.iter().rev() {
+        for nm in ns.iter().rev() {
+            miss = ask(f, nm, *hit, miss)?;
         }
     }
     if let Kind::Action { next, .. } = &mut f.events[set].kind {
@@ -309,6 +330,10 @@ mod tests {
             assert_eq!(stick.first().map(|s| s.as_str()), Some("EventTriggerAddOrRemovePouchContent Item_StickBag_Medium 1"), "{stick:?}");
             let own: usize = stick.iter().position(|s| s == ADD_OWN).unwrap();
             assert_eq!(&stick[own + 1..own + 3], ["EventTriggerAddOrRemovePouchContent Item_StickBag_Large -1", "EventTriggerAddOrRemovePouchContent Item_StickBag_Medium 1"], "{stick:?}");
+            let set: &Event = f.events.iter().find(|e| matches!(&e.kind, Kind::Action { actor, act, .. } if f.actors[usize::from(*actor)].actions[usize::from(*act)] == SET_NAME) && !e.name.starts_with(PREFIX)).unwrap();
+            let other: Vec<String> = walk(f, next_of(&set.kind).unwrap(), &[]);
+            let k: usize = other.iter().position(|s| s == SET_TEXT).unwrap();
+            assert_eq!(&other[k + 1..k + 3], [SET_NAME, "GetPouchContent:OpenGetWindow"], "{other:?}");
             let mut twice: Bf = b.clone();
             assert!(!patch(flow_mut(&mut twice, flow).unwrap(), i, name, &fams).unwrap());
         }
@@ -325,7 +350,7 @@ mod tests {
             let fams: BS<&str> = families(&d, &g.seed_file);
             assert!(!fams.contains("Ocarina"));
             for (loc, item) in &g.seed_file.placements {
-                if let Some(f) = d.family(item).filter(|f| crate::slice::tier_order::fixed_spot(&d, loc) && !crate::shops::is_loc(loc) && !SKIPPED.contains(f)) {
+                if let Some(f) = d.family(item).filter(|f| runtime(&d, loc, f)) {
                     assert!(fams.contains(f), "{loc} {item}");
                 }
             }
