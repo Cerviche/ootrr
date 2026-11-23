@@ -16,15 +16,14 @@ use crate::world::{LocId, World};
 
 pub const SETTING: &str = "shuffle_freestanding_items";
 
-pub const HELD: [(&str, bool); 3] = [
+pub const HELD: [(&str, bool); 2] = [
     ("HF Tektite Grotto Freestanding PoH", false),
     ("GV Crate Freestanding PoH", false),
-    ("Graveyard Dampe Race Freestanding PoH", true),
 ];
 
-pub const PIECES_NOTE: &str = "Freestanding heart pieces are shuffled. Heart pieces on the ground swap their actor for another world pickup, and three heart piece chests join the chest pool. Rupees and recovery hearts on the ground keep their items. Rupees, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
+pub const PIECES_NOTE: &str = "Freestanding heart pieces and Ruto's Letter are shuffled. Heart pieces on the ground swap their actor for another world pickup, and two heart piece chests join the chest pool. Rupees and recovery hearts on the ground keep their items. Rupees, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
 
-pub const NOTE: &str = "Freestanding items are shuffled. Heart pieces, rupees and recovery hearts on the ground swap their actor for another world pickup, and three heart piece chests join the chest pool. Rupees, recovery hearts, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
+pub const NOTE: &str = "Freestanding items are shuffled. Heart pieces, rupees and recovery hearts on the ground swap their actor for another world pickup, and two heart piece chests join the chest pool. Rupees, recovery hearts, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
 
 pub const WORLD_ONLY: [&str; 1] = ["Recovery Heart"];
 
@@ -50,15 +49,36 @@ pub fn ground_actor(item: &str) -> Option<&'static str> {
 /// Freestanding small keys that join the pool when small keys roam (keysanity: any dungeon,
 /// anywhere, overworld, regional). Own dungeon keeps them, as the new saved row
 /// (NEW_ROWS) is not yet checked in the game. The key credits the dungeon of its scene, so the spot takes its own key back
-/// unchanged, or any pickup that can lie on the ground. The Shadow Temple key stays out: its
 /// jar event (ShadowTemple_Gimmick, entry LargeJar_Key) binds the key actor by name and plays
-/// Act_Pop on it, which another pickup may not have. The Thieves' Hideout keys stay out too.
-pub const KEY_SPOTS: [&str; 1] = ["Bottom of the Well Freestanding Key"];
+pub const KEY_SPOTS: [&str; 2] = ["Bottom of the Well Freestanding Key", "Shadow Temple Freestanding Key"];
+
+pub const JAR_SPOT: &str = "Shadow Temple Freestanding Key";
+pub const JAR_FLOW: &str = "ShadowTemple_Gimmick";
+
+pub fn jar_patch(b: &mut crate::bfevfl::Bf) -> Res<()> {
+    use crate::bfevfl::{Cont, Kind, Val};
+    let f = b.flows.iter_mut().find(|f| f.name == JAR_FLOW).ok_or(E::Format("jar key: ShadowTemple_Gimmick has no flow of its name"))?;
+    let hits: Vec<usize> = (0..f.events.len()).filter(|&i| f.events[i].name == "Event116").collect();
+    let [pop] = hits.as_slice() else {
+        return Err(E::Msg(format!("jar key: expected one Event116 in {JAR_FLOW}, found {}", hits.len())));
+    };
+    let pop: usize = *pop;
+    let pops: bool = f.events[pop].kind.params().and_then(|c| c.get("ASName")) == Some(&Val::Str("Act_Pop".to_string()));
+    if !pops {
+        return Err(E::Format("jar key: Event116 no longer pops the key"));
+    }
+    let (a, act): (u16, u16) = crate::dungeon_credit::action_slot(f, "EventSystemActor", "EventWait")?;
+    let params: Cont = Cont { items: vec![("IsWaitEnd".to_string(), Val::Bool(1)), ("Frames".to_string(), Val::Int(1))] };
+    f.events[pop].kind = Kind::Action { next: crate::bfevfl::flow::NONE, actor: a, act, params: Some(params) };
+    Ok(())
+}
 
 /// Ground spots whose actor keeps no saved row of its own (Ruto's Letter checks the letter,
 /// the key its room flag). When another pickup stands there the build adds a permanent row for
 /// the hash (pot_slice::rows::stage_new), or that pickup would come back on every load.
-pub const NEW_ROWS: [&str; 2] = ["LH Underwater Item", "Bottom of the Well Freestanding Key"];
+pub const NEW_ROWS: [&str; 4] = ["LH Underwater Item", "Bottom of the Well Freestanding Key", "Graveyard Dampe Race Freestanding PoH", "Shadow Temple Freestanding Key"];
+
+pub const ALWAYS: [&str; 1] = ["LH Underwater Item"];
 
 pub fn is_key_spot(l: &Loc) -> bool {
     l.via == Via::Actor && l.kind == "key" && KEY_SPOTS.contains(&l.name.as_str())
@@ -117,7 +137,7 @@ impl Free {
     }
 
     fn covers(self, l: &Loc, dungeon: bool) -> bool {
-        let piece: bool = l.kind == "heart" || is_held(&l.name);
+        let piece: bool = l.kind == "heart" || is_held(&l.name) || ALWAYS.contains(&l.name.as_str());
         match self {
             Free::Off => false,
             Free::Pieces => piece,

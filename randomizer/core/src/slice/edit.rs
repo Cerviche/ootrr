@@ -193,6 +193,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let silver: BM<u64, &'static str> = crate::slice::silver::grants(&d, seed)?;
     let mut passes: crate::slice::map_passes::State = crate::slice::map_passes::State::new(&silver, &gr, &skull_drops);
     passes.day = p.day_skulls;
+    passes.qol = p.qol;
     let mut edits: Vec<Edited> = Vec::new();
     let size_ctx: crate::chest_size::Ctx = crate::chest_size::Ctx { chus: p.chus, owned: p.start.owned.clone() };
     let sizes: BM<u64, crate::chest_size::Want> = if p.chest_sizes { crate::chest_size::wanted(&d, seed, &size_ctx, crate::slice::dungeon_items::credited(p.keys.map)) } else { BM::new() };
@@ -209,6 +210,13 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
             resized_n += n;
             b
         });
+        let resized: Option<Vec<u8>> = if seed.placements.contains_key(crate::flow_extra::sun::LOC) && f == crate::flow_extra::sun::MAP {
+            Some(crate::flow_extra::sun::hide(resized.as_deref().unwrap_or(&vanilla))?)
+        } else if p.qol.one_race && f == crate::qol::dampe_race::GRAVE {
+            Some(crate::qol::dampe_race::place(resized.as_deref().unwrap_or(&vanilla))?)
+        } else {
+            resized
+        };
         let raw: &[u8] = resized.as_deref().unwrap_or(&vanilla);
         let e: Option<Edited> = edit_file_with(&f, raw, &ts, roam, &small_hearts, &lifts, &wrapped_chests)?;
         let e: Option<Edited> = match (e, &resized) {
@@ -383,7 +391,10 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     };
     crate::slice::stages::run(&mut rf, &c, &mut more)?;
     // Ground spots whose actor kept no saved row get one when another pickup stands there.
-    let fresh: Vec<u64> = ts.iter().filter(|t| !t.heart_chest && crate::slice::pickups::needs_row(&t.name) && t.new_actor != t.old_actor).map(|t| t.hash).collect();
+    let mut fresh: Vec<u64> = ts.iter().filter(|t| !t.heart_chest && crate::slice::pickups::needs_row(&t.name) && t.new_actor != t.old_actor).map(|t| t.hash).collect();
+    if p.qol.one_race && !fresh.contains(&crate::qol::dampe_race::HEART) {
+        fresh.push(crate::qol::dampe_race::HEART);
+    }
     crate::pot_slice::rows::stage_new(&mut rf, &mut more, &fresh)?;
     for o in more {
         pk.write_romfs(&o.path, &o.z)?;
@@ -503,6 +514,36 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     if p.rainbow.is_some() {
         crate::story_skip::stage_late(&mut rf, &mut late, &work, "AllSage", crate::rainbow_bridge::patch_lacs_step)?;
+    }
+    if p.qol.any_fish {
+        crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::fishing::FLOW, crate::qol::fishing::patch)?;
+    }
+    crate::story_skip::stage_late(&mut rf, &mut late, &work, "DisplayShop", |b| {
+        let f = b.flows.first_mut().ok_or(crate::error::Error::Format("child tunics: DisplayShop holds no flow"))?;
+        crate::shelf::hook::child_tunics(f).map(|_| ())
+    })?;
+    if ts.iter().any(|t| t.name == crate::slice::pickups::JAR_SPOT && t.new_actor != t.old_actor) {
+        crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::slice::pickups::JAR_FLOW, crate::slice::pickups::jar_patch)?;
+    }
+    if seed.placements.contains_key(crate::flow_extra::sun::LOC) {
+        crate::story_skip::stage_sun_give(&mut rf, &mut late, &work, &give_for(crate::flow_extra::sun::LOC))?;
+    }
+    if p.qol.free_scarecrow {
+        crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::scarecrow::FLOW, crate::qol::scarecrow::patch_flow)?;
+    }
+    if p.qol.first_dig {
+        for flow in crate::qol::dampe_dig::FLOWS {
+            crate::story_skip::stage_late(&mut rf, &mut late, &work, flow, crate::qol::dampe_dig::patch)?;
+        }
+    }
+    if p.qol.one_race {
+        crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::dampe_race::FLOW, crate::qol::dampe_race::patch)?;
+    }
+    if p.qol.fast_session {
+        crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::skull_kid_session::FLOW, crate::qol::skull_kid_session::patch)?;
+    }
+    if p.qol.skip_escape {
+        crate::story_skip::stage_late(&mut rf, &mut late, &work, crate::qol::tower_escape::FLOW, crate::qol::tower_escape::patch_flow)?;
     }
     // A Bow or Slingshot from any gift or pickup brings its starting bag, as a chest's does.
     crate::starter_bags::stage(&mut rf, &mut late, &work)?;
