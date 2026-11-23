@@ -789,12 +789,14 @@ mod tests {
     }
 
     #[test]
-    fn an_excluded_location_that_is_not_shuffled_keeps_its_item_and_says_so() {
+    fn an_excluded_chest_is_shuffled_with_chests_off_and_holds_low_junk() {
         let d: Data = Data::load().unwrap();
         let mut s: Settings = with(&[("shuffle_chests", "off")]);
         s.set("disabled_locations", Value::set(&["KF Midos Top Left Chest"])).unwrap();
         let g: Generated = generate_data(&d, &s, "off", &GenOpts::default()).unwrap();
-        assert!(g.report.contains("Excluded but not shuffled"), "{}", g.report);
+        assert!(!g.report.contains("Excluded but not shuffled"), "{}", g.report);
+        let item: &String = g.seed_file.placements.get("KF Midos Top Left Chest").unwrap();
+        assert!(crate::slice::place_rules::LOW_JUNK.iter().any(|(n, _)| n == item), "{item}");
     }
 
     #[test]
