@@ -4,7 +4,7 @@
         "scene": "Zoras Fountain",
         "hint": "ZORAS_FOUNTAIN",
         "locations": {
-            "ZF Scarecrow Ledge Chest": "is_adult and can_blast_or_smash and can_use(Hookshot)",
+            "ZF Scarecrow Ledge Chest": "is_adult and can_use(Scarecrow)",
             "ZF Iceberg Freestanding PoH": "is_adult",
             "ZF Near Jabu Pot 1": "is_child",
             "ZF Near Jabu Pot 2": "is_child",

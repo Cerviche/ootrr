@@ -27,8 +27,6 @@ pub const NOTE: &str = "Freestanding items are shuffled. Heart pieces, rupees an
 
 pub const WORLD_ONLY: [&str; 1] = ["Recovery Heart"];
 
-pub const UNSURE: [&str; 2] = ["HF Tektite Grotto Freestanding PoH", "GV Crate Freestanding PoH"];
-
 const ACTORS: [(&str, &str); 6] = [
     ("Piece of Heart", "Obj_Heart_Piece"),
     ("Recovery Heart", "Obj_Heart"),
@@ -110,10 +108,6 @@ pub fn is_held(name: &str) -> bool {
 
 pub fn listed(d: &Data, name: &str) -> bool {
     is_held(name) || d.cat.by_name(name).is_some_and(is_world)
-}
-
-pub fn keeps_out(d: &Data, name: &str, item: &str) -> bool {
-    UNSURE.contains(&name) && d.vanilla_of(name) != Some(item) && d.item(item).is_some_and(|i| i.adv)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -200,6 +194,9 @@ pub fn swap_gyaml(y: &mut Byml, hash: u64, old: &str, new: &str) -> usize {
 
 pub fn pack_actor(d: &Data, extra: &Extra, item: &str, tier: Option<&str>) -> Option<String> {
     let i: &crate::slice::data::Item = d.item(item)?;
+    if let Some(p) = crate::dungeon_packs::of_item(i) {
+        return extra.has(&p.name()).then(|| p.name());
+    }
     let content: &str = match tier {
         Some(t) => t,
         None if i.tiers.is_empty() => i.actor.as_deref()?,
@@ -297,7 +294,7 @@ pub fn at(d: &Data, name: &str, item: &str) -> Option<bool> {
             return Some(true);
         }
         let known: bool = ground_actor(item).is_some() || ks::shield(item).is_some() || ks::placeable(d, item, ks::Spot::Free);
-        return Some(known && crate::slice::copies::fits(d, name, item));
+        return Some(known);
     }
     None
 }
@@ -540,13 +537,12 @@ mod tests {
     }
 
     #[test]
-    fn the_two_unsure_heart_chests_never_hold_progression_and_the_note_follows_the_pool() {
+    fn the_two_heart_chests_join_the_pool_and_the_note_follows_it() {
         let d: Data = Data::load().unwrap();
         for n in 0..4 {
             let g: Generated = generate_data(&d, &on("all"), &format!("unsure {n}"), &GenOpts::default()).unwrap();
-            for name in UNSURE {
-                let it: &str = &g.seed_file.placements[name];
-                assert!(d.vanilla_of(name) == Some(it) || !d.item(it).unwrap().adv, "{name} holds {it}");
+            for name in ["HF Tektite Grotto Freestanding PoH", "GV Crate Freestanding PoH"] {
+                assert!(g.seed_file.placements.contains_key(name), "{name}");
             }
             assert!(g.report.contains(NOTE));
         }
@@ -584,11 +580,9 @@ mod tests {
         let d: Data = Data::load().unwrap();
         let key: &str = KEY_SPOTS[0];
         assert_eq!(at(&d, key, "Small Key (Bottom of the Well)"), Some(true));
-        // Another dungeon's key stands as its own pickup pack and credits its own dungeon after
-        // the get (crate::debug_names::key_credits), not the dungeon of the scene.
         assert_eq!(at(&d, key, "Small Key (Forest Temple)"), Some(true));
-        let forest: Option<String> = ks::dungeon_pick(&d, "Small Key (Forest Temple)").map(|p| p.pack);
-        let well: Option<String> = ks::dungeon_pick(&d, "Small Key (Bottom of the Well)").map(|p| p.pack);
+        let forest: Option<String> = crate::dungeon_packs::of(&d, "Small Key (Forest Temple)").map(|p| p.name());
+        let well: Option<String> = crate::dungeon_packs::of(&d, "Small Key (Bottom of the Well)").map(|p| p.name());
         assert!(forest.is_some() && well.is_some() && forest != well, "{forest:?} {well:?}");
         assert_eq!(at(&d, key, "Rupees (20)"), Some(true));
         assert_eq!(at(&d, "LH Underwater Item", "Rutos Letter"), Some(true));
