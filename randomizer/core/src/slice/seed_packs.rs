@@ -443,7 +443,7 @@ mod tests {
             let p = crate::slice::support::plan(&s).unwrap();
             let w: crate::world::World = crate::slice::logic::world_with(&d, &p.logic()).unwrap();
             let mut locs: Vec<crate::world::LocId> = crate::slice::pick::pick(&d, &w, &p).free;
-            locs.extend((0..w.locs.len()).filter(|l| crate::shops::data::is_loc(&w.locs[*l].name) && w.locs[*l].name.ends_with("Item 7")));
+            locs.extend((0..w.locs.len()).filter(|l| crate::shops::data::is_loc(&w.locs[*l].name) && w.locs[*l].name.ends_with("Right Side Top Left")));
             locs.sort_by(|a, b| w.locs[*a].name.cmp(&w.locs[*b].name));
             let mut used: Vec<crate::world::LocId> = Vec::new();
             let mut out: Vec<String> = Vec::new();
@@ -627,13 +627,12 @@ mod tests {
         // their pickups (crate::ocarina_hold), so every seed builds those packs; a seed with no
         // other new item at a pickup spot builds only them.
         let scene = |g: &Generated| -> std::collections::BTreeSet<String> { crate::ocarina_hold::wanted(&d, &g.seed_file).into_iter().map(|(_, p)| p.pack).collect() };
-        // With chests and rewards off only the hearts are shuffled, and they keep their own spots.
         let mut s: Settings = Settings::default();
         s.set("shuffle_rewards", crate::settings::Value::s("off")).unwrap();
         s.set("shuffle_chests", crate::settings::Value::s("off")).unwrap();
         let g: Generated = generate_data(&d, &s, "wp4 plain", &GenOpts::default()).unwrap();
         let w: BM<String, Want> = need(&d, &g.seed_file, &crate::slice::tier_order::fixed_actors(&d, &g.seed_file).unwrap().assign).unwrap();
-        assert!(w.keys().all(|k| scene(&g).contains(k)), "{:?}", w.keys().collect::<Vec<&String>>());
+        assert!(w.keys().all(|k| scene(&g).contains(k) || k == "Obj_Bottle_LetterLand"), "{:?}", w.keys().collect::<Vec<&String>>());
         assert!(!scene(&g).is_empty());
         let load: PB = std::env::temp_dir().join(format!("ootrr_seed_packs_plain_{}", std::process::id()));
         let _ = fs::remove_dir_all(&load);

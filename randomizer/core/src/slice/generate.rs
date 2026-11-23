@@ -720,9 +720,8 @@ mod tests {
         s.set("shuffle_rewards", Value::s("off")).unwrap();
         s.set("shuffle_chests", Value::s("off")).unwrap();
         let off: Generated = generate_data(&d, &s, "x", &GenOpts::default()).unwrap();
-        // Only the hearts are left, and they stay at their own spots.
-        assert!(off.seed_file.placements.values().all(|i| HEARTS.contains(&i.as_str())));
-        assert_eq!(off.counts.changed, 0);
+        assert!(off.seed_file.placements.values().all(|i| HEARTS.contains(&i.as_str()) || i == "Rutos Letter"));
+        assert!(off.seed_file.placements.contains_key(crate::slice::pickups::ALWAYS[0]));
         s.set("shuffle_chests", Value::s("overworld")).unwrap();
         let o: Generated = generate_data(&d, &s, "x", &GenOpts::default()).unwrap();
         assert!(o.counts.randomized >= 2);
@@ -964,6 +963,25 @@ mod tests {
         assert!(go(&all_chests(), &["KF Midos Top Left Chest=Boomerang", "KF Midos Top Right Chest=Boomerang"]).contains("no copy left"));
         assert!(go(&all_chests(), &["KF Midos Top Left Chest=Boomerang", "KF Midos Top Left Chest=Deku Shield"]).contains("more than once"));
         assert!(go(&with(&[("shuffle_chests", "off")]), &["KF Midos Top Left Chest=Boomerang"]).contains("not shuffled"));
+    }
+
+    #[test]
+    fn the_gerudo_membership_card_follows_its_setting() {
+        let d: Data = Data::load().unwrap();
+        let free = |s: &Settings| -> bool {
+            let p: Plan = plan(s).unwrap();
+            let w: World = world_with(&d, &p.logic()).unwrap();
+            crate::slice::pick::pick(&d, &w, &p).free.iter().any(|l| w.locs[*l].name == crate::flow_extra::GERUDO_CARD_LOC)
+        };
+        assert!(free(&Settings::default()));
+        let mut off: Settings = Settings::default();
+        off.set(crate::flow_extra::GERUDO_CARD, Value::Bool(false)).unwrap();
+        assert!(!free(&off));
+        let g: Generated = generate_data(&d, &off, "vanilla card", &GenOpts::default()).unwrap();
+        assert!(!g.seed_file.placements.contains_key(crate::flow_extra::GERUDO_CARD_LOC));
+        let mut fast: Settings = Settings::default();
+        fast.set("gerudo_fortress", Value::s("fast")).unwrap();
+        assert!(!free(&fast));
     }
 
     #[test]
