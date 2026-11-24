@@ -1,3 +1,4 @@
+import typing
 import hashlib
 import json
 import os
@@ -7,6 +8,9 @@ from BaseClasses import CollectionState, Item, ItemClassification, Location, Reg
 from Fill import fill_restrictive
 from worlds.AutoWorld import LogicMixin, WebWorld, World
 
+import settings
+
+from . import components as _components
 from .logic import Bundle, Sweep
 from .options import OOTRROptions
 from .tables import FILLER, GAME, ITEM_NAME_TO_ID, LOCATION_NAME_TO_ID, bundle, presets
@@ -23,6 +27,15 @@ def record_key(*parts: Any) -> str:
 
 def foreign_label(item: str, player: str) -> str:
     return "AP: " + record_key("foreign", player, item)
+
+
+class OOTRRSettings(settings.Group):
+    class Exe(settings.UserFilePath):
+        """The OOTRR app (ootrr.exe). The client runs it to read the game and hand over items."""
+        is_exe = True
+        description = "OOTRR app (ootrr.exe)"
+
+    ootrr_exe: Exe = Exe("ootrr.exe")
 
 
 class OOTRRItem(Item):
@@ -62,6 +75,8 @@ class OOTRRWorld(World):
     item_name_to_id = ITEM_NAME_TO_ID
     location_name_to_id = LOCATION_NAME_TO_ID
     origin_region_name = "Menu"
+    settings_key = "ootrr_options"
+    settings: typing.ClassVar[OOTRRSettings]
 
     b: Bundle
     dead: List[str]
@@ -123,7 +138,7 @@ class OOTRRWorld(World):
             loc: OOTRRLocation = OOTRRLocation(player, name, self.location_name_to_id[name], menu)
             loc.access_rule = lambda state, n=name: n in self.sweep(state).reach
             deny: frozenset = self.b.deny[name]
-            foreign: bool = bool(self.b.row[name]["foreign"])
+            foreign: bool = bool(self.b.row[name]["foreign"]) and name not in self.b.blind
             loc.item_rule = lambda item, deny=deny, foreign=foreign: (item.name not in deny) if item.player == player else foreign
             menu.locations.append(loc)
         self.multiworld.completion_condition[player] = lambda state: self.sweep(state).won

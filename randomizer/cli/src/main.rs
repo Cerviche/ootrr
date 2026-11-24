@@ -32,6 +32,7 @@ mod progressive_cmd;
 mod qol_cmd;
 mod save_cmd;
 mod mem_watch_cmd;
+mod ap_bridge;
 mod ap_cmd;
 mod serve_cmd;
 mod settings_cmd;
@@ -399,6 +400,7 @@ fn main() -> ExitCode {
         Some("ap-flag") => ap_cmd::flag(&a[1..]),
         Some("ap-export") => ap_cmd::export(&a[1..]),
         Some("ap-build") => ap_cmd::build(&a[1..]),
+        Some("ap-bridge") => ap_bridge::run(&a[1..]),
         None => serve_cmd::run(&[]),
         Some("help") | Some("--help") | Some("-h") => {
             println!("{USAGE}");

@@ -443,6 +443,8 @@ class Bundle:
         self.meta: Dict[str, Dict[str, Any]] = {w.items[x["id"]]: x for x in raw["pool_items"]}
         self.fixed: Dict[int, int] = {l: i for l, i in raw["fixed"]}
         self.forced: List[Tuple[str, str]] = [(w.loc_name[l], w.items[i]) for l, i in raw["forced"]]
+        self.blind: frozenset = frozenset(raw.get("blind", []))
+        self.detect: Dict[str, Tuple[List[str], List[str]]] = {w.loc_name[r["loc"]]: (list(r.get("flags", [])), list(r.get("keys", []))) for r in raw["free"]}
         self.adv_names: frozenset = frozenset(n for n, a, e in zip(w.items, w.adv, w.event) if a and not e)
 
     def sweep(self, held: Dict[str, int]) -> "Sweep":

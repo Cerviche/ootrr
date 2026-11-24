@@ -161,6 +161,58 @@ fn local_only(d: &Data, p: &Plan, name: &str) -> bool {
     p.songs == Songs::Own && i.actor.as_deref().is_some_and(crate::slice::generate::is_song)
 }
 
+const TARGETS: &str = include_str!("../../../../data/tracker_targets.json");
+pub const CHEST_FLAG: &str = "IsTreasureBoxOpen.";
+pub const SKULL_FLAG: &str = "IsGoldSkullDead.IsGoldSkullDead_";
+
+pub struct Detect {
+    by: std::collections::HashMap<String, Vec<Json>>,
+}
+
+impl Detect {
+    pub fn load() -> Res<Detect> {
+        let j: Json = crate::json::parse(TARGETS)?;
+        let mut by: std::collections::HashMap<String, Vec<Json>> = std::collections::HashMap::new();
+        for t in j.get("targets").and_then(|v| v.as_arr()).unwrap_or(&[]) {
+            if let Some(n) = t.get("ootr").and_then(|v| v.as_str()) {
+                by.entry(n.to_string()).or_default().push(t.clone());
+            }
+        }
+        Ok(Detect { by })
+    }
+
+    pub fn of(&self, d: &Data, name: &str) -> (BS<String>, BS<String>) {
+        let mut flags: BS<String> = BS::new();
+        let mut keys: BS<String> = BS::new();
+        if let Some(c) = d.cat.by_name(name) {
+            for r in &c.refs {
+                if c.kind == "chest" {
+                    flags.insert(format!("{CHEST_FLAG}{}", r.hash));
+                } else {
+                    keys.insert(r.hash.to_string());
+                }
+            }
+        }
+        let strs = |t: &Json, k: &str| -> Vec<String> { t.get(k).and_then(|v| v.as_arr()).map(|a| a.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect()).unwrap_or_default() };
+        for t in self.by.get(name).map(|v| v.as_slice()).unwrap_or(&[]) {
+            let skull: bool = t.get("kind").and_then(|v| v.as_str()) == Some("skulltula");
+            match t.get("how").and_then(|v| v.as_str()) {
+                Some("flag") if !t.get("weak").and_then(|v| v.as_bool()).unwrap_or(false) => flags.extend(strs(t, "flags")),
+                Some("key") => {
+                    for k in strs(t, "keys").into_iter().chain(strs(t, "keys2")) {
+                        if skull {
+                            flags.insert(format!("{SKULL_FLAG}{k}"));
+                        }
+                        keys.insert(k);
+                    }
+                }
+                _ => {}
+            }
+        }
+        (flags, keys)
+    }
+}
+
 pub fn foreign_ok(d: &Data, name: &str) -> bool {
     d.cat.by_name(name).is_some_and(|c| c.kind == "chest") || d.flow.by_name(name).is_some()
 }
@@ -212,6 +264,8 @@ pub fn export_with(d0: &Data, s: &Settings, preset: &str, n: usize) -> Res<(Json
     let kinds: Vec<ItemId> = kinds.into_iter().collect();
     let mut rows: Vec<Json> = Vec::with_capacity(free.len());
     let mut loose: usize = 0;
+    let det: Detect = Detect::load()?;
+    let mut blind: Vec<String> = Vec::new();
     for l in &free {
         let name: &str = &w.locs[*l].name;
         let tier: bool = crate::slice::tier_order::fixed_spot(d, name);
@@ -220,6 +274,10 @@ pub fn export_with(d0: &Data, s: &Settings, preset: &str, n: usize) -> Res<(Json
             loose += 1;
         }
         let here: Option<&String> = w.regions[w.locs[*l].region].dungeon.as_ref();
+        let (flags, keys): (BS<String>, BS<String>) = det.of(d, name);
+        if flags.is_empty() && keys.is_empty() {
+            blind.push(name.to_string());
+        }
         rows.push(
             Json::obj()
                 .with("loc", int(*l))
@@ -227,7 +285,9 @@ pub fn export_with(d0: &Data, s: &Settings, preset: &str, n: usize) -> Res<(Json
                 .with("dungeon", opt(&here.cloned()))
                 .with("vanilla", vanilla.get(*l).map(|i| Json::Str(w.items.names[i].clone())).unwrap_or(Json::Null))
                 .with("foreign", Json::Bool(foreign_ok(d, name)))
-                .with("deny", ids(&deny)),
+                .with("deny", ids(&deny))
+                .with("flags", Json::strs(flags.iter().map(|x| x.as_str())))
+                .with("keys", Json::strs(keys.iter().map(|x| x.as_str()))),
         );
     }
     let mut fixed_place: Placement = Placement::new(w.locs.len());
@@ -270,6 +330,7 @@ pub fn export_with(d0: &Data, s: &Settings, preset: &str, n: usize) -> Res<(Json
         .with("fixed", Json::Arr(fixed))
         .with("forced", Json::Arr(lacs.iter().map(|(l, i)| Json::Arr(vec![int(*l), int(*i)])).collect()))
         .with("loose", int(loose))
+        .with("blind", Json::strs(blind.iter().map(|x| x.as_str())))
         .with("warnings", Json::strs(warnings.iter().map(|x| x.as_str())))
         .with("notes", Json::strs(p.notes.iter().map(|x| x.as_str()))), checks))
 }
