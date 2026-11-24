@@ -81,8 +81,19 @@ pub fn grow_out(rf: &mut Romfs, t: &mut Rst, o: &Out) -> Res<usize> {
         n += 1;
     }
     if o.path.ends_with(".pack.zs") {
-        let old: Vec<crate::sarc::Entry> = crate::sarc::parse(&rf.read_zs(&o.path)?)?;
         let new: Vec<crate::sarc::Entry> = crate::sarc::parse(&rf.zs.decompress(&o.z)?)?;
+        if !rf.root.join(&o.path).is_file() {
+            let peers: Vec<(String, usize)> = new.iter().filter(|e| t.get(&e.name).is_some()).map(|e| (e.name.clone(), e.data.len())).collect();
+            for e in &new {
+                if t.get(&e.name).is_none() {
+                    let sz: u32 = crate::pickup_pack::sizes::file_size(t, &peers, &e.name, e.data.len())?;
+                    t.set_size(&e.name, sz)?;
+                    n += 1;
+                }
+            }
+            return Ok(n);
+        }
+        let old: Vec<crate::sarc::Entry> = crate::sarc::parse(&rf.read_zs(&o.path)?)?;
         for e in &new {
             let was: Option<usize> = crate::sarc::get(&old, &e.name).map(|x| x.data.len());
             if let Some(w) = was
