@@ -347,10 +347,11 @@ pub const MOVED: &[(&str, &[PortSection])] = &[
 ];
 
 /// A warning shown at the top of a page, above its settings.
-pub const WARNINGS: &[(&str, &str)] = &[(
-    "experimental",
-    "These settings have known unexpected behavior that could lead to many seeds being unbeatable and other minor bugs.",
-)];
+pub const WARNINGS: &[(&str, &str)] = &[("experimental", UNSTABLE), ("difficulty", UNSTABLE)];
+
+pub const UNSTABLE: &str = "These settings have known unexpected behavior that could lead to many seeds being unbeatable and other minor bugs.";
+
+pub const HIDDEN: &[&str] = &["enemy_randomizer"];
 
 const LOGIC: PortSection = port(
                 "Logic",
@@ -368,6 +369,7 @@ const LOGIC: PortSection = port(
                     gray_check("Full Wallets", "Start with a full wallet. All wallet upgrades come filled with rupees."),
                     Entry::View(&PLANT_BEANS),
                     Entry::View(&EPONA),
+                    Entry::Plain("night_skulls_suns_song"),
                     Entry::Hidden("bombchus_in_logic"),
                     Entry::Plain("nocturne_trigger"),
                     Entry::Plain("prelude_trigger"),
@@ -780,14 +782,7 @@ pub const MENU: &[Page] = &[
             sec("Minigames", &["unbreakable_bowling_grass", "harder_talon_cuccos"]),
         ],
     },
-    Page {
-        id: "qol_bundle",
-        label: "Time savers",
-        heading: IN_DEV,
-        sections: &[
-            sec("Gold Skulltulas", &["night_skulls_suns_song"]),
-        ],
-    },
+    Page { id: "gerudo_card", label: "Gerudo Membership Card", heading: IN_DEV, sections: &[sec("Shuffle", &["shuffle_gerudo_card"])] },
     Page { id: "cosmetics", label: "Cosmetics", heading: GAMEPLAY, sections: &[sec("Looks", &["mega_like_likes"])] },
     Page { id: "debug", label: "Debug", heading: DEBUG, sections: &[sec("Debug", &["debug_location_names"]), sec("Spawn enemies", &["enemy_spawn_combo"])] },
 ];
@@ -852,9 +847,11 @@ pub fn menu_json(sch: &Schema) -> Json {
             None => Vec::new(),
         };
         for s in p.sections {
-            let ids: Vec<&str> = s.ids.iter().copied().filter(|x| have.contains(x) && placed.insert(x)).collect();
+            let all: Vec<&str> = s.ids.iter().copied().filter(|x| have.contains(x) && placed.insert(x)).collect();
+            let (hidden, ids): (Vec<&str>, Vec<&str>) = all.into_iter().partition(|x| HIDDEN.contains(x));
             if !ids.is_empty() {
-                secs.push(Json::obj().with("label", s.label.into()).with("ids", Json::strs(ids.into_iter())));
+                let j: Json = Json::obj().with("label", s.label.into()).with("ids", Json::strs(ids.into_iter()));
+                secs.push(if hidden.is_empty() { j } else { j.with("hidden", Json::strs(hidden.into_iter())) });
             }
         }
         if !secs.is_empty() {
