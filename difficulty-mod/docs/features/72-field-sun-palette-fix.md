@@ -131,7 +131,7 @@ Played by script on this code merged with nightly (25 Nov, 16 tests): the gift w
 
 Two things change beyond the bug, on purpose: every build's `Goto_HyruleCastle` and `GetPouchContent` flows change slightly, because the repair for saves that already have the flag runs on each chest or item get (four extra flag checks), so the default build is not byte-identical to nightly (three files: those two flows and the size table); and with the gate Closed the owl's first scene is lit by the clock instead of the fixed first-morning light. Hunks outside `field_palette.rs`: one value in `story_skip.rs`, one stage call in `slice/edit.rs`, comments in `start_state.rs`. Default seeds and settings strings are unchanged.
 
-Includes #120 and #121 (nightly's own test fixes) so CI passes; those lines drop out of this diff once they merge.
+Merged with nightly dda8087, which fixed nightly's own tests.
 
 For details about implementation and testing, see difficulty-mod/docs/features/72-field-sun-palette-fix.md.
 
