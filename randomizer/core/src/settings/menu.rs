@@ -369,6 +369,7 @@ const LOGIC: PortSection = port(
                     gray_check("Full Wallets", "Start with a full wallet. All wallet upgrades come filled with rupees."),
                     Entry::View(&PLANT_BEANS),
                     Entry::View(&EPONA),
+                    Entry::Plain("night_skulls_suns_song"),
                     Entry::Hidden("bombchus_in_logic"),
                     Entry::Plain("nocturne_trigger"),
                     Entry::Plain("prelude_trigger"),
@@ -777,14 +778,6 @@ pub const MENU: &[Page] = &[
             sec("Drops and healing", &["no_heart_drops", "no_ammo_drops", "no_gossip_fairies", "no_bottles_in_combat", "no_dupe_items", "fairy_helps_enemies"]),
             sec("Boss fights", &["boss_minibosses", "boss_minions"]),
             sec("Minigames", &["unbreakable_bowling_grass", "harder_talon_cuccos"]),
-        ],
-    },
-    Page {
-        id: "qol_bundle",
-        label: "Time savers",
-        heading: IN_DEV,
-        sections: &[
-            sec("Gold Skulltulas", &["night_skulls_suns_song"]),
         ],
     },
     Page { id: "gerudo_card", label: "Gerudo Membership Card", heading: IN_DEV, sections: &[sec("Shuffle", &["shuffle_gerudo_card"])] },
