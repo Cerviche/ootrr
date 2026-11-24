@@ -287,6 +287,12 @@ fn text(raw: &[u8], fakes: &[(String, String)]) -> Res<Vec<u8>> {
                 m.add_raw(&own, v)?;
             }
         }
+        let shop: String = format!("{name}_ShopCaption");
+        if m.find(&shop).is_none() {
+            if let Some(v) = ["_ShopCaption", "_Caption", "_GetCaption"].iter().find_map(|sfx| m.raw(&format!("{look}{sfx}")).map(|x| x.to_vec())) {
+                m.add_raw(&shop, v)?;
+            }
+        }
         m.put_markup(&format!("{name}_GetMessage"), GET_TEXT)?;
     }
     let w: Vec<u8> = m.write()?;
