@@ -454,6 +454,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     if let Some(l) = &gates {
         seed_file.entrances = l.to_map();
     }
+    crate::frost::sprinkle(d, s, seed, &mut seed_file, &p.excluded);
     let (sp, spheres): (Option<String>, Steps) = if o.spoiler {
         let (mut t, st): (String, Steps) = spoiler_text(&w, &vanilla, &got, &pk)?;
         let fixed: BM<String, String> = if crate::slice::tier_fix::active(d, &w, &pk.free) {
