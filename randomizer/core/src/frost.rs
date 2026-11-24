@@ -85,6 +85,8 @@ pub enum Place {
     Ground,
     Shop(i64),
     Skull,
+    Holder,
+    Flow,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,6 +111,8 @@ impl Trap {
             Place::Ground => vec![self.fake.clone(), ground::name_for(&self.fake)],
             Place::Shop(p) => vec![self.fake.clone(), crate::shelf::shelf_name(&self.actor, p as i32)],
             Place::Skull => vec![self.fake.clone(), self.kit.clone()],
+            Place::Holder => vec![self.fake.clone(), ground::name_for(&self.fake)],
+            Place::Flow => vec![self.fake.clone()],
         }
     }
 }
@@ -148,7 +152,11 @@ fn pool(d: &Data, seed: &SeedFile) -> Vec<String> {
 
 fn place_of(d: &Data, seed: &SeedFile, loc: &str) -> Res<Place> {
     let kind: Option<&str> = d.cat.by_name(loc).map(|l| l.kind.as_str());
-    Ok(if crate::shops::is_loc(loc) {
+    Ok(if crate::pot_slice::targets::is_loc(d, loc) {
+        Place::Holder
+    } else if flow_spot(d, loc) {
+        Place::Flow
+    } else if crate::shops::is_loc(loc) {
         Place::Shop(seed.shops.get(loc).map(|s| s.price).ok_or_else(|| E::Msg(format!("{loc} holds {TRAP} but has no shop entry")))?)
     } else if kind == Some("chest") {
         Place::Chest
@@ -161,8 +169,31 @@ fn place_of(d: &Data, seed: &SeedFile, loc: &str) -> Res<Place> {
     })
 }
 
+/// Flow rewards whose item is one name the event hands out: NPC and cutscene gifts (Saria's
+/// Ocarina among them), Great Fairies, the skulltula house, minigames and the dungeon reward
+/// spots. Trades, cows, frogs, scrubs, bottles and songs hand out items their own way and are left out.
+const FLOW_CATS: [&str; 6] = ["npc_gift", "cutscene_gift", "great_fairy", "gs_reward", "minigame", "dungeon_reward"];
+
+fn flow_spot(d: &Data, loc: &str) -> bool {
+    d.flow.by_name(loc).is_some_and(|l| {
+        l.supported
+            && FLOW_CATS.contains(&l.cat.as_str())
+            && !l.edits.is_empty()
+            && crate::slice::chest_targets::is_sale(d, loc)
+            && d.flow_ok(loc)
+            && !crate::slice::flow_rules::priced_sale(d, loc)
+            && !crate::flow_extra::trade::is(loc)
+            && !crate::flow_extra::cows::is(loc)
+            && !crate::flow_extra::frogs::is(loc)
+    })
+}
+
+fn holder_spot(d: &Data, loc: &str) -> bool {
+    crate::pot_slice::targets::is_loc(d, loc) && d.pots.state_of(loc) == Some(crate::slice::data::State::Eligible)
+}
+
 pub fn can_hold(d: &Data, loc: &str) -> bool {
-    crate::shops::is_loc(loc) || d.cat.by_name(loc).is_some_and(|l| l.kind == "chest" || l.kind == "gs" || GROUND_KINDS.contains(&l.kind.as_str()))
+    holder_spot(d, loc) || flow_spot(d, loc) || crate::shops::is_loc(loc) || d.cat.by_name(loc).is_some_and(|l| l.kind == "chest" || l.kind == "gs" || GROUND_KINDS.contains(&l.kind.as_str()))
 }
 
 fn tier_of(d: &Data, item: &str, held: usize) -> Option<(String, bool)> {
@@ -173,11 +204,12 @@ fn tier_of(d: &Data, item: &str, held: usize) -> Option<(String, bool)> {
     i.tiers.get(held).map(|t| (t.clone(), true))
 }
 
-fn fits(d: &Data, place: Place, item: &str, actor: &str, tiered: bool) -> bool {
+fn fits(d: &Data, place: Place, loc: &str, item: &str, actor: &str, tiered: bool) -> bool {
     let tier: Option<&str> = tiered.then_some(actor);
     match place {
         Place::Chest => true,
-        Place::Ground => crate::slice::key_spots::resolve(d, item, tier).is_ok(),
+        Place::Ground | Place::Holder => crate::slice::key_spots::resolve(d, item, tier).is_ok(),
+        Place::Flow => !tiered && (d.flow.usable(actor) || d.flow.by_name(loc).is_some_and(|l| l.name == crate::slice::flow_rules::SARIA || crate::slice::flow_rules::any_item(l))),
         Place::Skull => crate::slice::key_spots::resolve_kit(d, item, tier).is_ok_and(|p| p.hang_with().is_ok()),
         Place::Shop(_) => !tiered && d.item(item).is_some_and(|i| i.kind == "Item"),
     }
@@ -191,10 +223,10 @@ fn looks(d: &Data, seed: &SeedFile, places: &BM<String, Place>) -> Res<BM<String
     let names: Vec<String> = pool(d, seed);
     let held = |item: &str, here: usize| -> usize {
         let Some(it) = w.item(item) else { return 0 };
-        if here == usize::MAX {
-            return 0;
-        }
         let start: usize = w.start.iter().filter(|(i, _)| *i == it).map(|(_, n)| *n as usize).sum();
+        if here == usize::MAX {
+            return start;
+        }
         start + w.real.iter().filter(|l| place.get(**l) == Some(it) && at.get(*l).is_some_and(|s| *s < here)).count()
     };
     let skull = |l: &str| d.cat.by_name(l).is_some_and(|c| c.kind == "gs");
@@ -212,8 +244,8 @@ fn looks(d: &Data, seed: &SeedFile, places: &BM<String, Place>) -> Res<BM<String
             names
                 .iter()
                 .filter(|n| !taken(n))
-                .filter_map(|n| tier_of(d, n, if late { held(n, here) } else { 0 }).map(|(a, t)| (n.clone(), a, t)))
-                .filter(|(n, a, t)| fits(d, *pl, n, a, *t))
+                .filter_map(|n| tier_of(d, n, if late { held(n, here) } else { held(n, usize::MAX) }).map(|(a, t)| (n.clone(), a, t)))
+                .filter(|(n, a, t)| fits(d, *pl, loc, n, a, *t))
                 .collect()
         };
         let mut c: Vec<(String, String, bool)> = pick(true);
@@ -249,7 +281,7 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
         // A chest or shop keeps the look as its item, so it stands as that item would. An upgrade,
         // a ground spot and a skulltula keep a junk carrier instead, so the upgrade tier order of
         // the real copies is untouched, and the trap's own pickup is swapped in.
-        let carry: bool = tiered || matches!(place, Place::Ground | Place::Skull);
+        let carry: bool = tiered || matches!(place, Place::Ground | Place::Skull | Place::Holder);
         let pick: Option<usize> = short.iter().position(|x| !d.item(x).is_some_and(|i| i.adv)).or(if short.is_empty() { None } else { Some(0) });
         let held: Option<String> = pick.map(|k| short.remove(k));
         let stand: String = if carry { held.clone().unwrap_or_else(|| fake::RUPEE_ITEM.to_string()) } else { look.clone() };
@@ -260,12 +292,15 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
         let fake: String = fake_name(&actor);
         let mut kit: String = String::new();
         match place {
-            Place::Ground => {
+            Place::Ground | Place::Holder => {
                 let g: String = ground::name_for(&fake);
                 if tiered {
                     out.tiers.insert(g.clone(), actor.clone());
                 }
-                out.named.insert(g, look.clone());
+                out.named.insert(g.clone(), look.clone());
+                if place == Place::Holder {
+                    out.drops.insert(loc.clone(), g);
+                }
             }
             Place::Skull => {
                 let tier: Option<&str> = tiered.then_some(actor.as_str());
@@ -284,7 +319,7 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
                     s.item = look.clone();
                 }
             }
-            Place::Chest => {}
+            Place::Chest | Place::Flow => {}
         }
         out.placements.insert(loc.clone(), stand);
         traps.push(Trap { loc, place, look: look.clone(), item: look, fake, actor, kit });
@@ -307,7 +342,6 @@ pub fn sprinkle(d: &Data, s: &crate::settings::Settings, seed: &str, f: &mut See
             crate::slice::place_rules::junk(d, i)
                 && !excluded.contains(l)
                 && can_hold(d, l)
-                && !crate::pot_slice::targets::is_loc(d, l)
                 && !crate::slice::silver::is_spot(l)
                 && (!crate::shops::is_loc(l) || f.shops.get(*l).is_some_and(|e| e.deal && e.item == **i))
                 && d.cat.by_name(l).is_none_or(|c| c.kind != "gs" || (c.conf != crate::catalog::Conf::Pool && !contested.contains(l)))
@@ -561,7 +595,7 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
         ids.insert(f.name.clone(), f.id.clone());
         packs.push((f.name, f.pack, f.fresh, f.peers));
     }
-    let mut grounds: Vec<(String, String)> = traps.iter().filter(|t| t.place == Place::Ground).map(|t| (ground::name_for(&t.fake), t.fake.clone())).collect();
+    let mut grounds: Vec<(String, String)> = traps.iter().filter(|t| matches!(t.place, Place::Ground | Place::Holder)).map(|t| (ground::name_for(&t.fake), t.fake.clone())).collect();
     grounds.sort();
     grounds.dedup();
     let mut renamed: Vec<(String, String)> = grounds.clone();
@@ -590,7 +624,7 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
         let swap: chest::Swap = match t.place {
             Place::Chest => chest::Swap::Content(t.fake.clone()),
             Place::Ground => chest::Swap::Actor(ground::name_for(&t.fake)),
-            Place::Shop(_) | Place::Skull => continue,
+            Place::Shop(_) | Place::Skull | Place::Holder | Place::Flow => continue,
         };
         let l = d.cat.by_name(&t.loc).ok_or_else(|| E::Msg(format!("{} is not in the location list", t.loc)))?;
         for r in &l.refs {
@@ -616,6 +650,33 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
             let fake: String = t.fake.clone();
             files.push(c.file(&pack_of(&name), |r: &[u8]| shelf(r, &name, &fake))?);
         }
+    }
+    let mut flows: BM<String, Vec<(&crate::flow_locations::Edit, String)>> = BM::new();
+    for t in traps.iter().filter(|t| t.place == Place::Flow) {
+        let l = d.flow.by_name(&t.loc).ok_or_else(|| E::Msg(format!("{} is not a flow location", t.loc)))?;
+        for e in &l.edits {
+            for f in std::iter::once(&e.file).chain(e.also.iter()) {
+                flows.entry(crate::flow_locations::path_of(f)).or_default().push((e, t.fake.clone()));
+            }
+        }
+    }
+    for (path, es) in &flows {
+        if [trigger::GET_FILE, trigger::GIVE_FILE, trigger::SHOP_FILE].contains(&path.as_str()) || trigger::PICKUPS.iter().any(|p| path.ends_with(&format!("/{p}.bfevfl.zs"))) {
+            return Err(E::Msg(format!("{path} is both a trap reward and a shared get flow, this build cannot edit it twice")));
+        }
+        files.push(c.file(path, |r: &[u8]| {
+            let mut b: Bf = Bf::parse(r)?;
+            let f: &mut crate::bfevfl::Flow = b.flows.first_mut().ok_or(E::Format("a reward flow file holds no flow"))?;
+            let mut grants: Vec<usize> = Vec::new();
+            for (e, fake) in es {
+                trigger::set_name(f, e.index, &e.event, &e.param, fake)?;
+                if e.role == "grant" {
+                    grants.push(e.index);
+                }
+            }
+            trigger::mark_after(f, &grants)?;
+            b.write()
+        })?);
     }
     let mut names: Vec<String> = traps.iter().flat_map(|t| t.trigger_names()).collect();
     names.sort();

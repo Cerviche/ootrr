@@ -63,6 +63,43 @@ fn chain(f: &mut Flow, sites: &[usize], key: &str, names: &[String]) -> Res<()> 
     Ok(())
 }
 
+/// Marks the freeze after each event, whatever it hands out: the trap's own flow grant.
+pub fn mark_after(f: &mut Flow, sites: &[usize]) -> Res<usize> {
+    let (sa, ss): (u16, u16) = action_slot(f, HOLDER, SET)?;
+    let mut n: usize = 0;
+    for at in sites {
+        let then: u16 = match &f.events[*at].kind {
+            Kind::Action { next, .. } | Kind::Sub { next, .. } => *next,
+            _ => continue,
+        };
+        let mark: u16 = push(f, Kind::Action { next: then, actor: sa, act: ss, params: Some(set_bool(FLAG.to_string())) })?;
+        match &mut f.events[*at].kind {
+            Kind::Action { next, .. } | Kind::Sub { next, .. } => *next = mark,
+            _ => {}
+        }
+        n += 1;
+    }
+    Ok(n)
+}
+
+/// Points a flow location's item parameter at the trap.
+pub fn set_name(f: &mut Flow, at: usize, event: &str, param: &str, fake: &str) -> Res<()> {
+    let e: &mut Event = f.events.get_mut(at).ok_or_else(|| E::Msg(format!("event index {at} is out of range")))?;
+    if e.name != event {
+        return Err(E::Msg(format!("event {at} is named {} and not {event}, the game files differ", e.name)));
+    }
+    let c: &mut Cont = e.kind.params_mut().ok_or_else(|| E::Msg(format!("event {event} has no parameters")))?;
+    for (k, v) in c.items.iter_mut() {
+        if k == param {
+            if let Val::Str(s) | Val::Actor(s, _) = v {
+                *s = fake.to_string();
+                return Ok(());
+            }
+        }
+    }
+    Err(E::Msg(format!("{event} has no name parameter {param}")))
+}
+
 fn sites_of(f: &Flow, action: &str, named: bool) -> Vec<usize> {
     f.events
         .iter()
