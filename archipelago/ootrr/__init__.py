@@ -318,4 +318,9 @@ class OOTRRWorld(World):
             json.dump(self.patch(), f, ensure_ascii=False, indent=1)
 
     def fill_slot_data(self) -> Mapping[str, Any]:
-        return {"patch_version": PATCH_VERSION, "preset": self.b.preset, "seed_key": self.seed_key()}
+        detect: Dict[str, List[List[str]]] = {}
+        for loc in self.multiworld.get_locations(self.player):
+            f, k = self.b.detect.get(loc.name, ([], []))
+            if loc.address is not None and (f or k):
+                detect[loc.name] = [list(f), list(k)]
+        return {"patch_version": PATCH_VERSION, "preset": self.b.preset, "seed_key": self.seed_key(), "detect": detect}

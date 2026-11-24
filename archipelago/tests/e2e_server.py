@@ -30,12 +30,17 @@ def main(zip_path: str) -> int:
     from CommonClient import CommonContext, server_loop
     import worlds
     from worlds.AutoWorld import AutoWorldRegister
+    from worlds.ootrr import export_custom
+    from worlds.ootrr.logic import bundle_names
     from worlds.ootrr.tables import bundle
 
     z = zipfile.ZipFile(zip_path)
     name = next(n for n in z.namelist() if n.endswith(".apootrr"))
     patch = json.loads(z.read(name))
-    b = bundle(patch["preset"])
+    if patch["preset"] in bundle_names():
+        b = bundle(patch["preset"])
+    else:
+        b = export_custom(os.environ["OOTRR_EXE"], patch["settings"], patch["seed"])
     keys = [r["key"] for r in patch["remote"]] + [s["key"] for s in patch["start"]]
     found_locs = [l for l in patch["foreign"] if b.detect.get(l, ([], []))[0]][:2]
     flags = [b.detect[l][0][0] for l in found_locs]

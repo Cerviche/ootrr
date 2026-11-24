@@ -148,8 +148,10 @@ class OOTRRContext(CommonContext):
         if cmd == "Connected":
             sd = args.get("slot_data") or {}
             self.seed_key = sd.get("seed_key")
-            b = bundle(sd.get("preset", "default"))
-            self.detect = b.detect
+            if "detect" in sd:
+                self.detect = {n: (list(v[0]), list(v[1])) for n, v in sd["detect"].items()}
+            else:
+                self.detect = bundle(sd.get("preset", "default")).detect
             self.status = "Connected. Waiting for the game."
 
     async def disconnect(self, *args: Any, **kwargs: Any) -> None:
