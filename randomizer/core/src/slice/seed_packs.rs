@@ -14,7 +14,7 @@ use crate::romfs::Romfs;
 use crate::rsizetable::{Rst, TABLE_PATH};
 use crate::settings::seed::SeedFile;
 use crate::slice::data::Data;
-use crate::slice::edit::{build_with, Built};
+use crate::slice::edit::Built;
 use crate::slice::key_spots::{resolve, shield, Pick};
 use crate::slice::tier_order::{fixed_actors, Verdict};
 
@@ -192,13 +192,17 @@ pub fn audit(rf: &mut Romfs, base: &P, wants: &BM<String, Want>) -> Res<Vec<Stri
 }
 
 pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -> Res<Built> {
+    build_hooked(seed, romfs, load, mod_name, host, None)
+}
+
+pub fn build_hooked(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, hook: Option<&mut crate::slice::edit::Hook>) -> Res<Built> {
     let d: Data = Data::load()?;
     let order: Verdict = fixed_actors(&d, seed)?;
     let wants: BM<String, Want> = need(&d, seed, &order.assign)?;
     let gives: Vec<crate::pot_slice::targets::Give> = crate::pot_slice::targets::targets_with(&d, seed, &order.assign)?;
     let twins: Vec<&str> = fall::wanted(gives.iter().map(|g| g.actor.as_str()));
     if wants.is_empty() && twins.is_empty() {
-        return build_with(seed, romfs, load, mod_name, host, &Extra::default());
+        return crate::slice::edit::build_data(Data::load()?, seed, romfs, load, mod_name, host, &Extra::default(), hook);
     }
     if let Some(b) = order.bad.first() {
         return Err(E::Msg(format!("this seed places key items at pickup spots out of upgrade tier order, generate it again with this build: {b}")));
@@ -206,7 +210,7 @@ pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -
     let x: Extra = if wants.is_empty() { Extra::default() } else { pool(romfs, host, &wants)? };
     let mut rf: Romfs = Romfs::open(romfs)?;
     check_swaps_with(&mut rf, &[], &x)?;
-    let mut b: Built = build_with(seed, romfs, load, mod_name, host, &x)?;
+    let mut b: Built = crate::slice::edit::build_data(Data::load()?, seed, romfs, load, mod_name, host, &x, hook)?;
     let base: PB = b.root.join("romfs");
 
     for w in wants.values() {

@@ -39,6 +39,7 @@ pub mod dungeon_packs;
 pub mod entr;
 pub mod event_chests;
 pub mod fast;
+pub mod field_palette;
 pub mod gerudo_card;
 pub mod malon_song;
 pub mod flow_locations;

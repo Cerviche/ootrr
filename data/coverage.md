@@ -271,7 +271,7 @@ Shops, songs, bosses, cutscenes, events, hints, event-reward NPCs, Wonderitems, 
 - **HountedWasteland / pot** (no remake counterpart in group): Wasteland Near GS Pot 1, Wasteland Near GS Pot 2, Wasteland Near GS Pot 3, Wasteland Near GS Pot 4
 - **HyruleCastle / pot** (no remake counterpart in group): HC Storms Grotto Pot 1, HC Storms Grotto Pot 2, HC Storms Grotto Pot 3, HC Storms Grotto Pot 4
 - **HyruleField / beehive** (no remake counterpart in group): HF Near Market Grotto Beehive 1, HF Near Market Grotto Beehive 2, HF Open Grotto Beehive 1, HF Open Grotto Beehive 2, HF Southeast Grotto Beehive 1, HF Southeast Grotto Beehive 2, HF Inside Fence Grotto Beehive, LLR Grotto Beehive, LH Grotto Beehive
-- **HyruleField / chest** (ambiguous: 3 oot vs 6 remake candidates): HF Near Market Grotto Chest, HF Southeast Grotto Chest, HF Open Grotto Chest
+- **HyruleField / chest** (ambiguous: 3 oot vs 6 remake candidates): HF Near Market Grotto Chest, HF Southeast Grotto Chest, LH Gravestone Grotto Torches Chest
 - **HyruleField / cow** (ambiguous: 5 oot vs 3 remake candidates): HF Cow Grotto Cow, LLR Stables Left Cow, LLR Stables Right Cow, LLR Tower Left Cow, LLR Tower Right Cow
 - **HyruleField / crate** (ambiguous: 1 oot vs 3 remake candidates of the same item class): LLR Child Crate
 - **HyruleField / freestanding** (ambiguous: 3 oot vs 17 remake candidates of the same item class): LH Underwater Near Shore Green Rupee, LH Underwater Green Rupee 1, LH Underwater Green Rupee 2

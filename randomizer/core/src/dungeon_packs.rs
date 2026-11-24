@@ -1,5 +1,5 @@
 
-use std::collections::BTreeSet as BS;
+use std::collections::{BTreeMap as BM, BTreeSet as BS};
 use std::path::Path;
 
 use crate::bfevfl::{Bf, Case, Cont, Event, Flow, Kind as Ev, Val};
@@ -154,6 +154,18 @@ pub fn picked_up(d: &Data, seed: &SeedFile) -> BS<Pack> {
         .collect()
 }
 
+pub fn credits(d: &Data, seed: &SeedFile) -> BM<String, Pack> {
+    let mut out: BM<String, Pack> = picked_up(d, seed).into_iter().map(|p| (p.name(), p)).collect();
+    for c in crate::debug_names::key_credits(d, seed) {
+        if let Some(p) = c.pack {
+            for n in c.names {
+                out.insert(n, p);
+            }
+        }
+    }
+    out
+}
+
 pub fn handed(d: &Data, loc: &str, item: &str) -> bool {
     d.vanilla_of(loc) != Some(item) && spot(d, loc).is_some() && of(d, item).is_some()
 }
@@ -195,11 +207,15 @@ fn ask(f: &mut Flow, data: &str, value: &str, hit: u16, miss: u16) -> Res<u16> {
     push(f, Ev::Switch { actor: a, query: q, cases: vec![Case { val: 0, ev: hit }, Case { val: 1, ev: miss }], params: Some(c) })
 }
 
-pub fn chain(f: &mut Flow, data: &str, packs: &BS<Pack>, then: u16) -> Res<u16> {
+pub fn named(packs: &BS<Pack>) -> BM<String, Pack> {
+    packs.iter().map(|p| (p.name(), *p)).collect()
+}
+
+pub fn chain(f: &mut Flow, data: &str, packs: &BM<String, Pack>, then: u16) -> Res<u16> {
     let mut miss: u16 = then;
-    for p in packs.iter().rev() {
+    for (n, p) in packs.iter().rev() {
         let hit: u16 = credit(f, *p, then)?;
-        miss = ask(f, data, &p.name(), hit, miss)?;
+        miss = ask(f, data, n, hit, miss)?;
     }
     Ok(miss)
 }
@@ -221,7 +237,7 @@ fn hooked(f: &Flow) -> bool {
     f.events.iter().any(|e| e.name.starts_with(PREFIX))
 }
 
-pub fn patch_get(f: &mut Flow, i: usize, name: &str, packs: &BS<Pack>) -> Res<()> {
+pub fn patch_get(f: &mut Flow, i: usize, name: &str, packs: &BM<String, Pack>) -> Res<()> {
     let then: u16 = match f.events.get(i) {
         Some(e) if e.name == name => next_of(&e.kind).ok_or_else(|| E::Msg(format!("dungeon packs: {name} of {} is not an action", f.name)))?,
         _ => return Err(E::Msg(format!("dungeon packs: event {i} of {} is not the pouch add {name}, the game files differ", f.name))),
@@ -251,7 +267,7 @@ pub fn patch_shop(f: &mut Flow, packs: &BS<Pack>) -> Res<()> {
     }
     for g in grants {
         let then: u16 = next_of(&f.events[g].kind).ok_or(E::Format("dungeon packs: a shop grant has no next"))?;
-        let first: u16 = chain(f, ON_SALE, packs, then)?;
+        let first: u16 = chain(f, ON_SALE, &named(packs), then)?;
         set_next(&mut f.events[g].kind, first);
     }
     Ok(())
@@ -275,7 +291,7 @@ pub fn shop_file(raw: &[u8], packs: &BS<Pack>) -> Res<Vec<u8>> {
     Ok(out)
 }
 
-pub fn stage(rf: &mut Romfs, late: &mut Vec<Out>, work: &Path, packs: &BS<Pack>) -> Res<()> {
+pub fn stage(rf: &mut Romfs, late: &mut Vec<Out>, work: &Path, packs: &BM<String, Pack>) -> Res<()> {
     if packs.is_empty() {
         return Ok(());
     }
@@ -311,20 +327,28 @@ pub fn text_file(raw: &[u8], packs: &BS<Pack>, english: bool) -> Res<Vec<u8>> {
     let places: Msbt = msbt_of(&es, PLACES)?;
     let mut m: Msbt = msbt_of(&es, NAMES)?;
     for p in packs {
-        let v: &str = p.kind.vanilla();
-        let item: Vec<Tok> = text_of(&m, &format!("{v}_Name"))?;
-        let place: Vec<Tok> = text_of(&places, place_label(p.dungeon))?;
-        let own: String = p.name();
-        m.put_tokens(&format!("{own}_Name"), &title(&item, &place)?)?;
-        m.put_tokens(&format!("{own}_GetMessage"), &compose(p.dungeon, &item, &place, english, false)?)?;
-        let cap: Vec<u8> = m.raw(&format!("{v}_GetCaption")).map(|b| b.to_vec()).ok_or_else(|| E::Msg(format!("{v} has no get caption")))?;
-        let label: String = format!("{own}_GetCaption");
-        if m.raw(&label).is_none() {
-            m.add_raw(&label, cap)?;
-        }
+        put_texts(&mut m, &places, &p.name(), *p, english)?;
     }
     sarc::set(&mut es, NAMES, m.write()?);
     sarc::write(&es)
+}
+
+pub fn put_texts(m: &mut Msbt, places: &Msbt, own: &str, p: Pack, english: bool) -> Res<()> {
+    let v: &str = p.kind.vanilla();
+    let item: Vec<Tok> = text_of(m, &format!("{v}_Name"))?;
+    let place: Vec<Tok> = text_of(places, place_label(p.dungeon))?;
+    m.put_tokens(&format!("{own}_Name"), &title(&item, &place)?)?;
+    m.put_tokens(&format!("{own}_GetMessage"), &compose(p.dungeon, &item, &place, english, false)?)?;
+    let cap: Vec<u8> = m.raw(&format!("{v}_GetCaption")).map(|b| b.to_vec()).ok_or_else(|| E::Msg(format!("{v} has no get caption")))?;
+    let label: String = format!("{own}_GetCaption");
+    if m.raw(&label).is_none() {
+        m.add_raw(&label, cap)?;
+    }
+    Ok(())
+}
+
+pub fn places_of(es: &[sarc::Entry]) -> Res<Msbt> {
+    msbt_of(es, PLACES)
 }
 
 pub fn stage_text(rf: &mut Romfs, more: &mut Vec<Out>, packs: &BS<Pack>) -> Res<()> {
@@ -442,13 +466,16 @@ mod tests {
     #[test]
     fn the_pickup_get_credits_only_the_pack_it_names_then_goes_on() {
         let mut f: Flow = get_flow();
-        let packs: BS<Pack> = [Pack { kind: Kind::Small, dungeon: "FireTemple" }, Pack { kind: Kind::Boss, dungeon: "WaterTemple" }].into_iter().collect();
+        let mut packs: BM<String, Pack> = named(&[Pack { kind: Kind::Small, dungeon: "FireTemple" }, Pack { kind: Kind::Boss, dungeon: "WaterTemple" }].into_iter().collect());
+        packs.insert("Obj_OOTRR_BossKey_WaterTemple_GH".to_string(), Pack { kind: Kind::Boss, dungeon: "WaterTemple" });
         patch_get(&mut f, 0, "Event35", &packs).unwrap();
         let Ev::Action { next, .. } = f.events[0].kind else { panic!() };
         let (w, end) = walk(&f, next, "Obj_SmallKey_FireTemple");
         assert_eq!(w, vec!["DungeonInfo.FireTemple.SmallKeyNum", "DungeonInfo.FireTemple.SmallKeyTotalNum", "DungeonInfo.FireTemple.IsGetSmallKeyOnce"]);
         assert_eq!(end, 1);
         assert_eq!(walk(&f, next, "Obj_BossKey_WaterTemple"), (vec!["DungeonInfo.WaterTemple.IsGetBossKey".to_string()], 1));
+        assert_eq!(walk(&f, next, "Obj_OOTRR_BossKey_WaterTemple_GH"), (vec!["DungeonInfo.WaterTemple.IsGetBossKey".to_string()], 1));
+        assert_eq!(walk(&f, next, "Item_Dungeon_BossKey"), (Vec::new(), 1));
         assert_eq!(walk(&f, next, "Item_Hookshot"), (Vec::new(), 1));
         let n: usize = f.events.len();
         patch_get(&mut f, 0, "Event35", &packs).unwrap();
@@ -480,7 +507,7 @@ mod tests {
             let mut b: Bf = Bf::parse(&raw).unwrap();
             let f: &mut Flow = flow_mut(&mut b, flow).unwrap();
             let then: u16 = next_of(&f.events[i].kind).unwrap();
-            patch_get(f, i, name, &packs).unwrap();
+            patch_get(f, i, name, &named(&packs)).unwrap();
             let first: u16 = next_of(&f.events[i].kind).unwrap();
             assert_eq!(walk(f, first, "Obj_Map_IceCavern"), (vec!["DungeonInfo.IceCavern.IsGetMap".to_string()], then), "{flow}");
             let out: Vec<u8> = b.write().unwrap();

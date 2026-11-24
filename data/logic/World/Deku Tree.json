@@ -5,8 +5,6 @@
         "dungeon": "Deku Tree",
         "locations": {
             "Deku Tree Map Chest": "True",
-            "Deku Tree Lower Lobby Recovery Heart": "True",
-            "Deku Tree Upper Lobby Recovery Heart": "is_adult or can_child_attack or Nuts",
             "Deku Baba Sticks": "is_adult or Kokiri_Sword or Boomerang",
             "Deku Baba Nuts": "
                 is_adult or Slingshot or Sticks or
@@ -103,9 +101,6 @@
         "dungeon": "Deku Tree",
         "savewarp": "KF Outside Deku Tree -> Deku Tree Lobby",
         "locations": {
-            "Deku Tree Basement Recovery Heart 1": "True",
-            "Deku Tree Basement Recovery Heart 2": "True",
-            "Deku Tree Basement Recovery Heart 3": "True"
         },
         "exits": {
             "Deku Tree Basement Ledge": "deku_tree_shortcuts or logic_visible_collisions",

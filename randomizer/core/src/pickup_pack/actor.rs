@@ -45,16 +45,9 @@ pub fn own_name_ref(name: &str) -> String {
 
 pub const DEAL_PARAM: &str = "SpecialDeal";
 pub const STOCK_PARAM: &str = "EnableStock";
-pub const PLAIN_DEAL: &str = "None";
 
 pub fn deal_of(l: &Layers, name: &str) -> Option<(&'static str, bool)> {
-    if l.own {
-        Some((crate::pickup_pack::rows::QUIET_DEAL, false))
-    } else if name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
-        Some((PLAIN_DEAL, true))
-    } else {
-        None
-    }
+    (l.own || name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX)).then_some((crate::pickup_pack::rows::QUIET_DEAL, false))
 }
 
 pub fn pouch_file(name: &str) -> String {
@@ -359,7 +352,7 @@ pub(crate) mod tests {
     #[test]
     fn a_dungeon_item_pack_deals_as_its_pouch_row_says_and_always_plays_its_get() {
         let own: Layers = Layers { own: true, ..Layers::default() };
-        let cases: [(&str, &Layers, &str, bool); 2] = [("Obj_SmallKey_ForestTemple", &own, "NotPushToPouch", false), ("Obj_OOTRR_SmallKey_ForestTemple", &Layers::default(), "None", true)];
+        let cases: [(&str, &Layers, &str, bool); 2] = [("Obj_SmallKey_ForestTemple", &own, "NotPushToPouch", false), ("Obj_OOTRR_SmallKey_ForestTemple", &Layers::default(), "NotPushToPouch", false)];
         for (name, l, deal, stock) in cases {
             let y: Byml = pouch_of(name, l);
             assert_eq!(y.root.get(DEAL_PARAM), Some(&Node::U32(crate::flags::hash_name(deal))), "{name}");

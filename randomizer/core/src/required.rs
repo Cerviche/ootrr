@@ -50,7 +50,8 @@ pub fn list(d: &Data) -> Vec<String> {
 
 /// Folders a build reads whole: it lists them, or picks files in them by names that come
 /// from the seed or the data files (actor packs, event flows, map and language files).
-pub const TREES: [&str; 12] = [
+pub const TREES: [&str; 13] = [
+    "AoC1",
     "Banc",
     "Event/EventFlow",
     "GameData",
@@ -87,6 +88,14 @@ pub fn unpack(d: &Data, sound: bool) -> Unpack {
     files.extend(crate::colors::files());
     files.extend(crate::gerudo_card::MEMBERS.iter().map(|n| crate::gerudo_card::schedule_path(n)));
     files.extend(crate::open_world::fortress::CARPENTERS.iter().map(|n| crate::open_world::fortress::own_schedule(n)));
+    files.insert(crate::gerudo_card::schedule_path(crate::open_world::rolling_goron::OWN));
+    // Read only with some settings (no heart drops, harp colours, enemy effects, adult trade
+    // shuffle), so missing them from a .nup or .nx unpack only shows up in those seeds.
+    files.insert(crate::difficulty::lottery::FILE.to_string());
+    files.insert(crate::song_models::HARP_FILE.to_string());
+    files.insert(crate::song_models::tex_file(crate::song_models::ALBEDO));
+    files.insert(crate::difficulty::elink::FILE.to_string());
+    files.insert(crate::open_world::trade_shuffle::POUCH_UI.to_string());
     if let Ok(p) = crate::title_logo::patch() {
         files.extend(crate::title_logo::touched(&p));
     }
@@ -127,6 +136,27 @@ mod tests {
         assert!(u.wants("Pack/Actor/Anything.pack.zs") && u.wants("Banc/X/y.zs"));
         assert!(!u.wants("Packed/x") && !u.wants("Pack") && !u.wants("Sound/Resource/Stream/SE_A.bwav"));
         assert!(unpack(&d, true).wants("Sound/Resource/Stream/SE_A.bwav"));
+    }
+
+    /// Files a .nup build failed on because only the plain folder build read them: the rolling
+    /// Goron's own schedule, the drop table (no heart drops), the harp model and texture, the effect
+    /// links, the pouch menu order and the extra scenes enemy edits list.
+    #[test]
+    fn the_unpack_set_holds_the_setting_dependent_files() {
+        let d: Data = Data::load().unwrap();
+        let u: Unpack = unpack(&d, false);
+        for f in [
+            crate::gerudo_card::schedule_path(crate::open_world::rolling_goron::OWN),
+            crate::difficulty::lottery::FILE.to_string(),
+            crate::song_models::HARP_FILE.to_string(),
+            crate::song_models::tex_file(crate::song_models::ALBEDO),
+            crate::song_models::NAMES.to_string(),
+            crate::difficulty::elink::FILE.to_string(),
+            crate::open_world::trade_shuffle::POUCH_UI.to_string(),
+            format!("{}/Banc/BancBasedResource/StartPos.byml.zs", crate::difficulty::extras::MORE_SCENES),
+        ] {
+            assert!(u.wants(&f), "{f}");
+        }
     }
 
     #[test]

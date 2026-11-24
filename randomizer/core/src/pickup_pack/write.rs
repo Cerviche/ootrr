@@ -115,7 +115,7 @@ pub(crate) fn tables(rf: &mut Romfs, o: &Opts, modded: bool, s: &Spec, l: &Layer
         if let Some(m) = &l.model {
             crate::pickup_pack::model::row(&mut r, rows::need(y, m, ACTOR_INFO)?, l.pose.as_deref())?;
         }
-        if l.own {
+        if l.own || s.name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
             r.set(rows::ACTOR_NAME, Node::Str(s.name.clone()));
         }
         at[0] = rows::insert(y, r)?;
@@ -131,11 +131,8 @@ pub(crate) fn tables(rf: &mut Romfs, o: &Opts, modded: bool, s: &Spec, l: &Layer
     }
     let q: File = table(rf, o, modded, POUCH_INFO, |y: &mut Byml| {
         let mut r: Node = rows::pouch_row(rows::need(y, &s.item, POUCH_INFO)?, &s.name);
-        if l.own {
+        if l.own || s.name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
             rows::quiet(&mut r);
-        } else if s.name.starts_with(crate::slice::key_spots::DUNGEON_PREFIX) {
-            r.remove("PouchSpecialDeal");
-            r.set("PouchStockable", Node::Bool(true));
         }
         rows::insert(y, r)?;
         if l.ammo {

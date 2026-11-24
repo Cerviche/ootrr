@@ -126,7 +126,6 @@
         "region_name": "HF Southeast Grotto",
         "scene": "HF Southeast Grotto",
         "locations": {
-            "HF Southeast Grotto Chest": "True",
             "HF Southeast Grotto Beehive 1": "can_break_lower_beehive",
             "HF Southeast Grotto Beehive 2": "can_break_lower_beehive",
             "HF Southeast Grotto Gossip Stone": "True",
@@ -143,9 +142,6 @@
         "region_name": "HF Open Grotto",
         "scene": "HF Open Grotto",
         "locations": {
-            # The remake chest of this name sits in a Lake Hylia grotto with four timed
-            # candles and no lit torch: Din's Fire or Fire Arrows (with magic) light them.
-            "HF Open Grotto Chest": "has_fire_source",
             "HF Open Grotto Beehive 1": "can_break_lower_beehive",
             "HF Open Grotto Beehive 2": "can_break_lower_beehive",
             "HF Open Grotto Gossip Stone": "True",
@@ -176,7 +172,6 @@
         "region_name": "HF Cow Grotto",
         "scene": "HF Cow Grotto",
         "locations": {
-            "HF GS Cow Grotto": "has_fire_source and (can_use(Hookshot) or can_use(Boomerang))",
             "HF Cow Grotto Cow": "has_fire_source and can_play(Eponas_Song)",
             "HF Cow Grotto Pot 1": "has_fire_source",
             "HF Cow Grotto Pot 2": "has_fire_source",
@@ -193,7 +188,6 @@
         "region_name": "HF Near Market Grotto",
         "scene": "HF Near Market Grotto",
         "locations": {
-            "HF Near Market Grotto Chest": "True",
             "HF Near Market Grotto Beehive 1": "can_break_lower_beehive",
             "HF Near Market Grotto Beehive 2": "can_break_lower_beehive",
             "HF Near Market Grotto Gossip Stone": "True",
@@ -217,10 +211,33 @@
         }
     },
     {
-        "region_name": "HF Near Kak Grotto",
-        "scene": "HF Near Kak Grotto",
+        # Bomb grotto 70 units south of the ruined Lon Lon tower. A Gold Skulltula on the wall
+        # next to a plain Skulltula; no burnable web (2026-11-24 name audit).
+        "region_name": "HF Grotto South of LLR Tower",
+        "scene": "HF Grotto South of LLR Tower",
         "locations": {
-            "HF GS Near Kak Grotto": "is_adult and can_break_crate and at('HF Near Kak Grotto', is_child and can_child_attack)"
+            "HF GS Grotto South of LLR Tower": "can_use(Hookshot) or can_use(Boomerang)"
+        },
+        "exits": {
+            "Hyrule Field": "True"
+        }
+    },
+    {
+        # Bomb grotto near the Zora's River gate: a gossip stone and seven rupees (the three
+        # green ones are shuffled from data/free_remake.json).
+        "region_name": "HF Grotto Near Zora River",
+        "scene": "HF Grotto Near Zora River",
+        "exits": {
+            "Hyrule Field": "True"
+        }
+    },
+    {
+        # Bomb grotto south of the field centre with a gossip stone; the adult Gold Skulltula
+        # hides in a crate.
+        "region_name": "HF South Gossip Stone Grotto",
+        "scene": "HF South Gossip Stone Grotto",
+        "locations": {
+            "HF GS South Gossip Stone Grotto Crate": "is_adult and can_break_crate and at('HF South Gossip Stone Grotto', is_child and can_child_attack)"
         },
         "exits": {
             "Hyrule Field": "True"
@@ -250,7 +267,6 @@
         "region_name": "Kak Redead Grotto",
         "scene": "Kak Redead Grotto",
         "locations": {
-            "Kak Redead Grotto Chest": "is_adult or Sticks or Kokiri_Sword or can_use(Dins_Fire)"
         },
         "exits": {
             "Kakariko Village": "True"
@@ -285,10 +301,6 @@
             "DMT Cow Grotto Green Rupee 5": "True",
             "DMT Cow Grotto Green Rupee 6": "True",
             "DMT Cow Grotto Red Rupee": "True",
-            "DMT Cow Grotto Recovery Heart 1": "True",
-            "DMT Cow Grotto Recovery Heart 2": "True",
-            "DMT Cow Grotto Recovery Heart 3": "True",
-            "DMT Cow Grotto Recovery Heart 4": "True",
             "DMT Cow Grotto Beehive": "can_break_lower_beehive"
         },
         "exits": {
@@ -299,7 +311,9 @@
         "region_name": "DMT Storms Grotto",
         "scene": "DMT Storms Grotto",
         "locations": {
-            "DMT Storms Grotto Chest": "True",
+            # The remake grotto has bomb flowers, Baby Dodongos and six rupees, no chest. The
+            # other five rupees come from free_remake.json.
+            "DMT Storms Grotto Red Rupee": "True",
             "DMT Storms Grotto Beehive 1": "can_break_lower_beehive",
             "DMT Storms Grotto Beehive 2": "can_break_lower_beehive",
             "DMT Storms Grotto Gossip Stone": "True",
@@ -399,6 +413,9 @@
         "region_name": "LH Grotto",
         "scene": "LH Grotto",
         "locations": {
+            # The grotto under the push gravestone: four timed candles and a chest, lit with
+            # Din's Fire or Fire Arrows.
+            "LH Gravestone Grotto Torches Chest": "has_fire_source",
             "LH Deku Scrub Grotto Left": "can_stun_deku",
             "LH Deku Scrub Grotto Right": "can_stun_deku",
             "LH Deku Scrub Grotto Center": "can_stun_deku",
@@ -425,15 +442,7 @@
         "region_name": "GV Octorok Grotto",
         "scene": "GV Octorok Grotto",
         "locations": {
-            "GV Octorok Grotto Chest": "can_kill_octorok",
-            "GV Octorok Grotto Red Rupee": "True",
-            "GV Octorok Grotto Blue Rupee 1": "True",
-            "GV Octorok Grotto Blue Rupee 2": "True",
-            "GV Octorok Grotto Blue Rupee 3": "True",
-            "GV Octorok Grotto Green Rupee 1": "True",
-            "GV Octorok Grotto Green Rupee 2": "True",
-            "GV Octorok Grotto Green Rupee 3": "True",
-            "GV Octorok Grotto Green Rupee 4": "True"
+            "GV Octorok Grotto Chest": "can_kill_octorok"
         },
         "exits": {
             "GV Grotto Ledge": "True"

@@ -75,10 +75,10 @@ pub(crate) mod tests {
         let d: Data = Data::load().unwrap();
         let w: World = build(&d);
         let rows: [(&str, &str); 22] = [
-            ("Deku Tree Before Boss Remake Heart 2", "Deku Tree Compass Room"),
-            ("Deku Tree Before Boss Remake Heart 4", "Deku Tree Compass Room"),
-            ("Deku Tree Before Boss Remake Heart 5", "Deku Tree Compass Room"),
-            ("Deku Tree Before Boss Remake Heart 1", "Deku Tree Before Boss"),
+            ("Deku Tree Lobby Upper Ledge Recovery Heart 1", "Deku Tree Compass Room"),
+            ("Deku Tree Lobby Upper Ledge Recovery Heart 2", "Deku Tree Compass Room"),
+            ("Deku Tree Lobby Upper Ledge Recovery Heart 3", "Deku Tree Compass Room"),
+            ("Deku Tree Before Boss Pool Recovery Heart 1", "Deku Tree Before Boss"),
             ("Deku Tree Grass 3", "Deku Tree Compass Room"),
             ("Deku Tree Grass 4", "Deku Tree Compass Room"),
             ("Deku Tree Grass 6", "Deku Tree Slingshot Room"),
@@ -109,7 +109,7 @@ pub(crate) mod tests {
         let d: Data = Data::load().unwrap();
         let w: World = build(&d);
         let shots: [&str; 2] = ["Slingshot", "Boomerang"];
-        for at in ["Deku Tree Compass Chest", "Deku Tree Before Boss Remake Heart 2", "Deku Tree Grass 3"] {
+        for at in ["Deku Tree Compass Chest", "Deku Tree Lobby Upper Ledge Recovery Heart 1", "Deku Tree Grass 3"] {
             assert!(reach(&w, &d, &[], at), "{at}");
             assert!(!reach(&w, &d, &shots, at), "{at} without a shot");
         }

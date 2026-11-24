@@ -520,7 +520,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(171, "adult_trade_shuffle", "shuffle", "Shuffle adult trade items", false)
-            .tip("The eleven adult trade items (Pocket Egg to Claim Check) can be anywhere and the ten trade hand ins give only their shuffled item. You keep every trade item you find and hand any of them over whenever you like. Show a trade item where nobody takes it to put the next one you hold on the item button.")
+            .tip("The ten adult trade items (Pocket Cucco to Claim Check) can be anywhere and the ten trade hand ins give only their shuffled item. There is no Pocket Egg: Anju's first gift is in the pool as the Pocket Cucco. You keep every trade item you find and hand any of them over whenever you like. Press A again on the menu's trade slot, or show a trade item where nobody takes it, to put the next one you hold on the item button. Each age sees its own trade items in the slot, and the child switches between the Weird Egg, the cucco and Zelda's Letter the same way.")
             .when("shuffle_rewards", "supported")
             .when_on("shuffle_trade_checks"),
     );

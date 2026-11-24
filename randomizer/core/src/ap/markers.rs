@@ -13,7 +13,7 @@ pub struct Hook {
     pub after: &'static str,
 }
 
-pub const SEED: Hook = Hook { file: crate::intro_skip::FILE, flow: crate::intro_skip::FLOW, after: "Event3" };
+pub const SEED: Hook = Hook { file: crate::intro_skip::FILE, flow: crate::intro_skip::FLOW, after: "" };
 pub const GOAL: Hook = Hook { file: crate::ganon_trials::FLOW_FILE, flow: crate::ganon_trials::FLOW, after: "Event37" };
 
 pub fn seed_flag(id: &str) -> String {
@@ -42,9 +42,52 @@ pub fn mark_after(f: &mut Flow, after: &str, flag: &str) -> Res<u16> {
     Ok(at)
 }
 
+pub fn mark_entries(f: &mut Flow, flag: &str) -> Res<u16> {
+    let (a, set): (u16, u16) = action_slot(f, HOLDER, SET)?;
+    let mut first: Option<u16> = None;
+    for k in 0..f.entries.len() {
+        let at: u16 = u16::try_from(f.events.len()).map_err(|_| Error::Format("markers: the flow is full"))?;
+        let then: u16 = f.entries[k].main;
+        f.events.push(Event { name: format!("{PREFIX}{at}"), kind: Kind::Action { next: then, actor: a, act: set, params: Some(set_bool(flag.to_string())) } });
+        f.entries[k].main = at;
+        first.get_or_insert(at);
+    }
+    first.ok_or_else(|| Error::Msg(format!("markers: {} has no entry", f.name)))
+}
+
 pub fn patch(b: &mut Bf, h: Hook, flag: &str) -> Res<u16> {
     let f: &mut Flow = b.flows.iter_mut().find(|x| x.name == h.flow).ok_or_else(|| Error::Msg(format!("markers: {} has no {} flow", h.file, h.flow)))?;
-    mark_after(f, h.after, flag)
+    let at: u16 = if h.after.is_empty() { mark_entries(f, flag)? } else { mark_after(f, h.after, flag)? };
+    if !reached(f, at) {
+        return Err(Error::Msg(format!("markers: the {flag} mark after {} in {} is not reachable from any entry of the flow, an earlier edit routes around it", h.after, h.flow)));
+    }
+    Ok(at)
+}
+
+fn targets(k: &Kind) -> Vec<u16> {
+    match k {
+        Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } => vec![*next],
+        Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => cases.iter().map(|c| c.ev).collect(),
+        Kind::Fork { join, forks } => forks.iter().copied().chain(std::iter::once(*join)).collect(),
+        Kind::Label { .. } => Vec::new(),
+    }
+}
+
+pub fn reached(f: &Flow, goal: u16) -> bool {
+    let mut seen: Vec<bool> = vec![false; f.events.len()];
+    let mut q: Vec<u16> = f.entries.iter().map(|e| e.main).collect();
+    while let Some(i) = q.pop() {
+        let Some(e) = f.events.get(i as usize) else { continue };
+        if seen[i as usize] {
+            continue;
+        }
+        seen[i as usize] = true;
+        if i == goal {
+            return true;
+        }
+        q.extend(targets(&e.kind));
+    }
+    false
 }
 
 #[cfg(test)]
@@ -86,7 +129,7 @@ mod tests {
     #[test]
     fn both_markers_sit_right_after_their_hook_and_keep_the_rest_of_the_chain() {
         let Some(mut rf) = real() else { return };
-        for (h, flag) in [(SEED, seed_flag("0123456789ab")), (GOAL, goal_flag("0123456789ab"))] {
+        for (h, flag) in [(GOAL, goal_flag("0123456789ab"))] {
             let raw: Vec<u8> = rf.read_zs(h.file).unwrap();
             let before: Bf = Bf::parse(&raw).unwrap();
             let f0: &Flow = before.flows.iter().find(|f| f.name == h.flow).unwrap();
@@ -100,6 +143,24 @@ mod tests {
             let Kind::Action { next: then, .. } = f.events[new as usize].kind else { panic!() };
             assert_eq!(then, old);
             assert_eq!(&f.events[..f0.events.len()].iter().enumerate().filter(|(j, _)| *j != i).map(|(_, e)| e.clone()).collect::<Vec<_>>(), &f0.events.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, e)| e.clone()).collect::<Vec<_>>());
+        }
+    }
+
+    #[test]
+    fn the_seed_mark_starts_every_opening_entry_and_leads_on_to_its_old_start() {
+        let Some(mut rf) = real() else { return };
+        let raw: Vec<u8> = rf.read_zs(SEED.file).unwrap();
+        let before: Bf = Bf::parse(&raw).unwrap();
+        let f0: &Flow = before.flows.iter().find(|f| f.name == SEED.flow).unwrap();
+        let flag: String = seed_flag("0123456789ab");
+        let after: Bf = Bf::parse(&edit_raw(&raw, SEED, &flag).unwrap()).unwrap();
+        let f: &Flow = after.flows.iter().find(|f| f.name == SEED.flow).unwrap();
+        assert!(!f.entries.is_empty());
+        for (e, e0) in f.entries.iter().zip(&f0.entries) {
+            assert_eq!(flag_of(f, e.main), Some(flag.clone()));
+            let Kind::Action { next, .. } = f.events[e.main as usize].kind else { panic!() };
+            assert_eq!(next, e0.main);
+            assert!(reached(f, e.main));
         }
     }
 

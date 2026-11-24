@@ -17,8 +17,8 @@ use crate::world::{LocId, World};
 pub const SETTING: &str = "shuffle_freestanding_items";
 
 pub const HELD: [(&str, bool); 2] = [
-    ("HF Tektite Grotto Freestanding PoH", false),
-    ("GV Crate Freestanding PoH", false),
+    ("HF Rocks Near Cow Grotto Chest", false),
+    ("GV Ledge Chest Near Octorok Grotto", false),
 ];
 
 pub const PIECES_NOTE: &str = "Freestanding heart pieces and Ruto's Letter are shuffled. Heart pieces on the ground swap their actor for another world pickup, and two heart piece chests join the chest pool. Rupees and recovery hearts on the ground keep their items. Rupees, heart pieces, the two shields, the other world pickups the game ships except the Gold Skulltula Token and Fire Arrows, and every item with a built pickup pack can lie on the ground.";
@@ -539,7 +539,7 @@ mod tests {
         let d: Data = Data::load().unwrap();
         for n in 0..4 {
             let g: Generated = generate_data(&d, &on("all"), &format!("unsure {n}"), &GenOpts::default()).unwrap();
-            for name in ["HF Tektite Grotto Freestanding PoH", "GV Crate Freestanding PoH"] {
+            for name in ["HF Rocks Near Cow Grotto Chest", "GV Ledge Chest Near Octorok Grotto"] {
                 assert!(g.seed_file.placements.contains_key(name), "{name}");
             }
             assert!(g.report.contains(NOTE));

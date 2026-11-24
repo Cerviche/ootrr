@@ -17,6 +17,21 @@ pub const HELD: [u64; 0] = [];
 
 pub const SEP: &str = " @ ";
 
+static EXTRA: std::sync::Mutex<Vec<Item>> = std::sync::Mutex::new(Vec::new());
+
+static LOOSE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_extra_items(v: Vec<Item>) {
+    if let Ok(mut g) = EXTRA.lock() {
+        *g = v;
+    }
+    LOOSE.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+pub fn loose() -> bool {
+    LOOSE.load(std::sync::atomic::Ordering::SeqCst)
+}
+
 /// Song locations kept out of the song shuffle. Sheik in Crater joined it once the story skips gave
 /// Bolero from SageOfFire's trigger (story_skip::SONG_TRIGGERS).
 pub const SONG_KEPT: [&str; 0] = [];
@@ -281,7 +296,21 @@ impl Data {
     }
 
     pub fn load() -> Res<Data> {
-        Data::new(ITEMS_JSON, VANILLA_JSON, SLICE_JSON, CATALOG_JSON)?.with_events(EVENTS_JSON)?.with_remake(REMAKE_JSON)?.with_flow()?.with_pots()?.with_free()
+        let mut d: Data = Data::new(ITEMS_JSON, VANILLA_JSON, SLICE_JSON, CATALOG_JSON)?.with_events(EVENTS_JSON)?.with_remake(REMAKE_JSON)?.with_flow()?.with_pots()?.with_free()?;
+        if let Ok(g) = EXTRA.lock() {
+            for it in g.iter() {
+                if !d.item_ix.contains_key(&it.name) {
+                    d.item_ix.insert(it.name.clone(), d.items.len());
+                    d.items.push(it.clone());
+                }
+                if let Some(a) = &it.actor
+                    && !d.flow.accept.contains(a)
+                {
+                    d.flow.accept.push(a.clone());
+                }
+            }
+        }
+        Ok(d)
     }
 
     pub fn event_mode(&self, hash: u64) -> Option<Ev> {
