@@ -32,6 +32,7 @@ All 19 are in rc 4 (`<builds>\rc-4\`).
 | 25 | [Spawn enemies](25-spawn-enemies-combo.md) | `enemy_spawn_combo` | Yes, by hand |
 | 27 | [Unbreakable Bombchu Bowling grass](27-unbreakable-bowling-grass.md) (idea by Sabriel) | `unbreakable_bowling_grass` | Yes, by hand |
 | 29 | [Fireball storms](29-fireball-storms.md) | `fireball_storms` | Yes, by hand (two of four spots) |
+| 72 | [Hyrule Field sun fix](72-field-sun-palette-fix.md) (the sunrise bug) | none, always on | Partly, by script |
 | 75 | [Return with Navi: saving after a locked room](75-navi-warp-keeps-saving.md) | `navi_return` (fix for #71, #72) | Reproduced in the game; fix not yet |
 | 60 | [Kakariko Gate open: no dungeon item handed out at new game](60-new-game-dungeon-item-fix.md) | `open_kakariko` (fix) | No, from the generator and built data only |
 
