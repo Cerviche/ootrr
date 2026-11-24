@@ -845,7 +845,7 @@ mod tests {
             std::fs::write(&p, other.to_zs().unwrap()).unwrap();
         }
         let b: Built = build_for(&g.seed_file, &root, &load, "ootrr-longshot", Host::Longshot).unwrap();
-        assert_eq!(b.root, load.join(TITLE_ID).join("ootrr-longshot"));
+        assert_eq!(b.root, load.join("ootrr-longshot"));
         assert!(!b.root.join("coop-seed.txt").exists());
         let ours: Rst = Rst::parse(&rf.zs.decompress(&std::fs::read(b.root.join("romfs").join(rsizetable::TABLE_PATH)).unwrap()).unwrap()).unwrap();
         assert_eq!(ours.get("OotrrTest/only_in_other.bin"), Some(4321));

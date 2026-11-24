@@ -664,6 +664,9 @@ mod tests {
             entrances: BTreeMap::new(),
             copies: BTreeMap::new(),
             named: BTreeMap::new(),
+            tiers: BTreeMap::new(),
+            drops: BTreeMap::new(),
+            kits: BTreeMap::new(),
         }
     }
 

@@ -32,11 +32,12 @@ pub struct GenOpts {
     pub limit: Option<Duration>,
     pub live: Option<Arc<Live>>,
     pub switch: u32,
+    pub extras: bool,
 }
 
 impl Default for GenOpts {
     fn default() -> GenOpts {
-        GenOpts { spoiler: false, tries: TRIES, plando: Vec::new(), limit: None, live: None, switch: SWITCH }
+        GenOpts { spoiler: false, tries: TRIES, plando: Vec::new(), limit: None, live: None, switch: SWITCH, extras: false }
     }
 }
 
@@ -454,7 +455,9 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     if let Some(l) = &gates {
         seed_file.entrances = l.to_map();
     }
-    crate::frost::sprinkle(d, s, seed, &mut seed_file, &p.excluded);
+    if o.extras {
+        crate::frost::sprinkle(d, s, seed, &mut seed_file, &p.excluded);
+    }
     let (sp, spheres): (Option<String>, Steps) = if o.spoiler {
         let (mut t, st): (String, Steps) = spoiler_text(&w, &vanilla, &got, &pk)?;
         let fixed: BM<String, String> = if crate::slice::tier_fix::active(d, &w, &pk.free) {

@@ -741,3 +741,121 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     }
     Ok(b)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::{Settings, Value};
+    use crate::slice::generate::{generate_data, GenOpts, Generated};
+
+    fn real() -> Option<PB> {
+        let p: PB = ootrr_game::test_romfs::path();
+        if p.join("Pack").join("ZsDic.pack.zs").is_file() {
+            Some(p)
+        } else {
+            eprintln!("skipped, no RomFS dump at {} (set OOTRR_ROMFS)", p.display());
+            None
+        }
+    }
+
+    fn wide() -> Settings {
+        let mut s: Settings = Settings::default();
+        for (k, v) in [("shuffle_pots", "all"), ("shuffle_crates", "all"), ("shuffle_rocks", "all"), ("shuffle_grass", "all"), ("shuffle_freestanding_items", "all"), ("shuffle_skulltulas", "pinned"), ("shuffle_songs", "anywhere"), ("shuffle_dungeon_rewards", "anywhere")] {
+            s.set(k, Value::s(v)).unwrap();
+        }
+        s
+    }
+
+    fn traps(g: &Generated) -> Vec<String> {
+        g.seed_file.placements.iter().filter(|(_, i)| *i == TRAP).map(|(l, _)| l.clone()).collect()
+    }
+
+    fn on() -> GenOpts {
+        GenOpts { extras: true, ..GenOpts::default() }
+    }
+
+    #[test]
+    fn the_set_count_replaces_junk_at_spots_that_can_hold_it() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = wide();
+        for n in 0..3 {
+            let seed: String = format!("cold count {n}");
+            let plain: Generated = generate_data(&d, &s, &seed, &GenOpts::default()).unwrap();
+            let g: Generated = generate_data(&d, &s, &seed, &on()).unwrap();
+            let at: Vec<String> = traps(&g);
+            assert_eq!(at.len(), 10, "{seed}");
+            assert!(traps(&plain).is_empty());
+            for l in &at {
+                assert!(can_hold(&d, l), "{l}");
+                let was: &str = plain.seed_file.placements.get(l).map(|x| x.as_str()).unwrap_or("");
+                assert!(crate::slice::place_rules::junk(&d, was), "{l} held {was}");
+            }
+            for (l, i) in &g.seed_file.placements {
+                if !at.contains(l) {
+                    assert_eq!(plain.seed_file.placements.get(l), Some(i), "{l}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_setting_and_its_count_decide_how_many() {
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = wide();
+        s.set(COUNT, Value::Int(3)).unwrap();
+        assert_eq!(traps(&generate_data(&d, &s, "cold three", &on()).unwrap()).len(), 3);
+        s.set(SETTING, Value::Bool(false)).unwrap();
+        assert!(traps(&generate_data(&d, &s, "cold off", &on()).unwrap()).is_empty());
+    }
+
+    #[test]
+    fn excluded_locations_never_hold_one() {
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = wide();
+        let plain: Generated = generate_data(&d, &s, "cold excluded", &on()).unwrap();
+        let first: Vec<String> = traps(&plain);
+        s.set("disabled_locations", Value::Set(first.clone())).unwrap();
+        let g: Generated = generate_data(&d, &s, "cold excluded", &on()).unwrap();
+        assert!(traps(&g).iter().all(|l| !first.contains(l)));
+    }
+
+    #[test]
+    fn prepared_seeds_hold_no_trap_and_pass_the_count_checks() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = wide();
+        for n in 0..3 {
+            let g: Generated = generate_data(&d, &s, &format!("cold prepare {n}"), &on()).unwrap();
+            let (out, ts): (SeedFile, Vec<Trap>) = prepare(&g.seed_file).unwrap();
+            assert_eq!(ts.len(), 10);
+            assert!(out.placements.values().all(|i| i != TRAP));
+            crate::slice::chest_targets::actors_for(&d, &out).unwrap();
+            let fixed = crate::slice::tier_order::fixed_actors(&d, &out).unwrap();
+            assert!(fixed.bad.is_empty(), "{:?}", fixed.bad);
+            crate::slice::seed_packs::need(&d, &out, &fixed.assign).unwrap();
+            crate::slice::skull_edit::drops_with(&d, &out, &fixed.assign).unwrap();
+            for t in &ts {
+                assert!(LOOKS.contains(&t.item.as_str()) || d.item(&t.item).is_some_and(|i| i.kind == "Song" || i.kind == "DungeonReward"), "{}", t.item);
+            }
+        }
+    }
+
+    #[test]
+    fn the_spoiler_shows_a_placeholder() {
+        assert_eq!(crate::spoiler::shown(TRAP), "Rupee (1)");
+    }
+
+    #[test]
+    fn a_seed_with_them_builds() {
+        let Some(root) = real() else {
+            return;
+        };
+        let d: Data = Data::load().unwrap();
+        let g: Generated = generate_data(&d, &wide(), "cold build", &on()).unwrap();
+        let load: PB = std::env::temp_dir().join(format!("ootrr_cold_build_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&load);
+        let b: Built = crate::slice::edit::build_for(&g.seed_file, &root, &load, "cold", Host::Hookshot).unwrap();
+        let actors: PB = b.root.join("romfs").join("Pack").join("Actor");
+        assert!(actors.join(format!("{}.pack.zs", sensor::NAME)).is_file());
+        let _ = fs::remove_dir_all(&load);
+    }
+}
