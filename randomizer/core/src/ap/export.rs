@@ -231,7 +231,50 @@ fn kind_of(d: &Data, name: &str) -> String {
 }
 
 pub fn export(d0: &Data, s: &Settings, preset: &str) -> Res<Json> {
-    Ok(export_with(d0, s, preset, 0)?.0)
+    Ok(export_with(d0, s, preset, SEED, 0)?.0)
+}
+
+pub fn names(d: &Data) -> Res<Json> {
+    let mut over: Vec<(&str, &str)> = crate::spots::FULL.to_vec();
+    over.push((crate::flow_extra::potion::KEY, crate::flow_extra::potion::ON));
+    over.push((crate::slice::skull_rules::KEY, crate::slice::skull_rules::ON));
+    let w: World = crate::slice::logic::world_with(d, &over)?;
+    let mut locs: BS<String> = w.real.iter().map(|l| w.locs[*l].name.clone()).collect();
+    locs.extend(crate::shops::data::table()?.names.iter().cloned());
+    let mut items: BS<String> = d.items.iter().map(|i| i.name.clone()).collect();
+    items.extend(w.items.names.iter().cloned());
+    Ok(Json::obj()
+        .with("format", Json::Str("ootrr-ap-names".to_string()))
+        .with("version", Json::Int(VERSION))
+        .with("locations", Json::strs(locs.iter().map(|x| x.as_str())))
+        .with("items", Json::strs(items.iter().map(|x| x.as_str()))))
+}
+
+fn roll_value(rng: &mut Rng, s: &crate::settings::model::Setting) -> Option<crate::settings::model::Value> {
+    use crate::settings::model::{Kind, Value};
+    match s.kind {
+        Kind::Toggle => Some(Value::Bool(rng.below(2) == 1)),
+        Kind::Choice if !s.choices.is_empty() => Some(Value::s(&s.choices[rng.below(s.choices.len() as u64) as usize].id)),
+        Kind::Number if s.max >= s.min => {
+            let step: i64 = s.step.max(1);
+            let n: i64 = (s.max - s.min) / step;
+            Some(Value::Int(s.min + step * rng.below(n as u64 + 1) as i64))
+        }
+        Kind::Multi if !s.choices.is_empty() => Some(Value::Set(s.choices.iter().filter(|_| rng.below(2) == 1).map(|c| c.id.clone()).collect())),
+        _ => None,
+    }
+}
+
+pub fn roll(rng: &mut Rng, base: &Settings, k: usize) -> Option<Settings> {
+    let all: Vec<&crate::settings::model::Setting> = crate::settings::schema().settings.iter().filter(|s| !s.legacy).collect();
+    let mut s: Settings = base.clone();
+    for _ in 0..k {
+        let one = all[rng.below(all.len() as u64) as usize];
+        if let Some(v) = roll_value(rng, one) {
+            let _ = s.set(&one.id, v);
+        }
+    }
+    s.finish().ok()
 }
 
 fn probes(w: &World, free: &[LocId], fixed: &Placement, pool: &[ItemId], n: usize) -> Json {
@@ -247,8 +290,8 @@ fn probes(w: &World, free: &[LocId], fixed: &Placement, pool: &[ItemId], n: usiz
     Json::Arr(out)
 }
 
-pub fn export_with(d0: &Data, s: &Settings, preset: &str, n: usize) -> Res<(Json, Json)> {
-    let Prep { p, lay: _, owned, w, vanilla, pk, gates, base } = prepare(d0, s, SEED, &[])?;
+pub fn export_with(d0: &Data, s: &Settings, preset: &str, seed: &str, n: usize) -> Res<(Json, Json)> {
+    let Prep { p, lay: _, owned, w, vanilla, pk, gates, base } = prepare(d0, s, seed, &[])?;
     let d: &Data = owned.as_ref().unwrap_or(d0);
     if gates.is_some() {
         return Err(E::Format("archipelago: entrance shuffle is not supported yet"));
@@ -322,7 +365,7 @@ pub fn export_with(d0: &Data, s: &Settings, preset: &str, n: usize) -> Res<(Json
         .with("game", Json::Str(GAME.to_string()))
         .with("preset", Json::Str(preset.to_string()))
         .with("settings", Json::Str(s.encode()?))
-        .with("seed", Json::Str(SEED.to_string()))
+        .with("seed", Json::Str(seed.to_string()))
         .with("world", world_json(&w))
         .with("free", Json::Arr(rows))
         .with("pool", ids(&pool))
@@ -364,5 +407,34 @@ mod tests {
         pool.sort();
         placed.sort();
         assert_eq!(pool, placed);
+    }
+
+    #[test]
+    fn rolled_settings_only_shuffle_named_locations_and_items() {
+        let d: Data = Data::load().unwrap();
+        let n: Json = names(&d).unwrap();
+        let locs: BS<&str> = arr(&n, "locations").iter().filter_map(|x| x.as_str()).collect();
+        let items: BS<&str> = arr(&n, "items").iter().filter_map(|x| x.as_str()).collect();
+        let presets = crate::settings::presets::builtin().unwrap();
+        let mut rng: Rng = Rng::from_text("ootrr archipelago names");
+        let mut done: usize = 0;
+        for k in 0..40 {
+            let base: Settings = presets[k % presets.len()].apply(&Settings::default()).unwrap();
+            let Some(s) = roll(&mut rng, &base, 12) else { continue };
+            let Ok(b) = export(&d, &s, "custom") else { continue };
+            let w: &Json = b.get("world").unwrap();
+            let wl: &[Json] = arr(w, "locs");
+            let wi: &[Json] = arr(w, "items");
+            for r in arr(&b, "free") {
+                let name: &str = wl[r.get("loc").unwrap().as_i64().unwrap() as usize].get("name").unwrap().as_str().unwrap();
+                assert!(locs.contains(name), "{name} is not in the names list");
+            }
+            for i in arr(&b, "pool") {
+                let name: &str = wi[i.as_i64().unwrap() as usize].get("name").unwrap().as_str().unwrap();
+                assert!(items.contains(name), "{name} is not in the names list");
+            }
+            done += 1;
+        }
+        assert!(done >= 10, "only {done} rolled settings exported");
     }
 }

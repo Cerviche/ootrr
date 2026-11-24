@@ -50,7 +50,70 @@ pub fn flag(a: &[String]) -> Res<()> {
     Ok(())
 }
 
+fn after<'a>(a: &'a [String], flag: &str) -> Option<&'a str> {
+    a.iter().position(|x| x == flag).and_then(|i| a.get(i + 1)).map(|s| s.as_str())
+}
+
+fn write_new(path: &P, text: &str) -> Res<()> {
+    let tmp = path.with_extension("part");
+    std::fs::write(&tmp, text)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+fn export_one(a: &[String]) -> Res<()> {
+    let usage = Error::Format("ap-export --settings <settings string> --out <file> [--seed <seed>] [--probes <file>]");
+    let text: &str = a.first().map(|s| s.as_str()).ok_or(usage)?;
+    let out: &P = P::new(after(a, "--out").ok_or(Error::Format("ap-export --settings needs --out <file>"))?);
+    let seed: &str = after(a, "--seed").unwrap_or(ap::export::SEED);
+    let probes: Option<&P> = after(a, "--probes").map(P::new);
+    let s: Settings = Settings::decode(text)?.settings;
+    let d: Data = Data::load()?;
+    let (b, c) = ap::export::export_with(&d, &s, "custom", seed, if probes.is_some() { 40 } else { 0 })?;
+    if let Some(p) = probes {
+        write_new(p, &c.to_string())?;
+    }
+    write_new(out, &b.to_string())?;
+    println!("custom: {} shuffled", b.get("free").and_then(|v| v.as_arr()).map(|v| v.len()).unwrap_or(0));
+    Ok(())
+}
+
+fn export_rolls(a: &[String]) -> Res<()> {
+    let usage = || Error::Format("ap-export --roll <count> <folder>");
+    let n: usize = a.first().and_then(|s| s.parse().ok()).ok_or_else(usage)?;
+    let out: &P = P::new(a.get(1).ok_or_else(usage)?);
+    std::fs::create_dir_all(out)?;
+    let d: Data = Data::load()?;
+    let ps = presets::builtin()?;
+    let mut rng = ootrr_core::rng::Rng::from_text("ootrr archipelago rolls");
+    let mut index: Vec<Json> = Vec::new();
+    let mut k: usize = 0;
+    while index.len() < n && k < n * 8 {
+        let base: Settings = ps[k % ps.len()].apply(&Settings::default())?;
+        k += 1;
+        let Some(s) = ap::export::roll(&mut rng, &base, 12) else { continue };
+        let id: String = format!("roll_{}", index.len());
+        let seed: String = format!("roll{k}");
+        match ap::export::export_with(&d, &s, &id, &seed, 40) {
+            Ok((b, c)) => {
+                std::fs::write(out.join(format!("{id}.json")), b.to_string())?;
+                std::fs::write(out.join(format!("{id}.probes.json")), c.to_string())?;
+                println!("{id} (from {}): {} shuffled", ps[(k - 1) % ps.len()].id, b.get("free").and_then(|v| v.as_arr()).map(|v| v.len()).unwrap_or(0));
+                index.push(Json::obj().with("id", Json::Str(id)).with("settings", Json::Str(s.encode()?)).with("seed", Json::Str(seed)));
+            }
+            Err(e) => println!("roll {k}: skipped, {e}"),
+        }
+    }
+    std::fs::write(out.join("rolls.json"), Json::Arr(index).to_string())?;
+    Ok(())
+}
+
 pub fn export(a: &[String]) -> Res<()> {
+    match a.first().map(|s| s.as_str()) {
+        Some("--settings") => return export_one(&a[1..]),
+        Some("--roll") => return export_rolls(&a[1..]),
+        _ => {}
+    }
     let out: &P = P::new(a.first().map(|s| s.as_str()).ok_or(Error::Format("missing out folder"))?);
     let probes: Option<&P> = match (a.get(1).map(|s| s.as_str()), a.get(2)) {
         (Some("--probes"), Some(dir)) => Some(P::new(dir)),
@@ -65,7 +128,7 @@ pub fn export(a: &[String]) -> Res<()> {
     let mut index: Vec<Json> = Vec::new();
     for p in presets::builtin()? {
         let s: Settings = p.apply(&Settings::default())?;
-        match ap::export::export_with(&d, &s, &p.id, if probes.is_some() { 40 } else { 0 }) {
+        match ap::export::export_with(&d, &s, &p.id, ap::export::SEED, if probes.is_some() { 40 } else { 0 }) {
             Ok((b, c)) => {
                 if let Some(dir) = probes {
                     std::fs::write(dir.join(format!("{}.probes.json", p.id)), c.to_string())?;
@@ -79,6 +142,7 @@ pub fn export(a: &[String]) -> Res<()> {
         }
     }
     std::fs::write(out.join("presets.json"), Json::Arr(index).to_string())?;
+    std::fs::write(out.join("names.json"), ap::export::names(&d)?.to_string())?;
     Ok(())
 }
 

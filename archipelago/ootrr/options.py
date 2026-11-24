@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Options import Choice, PerGameCommonOptions
+from Options import Choice, FreeText, PerGameCommonOptions
 
 from .tables import presets
 
@@ -17,6 +17,15 @@ def _preset_choice() -> type:
 Preset = _preset_choice()
 
 
+class SettingsString(FreeText):
+    """An OOTRR settings string, copied from the OOTRR app. When it is set, it replaces the preset.
+
+    Entrance shuffle is not supported yet. Generating a world from a settings string runs the OOTRR app on the computer that generates the room, so that computer needs ootrr_options.ootrr_exe in its host.yaml."""
+    display_name = "OOTRR settings string"
+    default = ""
+
+
 @dataclass
 class OOTRROptions(PerGameCommonOptions):
     preset: Preset
+    settings_string: SettingsString

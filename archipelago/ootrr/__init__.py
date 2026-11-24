@@ -2,7 +2,9 @@ import typing
 import hashlib
 import json
 import os
-from typing import Any, Dict, List, Mapping, Optional
+import subprocess
+import sys
+from typing import Any, Dict, List, Mapping, Optional, Set
 
 from BaseClasses import CollectionState, Item, ItemClassification, Location, Region
 from Fill import fill_restrictive
@@ -36,6 +38,29 @@ class OOTRRSettings(settings.Group):
         description = "OOTRR app (ootrr.exe)"
 
     ootrr_exe: Exe = Exe("ootrr.exe")
+
+
+def export_custom(exe: str, text: str, seed: str) -> Bundle:
+    import Utils
+    key: str = hashlib.sha256(f"{text}\0{seed}".encode("utf-8")).hexdigest()[:20]
+    out: str = Utils.cache_path("ootrr", f"{key}.json")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    if not os.path.isfile(out):
+        flags: int = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+        try:
+            r = subprocess.run([exe, "ap-export", "--settings", text, "--seed", seed, "--out", out], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600, creationflags=flags)
+        except OSError as e:
+            raise ValueError(f"OOTRR: could not run the OOTRR app at {exe}: {e}") from e
+        if r.returncode != 0 or not os.path.isfile(out):
+            lines = (r.stderr or r.stdout or "").strip().splitlines()
+            said: str = lines[-1] if lines else f"exit code {r.returncode}"
+            raise ValueError(f"OOTRR: the OOTRR app refused these settings: {said}")
+    with open(out, encoding="utf-8") as f:
+        b = Bundle(json.load(f))
+    unknown = [n for n in b.free_names if n not in LOCATION_NAME_TO_ID] + [n for n in set(b.pool) if n not in ITEM_NAME_TO_ID]
+    if unknown:
+        raise ValueError(f"OOTRR: the OOTRR app and this apworld are different versions ({len(unknown)} unknown names, for example {unknown[0]!r}). Use the apworld that comes with your OOTRR app")
+    return b
 
 
 class OOTRRItem(Item):
@@ -81,16 +106,27 @@ class OOTRRWorld(World):
     b: Bundle
     dead: List[str]
     pre_items: List[Item]
+    own_only: Set[str]
 
     def generate_early(self) -> None:
-        pid: str = presets()[self.options.preset.value]["id"]
-        self.b = bundle(pid)
+        text: str = str(self.options.settings_string.value or "").strip()
+        if text:
+            try:
+                exe: str = str(self.settings.ootrr_exe)
+            except FileNotFoundError as e:
+                raise ValueError(f"OOTRR: {self.player_name} uses an OOTRR settings string, which needs the OOTRR app on this computer. Set ootrr_options.ootrr_exe in host.yaml") from e
+            pid: str = "custom settings"
+            self.b = export_custom(exe, text, f"ap{self.multiworld.seed}p{self.player}")
+        else:
+            pid = presets()[self.options.preset.value]["id"]
+            self.b = bundle(pid)
+            pid += " preset"
         held: Dict[str, int] = {}
         for n in self.b.pool:
             held[n] = held.get(n, 0) + 1
         full: Sweep = self.b.sweep(held)
         if not full.won:
-            raise ValueError(f"OOTRR: the {pid} preset cannot be beaten with its own items")
+            raise ValueError(f"OOTRR: {self.player_name}'s {pid} cannot be beaten with its own items")
         self.dead = [n for n in self.b.free_names if n not in full.reach]
         local = {n for n, m in self.b.meta.items() if m.get("local")}
         self.options.local_items.value |= local
@@ -132,6 +168,7 @@ class OOTRRWorld(World):
         self.multiworld.regions.append(menu)
         dead = set(self.dead)
         player: int = self.player
+        self.own_only = set()
         for name in self.b.free_names:
             if name in dead:
                 continue
@@ -139,6 +176,8 @@ class OOTRRWorld(World):
             loc.access_rule = lambda state, n=name: n in self.sweep(state).reach
             deny: frozenset = self.b.deny[name]
             foreign: bool = bool(self.b.row[name]["foreign"]) and name not in self.b.blind
+            if not foreign:
+                self.own_only.add(name)
             loc.item_rule = lambda item, deny=deny, foreign=foreign: (item.name not in deny) if item.player == player else foreign
             menu.locations.append(loc)
         self.multiworld.completion_condition[player] = lambda state: self.sweep(state).won
@@ -165,17 +204,57 @@ class OOTRRWorld(World):
         return list(self.pre_items)
 
     def pre_fill(self) -> None:
-        if not self.pre_items:
-            return
+        if self.pre_items:
+            self.fill_dungeons()
+        self.fill_own_only()
+
+    def own_state(self, skip: Set[int]) -> CollectionState:
         state: CollectionState = CollectionState(self.multiworld)
-        held = set(id(i) for i in self.pre_items)
         for it in self.multiworld.itempool:
-            if it.player == self.player:
+            if it.player == self.player and id(it) not in skip:
                 state.collect(it, True)
         for loc in self.multiworld.get_filled_locations():
             it = loc.item
-            if it is not None and it.player == self.player and id(it) not in held:
+            if it is not None and it.player == self.player and id(it) not in skip:
                 state.collect(it, True)
+        return state
+
+    def fill_own_only(self) -> None:
+        spots: List[Location] = [l for l in self.multiworld.get_unfilled_locations(self.player) if l.name in self.own_only]
+        if not spots:
+            return
+        self.random.shuffle(spots)
+        mine: List[Item] = [it for it in self.multiworld.itempool if it.player == self.player and not it.advancement]
+        need: int = len(spots) - len(mine)
+        if need > 0:
+            prog: List[Item] = [it for it in self.multiworld.itempool if it.player == self.player and it.advancement]
+            self.random.shuffle(prog)
+            while need > 0 and prog:
+                take: List[Item] = prog[:need]
+                prog = prog[need:]
+                skip: Set[int] = {id(x) for x in take}
+                self.multiworld.itempool = [it for it in self.multiworld.itempool if id(it) not in skip]
+                free: List[Location] = [l for l in spots if l.item is None]
+                fill_restrictive(self.multiworld, self.own_state(skip), free, take, single_player_placement=True, lock=True, allow_partial=True, allow_excluded=True, name="OOTRR own items")
+                need -= len(skip) - len(take)
+                self.multiworld.itempool.extend(take)
+        self.random.shuffle(mine)
+        mine.sort(key=lambda it: it.useful)
+        placed: Set[int] = set()
+        for loc in spots:
+            if loc.item is not None:
+                continue
+            k: Optional[int] = next((k for k, x in enumerate(mine) if loc.item_rule(x)), None)
+            if k is None:
+                continue
+            it: Item = mine.pop(k)
+            placed.add(id(it))
+            loc.place_locked_item(it)
+        self.multiworld.itempool = [it for it in self.multiworld.itempool if id(it) not in placed]
+
+    def fill_dungeons(self) -> None:
+        held = set(id(i) for i in self.pre_items)
+        state: CollectionState = self.own_state(held)
         items: List[Item] = sorted(self.pre_items, key=lambda i: (not i.advancement, i.name))
         locs: List[Location] = [l for l in self.multiworld.get_unfilled_locations(self.player)]
         self.random.shuffle(locs)

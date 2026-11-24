@@ -28,11 +28,12 @@ def presets() -> List[Dict[str, str]]:
 
 
 def _tables():
-    items: Dict[str, int] = {}
-    locs: Dict[str, int] = {}
+    names: Dict[str, List[str]] = load_json("names.json")
+    items: Dict[str, int] = {n: stable_id("item", n) for n in names["items"] + [FILLER]}
+    locs: Dict[str, int] = {n: stable_id("location", n) for n in names["locations"]}
     for p in bundle_names():
         b = bundle(p)
-        for n in b.pool + [FILLER]:
+        for n in b.pool:
             items.setdefault(n, stable_id("item", n))
         for n in b.free_names:
             locs.setdefault(n, stable_id("location", n))
