@@ -63,7 +63,6 @@ fn chain(f: &mut Flow, sites: &[usize], key: &str, names: &[String]) -> Res<()> 
     Ok(())
 }
 
-/// Marks the freeze after each event, whatever it hands out: the trap's own flow grant.
 pub fn mark_after(f: &mut Flow, sites: &[usize]) -> Res<usize> {
     let (sa, ss): (u16, u16) = action_slot(f, HOLDER, SET)?;
     let mut n: usize = 0;
@@ -82,7 +81,6 @@ pub fn mark_after(f: &mut Flow, sites: &[usize]) -> Res<usize> {
     Ok(n)
 }
 
-/// Points a flow location's item parameter at the trap.
 pub fn set_name(f: &mut Flow, at: usize, event: &str, param: &str, fake: &str) -> Res<()> {
     let e: &mut Event = f.events.get_mut(at).ok_or_else(|| E::Msg(format!("event index {at} is out of range")))?;
     if e.name != event {
@@ -125,7 +123,6 @@ pub fn hook_get(b: &mut Bf, names: &[String]) -> Res<usize> {
     Ok(sites.len())
 }
 
-/// The scene gets' own pouch adds (a skipped scene hands its item out through these).
 pub fn hook_give(b: &mut Bf, names: &[String]) -> Res<usize> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == GIVE_FLOW).ok_or(E::Format("the scene get flow has no flow of its name"))?;
     let sites: Vec<usize> = sites_of(f, ADD, true);

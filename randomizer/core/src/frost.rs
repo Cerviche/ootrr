@@ -169,9 +169,6 @@ fn place_of(d: &Data, seed: &SeedFile, loc: &str) -> Res<Place> {
     })
 }
 
-/// Flow rewards whose item is one name the event hands out: NPC and cutscene gifts (Saria's
-/// Ocarina among them), Great Fairies, the skulltula house, minigames and the dungeon reward
-/// spots. Trades, cows, frogs, scrubs, bottles and songs hand out items their own way and are left out.
 const FLOW_CATS: [&str; 6] = ["npc_gift", "cutscene_gift", "great_fairy", "gs_reward", "minigame", "dungeon_reward"];
 
 fn flow_spot(d: &Data, loc: &str) -> bool {
@@ -215,8 +212,6 @@ fn fits(d: &Data, place: Place, loc: &str, item: &str, actor: &str, tiered: bool
     }
 }
 
-/// Chooses each trap's look: a key item the logic says the player cannot hold yet where the trap
-/// is reached, and for an upgrade the next tier the player lacks there.
 fn looks(d: &Data, seed: &SeedFile, places: &BM<String, Place>) -> Res<BM<String, (String, String, bool)>> {
     let (w, place): (crate::world::World, crate::world::Placement) = crate::slice::starts::rebuild(d, seed)?;
     let at: BM<usize, usize> = spheres(&w, &place);
@@ -278,9 +273,6 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
     let mut short: Vec<String> = shortfall(&d, seed);
     for (loc, place) in places {
         let (look, actor, tiered): (String, String, bool) = chosen.get(&loc).cloned().ok_or_else(|| E::Msg(format!("{loc} has no look")))?;
-        // A chest or shop keeps the look as its item, so it stands as that item would. An upgrade,
-        // a ground spot and a skulltula keep a junk carrier instead, so the upgrade tier order of
-        // the real copies is untouched, and the trap's own pickup is swapped in.
         let carry: bool = tiered || matches!(place, Place::Ground | Place::Skull | Place::Holder);
         let pick: Option<usize> = short.iter().position(|x| !d.item(x).is_some_and(|i| i.adv)).or(if short.is_empty() { None } else { Some(0) });
         let held: Option<String> = pick.map(|k| short.remove(k));
@@ -319,7 +311,6 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
                     s.item = look.clone();
                 }
             }
-            // A dropped scene (story skip) hands out what this names, so it gives the trap too.
             Place::Flow => {
                 out.drops.insert(loc.clone(), fake.clone());
             }
@@ -331,8 +322,6 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
     Ok((out, traps))
 }
 
-/// Swaps junk in the generated seed for traps: up to the set count, never at an excluded
-/// location, only at a chest, a ground spot, a shuffled shop slot or a skulltula whose actor is known.
 pub fn sprinkle(d: &Data, s: &crate::settings::Settings, seed: &str, f: &mut SeedFile, excluded: &[String]) -> usize {
     if !s.flag(SETTING).unwrap_or(false) {
         return 0;
