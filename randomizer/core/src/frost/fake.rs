@@ -1,6 +1,6 @@
 use crate::byml::{Byml, Node};
 use crate::error::{Error as E, Res};
-use crate::pickup_pack::actor::{own_name_ref, pouch_file, POUCH_ACTOR};
+use crate::pickup_pack::actor::{own_name_ref, pouch_file};
 use crate::pickup_pack::closure::{actor_file, chain, local, norm, select, work, Chain, Pool, COMPONENTS, PARENT};
 use crate::sarc::{self, Entry};
 
@@ -41,7 +41,6 @@ pub fn make(look_pack: &[Entry], look: &str, name: &str) -> Res<Fake> {
     actor.set(COMPONENTS, comps);
     let mut pouch: Node = Node::Map(Vec::new());
     pouch.set(PARENT, s(&work(&look_pouch)));
-    pouch.set(POUCH_ACTOR, s(&work(&actor_file(name))));
     let a: Vec<u8> = Byml { root: actor, version, big: false }.write()?;
     let q: Vec<u8> = Byml { root: pouch, version, big: false }.write()?;
     let fresh: Vec<(String, usize)> = vec![(actor_file(name), a.len()), (pouch_file(name), q.len())];
