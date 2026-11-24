@@ -168,8 +168,13 @@ class OOTRRWorld(World):
         if not self.pre_items:
             return
         state: CollectionState = CollectionState(self.multiworld)
+        held = set(id(i) for i in self.pre_items)
         for it in self.multiworld.itempool:
             if it.player == self.player:
+                state.collect(it, True)
+        for loc in self.multiworld.get_filled_locations():
+            it = loc.item
+            if it is not None and it.player == self.player and id(it) not in held:
                 state.collect(it, True)
         items: List[Item] = sorted(self.pre_items, key=lambda i: (not i.advancement, i.name))
         locs: List[Location] = [l for l in self.multiworld.get_unfilled_locations(self.player)]
