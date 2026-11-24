@@ -70,6 +70,14 @@ pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str) -> Res<Built>
     build_for(seed, romfs, load, mod_name, Host::Eden)
 }
 
+pub fn givable(i: &crate::slice::data::Item) -> bool {
+    i.actor.is_some() || !i.tiers.is_empty()
+}
+
+pub fn given_at_start(i: &crate::slice::data::Item) -> bool {
+    givable(i) && i.dungeon.is_none()
+}
+
 /// The item actors the skipped story would have handed out at `locs`: the placed item, or the
 /// vanilla one when the location is not shuffled. Each must have an actor the pouch can take.
 /// A progressive item given more than once steps through its tiers, so two ocarinas become the
@@ -84,6 +92,9 @@ pub fn skipped_items(d: &Data, seed: &SeedFile, locs: &[&str]) -> Res<Vec<String
             continue;
         };
         let i = d.item(name).ok_or_else(|| E::Msg(format!("{loc} holds {name}, which is not an item")))?;
+        if !given_at_start(i) {
+            return Err(E::Msg(format!("{loc} holds {name}, which cannot be given when a new game starts")));
+        }
         let k: usize = *given.get(name).unwrap_or(&0);
         let actor: Option<String> = if i.tiers.is_empty() { i.actor.clone() } else { i.tiers.get(k).cloned() };
         let actor: String = actor.ok_or_else(|| E::Msg(format!("{loc} holds {name}, which cannot be given when a new game starts")))?;
