@@ -39,7 +39,7 @@ What changes in a default build: Return with Navi defaults to "everywhere", so s
 - Reproduction of the bug in the game (nightly 80eb5be, investigator run 24 to 25 Nov, a scripted manual save through the pause menu): in the Deku Tree scrub room, after a Navi trip out, 0 save files changed and the Save entry was greyed; a baseline save at the door and after a Navi trip from the lobby changed 3 files; game over and Try Again brought saving back.
 - Unit tests (`cargo test -p ootrr-core navi_return`): every map change the patch adds is reached only through the leave, stop and hide actions in that order (walked for every dungeon map, both age answers, both modes); the original events of the flow are unchanged; the event count is `DUNGEONS.len() + 12 * 6 + 1`; the existing boss room, timer and second-run tests still pass.
 - Game-file test: the vanilla `Dm_SY_BancChangeGo` flow still holds `EventTriggerLeaveGameSafetySection`, `SubEvent_GetSwordBigGoron` still holds the two timer actions, and the staged `NaviHint` flow holds all three. A game update that renames one fails the build's tests, not the player's save.
-- The fix itself in the game: NOT TESTED yet (a scripted run is prepared, see below).
+- The fix itself in the game (scripted, 25 Nov, build 030, the same test that reproduced the bug): after the Navi trip out of the Deku Tree scrub room the manual save wrote the save (3 files changed) and the Save entry was not greyed. A Navi trip from the lobby, and trying to save inside the locked room, behave as before. Other locked rooms were not played.
 
 ## How to test it in the game
 
@@ -67,6 +67,19 @@ Locking doors with `IsDisableSaveAndWarp`: 45 in 13 maps (list above). Events ad
 **Title:** Improved World > Return with Navi Fix: a trip out of a locked room no longer turns saving off
 
 Using Return with Navi to leave a locked enemy room (for example the Deku Tree scrub room) left the game refusing manual saves and autosaves until a game over or reload. The trip now leaves the game's safety section, and stops and hides any minigame timer, before it changes the map. Reproduced in the game on nightly before the fix (0 save files changed after the trip, Save greyed); the fix itself is not yet confirmed in the game.
+
+Only the Navi flow changes (3 more events per question); with the setting off nothing changes. Includes #120 and #121 so the CI passes. Base: nightly.
+
+Fixes #71, #72.
+
+For details about implementation and testing, see difficulty-mod/docs/features/75-navi-warp-keeps-saving.md.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+### 2nd MR Draft
+**Title:** Improved World > Return with Navi Fix: a trip out of a locked room no longer turns saving off
+
+Using Return with Navi to leave a locked enemy room (for example the Deku Tree scrub room) left the game refusing manual saves and autosaves until a game over or reload. The trip now leaves the game's safety section, and stops and hides any minigame timer, before it changes the map. Tested in the game by script: on nightly the trip out of the Deku Tree scrub room left Save greyed (0 save files changed); with the fix the same test wrote the save (3 files) and Save was not greyed. A trip from the lobby and saving inside the locked room behave as before. Other locked rooms were not played.
 
 Only the Navi flow changes (3 more events per question); with the setting off nothing changes. Includes #120 and #121 so the CI passes. Base: nightly.
 
