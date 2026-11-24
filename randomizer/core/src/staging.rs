@@ -76,7 +76,11 @@ pub fn grow_out(rf: &mut Romfs, t: &mut Rst, o: &Out) -> Res<usize> {
         n += 1;
     }
     if o.old == 0 && t.get(&o.path).is_none() {
-        let size: u64 = rsizetable::align(o.new as u64) + rsizetable::align(MARGIN as u64);
+        let peer: Option<(String, u32)> = crate::ap::item::size_peer(&o.path).and_then(|p| t.get(&p).map(|s| (p, s)));
+        let size: u64 = match peer {
+            Some((p, s)) => s as u64 + rsizetable::align(o.new as u64).saturating_sub(rsizetable::align(rf.read_zs(&p)?.len() as u64)),
+            None => rsizetable::align(o.new as u64) + rsizetable::align(MARGIN as u64),
+        };
         t.set_size(&o.path, size as u32)?;
         n += 1;
     }
