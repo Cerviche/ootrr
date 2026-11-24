@@ -113,7 +113,7 @@ pub(crate) fn tables(rf: &mut Romfs, o: &Opts, modded: bool, s: &Spec, l: &Layer
     let a: File = table(rf, o, modded, ACTOR_INFO, |y: &mut Byml| {
         let mut r: Node = rows::actor_row(rows::need(y, &s.item, ACTOR_INFO)?, &s.name, heap);
         if let Some(m) = &l.model {
-            crate::pickup_pack::model::row(&mut r, rows::need(y, m, ACTOR_INFO)?)?;
+            crate::pickup_pack::model::row(&mut r, rows::need(y, m, ACTOR_INFO)?, l.pose.as_deref())?;
         }
         if l.own {
             r.set(rows::ACTOR_NAME, Node::Str(s.name.clone()));
@@ -448,7 +448,8 @@ pub fn run_with(romfs: &P, load: &P, mod_name: &str, s: &Spec, o: &Opts, l: &Lay
     if !rf.root.join(pack_of(&s.item)).is_file() {
         return Err(E::Msg(format!("the game has no actor pack for {}", s.item)));
     }
-    let lifted: Layers = crate::pickup_pack::lift::layers(&mut rf, &s.item, l)?;
+    let posed: Layers = crate::pickup_pack::model::layers(&mut rf, l)?;
+    let lifted: Layers = crate::pickup_pack::lift::layers(&mut rf, &s.item, &posed)?;
     let l: &Layers = &lifted;
     let mut packs: Vec<Vec<Entry>> = Vec::new();
     for n in [BASE, DONOR, s.item.as_str()] {
