@@ -156,7 +156,7 @@ function instructions() {
       "ol",
       null,
       host === "longshot"
-        ? h("li", null, `Pick Longshot's mods folder. The mod is written as mods/${state.info.title_id}/<name>/romfs. Longshot loads every mod in mods, so keep one seed at a time (Delete all other seeds does that).`)
+        ? h("li", null, `Pick Longshot's mods folder. The mod is written as mods/<name>/romfs. Longshot loads every mod in mods, so keep one seed at a time (Delete all other seeds does that).`)
         : flat
         ? h("li", null, "The mod is written as mods/<name>/romfs in the folder you chose. For Hookshot, name it randomizer-<seed> so co-op can match the seed.")
         : h("li", null, `The mod is written to your mod folder, inside a folder named ${state.info.title_id} and then your mod name.`),

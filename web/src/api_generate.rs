@@ -34,7 +34,7 @@ pub fn run_in(gens: &Gens, b: &Json) -> Hr<Json> {
     let want_spoiler: bool = b.get("spoiler").and_then(|x| x.as_bool()).unwrap_or(true);
     let plando: Vec<Entry> = plando_of(b)?;
     let slot: Slot = gens.begin(body::opt_text(b, "ticket")?)?;
-    let opts: GenOpts = GenOpts { spoiler: want_spoiler, plando, limit: Some(LIMIT), live: Some(Arc::clone(&slot.live)), ..GenOpts::default() };
+    let opts: GenOpts = GenOpts { spoiler: want_spoiler, plando, limit: Some(LIMIT), live: Some(Arc::clone(&slot.live)), extras: true, ..GenOpts::default() };
     let g: Generated = slice::generate_with(&l.settings, &seed, &opts)?;
     drop(slot);
     let mut out: Json = api_seed::describe(&g.seed_file)?;

@@ -405,7 +405,7 @@ mod tests {
             let body: Json = req(&s, &g, &m, "randomizer-seed").with("host", host.into());
             let p: Plan = plan(&body).unwrap();
             assert!(p.target.ends_with("randomizer-seed"), "{}", p.target.display());
-            assert_eq!(p.target.components().any(|c| c.as_os_str() == TITLE_ID), host == "longshot", "{host}");
+            assert!(!p.target.components().any(|c| c.as_os_str() == TITLE_ID), "{host}");
             assert_eq!(p.host.id(), host);
         }
         assert!(plan(&req(&s, &g, &m, "x")).is_err());

@@ -47,7 +47,7 @@ pub fn generate(a: &[String]) -> Res<()> {
     let s: Loaded = resolve(arg(a, 0, "missing settings string, preset id or file")?)?;
     let seed: &str = arg(a, 1, "missing seed")?;
     let out: &str = arg(a, 2, "missing out file")?;
-    let mut o: GenOpts = GenOpts::default();
+    let mut o: GenOpts = GenOpts { extras: true, ..GenOpts::default() };
     let mut spoiler: Option<&str> = None;
     let mut i: usize = 3;
     while i < a.len() {

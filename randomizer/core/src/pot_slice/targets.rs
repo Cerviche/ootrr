@@ -49,7 +49,10 @@ pub fn targets_with(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Re
         if d.pots.state_of(loc) != Some(State::Eligible) {
             return Err(E::Msg(format!("{loc} cannot be placed, its match or its saved row is not safe")));
         }
-        let actor: String = actor_of(d, loc, item, fixed)?;
+        let actor: String = match seed.drops.get(loc) {
+            Some(a) => a.clone(),
+            None => actor_of(d, loc, item, fixed)?,
+        };
         for r in &l.refs {
             out.push(Give { name: loc.clone(), kind: k, hash: r.hash, files: r.files.clone(), was: l.item.clone(), item: item.clone(), actor: actor.clone() });
         }

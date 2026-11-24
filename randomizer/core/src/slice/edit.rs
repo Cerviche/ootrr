@@ -143,6 +143,10 @@ pub fn skipped_locations(p: &crate::slice::support::Plan) -> Vec<&'static str> {
 }
 
 pub fn build_for(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -> Res<Built> {
+    let (seed, cold): (SeedFile, Vec<crate::frost::Trap>) = crate::frost::prepare(seed)?;
+    let b: Built = crate::slice::seed_packs::build(&seed, romfs, load, mod_name, host)?;
+    let b: Built = crate::shelf::seed::after(&seed, romfs, load, mod_name, host, b)?;
+    crate::frost::after(&cold, romfs, load, mod_name, host, b)
     build_for_with(seed, romfs, load, mod_name, host, None)
 }
 
@@ -486,7 +490,7 @@ pub fn build_data(d: Data, seed: &SeedFile, romfs: &P, load: &P, mod_name: &str,
     let give_for = |loc: &str| -> crate::story_skip::SceneGive {
         let vanilla: String = d.flow.by_name(loc).and_then(|l| l.item.clone()).unwrap_or_default();
         crate::story_skip::SceneGive {
-            actor: flows.iter().find(|c| c.location == loc).map(|c| c.item.clone()).unwrap_or(vanilla),
+            actor: seed.drops.get(loc).cloned().or_else(|| flows.iter().find(|c| c.location == loc).map(|c| c.item.clone())).unwrap_or(vanilla),
             // An unshuffled prize keeps the tier check its guard gave it (flow_wrap::PRIZES).
             family: placed.get(loc).copied().or_else(|| {
                 if seed.placements.contains_key(loc) {
@@ -875,7 +879,7 @@ mod tests {
             std::fs::write(&p, other.to_zs().unwrap()).unwrap();
         }
         let b: Built = build_for(&g.seed_file, &root, &load, "ootrr-longshot", Host::Longshot).unwrap();
-        assert_eq!(b.root, load.join(TITLE_ID).join("ootrr-longshot"));
+        assert_eq!(b.root, load.join("ootrr-longshot"));
         assert!(!b.root.join("coop-seed.txt").exists());
         let ours: Rst = Rst::parse(&rf.zs.decompress(&std::fs::read(b.root.join("romfs").join(rsizetable::TABLE_PATH)).unwrap()).unwrap()).unwrap();
         assert_eq!(ours.get("OotrrTest/only_in_other.bin"), Some(4321));
