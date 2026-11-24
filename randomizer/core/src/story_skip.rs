@@ -2437,6 +2437,7 @@ mod tests {
         assert_eq!(f.events[cleared[0]].kind.params().and_then(|c| c.get("Value")), Some(&Val::Bool(0)));
         Bf::parse(&b.write().unwrap()).unwrap();
     }
+
     #[test]
     fn the_real_dungeon_endings_keep_only_the_reward_scenes() {
         let Some(root) = dump() else {

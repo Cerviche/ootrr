@@ -8,8 +8,10 @@ pub const ENTRY: &str = "GetPouchContent";
 pub const PREFIX: &str = "OOTRRFieldSun";
 pub const FLAG: &str = crate::start_state::FIELD_FIRST_VISIT;
 pub const OWL_PLAYED: [&str; 2] = ["HavePlayedEvent.Dm_HrlField_0010", "HavePlayedEvent.HyruleField_Goto_HyruleCastle_Kaepora"];
+pub const OWL_GONE: &str = "Goto_HyruleCastle_IsAfter_Step01_Exp";
 const ACTOR: &str = "GameDataActor";
 const ASK: &str = "EventQueryIsGameDataBool";
+const ASK_EXP: &str = "EventQueryIsGameDataBoolExp";
 const SET: &str = "EventTriggerSetGameDataBool";
 const NONE: u16 = 0xFFFF;
 
@@ -29,6 +31,12 @@ fn ask(f: &mut Flow, n: &str, yes: u16, no: u16) -> Res<Kind> {
     Ok(Kind::Switch { actor: a, query: q, cases: vec![Case { val: 0, ev: yes }, Case { val: 1, ev: no }], params: Some(name(n)) })
 }
 
+fn ask_exp(f: &mut Flow, n: &str, yes: u16, no: u16) -> Res<Kind> {
+    let (a, q): (u16, u16) = crate::start_state::query_slot(f, ACTOR, ASK_EXP)?;
+    let c: Cont = Cont { items: vec![("GameDataName".to_string(), Val::Str(n.to_string()))] };
+    Ok(Kind::Switch { actor: a, query: q, cases: vec![Case { val: 0, ev: yes }, Case { val: 1, ev: no }], params: Some(c) })
+}
+
 pub fn patch(b: &mut Bf) -> Res<()> {
     let f: &mut Flow = b.flows.iter_mut().find(|x| x.name == FLOW).ok_or(Error::Format("field palette: no GetPouchContent flow"))?;
     if f.events.iter().any(|e| e.name.starts_with(PREFIX)) {
@@ -40,14 +48,15 @@ pub fn patch(b: &mut Bf) -> Res<()> {
         return Err(Error::Format("field palette: the GetPouchContent entry starts nowhere"));
     }
     let base: usize = f.events.len();
-    let at: [u16; 4] = [idx(base)?, idx(base + 1)?, idx(base + 2)?, idx(base + 3)?];
+    let at: [u16; 5] = [idx(base)?, idx(base + 1)?, idx(base + 2)?, idx(base + 3)?, idx(base + 4)?];
     let (da, dx): (u16, u16) = crate::start_state::slot(f, ACTOR, SET)?;
     let mut clear: Cont = name(FLAG);
     clear.items.push(("Value".to_string(), Val::Bool(0)));
     let kinds: Vec<Kind> = vec![
         ask(f, FLAG, at[1], old)?,
-        ask(f, OWL_PLAYED[0], at[3], at[2])?,
-        ask(f, OWL_PLAYED[1], at[3], old)?,
+        ask(f, OWL_PLAYED[0], at[4], at[2])?,
+        ask(f, OWL_PLAYED[1], at[4], at[3])?,
+        ask_exp(f, OWL_GONE, at[4], old)?,
         Kind::Action { next: old, actor: da, act: dx, params: Some(clear) },
     ];
     for (i, k) in kinds.into_iter().enumerate() {
@@ -100,6 +109,14 @@ mod tests {
         k.params()?.get(key)
     }
 
+    fn walks() -> Vec<[bool; 4]> {
+        (0..16u8).map(|m: u8| [m & 1 != 0, m & 2 != 0, m & 4 != 0, m & 8 != 0]).collect()
+    }
+
+    fn state(w: &[bool; 4]) -> [(&'static str, bool); 4] {
+        [(FLAG, w[0]), (OWL_PLAYED[0], w[1]), (OWL_PLAYED[1], w[2]), (OWL_GONE, w[3])]
+    }
+
     fn ends(f: &Flow, from: u16, flags: &[(&str, bool)]) -> (u16, Vec<String>) {
         let mut i: u16 = from;
         let mut wrote: Vec<String> = Vec::new();
@@ -129,28 +146,30 @@ mod tests {
     }
 
     #[test]
-    fn the_repair_clears_the_flag_only_once_the_owl_has_played_and_always_lands_on_the_old_start() {
+    fn the_repair_clears_the_flag_only_once_the_owl_is_played_or_gone_and_always_lands_on_the_old_start() {
         let mut b: Bf = sample();
         patch(&mut b).unwrap();
         assert!(patch(&mut b).is_err());
         let f: &Flow = &b.flows[0];
         let start: u16 = f.entries.iter().find(|e| e.name == ENTRY).unwrap().main;
         assert_eq!(f.entries[0].main, 0);
-        assert_eq!(f.events.len(), 6);
+        assert_eq!(f.events.len(), 7);
         let clear: Vec<String> = vec![format!("{FLAG}={:?}", Some(&Val::Bool(0)))];
-        for flag in [false, true] {
-            for o0 in [false, true] {
-                for o1 in [false, true] {
-                    let (end, wrote): (u16, Vec<String>) = ends(f, start, &[(FLAG, flag), (OWL_PLAYED[0], o0), (OWL_PLAYED[1], o1)]);
-                    assert_eq!(end, 1, "{flag} {o0} {o1}");
-                    assert_eq!(wrote, if flag && (o0 || o1) { clear.clone() } else { Vec::new() }, "{flag} {o0} {o1}");
-                }
-            }
+        let ws: Vec<[bool; 4]> = walks();
+        assert_eq!(ws.len(), 16);
+        for w in &ws {
+            let (end, wrote): (u16, Vec<String>) = ends(f, start, &state(w));
+            assert_eq!(end, 1, "{w:?}");
+            assert_eq!(wrote, if w[0] && (w[1] || w[2] || w[3]) { clear.clone() } else { Vec::new() }, "{w:?}");
         }
         let g: &Actor = &f.actors[1];
-        assert!(g.queries.contains(&ASK.to_string()) && g.actions.contains(&SET.to_string()));
+        assert!(g.queries.contains(&ASK.to_string()) && g.queries.contains(&ASK_EXP.to_string()) && g.actions.contains(&SET.to_string()));
+        assert_eq!(g.queries.iter().filter(|q| q.as_str() == ASK_EXP).count(), 1);
         assert_eq!(f.actors.len(), 2);
-        assert_eq!(param(&f.events[5].kind, "Value"), Some(&Val::Bool(0)));
+        let Kind::Switch { query, params, .. } = &f.events[5].kind else { panic!("the step question is not a switch") };
+        assert_eq!(g.queries[usize::from(*query)], ASK_EXP);
+        assert_eq!(params.as_ref().map(|c| c.items.len()), Some(1));
+        assert_eq!(param(&f.events[6].kind, "Value"), Some(&Val::Bool(0)));
         assert_eq!(Bf::parse(&b.write().unwrap()).unwrap(), b);
     }
 
@@ -191,14 +210,44 @@ mod tests {
             }
         }
         let start: u16 = f.entries.iter().find(|e| e.name == ENTRY).unwrap().main;
-        for flag in [false, true] {
-            for o0 in [false, true] {
-                for o1 in [false, true] {
-                    let (end, _): (u16, Vec<String>) = ends(f, start, &[(FLAG, flag), (OWL_PLAYED[0], o0), (OWL_PLAYED[1], o1)]);
-                    assert_eq!(end, old);
-                }
-            }
+        for w in &walks() {
+            let (end, wrote): (u16, Vec<String>) = ends(f, start, &state(w));
+            assert_eq!(end, old, "{w:?}");
+            assert_eq!(wrote.len(), usize::from(w[0] && (w[1] || w[2] || w[3])), "{w:?}");
         }
+        let flags: &str = include_str!("../../../data/flags.json");
+        assert!(flags.contains(&format!("\"name\":\"{OWL_GONE}\",\"how\":\"exp\",\"type\":\"BoolExp\"")));
         assert_eq!(Bf::parse(&b.write().unwrap()).unwrap(), b);
+    }
+
+    #[test]
+    fn a_build_with_the_other_item_window_edits_runs_the_repair_first() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let d: crate::slice::data::Data = crate::slice::data::Data::load().unwrap();
+        let mut s: crate::settings::Settings = crate::settings::Settings::default();
+        for k in [crate::debug_names::SETTING, crate::first_pickups::SETTING] {
+            s.set(k, crate::settings::Value::Bool(true)).unwrap();
+        }
+        let g: crate::slice::generate::Generated = crate::slice::generate::generate_data(&d, &s, "field sun build", &crate::slice::generate::GenOpts::default()).unwrap();
+        let load: std::path::PathBuf = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/field_sun_mods");
+        let _ = std::fs::remove_dir_all(&load);
+        let built: crate::slice::edit::Built = crate::slice::edit::build_for(&g.seed_file, &root, &load, "ootrr-field-sun", crate::modpack::Host::Longshot).unwrap();
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let p: std::path::PathBuf = built.root.join("romfs").join("Event").join("EventFlow").join(format!("{FLOW}.bfevfl.zs"));
+        let mut b: Bf = Bf::parse(&rf.zs.decompress(&std::fs::read(&p).unwrap()).unwrap()).unwrap();
+        let f: &Flow = b.flows.iter().find(|f| f.name == FLOW).unwrap();
+        let start: u16 = f.entries.iter().find(|e| e.name == ENTRY).unwrap().main;
+        assert!(f.events[usize::from(start)].name.starts_with(PREFIX));
+        let mut outs: Vec<u16> = Vec::new();
+        for w in &walks() {
+            let (end, wrote): (u16, Vec<String>) = ends(f, start, &state(w));
+            assert_eq!(wrote.len(), usize::from(w[0] && (w[1] || w[2] || w[3])), "{w:?}");
+            outs.push(end);
+        }
+        assert!(outs.iter().all(|e| *e == outs[0]));
+        assert!(patch(&mut b).is_err());
+        let _ = std::fs::remove_dir_all(&load);
     }
 }
