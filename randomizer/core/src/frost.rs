@@ -252,12 +252,13 @@ fn add_actor(ts: &mut [Byml; 3], from: &str, name: &str, pouch: Option<&str>) ->
     Ok(())
 }
 
-fn tables(c: &mut Ctx, fakes: &[(String, String)], grounds: &[(String, String)]) -> Res<Vec<File>> {
+fn tables(c: &mut Ctx, fakes: &[(String, String)], ids: &BM<String, String>, grounds: &[(String, String)]) -> Res<Vec<File>> {
     let firsts: Vec<Vec<u8>> = [ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO].iter().map(|t| c.read(t)).collect::<Res<Vec<Vec<u8>>>>()?;
     let mut ts: [Byml; 3] = [Byml::parse(&firsts[0])?, Byml::parse(&firsts[1])?, Byml::parse(&firsts[2])?];
     add_actor(&mut ts, sensor::SUN, sensor::NAME, None)?;
     for (look, name) in fakes {
-        let pouch: String = if rows::find(&ts[2], look).is_some() { look.clone() } else { fake::RUPEE_ROW.to_string() };
+        let id: &str = ids.get(name).map(|x| x.as_str()).unwrap_or(look);
+        let pouch: String = [id, look.as_str()].iter().find(|k| rows::find(&ts[2], k).is_some()).map(|k| k.to_string()).unwrap_or_else(|| fake::RUPEE_ROW.to_string());
         add_actor(&mut ts, look, name, Some(&pouch))?;
     }
     for (g, fake) in grounds {
@@ -392,9 +393,11 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     let box4: Vec<Entry> = c.pack(sensor::TRAP_CHEST)?;
     let s: sensor::Made = sensor::make(&sun, &frz, &box4)?;
     packs.push((sensor::NAME.to_string(), s.pack, s.fresh, s.peers));
+    let mut ids: BM<String, String> = BM::new();
     for (look, name) in &fakes {
         let lp: Vec<Entry> = c.pack(look)?;
         let f: fake::Fake = fake::make(&lp, look, name)?;
+        ids.insert(f.name.clone(), f.id.clone());
         packs.push((f.name, f.pack, f.fresh, f.peers));
     }
     let mut grounds: Vec<(String, String)> = traps.iter().filter(|t| t.place == Place::Ground).map(|t| (ground::name_for(&t.fake), t.fake.clone())).collect();
@@ -408,7 +411,7 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     }
     renamed.sort();
     renamed.dedup();
-    let mut files: Vec<File> = tables(&mut c, &fakes, &renamed)?;
+    let mut files: Vec<File> = tables(&mut c, &fakes, &ids, &renamed)?;
     for (g, fake) in &grounds {
         files.push(c.file(&pack_of(g), |r: &[u8]| shelf(r, g, fake))?);
     }
@@ -480,7 +483,7 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
         y.write()
     })?);
     files.push(c.plain(trigger::MAIN, trigger::watch)?);
-    let named: Vec<(String, String)> = fakes.clone();
+    let named: Vec<(String, String)> = fakes.iter().map(|(look, name)| (ids.get(name).cloned().unwrap_or_else(|| look.clone()), name.clone())).collect();
     for l in crate::hints::languages(&c.rf)? {
         files.push(c.file(&l, |r: &[u8]| text(r, &named))?);
     }

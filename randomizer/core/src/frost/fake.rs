@@ -13,6 +13,7 @@ const NAME_REF: &str = "ActorNameRef";
 pub struct Fake {
     pub name: String,
     pub look: String,
+    pub id: String,
     pub pack: Vec<u8>,
     pub fresh: Vec<(String, usize)>,
     pub peers: Vec<(String, usize)>,
@@ -32,6 +33,13 @@ pub fn make(look_pack: &[Entry], look: &str, name: &str) -> Res<Fake> {
     let peers: Vec<(String, usize)> = p.files.iter().map(|e| (e.0.clone(), e.1.len())).collect();
     let lc: Chain = chain(&p, look)?;
     let look_pouch: String = pouch_of(&lc, look)?;
+    let id: String = lc
+        .comps
+        .get(NAME_REF)
+        .and_then(|v| v.strip_prefix("?ActorSystem/ActorName/"))
+        .and_then(|v| v.strip_suffix(".engine__actor__ActorName.bgyml"))
+        .unwrap_or(look)
+        .to_string();
     let version: u16 = p.byml(&actor_file(look))?.version;
     let mut comps: Node = Node::Map(Vec::new());
     comps.set(NAME_REF, s(&own_name_ref(name)));
@@ -53,5 +61,5 @@ pub fn make(look_pack: &[Entry], look: &str, name: &str) -> Res<Fake> {
         }
     }
     let es: Vec<Entry> = files.iter().map(|f| Entry { name: f.clone(), data: p.get(f).unwrap_or(&[]).to_vec() }).collect();
-    Ok(Fake { name: name.to_string(), look: look.to_string(), pack: sarc::write(&es)?, fresh, peers })
+    Ok(Fake { name: name.to_string(), look: look.to_string(), id, pack: sarc::write(&es)?, fresh, peers })
 }
