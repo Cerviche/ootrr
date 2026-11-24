@@ -54,6 +54,7 @@ pub enum Place {
     Chest,
     Ground,
     Shop(i64),
+    Skull,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,6 +64,7 @@ pub struct Trap {
     pub look: String,
     pub actor: String,
     pub fake: String,
+    pub kit: String,
 }
 
 pub fn fake_name(actor: &str) -> String {
@@ -75,6 +77,7 @@ impl Trap {
             Place::Chest => vec![self.fake.clone()],
             Place::Ground => vec![self.fake.clone(), ground::name_for(&self.fake)],
             Place::Shop(p) => vec![self.fake.clone(), crate::shelf::shelf_name(&self.actor, p as i32)],
+            Place::Skull => vec![self.fake.clone(), self.kit.clone()],
         }
     }
 }
@@ -143,6 +146,8 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
             Place::Chest
         } else if kind.is_some_and(|k| GROUND_KINDS.contains(&k)) {
             Place::Ground
+        } else if kind == Some("gs") {
+            Place::Skull
         } else {
             return Err(E::Msg(format!("{loc} holds {TRAP}, which this build can only put in a chest, on the ground or in a shop")));
         };
@@ -161,7 +166,8 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
         if let (Place::Shop(_), Some(s)) = (place, out.shops.get_mut(loc)) {
             s.item = look.clone();
         }
-        traps.push(Trap { loc: loc.clone(), place, look, fake: fake_name(&actor), actor });
+        let kit: String = if place == Place::Skull { crate::slice::skulls::drop_actor(&crate::slice::skulls::table()?, &d, &look, None)? } else { String::new() };
+        traps.push(Trap { loc: loc.clone(), place, look, fake: fake_name(&actor), actor, kit });
     }
     Ok((out, traps))
 }
@@ -408,6 +414,9 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
         if let Place::Shop(p) = t.place {
             renamed.push((crate::shelf::shelf_name(&t.actor, p as i32), t.fake.clone()));
         }
+        if t.place == Place::Skull {
+            renamed.push((t.kit.clone(), t.fake.clone()));
+        }
     }
     renamed.sort();
     renamed.dedup();
@@ -415,12 +424,18 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     for (g, fake) in &grounds {
         files.push(c.file(&pack_of(g), |r: &[u8]| shelf(r, g, fake))?);
     }
+    let mut kits: Vec<(String, String)> = traps.iter().filter(|t| t.place == Place::Skull).map(|t| (t.kit.clone(), t.fake.clone())).collect();
+    kits.sort();
+    kits.dedup();
+    for (k, fake) in &kits {
+        files.push(c.file(&pack_of(k), |r: &[u8]| shelf(r, k, fake))?);
+    }
     let mut by_file: BM<String, BM<u64, chest::Swap>> = BM::new();
     for t in traps {
         let swap: chest::Swap = match t.place {
             Place::Chest => chest::Swap::Content(t.fake.clone()),
             Place::Ground => chest::Swap::Actor(ground::name_for(&t.fake)),
-            Place::Shop(_) => continue,
+            Place::Shop(_) | Place::Skull => continue,
         };
         let l = d.cat.by_name(&t.loc).ok_or_else(|| E::Msg(format!("{} is not in the location list", t.loc)))?;
         for r in &l.refs {
