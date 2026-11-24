@@ -70,12 +70,8 @@ pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str) -> Res<Built>
     build_for(seed, romfs, load, mod_name, Host::Eden)
 }
 
-pub fn givable(i: &crate::slice::data::Item) -> bool {
-    i.actor.is_some() || !i.tiers.is_empty()
-}
-
 pub fn given_at_start(i: &crate::slice::data::Item) -> bool {
-    givable(i) && i.dungeon.is_none()
+    (i.actor.is_some() || !i.tiers.is_empty()) && i.dungeon.is_none()
 }
 
 /// The item actors the skipped story would have handed out at `locs`: the placed item, or the

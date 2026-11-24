@@ -124,17 +124,7 @@ fn silver(s: &Spot) -> Option<bool> {
 }
 
 fn skipped(s: &Spot) -> Option<bool> {
-    (crate::slice::edit::skipped_locations(s.p).contains(&s.name) && !s.d.item(s.item).is_some_and(at_start)).then_some(false)
-}
-
-#[cfg(not(test))]
-fn at_start(i: &crate::slice::data::Item) -> bool {
-    crate::slice::edit::given_at_start(i)
-}
-
-#[cfg(test)]
-fn at_start(i: &crate::slice::data::Item) -> bool {
-    if tests::UNFIXED.get() { crate::slice::edit::givable(i) } else { crate::slice::edit::given_at_start(i) }
+    (crate::slice::edit::skipped_locations(s.p).contains(&s.name) && !s.d.item(s.item).is_some_and(crate::slice::edit::given_at_start)).then_some(false)
 }
 
 fn songs(s: &Spot) -> Option<bool> {
@@ -143,17 +133,12 @@ fn songs(s: &Spot) -> Option<bool> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap as BM;
-
     use crate::settings::{Settings, Value};
-    use crate::slice::data::Data;
-    use crate::slice::generate::{generate_data, GenOpts, Generated};
+    use crate::slice::data::{Data, Item};
+    use crate::slice::generate::{allowed, generate_data, GenOpts, Generated};
     use crate::slice::support::Plan;
     use crate::start_state::{Ops, KAKARIKO_LOCATIONS};
-
-    thread_local! {
-        pub static UNFIXED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-    }
+    use crate::world::World;
 
     fn with(v: &[(&str, &str)]) -> Settings {
         let mut s: Settings = Settings::default();
@@ -179,71 +164,64 @@ mod tests {
         ])
     }
 
-    fn at_new_game(d: &Data, s: &Settings, seeds: std::ops::Range<usize>, unfixed: bool) -> (usize, BM<String, usize>) {
-        UNFIXED.set(unfixed);
+    fn dungeon_items_at_new_game(d: &Data, s: &Settings, seeds: std::ops::Range<usize>) -> usize {
         let mut bad: usize = 0;
-        let mut kinds: BM<String, usize> = BM::new();
         for n in seeds {
             let g: Generated = generate_data(d, s, &format!("r-{n}"), &GenOpts::default()).unwrap();
-            let mut hit: bool = false;
             for l in KAKARIKO_LOCATIONS {
-                let Some(i) = g.seed_file.placements.get(l).and_then(|x| d.item(x)) else { continue };
-                if i.dungeon.is_some() {
-                    hit = true;
-                    *kinds.entry(i.kind.clone()).or_insert(0) += 1;
-                }
+                bad += usize::from(g.seed_file.placements.get(l).and_then(|x| d.item(x)).is_some_and(|i| i.dungeon.is_some()));
             }
-            bad += usize::from(hit);
-            if !unfixed {
-                crate::slice::edit::skipped_items(d, &g.seed_file, &KAKARIKO_LOCATIONS).unwrap();
-            }
+            crate::slice::edit::skipped_items(d, &g.seed_file, &KAKARIKO_LOCATIONS).unwrap();
         }
-        UNFIXED.set(false);
-        (bad, kinds)
+        bad
     }
 
     fn small_keys_at_new_game(start: usize) {
         let d: Data = Data::load().unwrap();
-        let s: Settings = open_keys();
-        let (before, k): (usize, BM<String, usize>) = at_new_game(&d, &s, start..start + 50, true);
-        let (after, _): (usize, BM<String, usize>) = at_new_game(&d, &s, start..start + 50, false);
-        println!("seeds r-{start} to r-{}: {before} of 50 seeds put a dungeon item at a check given at new game without the fix ({k:?}), {after} with it", start + 49);
-        assert!(before > 0);
-        assert_eq!(after, 0);
+        let n: usize = dungeon_items_at_new_game(&d, &open_keys(), start..start + 50);
+        println!("seeds r-{start} to r-{}: {n} dungeon items at the checks given at new game (nightly dda8087 before the fix: 40 of the 200 seeds r-0 to r-199)", start + 49);
+        assert_eq!(n, 0);
     }
 
     parts!(small_keys_at_new_game, open_gate_seeds_0_to_49 = 0, open_gate_seeds_50_to_99 = 50, open_gate_seeds_100_to_149 = 100, open_gate_seeds_150_to_199 = 150);
 
     #[test]
-    fn no_dungeon_item_kind_is_given_at_new_game() {
+    fn with_every_dungeon_item_anywhere_none_lands_at_the_new_game_checks() {
         let d: Data = Data::load().unwrap();
-        let s: Settings = every_kind();
-        let (before, k): (usize, BM<String, usize>) = at_new_game(&d, &s, 0..40, true);
-        let (after, _): (usize, BM<String, usize>) = at_new_game(&d, &s, 0..40, false);
-        println!("every dungeon item anywhere: {before} of 40 seeds without the fix ({k:?}), {after} with it");
-        assert!(before > 0 && k.len() > 1);
-        assert_eq!(after, 0);
+        let n: usize = dungeon_items_at_new_game(&d, &every_kind(), 0..40);
+        println!("every dungeon item anywhere, seeds r-0 to r-39: {n} at the checks given at new game");
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn nightly_seed_r_10_key_at_zeldas_letter_is_refused() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = open_keys();
+        let p: Plan = crate::slice::support::plan(&s).unwrap();
+        let w: World = crate::slice::logic::world_with(&d, &p.logic()).unwrap();
+        let (loc, key): (&str, &str) = ("HC Zeldas Letter", "Small Key (Forest Temple)");
+        let i: &Item = d.item(key).unwrap();
+        assert!(i.actor.is_some() || !i.tiers.is_empty());
+        assert!(!crate::slice::edit::given_at_start(i));
+        let l: crate::world::LocId = w.loc(loc).unwrap();
+        assert!(!allowed(&d, &w, &p, w.item(key).unwrap(), l));
+        assert!(allowed(&d, &w, &p, w.item("Gold Skulltula Token").unwrap(), l));
+        let mut g: Generated = generate_data(&d, &s, "r-10", &GenOpts::default()).unwrap();
+        g.seed_file.placements.insert(loc.to_string(), key.to_string());
+        let e: String = crate::slice::edit::skipped_items(&d, &g.seed_file, &KAKARIKO_LOCATIONS).unwrap_err().to_string();
+        assert!(e.contains("HC Zeldas Letter holds Small Key (Forest Temple), which cannot be given when a new game starts"), "{e}");
+        let actor: String = i.actor.clone().unwrap();
+        let ops: Ops = crate::start_state::kakariko(&[actor.clone()]);
+        assert!(ops.items.contains(&actor));
+        let credit: usize = ops.flags.iter().map(|(n, _)| n).chain(ops.ints.iter().map(|(n, _)| n)).filter(|n| n.starts_with("DungeonInfo.")).count();
+        assert_eq!(credit, 0);
     }
 
     #[test]
     fn keys_in_their_own_dungeon_never_reach_the_new_game_checks() {
         let d: Data = Data::load().unwrap();
         let s: Settings = with(&[("open_forest", "open"), ("open_kakariko", "open")]);
-        let (before, _): (usize, BM<String, usize>) = at_new_game(&d, &s, 0..20, true);
-        assert_eq!(before, 0);
-    }
-
-    #[test]
-    fn the_unfixed_new_game_adds_a_key_with_no_dungeon_credit() {
-        let d: Data = Data::load().unwrap();
-        let i: &crate::slice::data::Item = d.item("Small Key (Shadow Temple)").unwrap();
-        assert!(crate::slice::edit::givable(i) && !crate::slice::edit::given_at_start(i));
-        let actor: String = i.actor.clone().unwrap();
-        let ops: Ops = crate::start_state::kakariko(&[actor.clone()]);
-        assert!(ops.items.contains(&actor));
-        let credit: usize = ops.flags.iter().map(|(n, _)| n).chain(ops.ints.iter().map(|(n, _)| n)).filter(|n| n.starts_with("DungeonInfo.")).count();
-        println!("the new game would add {actor} and write {credit} DungeonInfo values");
-        assert_eq!(credit, 0);
+        assert_eq!(dungeon_items_at_new_game(&d, &s, 0..20), 0);
     }
 
     #[test]

@@ -19,14 +19,13 @@ Settings: default, plus Kokiri Forest open, Kakariko Gate open, Small Keys Anywh
 | | Seeds with a dungeon item at one of the two checks |
 |---|---|
 | plain nightly (`dda8087`, `ootrr generate` with the reference build, spoilers counted) | 40 of 200 (9, 11, 12 and 8 per block of 50) |
-| this branch with the old rule switched back on in the test | 40 of 200, the same seeds per block |
-| this branch | 0 of 200 |
+| this branch (test `open_gate_seeds_*`) | 0 of 200 |
 
-Every kind can land there: with Small Keys, Boss Keys, Maps and Compasses and Ganon's Boss Key all Anywhere and songs shuffled anywhere, 20 of 40 seeds (`r-0` to `r-39`) put one there on the old rule (15 small keys, 2 boss keys, 2 maps, 2 compasses; without the song shuffle, 1 of 40 had Ganon's Boss Key). With keys in their own dungeon, 0 of 20. Small keys of the Thieves' Hideout can only stay vanilla on nightly, and Silver Rupee items only go into chests, so neither can reach these two checks. With the gate closed (the default) the two checks are not given at new game at all.
+Every kind can land there. Measured with the old rule during development (not a committed test): with Small Keys, Boss Keys, Maps and Compasses and Ganon's Boss Key all Anywhere and songs shuffled anywhere, 20 of 40 seeds (`r-0` to `r-39`) put one there (15 small keys, 2 boss keys, 2 maps, 2 compasses). Ganon's Boss Key was seen there once, in a separate exploration run without the song shuffle (1 of 40); the build-refusal test covers that key. With keys in their own dungeon, 0 of 20. Small keys of the Thieves' Hideout can only stay vanilla on nightly, and Silver Rupee items only go into chests, so neither can reach these two checks. With the gate closed (the default) the two checks are not given at new game at all.
 
 ### Evidence from the built data
 
-On plain nightly (`dda8087`) with the settings above, seed `r-10` puts "Small Key (Forest Temple)" at "HC Zeldas Letter". Its built mod's `OpeningEvent` (`ootrr bfevfl-dump`) sets `IsGet.Item_Dungeon_SmallKey` = true and adds `Item_Dungeon_SmallKey` (Num 1) to the pouch, and none of its 160 dumped lines writes a `DungeonInfo` value. An earlier build of the same code (recorded in the SoH Standard preset work, seed `r-2`, a Shadow Temple key) showed the same, and its `Dm_HrlCastle_0050`, the gift scene the skip never plays, had the credit a gift makes (`DungeonInfo.ShadowTemple.SmallKeyNum` +1, `SmallKeyTotalNum` +1, `IsGetSmallKeyOnce`). The test `the_unfixed_new_game_adds_a_key_with_no_dungeon_credit` checks the same at the start-state level: the old path's ops add `Item_Dungeon_SmallKey` and write 0 `DungeonInfo` values.
+On plain nightly (`dda8087`) with the settings above, seed `r-10` puts "Small Key (Forest Temple)" at "HC Zeldas Letter". Its built mod's `OpeningEvent` (`ootrr bfevfl-dump`) sets `IsGet.Item_Dungeon_SmallKey` = true and adds `Item_Dungeon_SmallKey` (Num 1) to the pouch, and none of its 160 dumped lines writes a `DungeonInfo` value. An earlier build of the same code (recorded in the SoH Standard preset work, seed `r-2`, a Shadow Temple key) showed the same, and its `Dm_HrlCastle_0050`, the gift scene the skip never plays, had the credit a gift makes (`DungeonInfo.ShadowTemple.SmallKeyNum` +1, `SmallKeyTotalNum` +1, `IsGetSmallKeyOnce`). The test `nightly_seed_r_10_key_at_zeldas_letter_is_refused` pins this placement: the old rule's test (an item actor or tiers) accepts the Forest Temple key there, the fix refuses it both in the fill (`allowed`) and at build (`skipped_items`), and the start-state ops for that key add `Item_Dungeon_SmallKey` and write 0 `DungeonInfo` values.
 
 Not seen in the game. Nobody has played a seed with a key at one of these checks; the bug is shown from the generator and the built data only.
 
@@ -36,7 +35,7 @@ Not seen in the game. Nobody has played a seed with a key at one of these checks
 - `slice/edit.rs`, `skipped_items`: a seed that still has such an item there (an old seed file, a hand-edited one) stops the build with "HC Zeldas Letter holds Small Key (Shadow Temple), which cannot be given when a new game starts".
 - A plando entry that puts a dungeon item there is refused with the generator's usual plando message.
 
-Only seeds with the Kakariko gate open and dungeon items outside their dungeon change; the default keeps the gate closed, so default seeds and the default build are unchanged.
+Both changes act only when the gate is open, which is off by default, so default seeds and the default build are unchanged. With the gate open and keys, boss keys, maps or compasses set to Anywhere, Overworld or Same region (whichever of those each setting offers), every seed text gives a different seed than before; with them in their own dungeon, seeds are unchanged.
 
 ### Why refuse instead of credit
 
@@ -63,14 +62,16 @@ The other fix would credit the dungeon at new game: the same writes the gift sce
 
 Offline only (`OOTRR_ROMFS` set where a test reads game files):
 
-- `slice::place_rules::tests::open_gate_seeds_*` (4 blocks of 50, `r-0` to `r-199`): for each block, counts the seeds with a dungeon item at the two checks with the old rule (switched back on through a test-only thread-local in the test build) and with the fix; prints both and asserts the old rule places at least one and the fix none. Printed: 9, 11, 12, 8 before, 0 after. Also checks each fixed seed's new-game items build.
-- `no_dungeon_item_kind_is_given_at_new_game`: every dungeon item kind Anywhere, songs anywhere, 40 seeds: 20 before (four kinds), 0 after.
-- `keys_in_their_own_dungeon_never_reach_the_new_game_checks`: open gate, keys in their dungeon, 20 seeds: 0 even on the old rule.
-- `the_unfixed_new_game_adds_a_key_with_no_dungeon_credit`: the old path's start state for a Shadow Temple key adds `Item_Dungeon_SmallKey` and writes 0 `DungeonInfo` values.
+- `slice::place_rules::tests::open_gate_seeds_*` (4 blocks of 50, `r-0` to `r-199`): counts the dungeon items at the two checks, prints and asserts 0, and checks each seed's new-game items build. The count before the fix (40 of 200) is measured with nightly `dda8087`'s own build, above.
+- `nightly_seed_r_10_key_at_zeldas_letter_is_refused`: the placement nightly's `r-10` makes (Forest Temple small key at "HC Zeldas Letter"): the old rule accepts it, the fix refuses it in `allowed` and in `skipped_items`, a Gold Skulltula Token is still allowed there, and the start state for the key writes 0 `DungeonInfo` values.
+- `with_every_dungeon_item_anywhere_none_lands_at_the_new_game_checks`: every dungeon item kind Anywhere, songs anywhere, 40 seeds: 0.
+- `keys_in_their_own_dungeon_never_reach_the_new_game_checks`: open gate, keys in their dungeon, 20 seeds: 0.
 - `a_dungeon_item_at_a_new_game_check_stops_the_build`: a small key, a boss key, a map, a compass and Ganon's Boss Key at "HC Zeldas Letter" each stop the start state with the message; a Gold Skulltula Token there is given as `Item_Token_Gold`.
 - `a_plando_key_at_a_new_game_check_is_refused`: refused with the gate open, accepted with it closed.
 
-Results on this branch (nightly `dda8087` plus this fix): `cargo test -p ootrr-core place_rules` 9 passed; `generate` 63 passed; `settings` 113 passed; `cargo test --workspace` 2347 passed, 0 failed, 9 ignored. The upstream workflow's test step (`cargo test --release --locked -p ootrr-web -p ootrr -- stdio options_parse jobs::`, no game files) passes; the wasm build and the parity script were not run (no wasm target installed), and the change touches no platform code.
+Results on this branch (nightly `dda8087` plus this fix): `cargo test -p ootrr-core place_rules` 9 passed; `generate` 63 passed; `settings` 113 passed; `cargo test --workspace` 2347 passed, 0 failed, 9 ignored. The upstream workflow's test step (`cargo test --release --locked -p ootrr-web -p ootrr -- stdio options_parse jobs::`, no game files) passes; the change touches no platform code.
+
+Not tested by anyone: upstream's wasm build (`cargo build --release --locked -p ootrr --target wasm32-wasip1`) and the parity script (`site/test/parity.mjs`), because no wasm target is installed here; nothing in the game.
 
 Output compared with the reference build of nightly `dda8087`:
 
@@ -80,14 +81,14 @@ Output compared with the reference build of nightly `dda8087`:
 
 ## How to test it in the game
 
-Nothing new to see when it works: no key appears at the two checks. To see the old bug, use plain nightly with Kokiri Forest open, Kakariko Gate open and Small Keys Anywhere, seed `r-10` (its spoiler puts the Forest Temple small key at "HC Zeldas Letter"): start a new game, go to the Forest Temple and check whether the first locked door opens with a key that came from that check. Expected on nightly, from the data: it does not, the dungeon's key count stays 0. With this branch the same settings never put a key there, and building nightly's `r-10` seed file stops with the message above. With this branch the same settings never put a key there.
+Nothing new to see when it works: no key appears at the two checks. To see the old bug, use plain nightly with Kokiri Forest open, Kakariko Gate open and Small Keys Anywhere, seed `r-10` (its spoiler puts the Forest Temple small key at "HC Zeldas Letter"): start a new game, go to the Forest Temple and check whether the first locked door opens with a key that came from that check. Expected on nightly, from the data: it does not, the dungeon's key count stays 0. With this branch the same settings never put a key there, and building nightly's `r-10` seed file stops with the message above.
 
 ## MR Drafts
 
 ### Initial MR Draft
-**Title:** Improved World > Kakariko Gate Fix: no dungeon keys handed out at new game
+**Title:** Improved World > Kakariko Gate Fix: no dungeon items handed out at new game
 
-With the Kakariko Gate open, whatever is placed at Zelda's Letter and the Song from Impa is given when a new game starts as a plain item add, which credits no dungeon, so a small key (or boss key, map or compass) placed there was counted by the logic but never reached its dungeon (40 of 200 seeds with Small Keys Anywhere, from the generator and the built data; not seen in the game). Dungeon items are no longer placed at those two checks, and a seed file that still has one there is refused at build. Only seeds with the gate open and dungeon items outside their own dungeon change; default seeds and the default build are unchanged. Based on nightly.
+With the Kakariko Gate open, whatever is placed at Zelda's Letter and the Song from Impa is given when a new game starts as a plain item add, which credits no dungeon, so a small key (or boss key, map or compass) placed there was counted by the logic but never reached its dungeon (40 of 200 seeds with Small Keys Anywhere, from the generator and the built data; not seen in the game). Dungeon items are no longer placed at those two checks, and a seed file that still has one there is refused at build. Both changes act only when the gate is open, which is off by default, so default seeds and the default build are unchanged; with the gate open and keys, boss keys, maps or compasses set to Anywhere, Overworld or Same region, every seed text gives a different seed than before. Based on nightly.
 
 For details about implementation and testing, see difficulty-mod/docs/features/60-new-game-dungeon-item-fix.md.
 
