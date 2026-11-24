@@ -24,7 +24,7 @@ In `randomizer/core/src/qol/navi_return.rs`, `offer()`: after the player answers
 
 The three actions are added to actors the patched flow already has (`GameSystemActor`, `ChallengeSystemActor`); no new actor, no new file, no new setting. The "quiet while a minigame timer counts" check from #100 stays in front of the question, so Navi still never ends a race or a boss fight halfway. The timer stop and hide are a safety net so a trip never carries a timer display into the next map (the sibling report is #74, see feature 76). The `STAY` comment now says what the trip does instead of claiming the state cannot be undone.
 
-What changes in a default build: Return with Navi defaults to "everywhere", so stock settings include this flow, and only this flow (`Event/EventFlow/NaviHint.bfevfl.zs`) changes: 3 more events per question (the flow holds 12 dungeon questions in "dungeons" mode and 14 in "everywhere" mode). Nothing else is touched. With the setting off, the build is unchanged (the stage returns no files).
+What changes in a default build: Return with Navi defaults to "everywhere", so stock settings include this flow, and only this flow (`Event/EventFlow/NaviHint.bfevfl.zs`) changes: 3 more events per question (the flow holds 12 dungeon questions in "dungeons" mode and 14 in "everywhere" mode). The only other file that changes is the size table (`System/Resource/ResourceSizeTable...rsizetable.zs`), for the flow's larger size; checked 25 Nov by hashing the default build against nightly dda8087 (286 files, these two differ). With the setting off, the build is unchanged (the stage returns no files).
 
 ## Risks, as read and not tested
 
@@ -81,7 +81,7 @@ For details about implementation and testing, see difficulty-mod/docs/features/7
 
 Using Return with Navi to leave a locked enemy room (for example the Deku Tree scrub room) left the game refusing manual saves and autosaves until a game over or reload. The trip now leaves the game's safety section, and stops and hides any minigame timer, before it changes the map. Tested in the game by script: on nightly the trip out of the Deku Tree scrub room left Save greyed (0 save files changed); with the fix the same test wrote the save (3 files) and Save was not greyed. A trip from the lobby and saving inside the locked room behave as before. Other locked rooms were not played.
 
-Only the Navi flow changes (3 more events per question); with the setting off nothing changes. Merged with nightly dda8087, which fixed nightly's own tests. Base: nightly.
+Only the Navi flow changes (3 more events per question), and with it the size table; with the setting off nothing changes. Merged with nightly dda8087, which fixed nightly's own tests. Base: nightly.
 
 Fixes #71, #72.
 
