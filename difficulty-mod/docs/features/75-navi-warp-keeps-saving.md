@@ -1,6 +1,6 @@
 # 75. Return with Navi: a trip out of a locked room no longer turns saving off
 
-Upstream bug fix for the setting Return with Navi (setting 78, `navi_return`). No new setting; the setting's default and the settings strings are unchanged. Based on `origin/nightly` (80eb5be). Includes #120 and #121 (the Gerudo card menu fix and the pose test fix), merged in so the upstream CI passes.
+Upstream bug fix for the setting Return with Navi (setting 78, `navi_return`). No new setting; the setting's default and the settings strings are unchanged. Based on `origin/nightly` (dda8087, which carries the same test fixes as #120 and #121, so the upstream CI passes without them).
 
 ## Requested
 
@@ -81,7 +81,7 @@ For details about implementation and testing, see difficulty-mod/docs/features/7
 
 Using Return with Navi to leave a locked enemy room (for example the Deku Tree scrub room) left the game refusing manual saves and autosaves until a game over or reload. The trip now leaves the game's safety section, and stops and hides any minigame timer, before it changes the map. Tested in the game by script: on nightly the trip out of the Deku Tree scrub room left Save greyed (0 save files changed); with the fix the same test wrote the save (3 files) and Save was not greyed. A trip from the lobby and saving inside the locked room behave as before. Other locked rooms were not played.
 
-Only the Navi flow changes (3 more events per question); with the setting off nothing changes. Includes #120 and #121 so the CI passes. Base: nightly.
+Only the Navi flow changes (3 more events per question); with the setting off nothing changes. Base: nightly.
 
 Fixes #71, #72.
 
