@@ -140,8 +140,14 @@ pub fn build_for(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Hos
     crate::shelf::seed::after(seed, romfs, load, mod_name, host, b)
 }
 
+pub type Hook<'a> = dyn FnMut(&mut Romfs, &P, &mut Vec<crate::staging::Out>) -> Res<()> + 'a;
+
 pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, extra: &Extra) -> Res<Built> {
-    let d: Data = Data::load()?;
+    build_data(Data::load()?, seed, romfs, load, mod_name, host, extra, None)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn build_data(d: Data, seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, extra: &Extra, mut hook: Option<&mut Hook>) -> Res<Built> {
     let loaded = seed.settings()?;
     let p = plan(&loaded.settings)?;
     let d: Data = crate::slice::treasure::with(d, p.treasure);
@@ -656,6 +662,20 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         crate::debug_names::stage_credit_flows(&mut rf, &d, &work, &mut tail, &listed, &sales)?;
         crate::debug_names::stage_credit_chests(&mut rf, &d, &work, &mut tail, &chest_cs)?;
         for o in tail {
+            pk.write_romfs(&o.path, &o.z)?;
+            extra += 1;
+            if rst.is_none() {
+                rst = Some(rsizetable::load(&mut rf)?);
+            }
+            if let Some(t) = rst.as_mut() {
+                grown += crate::staging::grow_out(&mut rf, t, &o)?;
+            }
+        }
+    }
+    if let Some(h) = hook.as_mut() {
+        let mut outs: Vec<crate::staging::Out> = Vec::new();
+        h(&mut rf, &work, &mut outs)?;
+        for o in outs {
             pk.write_romfs(&o.path, &o.z)?;
             extra += 1;
             if rst.is_none() {

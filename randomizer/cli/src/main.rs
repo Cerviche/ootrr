@@ -397,6 +397,7 @@ fn main() -> ExitCode {
         Some("mem-watch") => mem_watch_cmd::run(&a[1..]),
         Some("ap-test-mod") => ap_cmd::test_mod(&a[1..]),
         Some("ap-flag") => ap_cmd::flag(&a[1..]),
+        Some("ap-export") => ap_cmd::export(&a[1..]),
         None => serve_cmd::run(&[]),
         Some("help") | Some("--help") | Some("-h") => {
             println!("{USAGE}");
