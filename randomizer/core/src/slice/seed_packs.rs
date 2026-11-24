@@ -37,14 +37,16 @@ pub struct Want {
     pub pick: Pick,
     pub kind: Kind,
     pub spots: Vec<String>,
+    pub named: bool,
 }
 
 impl Want {
     pub fn spec(&self) -> Res<(Spec, Layers)> {
-        match self.kind {
-            Kind::Skull => self.pick.hang_with(),
-            _ => self.pick.spec(),
-        }
+        let (s, l): (Spec, Layers) = match self.kind {
+            Kind::Skull => self.pick.hang_with()?,
+            _ => self.pick.spec()?,
+        };
+        Ok(if self.named { (Spec { name: self.name.clone(), ..s }, l) } else { (s, l) })
     }
 }
 
@@ -82,14 +84,18 @@ pub fn need(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Res<BM<Str
             Err(e) => return Err(E::Msg(format!("{loc} holds {item}, which this build cannot place there yet: {e}"))),
         };
         let name: String = if k.kit() { p.hang() } else { p.pack.clone() };
-        let w: &mut Want = out.entry(name.clone()).or_insert_with(|| Want { name, pick: p, kind: k, spots: Vec::new() });
+        let w: &mut Want = out.entry(name.clone()).or_insert_with(|| Want { name, pick: p, kind: k, spots: Vec::new(), named: false });
         w.spots.push(loc.clone());
     }
     // An Ocarina at an NPC gift that holds the item up is handed out as its pickup actor, which
     // either tier's branch can show, so both packs are built (crate::ocarina_hold).
     for (loc, p) in crate::ocarina_hold::wanted(d, seed) {
-        let w: &mut Want = out.entry(p.pack.clone()).or_insert_with(|| Want { name: p.pack.clone(), pick: p, kind: Kind::Free, spots: Vec::new() });
+        let w: &mut Want = out.entry(p.pack.clone()).or_insert_with(|| Want { name: p.pack.clone(), pick: p, kind: Kind::Free, spots: Vec::new(), named: false });
         w.spots.push(loc);
+    }
+    for (name, item) in &seed.named {
+        let p: Pick = resolve(d, item, None).map_err(|e| E::Msg(format!("the pickup {name} for {item} cannot be built: {e}")))?;
+        out.insert(name.clone(), Want { name: name.clone(), pick: p, kind: Kind::Free, spots: Vec::new(), named: true });
     }
     for w in out.values() {
         w.spec()?;

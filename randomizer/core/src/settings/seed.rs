@@ -23,6 +23,7 @@ pub struct SeedFile {
     pub shops: Map<String, ShopEntry>,
     pub entrances: Map<String, String>,
     pub copies: Map<String, i64>,
+    pub named: Map<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,6 +76,7 @@ impl SeedFile {
             shops: Map::new(),
             entrances: Map::new(),
             copies: Map::new(),
+            named: Map::new(),
         };
         f.check_fields()?;
         Ok(f)
@@ -256,6 +258,7 @@ impl SeedFile {
             shops: SeedFile::shops_from(j)?,
             entrances,
             copies: Map::new(),
+            named: Map::new(),
         };
         f.check_fields()?;
         let want: String = field(j, "checksum")?.to_string();

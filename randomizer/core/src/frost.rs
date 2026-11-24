@@ -17,7 +17,6 @@ use crate::msbt::{self, Msbt};
 use crate::pickup_pack::actor::{pouch_file, POUCH_ACTOR};
 use crate::pickup_pack::closure::{actor_file, work};
 use crate::pickup_pack::rows::{self, ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO};
-use crate::pickup_pack::tag::{Table, TAG};
 use crate::pickup_pack::write::start;
 use crate::pickup_pack::{pack_of, sizes, PACK_DICT};
 use crate::progressive::{ANALYZED_TABLE, SETTING_TABLE};
@@ -155,6 +154,9 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
             *out.copies.entry(held).or_insert(0) -= 1;
         }
         *out.copies.entry(look.clone()).or_insert(0) += 1;
+        if place == Place::Ground {
+            out.named.insert(ground::name_for(&fake_name(&actor)), look.clone());
+        }
         out.placements.insert(loc.clone(), look.clone());
         if let (Place::Shop(_), Some(s)) = (place, out.shops.get_mut(loc)) {
             s.item = look.clone();
@@ -250,7 +252,7 @@ fn add_actor(ts: &mut [Byml; 3], from: &str, name: &str, pouch: Option<&str>) ->
     Ok(())
 }
 
-fn tables(c: &mut Ctx, fakes: &[(String, String)], grounds: &[(String, String)]) -> Res<Vec<File>> {
+fn tables(c: &mut Ctx, fakes: &[(String, String)]) -> Res<Vec<File>> {
     let firsts: Vec<Vec<u8>> = [ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO].iter().map(|t| c.read(t)).collect::<Res<Vec<Vec<u8>>>>()?;
     let mut ts: [Byml; 3] = [Byml::parse(&firsts[0])?, Byml::parse(&firsts[1])?, Byml::parse(&firsts[2])?];
     add_actor(&mut ts, sensor::SUN, sensor::NAME, None)?;
@@ -258,45 +260,12 @@ fn tables(c: &mut Ctx, fakes: &[(String, String)], grounds: &[(String, String)])
         let pouch: String = if rows::find(&ts[2], look).is_some() { look.clone() } else { fake::RUPEE_ROW.to_string() };
         add_actor(&mut ts, look, name, Some(&pouch))?;
     }
-    for (orig, g) in grounds {
-        let pouch: &str = if rows::find(&ts[2], orig).is_some() { orig } else { fake::RUPEE_ROW };
-        let pouch: String = pouch.to_string();
-        add_actor(&mut ts, orig, g, Some(&pouch))?;
-    }
     let mut out: Vec<File> = Vec::new();
     for (i, t) in [ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO].iter().enumerate() {
         let old: usize = if c.modded { firsts[i].len() } else { c.rf.read_zs(t)?.len() };
         out.push(File { path: t.to_string(), raw: ts[i].write()?, old, plain: false });
     }
     Ok(out)
-}
-
-fn tags(raw: &[u8], grounds: &[(String, String)]) -> Res<Vec<u8>> {
-    let mut t: Table = Table::parse(raw)?;
-    for (orig, g) in grounds {
-        let own: Vec<String> = t.tags_of(orig);
-        if t.find(g).is_none() && !own.is_empty() {
-            t.insert(g, &own)?;
-        }
-    }
-    t.write()
-}
-
-fn placed(c: &mut Ctx, d: &Data, loc: &str) -> Res<String> {
-    let l = d.cat.by_name(loc).ok_or_else(|| E::Msg(format!("{loc} is not in the location list")))?;
-    for r in &l.refs {
-        for f in &r.files {
-            let y: Byml = Byml::parse(&c.read(f)?)?;
-            for a in y.root.get("Actors").and_then(|v| v.as_arr()).unwrap_or(&[]) {
-                if crate::placement::hash_of(a) == Some(r.hash) {
-                    if let Some(g) = a.get("Gyaml").and_then(|v| v.as_str()) {
-                        return Ok(g.to_string());
-                    }
-                }
-            }
-        }
-    }
-    Err(E::Msg(format!("{loc} has no placed actor in its map files")))
 }
 
 fn text(raw: &[u8], fakes: &[(String, String)]) -> Res<Vec<u8>> {
@@ -417,21 +386,16 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
         let f: fake::Fake = fake::make(&lp, look, name)?;
         packs.push((f.name, f.pack, f.fresh, f.peers));
     }
-    let mut grounds: Vec<(String, String)> = Vec::new();
+    let mut files: Vec<File> = tables(&mut c, &fakes)?;
+    let mut grounds: Vec<String> = Vec::new();
     for t in traps.iter().filter(|t| t.place == Place::Ground) {
         let g: String = ground::name_for(&t.fake);
-        if grounds.iter().any(|x| x.1 == g) {
+        if grounds.contains(&g) {
             continue;
         }
-        let orig: String = placed(&mut c, &d, &t.loc)?;
-        let op: Vec<Entry> = c.pack(&orig)?;
-        let m: ground::Made = ground::make(&op, &orig, &t.fake)?;
-        grounds.push((orig, m.name.clone()));
-        packs.push((m.name, m.pack, m.fresh, m.peers));
-    }
-    let mut files: Vec<File> = tables(&mut c, &fakes, &grounds)?;
-    if !grounds.is_empty() {
-        files.push(c.file(TAG, |r: &[u8]| tags(r, &grounds))?);
+        let fake: String = t.fake.clone();
+        files.push(c.file(&pack_of(&g), |r: &[u8]| shelf(r, &g, &fake))?);
+        grounds.push(g);
     }
     let mut by_file: BM<String, BM<u64, chest::Swap>> = BM::new();
     for t in traps {

@@ -663,6 +663,7 @@ mod tests {
             shops: BTreeMap::new(),
             entrances: BTreeMap::new(),
             copies: BTreeMap::new(),
+            named: BTreeMap::new(),
         }
     }
 
