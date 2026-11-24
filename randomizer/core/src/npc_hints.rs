@@ -662,6 +662,7 @@ mod tests {
             placements: p.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect::<BTreeMap<_, _>>(),
             shops: BTreeMap::new(),
             entrances: BTreeMap::new(),
+            copies: BTreeMap::new(),
         }
     }
 

@@ -33,7 +33,7 @@ use crate::zs;
 use crate::TITLE_ID;
 
 pub const TRAP: &str = "Ice Trap";
-pub const LOOKS: [&str; 8] = ["Boomerang", "Megaton Hammer", "Dins Fire", "Farores Wind", "Nayrus Love", "Fire Arrows", "Ice Arrows", "Light Arrows"];
+pub const LOOKS: [&str; 14] = ["Boomerang", "Megaton Hammer", "Lens of Truth", "Iron Boots", "Hover Boots", "Mirror Shield", "Goron Tunic", "Zora Tunic", "Dins Fire", "Farores Wind", "Nayrus Love", "Fire Arrows", "Ice Arrows", "Light Arrows"];
 const GROUND_KINDS: [&str; 4] = ["freestanding", "heart", "bossheart", "key"];
 const POUCH_MSG: &str = "ActorMsg/PouchContent.msbt";
 const CHILD: &str = "Player_Child";
@@ -75,15 +75,48 @@ impl Trap {
     }
 }
 
-fn look_of(d: &Data, seed: &str, loc: &str, place: Place) -> Res<(String, String)> {
-    let look: &str = if place == Place::Ground {
-        ground::LOOK
-    } else {
-        let mut r: Rng = Rng::from_text(&format!("{seed}/{loc}/look"));
-        LOOKS[r.below(LOOKS.len() as u64) as usize]
+fn spheres(w: &crate::world::World, place: &crate::world::Placement) -> BM<usize, usize> {
+    let mut s: crate::search::Search = crate::search::Search::new(w);
+    let mut out: BM<usize, usize> = BM::new();
+    let mut n: usize = 0;
+    let mut found: Vec<usize> = s.settle(place, false);
+    while !found.is_empty() {
+        for l in &found {
+            out.entry(*l).or_insert(n);
+            if let Some(i) = place.get(*l) {
+                s.add(i, 1);
+            }
+        }
+        n += 1;
+        found = s.settle(place, false);
+    }
+    out
+}
+
+fn looks(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
+    let (w, place): (crate::world::World, crate::world::Placement) = crate::slice::starts::rebuild(d, seed)?;
+    let at: BM<usize, usize> = spheres(&w, &place);
+    let first = |item: &str| -> usize {
+        let Some(it) = w.item(item) else { return usize::MAX };
+        if w.start.iter().any(|(i, n)| *i == it && *n > 0) {
+            return 0;
+        }
+        w.real.iter().filter(|l| place.get(**l) == Some(it)).map(|l| at.get(l).copied().unwrap_or(usize::MAX)).min().unwrap_or(usize::MAX)
     };
-    let actor: String = d.item(look).and_then(|i| i.actor.clone()).ok_or_else(|| E::Msg(format!("{look} has no actor")))?;
-    Ok((look.to_string(), actor))
+    let mut out: BM<String, String> = BM::new();
+    for (loc, item) in &seed.placements {
+        if item != TRAP {
+            continue;
+        }
+        let here: usize = w.loc(loc).and_then(|l| at.get(&l).copied()).unwrap_or(usize::MAX);
+        let mut later: Vec<&str> = LOOKS.iter().copied().filter(|k| here == usize::MAX || first(k) > here).collect();
+        if later.is_empty() {
+            later = LOOKS.to_vec();
+        }
+        let mut r: Rng = Rng::from_text(&format!("{}/{loc}/look", seed.seed));
+        out.insert(loc.clone(), later[r.below(later.len() as u64) as usize].to_string());
+    }
+    Ok(out)
 }
 
 pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
@@ -91,6 +124,7 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
         return Ok((seed.clone(), Vec::new()));
     }
     let d: Data = Data::load()?;
+    let chosen: BM<String, String> = looks(&d, seed)?;
     let mut out: SeedFile = seed.clone();
     let mut traps: Vec<Trap> = Vec::new();
     let mut short: Vec<String> = shortfall(&d, seed);
@@ -108,18 +142,17 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
         } else {
             return Err(E::Msg(format!("{loc} holds {TRAP}, which this build can only put in a chest, on the ground or in a shop")));
         };
-        let pick: Option<usize> = match place {
-            Place::Shop(_) => short.iter().position(|x| d.item(x).is_some_and(|i| i.adv && i.actor.is_some())).or(if short.is_empty() { None } else { Some(0) }),
-            _ => short.iter().position(|x| !d.item(x).is_some_and(|i| i.adv)).or(if short.is_empty() { None } else { Some(0) }),
-        };
-        let held: String = pick.map(|k| short.remove(k)).unwrap_or_else(|| fake::RUPEE_ITEM.to_string());
-        let (look, actor): (String, String) = match place {
-            Place::Shop(_) => (held.clone(), d.item(&held).and_then(|i| i.actor.clone()).ok_or_else(|| E::Msg(format!("{held} has no actor to sell")))?),
-            _ => look_of(&d, &seed.seed, loc, place)?,
-        };
-        out.placements.insert(loc.clone(), held.clone());
+        let look: String = chosen.get(loc).cloned().ok_or_else(|| E::Msg(format!("{loc} has no look")))?;
+        let actor: String = d.item(&look).and_then(|i| i.actor.clone()).ok_or_else(|| E::Msg(format!("{look} has no actor")))?;
+        let pick: Option<usize> = short.iter().position(|x| !d.item(x).is_some_and(|i| i.adv)).or(if short.is_empty() { None } else { Some(0) });
+        if let Some(k) = pick {
+            let held: String = short.remove(k);
+            *out.copies.entry(held).or_insert(0) -= 1;
+        }
+        *out.copies.entry(look.clone()).or_insert(0) += 1;
+        out.placements.insert(loc.clone(), look.clone());
         if let (Place::Shop(_), Some(s)) = (place, out.shops.get_mut(loc)) {
-            s.item = held;
+            s.item = look.clone();
         }
         traps.push(Trap { loc: loc.clone(), place, look, fake: fake_name(&actor), actor });
     }
@@ -212,15 +245,17 @@ fn add_actor(ts: &mut [Byml; 3], from: &str, name: &str, pouch: Option<&str>) ->
     Ok(())
 }
 
-fn tables(c: &mut Ctx, fakes: &[(String, String)], grounds: &[String]) -> Res<Vec<File>> {
+fn tables(c: &mut Ctx, fakes: &[(String, String)], grounds: &[(String, String)]) -> Res<Vec<File>> {
     let firsts: Vec<Vec<u8>> = [ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO].iter().map(|t| c.read(t)).collect::<Res<Vec<Vec<u8>>>>()?;
     let mut ts: [Byml; 3] = [Byml::parse(&firsts[0])?, Byml::parse(&firsts[1])?, Byml::parse(&firsts[2])?];
     add_actor(&mut ts, sensor::SUN, sensor::NAME, None)?;
     for (look, name) in fakes {
         add_actor(&mut ts, look, name, Some(fake::RUPEE_ROW))?;
     }
-    for g in grounds {
-        add_actor(&mut ts, ground::DONOR, g, Some(fake::RUPEE_ROW))?;
+    for (orig, g) in grounds {
+        let pouch: &str = if rows::find(&ts[2], orig).is_some() { orig } else { fake::RUPEE_ROW };
+        let pouch: String = pouch.to_string();
+        add_actor(&mut ts, orig, g, Some(&pouch))?;
     }
     let mut out: Vec<File> = Vec::new();
     for (i, t) in [ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO].iter().enumerate() {
@@ -230,15 +265,32 @@ fn tables(c: &mut Ctx, fakes: &[(String, String)], grounds: &[String]) -> Res<Ve
     Ok(out)
 }
 
-fn tags(raw: &[u8], grounds: &[String]) -> Res<Vec<u8>> {
+fn tags(raw: &[u8], grounds: &[(String, String)]) -> Res<Vec<u8>> {
     let mut t: Table = Table::parse(raw)?;
-    let own: Vec<String> = t.tags_of(ground::DONOR);
-    for g in grounds {
-        if t.find(g).is_none() {
+    for (orig, g) in grounds {
+        let own: Vec<String> = t.tags_of(orig);
+        if t.find(g).is_none() && !own.is_empty() {
             t.insert(g, &own)?;
         }
     }
     t.write()
+}
+
+fn placed(c: &mut Ctx, d: &Data, loc: &str) -> Res<String> {
+    let l = d.cat.by_name(loc).ok_or_else(|| E::Msg(format!("{loc} is not in the location list")))?;
+    for r in &l.refs {
+        for f in &r.files {
+            let y: Byml = Byml::parse(&c.read(f)?)?;
+            for a in y.root.get("Actors").and_then(|v| v.as_arr()).unwrap_or(&[]) {
+                if crate::placement::hash_of(a) == Some(r.hash) {
+                    if let Some(g) = a.get("Gyaml").and_then(|v| v.as_str()) {
+                        return Ok(g.to_string());
+                    }
+                }
+            }
+        }
+    }
+    Err(E::Msg(format!("{loc} has no placed actor in its map files")))
 }
 
 fn text(raw: &[u8], fakes: &[(String, String)]) -> Res<Vec<u8>> {
@@ -325,23 +377,21 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     let s: sensor::Made = sensor::make(&sun, &frz, &box4)?;
     packs.push((sensor::NAME.to_string(), s.pack, s.fresh, s.peers));
     let rupee: Vec<Entry> = c.pack(fake::RUPEE)?;
-    let mut items: BM<String, Vec<Entry>> = BM::new();
     for (look, name) in &fakes {
         let lp: Vec<Entry> = c.pack(look)?;
         let f: fake::Fake = fake::make(&lp, &rupee, look, name)?;
-        items.insert(name.clone(), sarc::parse(&f.pack)?);
         packs.push((f.name, f.pack, f.fresh, f.peers));
     }
-    let mut grounds: Vec<String> = Vec::new();
-    let donor: Vec<Entry> = c.pack(ground::DONOR)?;
+    let mut grounds: Vec<(String, String)> = Vec::new();
     for t in traps.iter().filter(|t| t.place == Place::Ground) {
         let g: String = ground::name_for(&t.fake);
-        if grounds.contains(&g) {
+        if grounds.iter().any(|x| x.1 == g) {
             continue;
         }
-        let item: &Vec<Entry> = items.get(&t.fake).ok_or_else(|| E::Msg(format!("no pack for {}", t.fake)))?;
-        let m: ground::Made = ground::make(&donor, item, &t.fake)?;
-        grounds.push(m.name.clone());
+        let orig: String = placed(&mut c, &d, &t.loc)?;
+        let op: Vec<Entry> = c.pack(&orig)?;
+        let m: ground::Made = ground::make(&op, &orig, &t.fake)?;
+        grounds.push((orig, m.name.clone()));
         packs.push((m.name, m.pack, m.fresh, m.peers));
     }
     let mut files: Vec<File> = tables(&mut c, &fakes, &grounds)?;

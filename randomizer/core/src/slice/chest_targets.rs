@@ -110,7 +110,7 @@ pub(crate) fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
     let mut out: BM<String, String> = BM::new();
     for (item, locs) in &dests {
         let mut acts: Vec<String> = pool.get(item).cloned().unwrap_or_default();
-        let net: isize = crate::pot_slice::targets::delta(d, seed, item) + crate::shops::seed::delta(seed, item) + crate::slice::silver::delta(seed, item);
+        let net: isize = crate::pot_slice::targets::delta(d, seed, item) + crate::shops::seed::delta(seed, item) + crate::slice::silver::delta(seed, item) + seed.copies.get(item).copied().unwrap_or(0) as isize;
         adjust(d, item, net, &mut acts);
         if stripped {
             crate::start_items::pool::fit_actors(d, item, locs.len(), &mut acts);
