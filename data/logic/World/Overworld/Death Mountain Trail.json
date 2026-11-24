@@ -7,10 +7,6 @@
             "DMT Chest": "can_blast_or_smash",
             "DMT Freestanding PoH": "
                 is_adult and here(can_plant_bean and (plant_beans or has_explosives or Progressive_Strength_Upgrade))",
-            "DMT Rock Red Rupee": "
-                is_child and (here(can_blast_or_smash) or (logic_boomerang_boulders and Boomerang))",
-            "DMT Rock Blue Rupee": "
-                is_child and (has_explosives or (logic_boomerang_boulders and Boomerang))",
             "DMT GS Bean Patch": "
                 can_plant_bugs and can_child_attack and
                 (has_explosives or Progressive_Strength_Upgrade or (logic_dmt_soil_gs and can_use(Boomerang)))",
@@ -45,7 +41,7 @@
             "DMT Biggoron": "is_adult and (Claim_Check or 'Claim Check Given')",
             "DMT Trade Broken Sword": "'Prescription Access'",
             "DMT Trade Eyedrops": "
-                is_adult and (guarantee_trade_path or adult_trade_shuffle) and
+                is_adult andf (guarantee_trade_path or adult_trade_shuffle) and
                 (('Eyedrops Access' and not adult_trade_shuffle) or (Eyedrops and disable_trade_revert))",
             "DMT GS Falling Rocks Path": "is_adult and (Megaton_Hammer or logic_trail_gs_upper)",
             "DMT Gossip Stone": "True",

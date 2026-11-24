@@ -14,9 +14,6 @@
             "LH Freestanding PoH": "
                 is_adult and (can_use(Scarecrow) or here(can_plant_bean))",
             "LH Underwater Item": "is_child and can_dive",
-            "LH Underwater Near Shore Green Rupee": "is_child",
-            "LH Underwater Green Rupee 1": "is_child and can_dive",
-            "LH Underwater Green Rupee 2": "is_child and can_dive",
             "LH GS Bean Patch": "can_plant_bugs and can_child_attack",
             "LH GS Lab Wall": "
                 is_child and can_get_night_gs and
@@ -76,9 +73,6 @@
             "LH Lab Dive": "
                 (Progressive_Scale, 2) or
                 (logic_lab_diving and is_adult and Iron_Boots and Hookshot)",
-            "LH Lab Dive Red Rupee 1": "(Progressive_Scale, 2) or can_use(Iron_Boots)",
-            "LH Lab Dive Red Rupee 2": "(Progressive_Scale, 2) or can_use(Iron_Boots)",
-            "LH Lab Dive Red Rupee 3": "(Progressive_Scale, 2) or can_use(Iron_Boots)",
             "LH GS Lab Crate": "
                 Iron_Boots and can_use(Hookshot) and
                 (deadly_bonks != 'ohko' or Fairy or (can_use(Nayrus_Love) and not shuffle_interior_entrances))"

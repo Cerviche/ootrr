@@ -347,7 +347,7 @@ mod tests {
             assert!(names.contains(&n), "{n}");
             assert!(!pin.iter().any(|l| w.locs[*l].name == n), "{n}");
         }
-        for n in ["Water Temple GS Central Pillar", "Shadow Temple GS Triple Giant Pot", "Colossus GS Tree", "ZR GS Tree", "HF GS Cow Grotto", "Jabu Jabus Belly GS Water Switch Room"] {
+        for n in ["Water Temple GS Central Pillar", "Shadow Temple GS Triple Giant Pot", "Colossus GS Tree", "ZR GS Tree", "HF GS Grotto South of LLR Tower", "Jabu Jabus Belly GS Water Switch Room"] {
             assert!(names.contains(&n), "{n}");
             assert!(!pin.iter().any(|l| w.locs[*l].name == n), "{n}");
         }

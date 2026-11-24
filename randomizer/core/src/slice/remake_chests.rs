@@ -28,7 +28,7 @@ pub const PAIRED: [&str; 29] = [
     "Gerudo Training Ground Heavy Block Second Chest",
     "Gerudo Training Ground Heavy Block Third Chest",
     "Gerudo Training Ground Eye Statue Chest",
-    "Gerudo Training Ground Freestanding Key",
+    "Gerudo Training Ground Maze Right Key Chest",
     "Ganons Castle Light Trial First Left Chest",
     "Ganons Castle Light Trial Second Right Chest",
     "Ganons Castle Light Trial Third Left Chest",

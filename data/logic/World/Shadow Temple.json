@@ -10,7 +10,7 @@
             # Din's Fire lights the torches of the first hall, the Lens shows its real door.
             "Shadow Temple Beginning": "
                 (logic_lens_shadow or can_use(Lens_of_Truth)) and can_use(Dins_Fire) and
-                (can_use(Hover_Boots) or can_use(Hookshot))",
+                (can_use(Hookshot) or can_use(Longshot))",
             "Farores Wind Warp": "can_use(Farores_Wind)"
         }
     },
@@ -58,8 +58,6 @@
         "locations": {
             "Shadow Temple Invisible Blades Visible Chest": "True",
             "Shadow Temple Invisible Blades Invisible Chest": "True",
-            "Shadow Temple Invisible Blades Recovery Heart 1": "can_play(Song_of_Time)",
-            "Shadow Temple Invisible Blades Recovery Heart 2": "can_play(Song_of_Time)",
             "Shadow Temple Huge Pit Silver Rupee Right": "True",
             "Shadow Temple Huge Pit Silver Rupee Left": "True",
             "Shadow Temple Huge Pit Silver Rupee Center": "True",
@@ -142,8 +140,6 @@
         "region_name": "Shadow Temple Boat",
         "dungeon": "Shadow Temple",
         "locations": {
-            "Shadow Temple Before Boat Recovery Heart 1": "can_use(Distant_Scarecrow)",
-            "Shadow Temple Before Boat Recovery Heart 2": "can_use(Distant_Scarecrow)"
         },
         "exits": {
             "Shadow Temple After Wind": "(Small_Key_Shadow_Temple, 4)",
@@ -191,23 +187,12 @@
         "region_name": "Shadow Temple 3 Spinning Pots Rupees",
         "dungeon": "Shadow Temple",
         "locations": {
-            "Shadow Temple 3 Spinning Pots Rupee 1": "True",
-            "Shadow Temple 3 Spinning Pots Rupee 2": "True",
-            "Shadow Temple 3 Spinning Pots Rupee 3": "True",
-            "Shadow Temple 3 Spinning Pots Rupee 4": "True",
-            "Shadow Temple 3 Spinning Pots Rupee 5": "True",
-            "Shadow Temple 3 Spinning Pots Rupee 6": "True",
-            "Shadow Temple 3 Spinning Pots Rupee 7": "True",
-            "Shadow Temple 3 Spinning Pots Rupee 8": "True",
-            "Shadow Temple 3 Spinning Pots Rupee 9": "True"
         }
     },
     {
         "region_name": "Shadow Temple Beyond Boat Scarecrow",
         "dungeon": "Shadow Temple",
         "locations": {
-            "Shadow Temple After Boat Upper Recovery Heart 1": "True",
-            "Shadow Temple After Boat Upper Recovery Heart 2": "True"
         },
         "exits": {
             "Shadow Temple Beyond Boat SoT Block": "True"
@@ -217,7 +202,6 @@
         "region_name": "Shadow Temple Beyond Boat SoT Block",
         "dungeon": "Shadow Temple",
         "locations": {
-            "Shadow Temple After Boat Lower Recovery Heart": "True"
         },
         "exits": {
             "Shadow Temple Beyond Boat Scarecrow": "can_use(Scarecrow)",
