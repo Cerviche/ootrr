@@ -218,7 +218,7 @@ const JABU: View = View {
 const CARPENTERS: View = View {
     id: "gerudo_fortress",
     label: "Fortress Carpenters",
-    tip: "Sets the state of the carpenters captured by Gerudo in Gerudo Fortress, and with it the number of guards that spawn.\n\nNormal - All 4 carpenters are required to be saved.\n\nFast - Tested in game. Three carpenters start free. The Membership Card is vanilla and is granted when the last carpenter is rescued.\n\nOpen - Tested in game. Start with the Gerudo Membership Card and the bridge built. The Membership Card check is still in the game and randomized. It triggers when you interact with your first jail cell.\n\nOnly \"Normal\" is compatible with Gerudo Fortress Keyrings.",
+    tip: "Sets the state of the carpenters captured by Gerudo in Gerudo Fortress, and with it the number of guards that spawn.\n\nNormal - All 4 carpenters are required to be saved.\n\nFast - Tested in game. Three carpenters start free. The guard gives the Membership Card check when the last carpenter is rescued: the card itself, or a random item when Shuffle Gerudo Membership Card is on.\n\nOpen - Tested in game. Start with the Gerudo Membership Card and the bridge built. The Membership Card check is still in the game and randomized. It triggers when you interact with your first jail cell.\n\nOnly \"Normal\" is compatible with Gerudo Fortress Keyrings.",
     kind: Kind::Pick,
     opts: &[
         yes("Normal", "normal"),
@@ -655,6 +655,7 @@ const LOCATIONS_TAB: &[PortSection] = &[
             Entry::Plain("song_harp_colors"),
             Entry::Plain("shuffle_ocarinas"),
             Entry::Plain("shuffle_kokiri_sword"),
+            Entry::Plain("shuffle_gerudo_card"),
             Entry::View(&SKULLTULAS),
             Entry::View(&FREESTANDING),
         ],
@@ -680,6 +681,7 @@ const LOCATIONS_TAB: &[PortSection] = &[
             Entry::Plain("shuffle_treasure_reward"),
             Entry::Plain("shuffle_potion_shop"),
             Entry::Plain("shuffle_trade_checks"),
+            Entry::Plain("adult_trade_shuffle"),
             Entry::View(&COWS),
             Entry::Plain("shuffle_frog_songs"),
             Entry::Plain("shuffle_frog_bug_heart"),
@@ -786,7 +788,6 @@ pub const MENU: &[Page] = &[
             sec("Gold Skulltulas", &["night_skulls_suns_song"]),
         ],
     },
-    Page { id: "gerudo_card", label: "Gerudo Membership Card", heading: IN_DEV, sections: &[sec("Shuffle", &["shuffle_gerudo_card"])] },
     Page { id: "cosmetics", label: "Cosmetics", heading: GAMEPLAY, sections: &[sec("Looks", &["mega_like_likes"])] },
     Page { id: "debug", label: "Debug", heading: DEBUG, sections: &[sec("Debug", &["debug_location_names"]), sec("Spawn enemies", &["enemy_spawn_combo"])] },
 ];

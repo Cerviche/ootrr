@@ -30,8 +30,12 @@ pub fn setting_verdict(s: &Spot) -> Option<bool> {
     SETTING_RULES.iter().find_map(|(_, r)| r(s))
 }
 
-/// The adult trade chain keeps its items at home: the sequence is not shuffled.
+/// The adult trade chain keeps its items at home: the sequence is not shuffled, unless adult trade
+/// shuffle makes each trade item its own item (crate::open_world::trade_shuffle).
 fn adult_trade(s: &Spot) -> Option<bool> {
+    if s.p.rewards.trade_items {
+        return None;
+    }
     let child: [&str; 2] = ["Item_WeirdEgg", "Item_ZeldaLetter"];
     s.d.item(s.item)
         .filter(|i| i.actor.as_deref().is_some_and(|a| crate::flow_extra::trade::chain(a) && !child.contains(&a)))

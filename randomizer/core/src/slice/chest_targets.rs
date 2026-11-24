@@ -68,6 +68,10 @@ pub fn view_drop(f: &str, view: Option<&str>) -> Res<&'static str> {
     crate::pregrant::chest_drop(f)
 }
 
+pub fn chest_drop(f: &str, view: Option<&str>) -> Res<String> {
+    Ok(crate::ocarina_hold::chest_form(view_drop(f, view)?))
+}
+
 pub fn is_sale(d: &Data, loc: &str) -> bool {
     d.flow.by_name(loc).is_some() && d.cat.by_name(loc).is_none_or(|c| c.kind == "scrub" || (c.kind == "cow" && crate::flow_extra::cows::is(loc)))
 }
@@ -101,7 +105,8 @@ pub(crate) fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
             dests.entry(item.clone()).or_default().push(loc.clone());
         }
     }
-    let stripped: bool = crate::start_items::pool::active(&plan(&seed.settings()?.settings)?);
+    let pl: crate::slice::support::Plan = plan(&seed.settings()?.settings)?;
+    let stripped: bool = crate::start_items::pool::active(&pl);
     let mut out: BM<String, String> = BM::new();
     for (item, locs) in &dests {
         let mut acts: Vec<String> = pool.get(item).cloned().unwrap_or_default();
@@ -109,6 +114,9 @@ pub(crate) fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
         adjust(d, item, net, &mut acts);
         if stripped {
             crate::start_items::pool::fit_actors(d, item, locs.len(), &mut acts);
+        }
+        if pl.rewards.trade_items {
+            crate::open_world::trade_shuffle::fit_actors(d, item, locs.len(), &mut acts);
         }
         if acts.len() != locs.len() {
             return Err(E::Msg(format!(
@@ -247,7 +255,7 @@ pub(crate) fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<Str
         let new_actor: String = match family {
             // The chest raises its drop actor, so it holds the tier the player most likely gets
             // there (tier_order::chest_views); the chain grants the right tier either way.
-            Some(f) => view_drop(f, views.get(loc.as_str()).map(|s| s.as_str()))?.to_string(),
+            Some(f) => chest_drop(f, views.get(loc.as_str()).map(|s| s.as_str()))?,
             None => fixed.get(loc).or_else(|| given.get(loc)).cloned().ok_or_else(|| E::Msg(format!("{loc} was given no item actor")))?,
         };
         // A story chest or the Treasure Chest Game prize keeps its event; its key is credited

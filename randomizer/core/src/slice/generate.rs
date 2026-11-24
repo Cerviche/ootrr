@@ -76,8 +76,9 @@ pub fn buildable(d: &Data, w: &World, p: &Plan, it: ItemId, l: LocId) -> bool {
     let name: &str = &w.locs[l].name;
     let item: &str = &w.items.names[it];
     // The adult trade sequence is not shuffled: its spots clone their chain event, and a trade
-    // quest item shares the menu slot with the chain.
-    if crate::flow_extra::trade::is(name) && d.item(item).and_then(|i| i.actor.as_deref()).is_some_and(crate::flow_extra::trade::chain) && d.vanilla_of(name) != Some(item) {
+    // quest item shares the menu slot with the chain. With adult trade shuffle every trade item is
+    // a plain item (crate::open_world::trade_shuffle).
+    if !p.rewards.trade_items && crate::flow_extra::trade::is(name) && d.item(item).and_then(|i| i.actor.as_deref()).is_some_and(crate::flow_extra::trade::chain) && d.vanilla_of(name) != Some(item) {
         return false;
     }
     if crate::shops::is_loc(name) && p.shops.on() {
@@ -284,8 +285,12 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         p.notes.retain(|n| !pu::is_note(n));
     }
     let pooled: Placement = restore_upgrades(&w, d, &vanilla, &pk.free, &|it: ItemId, l: LocId| allowed(d, &w, &p, it, l));
-    let (base, gone): (Placement, Vec<String>) = crate::start_items::pool::base(d, &w, &p, &pooled, &pk.free)?;
+    let (mut base, gone): (Placement, Vec<String>) = crate::start_items::pool::base(d, &w, &p, &pooled, &pk.free)?;
     p.notes.extend(gone);
+    if p.rewards.trade_items {
+        let n: Vec<String> = crate::open_world::trade_shuffle::pool(d, &w, &pk.free, &mut base)?;
+        p.notes.extend(n);
+    }
     let ex: Vec<String> = check_excluded(&w, &p, &pk.free, &base)?;
     p.notes.extend(ex);
     let seen: Vec<Cell<u8>> = vec![Cell::new(0); w.items.len() * w.locs.len()];
@@ -981,6 +986,8 @@ mod tests {
         assert!(!g.seed_file.placements.contains_key(crate::flow_extra::GERUDO_CARD_LOC));
         let mut fast: Settings = Settings::default();
         fast.set("gerudo_fortress", Value::s("fast")).unwrap();
+        assert!(free(&fast), "fast carpenters follow the card setting");
+        fast.set(crate::flow_extra::GERUDO_CARD, Value::Bool(false)).unwrap();
         assert!(!free(&fast));
     }
 
