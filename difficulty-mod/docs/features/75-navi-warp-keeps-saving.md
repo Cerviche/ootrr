@@ -68,7 +68,7 @@ Locking doors with `IsDisableSaveAndWarp`: 45 in 13 maps (list above). Events ad
 
 Using Return with Navi to leave a locked enemy room (for example the Deku Tree scrub room) left the game refusing manual saves and autosaves until a game over or reload. The trip now leaves the game's safety section, and stops and hides any minigame timer, before it changes the map. Reproduced in the game on nightly before the fix (0 save files changed after the trip, Save greyed); the fix itself is not yet confirmed in the game.
 
-Only the Navi flow changes (3 more events per question); with the setting off nothing changes. Includes #120 and #121 so the CI passes. Base: nightly.
+Only the Navi flow changes (3 more events per question); with the setting off nothing changes. Merged with nightly dda8087, which fixed nightly's own tests. Base: nightly.
 
 Fixes #71, #72.
 
