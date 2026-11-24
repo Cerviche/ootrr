@@ -19,6 +19,7 @@ const ADD: &str = "EventTriggerAddOrRemovePouchContent";
 const SET_NAME: &str = "EventTriggerSetOwnNameToMessage";
 pub const PICKUPS: [&str; 2] = ["Dm_SY_Get", "Dm_SY_Get_WithoutPlayer"];
 const ASK: &str = "EventQueryIsGameDataString64";
+const SET_TEXT: &str = "EventTriggerSetGameDataString64";
 const TARGET: &str = "UI_MessageTargetActorName";
 const CREATE: &str = "EventTriggerRequestCreateConditionSensor";
 const DELETE: &str = "EventTriggerRequestDeleteConditionSensor";
@@ -120,6 +121,9 @@ pub fn add_event(b: &mut Bf, fakes: &[String]) -> Res<()> {
         let ask: Cont = Cont { items: vec![("Actor".to_string(), Val::Str(n.clone())), ("Num".to_string(), Val::Int(1))] };
         next = push(f, Kind::Switch { actor: qa, query: has, cases: vec![Case { val: 0, ev: gone }, Case { val: 1, ev: next }], params: Some(ask) })?;
     }
+    let (ha, st): (u16, u16) = action_slot(f, HOLDER, SET_TEXT)?;
+    let blank: Cont = Cont { items: vec![("GameDataName".to_string(), Val::Str(TARGET.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(String::new()))] };
+    let next: u16 = push(f, Kind::Action { next, actor: ha, act: st, params: Some(blank) })?;
     f.entries.push(Entry { name: EVENT.to_string(), subs: Vec::new(), vars: Vec::new(), main: next, pad: 0 });
     Ok(())
 }
