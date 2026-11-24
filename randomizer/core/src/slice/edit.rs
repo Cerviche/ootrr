@@ -417,6 +417,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         late.extend(crate::story_skip::worked(&mut rf, &pk)?);
         crate::story_skip::stage_arrows_give(&mut rf, &mut late, &give_for(crate::lacs_key::LOC))?;
         crate::story_skip::stage_saria_give(&mut rf, &mut late, &give_for(crate::slice::flow_rules::SARIA))?;
+        crate::field_palette::stage(&mut rf, &mut late, &work)?;
         crate::story_skip::stage_requiem(&mut rf, &mut late, &work)?;
         crate::story_skip::stage_arrows_row(&mut rf, &mut late, &work)?;
         crate::story_skip::stage_rauru_give(&mut rf, &mut late, &give_for(crate::story_skip::RAURU_LOC))?;
