@@ -30,7 +30,7 @@ pub fn test_mod(a: &[String]) -> Res<()> {
     println!("seed flag {} (set when a new game reaches Kokiri Forest)", markers::seed_flag(TEST_SEED));
     println!("goal flag {} (set after Ganon, before the ending)", markers::goal_flag(TEST_SEED));
     for r in &recs {
-        println!("{}: ootrr ap-flag {} on   gives it, then {} turns true", r.actor, r.recv(), r.got());
+        println!("{}: ootrr ap-flag {} on   gives it, then {} turns true", r.item, r.recv(), r.got());
     }
     Ok(())
 }
@@ -80,4 +80,51 @@ pub fn export(a: &[String]) -> Res<()> {
     }
     std::fs::write(out.join("presets.json"), Json::Arr(index).to_string())?;
     Ok(())
+}
+
+pub fn build(a: &[String]) -> Res<()> {
+    let mut rest: Vec<String> = Vec::new();
+    let mut host: ootrr_core::modpack::Host = ootrr_core::modpack::Host::Eden;
+    let mut i: usize = 0;
+    while i < a.len() {
+        if a[i] == "--host" {
+            let v: &str = a.get(i + 1).map(|s| s.as_str()).ok_or(Error::Format("missing host after --host"))?;
+            host = ootrr_core::modpack::Host::parse(v).ok_or(Error::Format("--host is eden, hookshot, longshot or nx2navi"))?;
+            i += 2;
+            continue;
+        }
+        rest.push(a[i].clone());
+        i += 1;
+    }
+    let path: &str = rest.first().map(|s| s.as_str()).ok_or(Error::Format("ap-build <patch.apootrr> <romfs_root> <load_dir> [mod_name] [--host longshot]"))?;
+    let romfs: &P = P::new(rest.get(1).map(|s| s.as_str()).ok_or(Error::Format("missing romfs_root"))?);
+    let load: &P = P::new(rest.get(2).map(|s| s.as_str()).ok_or(Error::Format("missing load_dir"))?);
+    let p: ap::patch::Patch = ap::patch::Patch::parse(&std::fs::read_to_string(path)?)?;
+    let name: String = rest.get(3).cloned().unwrap_or_else(|| format!("ZZ OOTRR AP {}", ap_safe(&p.slot)));
+    let foreign: Vec<ap::item::Foreign> = p.foreign_list();
+    let mut d: Data = Data::load()?;
+    let before: usize = d.items.len();
+    ap::item::register(&mut d, &foreign)?;
+    ootrr_core::slice::data::set_extra_items(d.items[before..].to_vec());
+    let d: Data = Data::load()?;
+    let c: ap::patch::Checked = ap::patch::check(&d, &p)?;
+    if !c.won {
+        return Err(Error::Msg(c.notes.join(" ")));
+    }
+    let recs: Vec<Record> = p.records(&d)?;
+    let key: String = p.seed_key.clone();
+    let mut hook = |rf: &mut Romfs, work: &P, outs: &mut Vec<Out>| -> Res<()> {
+        ap::stage(rf, outs, work, &key, &recs)?;
+        ap::item::stage(rf, work, outs, &foreign)
+    };
+    let b = ootrr_core::slice::edit::build_for_with(&c.seed, romfs, load, &name, host, Some(&mut hook))?;
+    print!("{}", b.report);
+    println!("Archipelago: slot {} of {}, {} items to receive, {} items for other players, seed marker {}", p.slot, p.seed_name, recs.len(), foreign.len(), markers::seed_flag(&p.seed_key));
+    println!("mod written to {}", b.root.display());
+    Ok(())
+}
+
+fn ap_safe(s: &str) -> String {
+    let t: String = s.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).take(24).collect();
+    if t.is_empty() { "slot".to_string() } else { t }
 }

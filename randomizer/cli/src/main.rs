@@ -398,6 +398,7 @@ fn main() -> ExitCode {
         Some("ap-test-mod") => ap_cmd::test_mod(&a[1..]),
         Some("ap-flag") => ap_cmd::flag(&a[1..]),
         Some("ap-export") => ap_cmd::export(&a[1..]),
+        Some("ap-build") => ap_cmd::build(&a[1..]),
         None => serve_cmd::run(&[]),
         Some("help") | Some("--help") | Some("-h") => {
             println!("{USAGE}");

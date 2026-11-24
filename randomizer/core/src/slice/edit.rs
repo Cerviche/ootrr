@@ -136,7 +136,11 @@ pub fn skipped_locations(p: &crate::slice::support::Plan) -> Vec<&'static str> {
 }
 
 pub fn build_for(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -> Res<Built> {
-    let b: Built = crate::slice::seed_packs::build(seed, romfs, load, mod_name, host)?;
+    build_for_with(seed, romfs, load, mod_name, host, None)
+}
+
+pub fn build_for_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, hook: Option<&mut Hook>) -> Res<Built> {
+    let b: Built = crate::slice::seed_packs::build_hooked(seed, romfs, load, mod_name, host, hook)?;
     crate::shelf::seed::after(seed, romfs, load, mod_name, host, b)
 }
 

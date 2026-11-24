@@ -118,6 +118,9 @@ pub(crate) fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
         if pl.rewards.trade_items {
             crate::open_world::trade_shuffle::fit_actors(d, item, locs.len(), &mut acts);
         }
+        if crate::slice::data::loose() && acts.len() != locs.len() {
+            adjust(d, item, locs.len() as isize - acts.len() as isize, &mut acts);
+        }
         if acts.len() != locs.len() {
             return Err(E::Msg(format!(
                 "the seed places {} copies of {item} but its chests hold {}, this seed does not belong to these game files",

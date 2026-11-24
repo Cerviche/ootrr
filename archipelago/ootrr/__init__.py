@@ -22,7 +22,7 @@ def record_key(*parts: Any) -> str:
 
 
 def foreign_label(item: str, player: str) -> str:
-    return f"AP: {item} ({player})"
+    return "AP: " + record_key("foreign", player, item)
 
 
 class OOTRRItem(Item):
