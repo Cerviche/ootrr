@@ -85,6 +85,18 @@ Later runs (24 Nov, same script, flags read by name):
 
 The branch was then merged with `origin/nightly` (80eb5be, 100 commits). The merge had no conflicts and touched no fix file; the game runs above are on the pre-merge code (the fix files are unchanged by the merge). The mods used for the pending run are rebuilt from the merged head.
 
+## Played in the game (25 Nov, by script, this code merged with nightly, 9456b61)
+
+| Case | Old code | This fix | Default settings | Reporter's settings |
+|---|---|---|---|---|
+| Saria's gift, then the flag | 1 (the bug) | 0 | 0 | 0 |
+| Old save with the flag set, owl already seen, one chest | stays 1 | 0 | 0 | 0 |
+| Old save with the flag set, quest past the owl, one chest | stays 1 | 0 | 0 | 0 |
+| Flag set, owl still to come, one chest | n/a | stays 1 | stays 1 | stays 1 |
+| Owl's scene on default settings | n/a | n/a | plays; owl flags 1, field sun flag 0, Link free | n/a |
+
+The owl test walks Link out of the forest along the path into the owl's area; the owl's own event (`Dm_HrlField_0000`) was read playing on the first leg. Not played: a non-chest item get, a real old save, the repaired look after a field reload, the sky itself.
+
 ## How to test it in the game
 
 A tester plan exists outside the repo. The short version, with two mods built from the reporter's settings (Kakariko Gate Open, Kokiri Forest Open) plus the time savers (`skip_intro`, `skip_cutscenes` all, `faster_chests`, `starting_hearts` 20), one from upstream main (bug) and one from this branch (fix):
@@ -115,7 +127,11 @@ With Kakariko Gate Open, Saria's gift set the flag the game uses for Link's firs
 
 This restores the clear that 8d12ecb ("Fixed Time Cycle") added for an open gate and that the Saria's gift rewrite in b4fdf84 bypassed.
 
-Played by script (24 Nov): the gift writes 1 on the old code and 0 here (also with the default settings and with `debug_location_names` and `skip_first_pickup_text` on), the repair clears an old save's flag after a chest (also past the quest step, and it keeps the flag while the owl will still play), and pictures at Lake Hylia show the sun back in the east at dawn. Not proven yet: the owl on the default settings, a non-chest item get as trigger. Looking at the sky is human-only. Every build's `Goto_HyruleCastle` and `GetPouchContent` change slightly on purpose (hunks outside `field_palette.rs`: one value in `story_skip.rs`, one stage call in `slice/edit.rs`, comments in `start_state.rs`); default seeds and settings strings are unchanged.
+Played by script on this code merged with nightly (25 Nov, 16 tests): the gift writes 1 on the old code and 0 here (also with the default settings and with `debug_location_names` and `skip_first_pickup_text` on); the repair clears an old save's flag after a chest, both when the owl was already seen and when the quest is past it, and keeps the flag while the owl will still play; on the default settings (gate Closed) the owl's scene still plays when Link walks out of the forest, and the flag reads 0 afterwards. Not played: a non-chest item get as the repair's trigger, a real old save, and the look of the sky (a person looked at Lake Hylia pictures on the first version only).
+
+Two things change beyond the bug, on purpose: every build's `Goto_HyruleCastle` and `GetPouchContent` flows change slightly, because the repair for saves that already have the flag runs on each chest or item get (four extra flag checks), so the default build is not byte-identical to nightly (three files: those two flows and the size table); and with the gate Closed the owl's first scene is lit by the clock instead of the fixed first-morning light. Hunks outside `field_palette.rs`: one value in `story_skip.rs`, one stage call in `slice/edit.rs`, comments in `start_state.rs`. Default seeds and settings strings are unchanged.
+
+Includes #120 and #121 (nightly's own test fixes) so CI passes; those lines drop out of this diff once they merge.
 
 For details about implementation and testing, see difficulty-mod/docs/features/72-field-sun-palette-fix.md.
 
