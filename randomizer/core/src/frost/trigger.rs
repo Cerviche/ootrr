@@ -125,6 +125,14 @@ pub fn hook_get(b: &mut Bf, names: &[String]) -> Res<usize> {
     Ok(sites.len())
 }
 
+/// The scene gets' own pouch adds (a skipped scene hands its item out through these).
+pub fn hook_give(b: &mut Bf, names: &[String]) -> Res<usize> {
+    let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == GIVE_FLOW).ok_or(E::Format("the scene get flow has no flow of its name"))?;
+    let sites: Vec<usize> = sites_of(f, ADD, true);
+    chain(f, &sites, TARGET, names)?;
+    Ok(sites.len())
+}
+
 pub fn hook_pickup(b: &mut Bf, flow: &str, names: &[String]) -> Res<usize> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == flow).ok_or_else(|| E::Msg(format!("{flow} has no flow of its name")))?;
     let sites: Vec<usize> = sites_of(f, SET_NAME, false);

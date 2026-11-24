@@ -319,7 +319,11 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
                     s.item = look.clone();
                 }
             }
-            Place::Chest | Place::Flow => {}
+            // A dropped scene (story skip) hands out what this names, so it gives the trap too.
+            Place::Flow => {
+                out.drops.insert(loc.clone(), fake.clone());
+            }
+            Place::Chest => {}
         }
         out.placements.insert(loc.clone(), stand);
         traps.push(Trap { loc, place, look: look.clone(), item: look, fake, actor, kit });
@@ -703,6 +707,7 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     }
     files.push(c.file(trigger::GIVE_FILE, |r: &[u8]| {
         let mut b: Bf = Bf::parse(r)?;
+        trigger::hook_give(&mut b, &names)?;
         trigger::add_event(&mut b, &fake_names)?;
         b.write()
     })?);

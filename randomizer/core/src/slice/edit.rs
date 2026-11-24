@@ -471,7 +471,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let give_for = |loc: &str| -> crate::story_skip::SceneGive {
         let vanilla: String = d.flow.by_name(loc).and_then(|l| l.item.clone()).unwrap_or_default();
         crate::story_skip::SceneGive {
-            actor: flows.iter().find(|c| c.location == loc).map(|c| c.item.clone()).unwrap_or(vanilla),
+            actor: seed.drops.get(loc).cloned().or_else(|| flows.iter().find(|c| c.location == loc).map(|c| c.item.clone())).unwrap_or(vanilla),
             // An unshuffled prize keeps the tier check its guard gave it (flow_wrap::PRIZES).
             family: placed.get(loc).copied().or_else(|| {
                 if seed.placements.contains_key(loc) {
