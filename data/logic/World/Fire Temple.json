@@ -89,9 +89,6 @@
         "region_name": "Fire Temple Elevator Room",
         "dungeon": "Fire Temple",
         "locations": {
-            "Fire Temple Elevator Room Recovery Heart 1": "True",
-            "Fire Temple Elevator Room Recovery Heart 2": "True",
-            "Fire Temple Elevator Room Recovery Heart 3": "True"
         },
         "exits": {
             # Push the block onto the lava geyser and ride it to 2F. There, hit the
@@ -122,10 +119,7 @@
             # The remake moved the cage chest here, and it holds the Compass. An eye
             # switch over the gate opens it. The playthrough hits it with the
             # Hookshot, and arrows hit eye switches.
-            "Fire Temple Map Chest": "can_use(Hookshot) or can_use(Bow)",
-            "Fire Temple Narrow Path Room Recovery Heart 1": "True",
-            "Fire Temple Narrow Path Room Recovery Heart 2": "True",
-            "Fire Temple Narrow Path Room Recovery Heart 3": "True"
+            "Fire Temple Map Chest": "can_use(Hookshot) or can_use(Bow)"
         },
         "exits": {
             # Outrun the fire wall. The far door opens onto the upper maze.
@@ -146,10 +140,7 @@
             "Fire Temple Scarecrow Ledge Second Chest": "can_use(Scarecrow)",
             "Fire Temple Scarecrow Ledge Third Chest": "can_use(Scarecrow)",
             "Fire Temple GS Scarecrow Climb": "can_use(Scarecrow)",
-            "Fire Temple GS Scarecrow Top": "can_use(Scarecrow)",
-            "Fire Temple Moving Fire Room Recovery Heart 1": "True",
-            "Fire Temple Moving Fire Room Recovery Heart 2": "True",
-            "Fire Temple Moving Fire Room Recovery Heart 3": "True"
+            "Fire Temple GS Scarecrow Top": "can_use(Scarecrow)"
         },
         "exits": {
             # Back through the fire wall room to the locked door at its far end.

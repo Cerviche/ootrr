@@ -13,8 +13,8 @@ pub const NEW: [&str; 18] = [
     "LH Poe Chest",
     "HF South Poe Chest",
     "HF East Poe Chest",
-    "LLR Tunnel Ledge Chest",
-    "HF Redead Grotto Chest",
+    "LLR Tower Ledge Chest",
+    "HF Storms Grotto Near Kakariko Redead Chest",
     "Kak Windmill Roof Chest",
     "KF West Ledge Chest",
     "SFM Time Block Grotto Chest",
@@ -28,7 +28,7 @@ pub const PAIRED: [&str; 10] = [
     "GC Maze Left Chest",
     "GC Maze Center Chest",
     "GC Maze Right Chest",
-    "HF Open Grotto Chest",
+    "LH Gravestone Grotto Torches Chest",
     "Kak Open Grotto Chest",
     "KF Storms Grotto Chest",
     "SFM Wolfos Grotto Chest",
@@ -156,9 +156,9 @@ mod tests {
         let w: World = world(&d).unwrap();
         let g: Vec<ItemId> = vec![w.item("Progressive Strength Upgrade").unwrap(); 3];
         let s: Search = explore(&w, &without(&w, &d, &["Dins Fire", "Fire Arrows"]), &g);
-        assert!(!s.loc_access(w.loc("HF Open Grotto Chest").unwrap()));
+        assert!(!s.loc_access(w.loc("LH Gravestone Grotto Torches Chest").unwrap()));
         let s: Search = explore(&w, &without(&w, &d, &["Song of Storms"]), &g);
-        for n in ["KF Storms Grotto Chest", "SFM Wolfos Grotto Chest", "HF Redead Grotto Chest", "GV Storms Grotto Chest"] {
+        for n in ["KF Storms Grotto Chest", "SFM Wolfos Grotto Chest", "HF Storms Grotto Near Kakariko Redead Chest", "GV Storms Grotto Chest"] {
             assert!(!s.loc_access(w.loc(n).unwrap()), "{n}");
         }
         let s: Search = explore(&w, &without(&w, &d, &["Bomb Bag", "Megaton Hammer"]), &g);
@@ -174,12 +174,12 @@ mod tests {
         let w: World = world(&d).unwrap();
         let g: Vec<ItemId> = vec![w.item("Progressive Strength Upgrade").unwrap(); 3];
         let s: Search = explore(&w, &without(&w, &d, &["Progressive Hookshot"]), &g);
-        for n in ["LLR Tunnel Ledge Chest", "LH Poe Chest"] {
+        for n in ["LLR Tower Ledge Chest", "LH Poe Chest"] {
             assert!(!s.loc_access(w.loc(n).unwrap()), "{n}");
         }
         let s: Search = explore(&w, &without(&w, &d, &["Iron Boots"]), &g);
-        assert!(s.loc_access(w.loc("HF Tektite Grotto Freestanding PoH").unwrap()));
-        for (n, r) in [("HF Tektite Grotto Freestanding PoH", "Hyrule Field"), ("LLR Tunnel Ledge Chest", "LLR Tower"), ("LH Poe Chest", "Lake Hylia")] {
+        assert!(s.loc_access(w.loc("HF Rocks Near Cow Grotto Chest").unwrap()));
+        for (n, r) in [("HF Rocks Near Cow Grotto Chest", "Hyrule Field"), ("LLR Tower Ledge Chest", "LLR Tower"), ("LH Poe Chest", "Lake Hylia")] {
             assert_eq!(w.regions[w.locs[w.loc(n).unwrap()].region].name, r, "{n}");
         }
         let s: Search = explore(&w, &without(&w, &d, &["Progressive Hookshot", "Boomerang", "Slingshot"]), &g);

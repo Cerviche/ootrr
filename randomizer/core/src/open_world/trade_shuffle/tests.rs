@@ -46,6 +46,11 @@ fn patched(rf: &mut Romfs) -> HM<String, Flow> {
     one(rf, &mut out, SHOW_FLOW, &show);
     one(rf, &mut out, GET_FLOW, &get);
     one(rf, &mut out, QUEST, &egg);
+    one(rf, &mut out, ERA_FLOW, &era);
+    one(rf, &mut out, KID_QUEST, &kid_hatch);
+    for n in KID_NPCS {
+        one(rf, &mut out, n, &|b: &mut Bf| kid_npc_bf(b, n).map(|_| ()));
+    }
     out
 }
 
@@ -57,13 +62,20 @@ fn step(s: &Sim, f: &Fin) -> String {
     }
 }
 
-fn scene(flow: &str, entry: &str, set: &[(&str, &str)], own: &[&str]) -> Scene {
-    Scene {
-        flow: flow.to_string(),
-        entry: entry.to_string(),
-        set: set.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
-        own: own.iter().map(|a| (a.to_string(), 1)).collect(),
+/// The scene's game data: an adult's, unless the scene sets Link's age itself.
+fn aged(set: &[(&str, &str)]) -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = set.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+    if !set.iter().any(|(k, _)| *k == AGE) {
+        out.push((AGE.to_string(), "false".to_string()));
     }
+    out
+}
+
+/// Link as a child.
+const KIDDO: (&str, &str) = (AGE, "true");
+
+fn scene(flow: &str, entry: &str, set: &[(&str, &str)], own: &[&str]) -> Scene {
+    Scene { flow: flow.to_string(), entry: entry.to_string(), set: aged(set), own: own.iter().map(|a| (a.to_string(), 1)).collect() }
 }
 
 /// The hand ins that take a trade item: flow, entry, the item shown.
@@ -285,11 +297,21 @@ fn seeds_place_every_trade_item_once_and_the_spots_replace_their_gifts() {
         let g: Generated = generate_data(&d, &with(true), &format!("trade shuffle {n}"), &GenOpts::default()).unwrap();
         for x in ORDER.iter() {
             let at: Vec<&String> = g.seed_file.placements.iter().filter(|(_, i)| i.as_str() == x.name).map(|(l, _)| l).collect();
+            // The Pocket Cucco stands in for the Pocket Egg: one of the two, never both.
+            if x.name == EGG {
+                assert!(at.is_empty(), "seed {n}: {} placed at {at:?}", x.name);
+                continue;
+            }
             assert_eq!(at.len(), 1, "seed {n}: {} placed at {at:?}", x.name);
             if d.flow.by_name(at[0]).map(|l| l.vanilla.as_str()) != Some(x.name) {
                 moved += 1;
             }
         }
+        // Anju's first gift adds the Pocket Cucco itself: ten trade items for ten spots, and the
+        // pool keeps the size it has with the chain left at home.
+        let off: Generated = generate_data(&d, &with(false), &format!("trade shuffle {n}"), &GenOpts::default()).unwrap();
+        assert_eq!(g.seed_file.placements.len(), off.seed_file.placements.len(), "seed {n}");
+        assert_eq!(g.seed_file.placements.values().filter(|i| by_name(i).is_some()).count(), crate::flow_extra::trade::LOCS.len(), "seed {n}");
         let cs: Vec<crate::flow_locations::Choice> = crate::flow_extra::trade::LOCS
             .iter()
             .filter_map(|l| {
@@ -309,12 +331,7 @@ fn seeds_place_every_trade_item_once_and_the_spots_replace_their_gifts() {
 }
 
 fn counted(flow: &str, entry: &str, set: &[(&str, &str)], own: &[(&str, i64)]) -> Scene {
-    Scene {
-        flow: flow.to_string(),
-        entry: entry.to_string(),
-        set: set.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
-        own: own.iter().map(|(a, n)| (a.to_string(), *n)).collect(),
-    }
+    Scene { flow: flow.to_string(), entry: entry.to_string(), set: aged(set), own: own.iter().map(|(a, n)| (a.to_string(), *n)).collect() }
 }
 
 fn count(s: &mut Sim, f: &Fin, actor: &str) -> i64 {
@@ -350,7 +367,7 @@ fn the_show_switch_brings_the_next_item_out_and_parks_the_shown_one() {
         },
         _ => None,
     }).collect();
-    assert_eq!(order.len(), ORDER.len() * (ORDER.len() - 1));
+    assert_eq!(order.len(), ORDER.len() * (ORDER.len() - 1) + KID.len() * (KID.len() - 1));
     // Only one held: nothing changes.
     let sc: Scene = counted(SHOW_FLOW, SHOW_ENTRY, &[(child, "false"), (BUTTON, "ClaimCheck"), (STEP, "Step07")], &[("Item_ClaimCheck", 1)]);
     let fins: Vec<Fin> = run(&mut s, &sc).unwrap();
@@ -446,4 +463,182 @@ fn a_parked_egg_still_hatches() {
     // A parked Pocket Cucco blocks the hatch like one that is out.
     let fins: Vec<Fin> = run(&mut s, &counted(QUEST, EGG_ENTRY, &[(STEP, "WaitEggHatch")], &[("Item_PocketEgg", 1), ("Item_PocketCucco", P)])).unwrap();
     assert!(fins.iter().all(|f| granted(f, "Item_PocketCucco") == 0));
+}
+
+#[test]
+fn the_child_group_matches_the_game_s_actors_and_the_age_flag() {
+    assert_eq!(AGE, crate::flow_sim::ask::CHILD);
+    for x in KID.iter() {
+        assert!(crate::flow_extra::trade::chain(x.actor), "{}", x.actor);
+        assert!(!item(x.actor), "{} is not an adult trade item", x.actor);
+        assert!(x.step.is_none());
+    }
+    let d: Data = Data::load().unwrap();
+    for x in [&KID[0], &KID[2]] {
+        assert_eq!(d.item(x.name).and_then(|i| i.actor.as_deref()), Some(x.actor), "{}", x.name);
+    }
+    let Some(r) = root() else { return };
+    let rf: Romfs = Romfs::open(&r).unwrap();
+    let y: Byml = Byml::parse(&rf.read(POUCH_UI).unwrap()).unwrap();
+    let items: &[Node] = y.root.get("ItemArray").and_then(Node::as_arr).unwrap();
+    let e: &Node = items.iter().find(|e| e.get("BtnName").and_then(Node::as_str) == Some(TRADE_BUTTON)).unwrap();
+    let list: &[Node] = e.get("Actor").and_then(Node::as_arr).unwrap();
+    // The slot's list: every item of each group, marked for its own age only.
+    for (g, mark) in [(ADULT, "IsUsableAdult"), (CHILD, "IsUsableChild")] {
+        for x in g.items {
+            let n: &Node = list.iter().find(|n| n.get("ActorShort").and_then(Node::as_str) == Some(x.actor)).unwrap();
+            assert_eq!(n.get(mark), Some(&Node::Bool(true)), "{}", x.actor);
+        }
+    }
+    assert_eq!(list.len(), ORDER.len() + KID.len());
+}
+
+#[test]
+fn a_child_parks_an_adult_trade_item_as_soon_as_it_is_got() {
+    let Some(r) = root() else { return };
+    let mut rf: Romfs = Romfs::open(&r).unwrap();
+    let fl: HM<String, Flow> = patched(&mut rf);
+    let mut s: Sim = sim(&r, fl).unwrap();
+    // A child with Zelda's Letter out finds Cojiro: it is parked at once and so is an adult
+    // trade item that was still out (an older save); the letter stays.
+    let sc: Scene = counted(GET_FLOW, GET_FLOW, &[KIDDO, (KID_BUTTON, "ZeldaLetter"), (BUTTON, "ClaimCheck"), (STEP, "Step07")], &[("Item_ZeldaLetter", 1), ("Item_ClaimCheck", 1)]);
+    let fins: Vec<Fin> = run_args(&mut s, &sc, &[("ActorName", "Item_CojiroCucco")]).unwrap();
+    let got: Vec<&Fin> = fins.iter().filter(|f| granted(f, "Item_CojiroCucco") == 1).collect();
+    assert!(!got.is_empty());
+    for f in got {
+        assert_eq!((count(&mut s, f, "Item_CojiroCucco"), count(&mut s, f, "Item_ClaimCheck"), count(&mut s, f, "Item_ZeldaLetter")), (P, P, 1));
+        assert_eq!(step(&s, f), "Step03", "a parked item still settles the adult quest");
+    }
+    // The child's own: button, the letter's count before, then the new cucco's and the letter's.
+    let cases: [(&str, &str, i64, i64, i64); 4] = [("true", "ZeldaLetter", 1, P, 1), ("true", "Bomb", 1, 1, 1), ("true", "ZeldaLetter", 0, 1, 0), ("false", "ZeldaLetter", 1, P, 1)];
+    for (kid, button, letter, want, left) in cases {
+        let sc: Scene = counted(GET_FLOW, GET_FLOW, &[(AGE, kid), (KID_BUTTON, button)], &[("Item_ZeldaLetter", letter)]);
+        let fins: Vec<Fin> = run_args(&mut s, &sc, &[("ActorName", "Item_AlarmCucco")]).unwrap();
+        let got: Vec<&Fin> = fins.iter().filter(|f| granted(f, "Item_AlarmCucco") == 1).collect();
+        assert!(!got.is_empty());
+        for f in got {
+            assert_eq!((count(&mut s, f, "Item_AlarmCucco"), count(&mut s, f, "Item_ZeldaLetter")), (want, left), "child {kid}, button {button}, letter count {letter}");
+        }
+    }
+    // An adult's own trade items are untouched by a child trade item coming in.
+    let sc: Scene = counted(GET_FLOW, GET_FLOW, &[(BUTTON, "ClaimCheck"), (KID_BUTTON, "Empty")], &[("Item_ClaimCheck", 1), ("Item_PoacherSaw", P)]);
+    let fins: Vec<Fin> = run_args(&mut s, &sc, &[("ActorName", "Item_ZeldaLetter")]).unwrap();
+    for f in fins.iter().filter(|f| granted(f, "Item_ZeldaLetter") == 1) {
+        assert_eq!((count(&mut s, f, "Item_ClaimCheck"), count(&mut s, f, "Item_PoacherSaw"), count(&mut s, f, "Item_ZeldaLetter")), (1, P, 1));
+    }
+}
+
+#[test]
+fn an_era_change_sets_the_trade_slot_up_for_the_age_to_come() {
+    let Some(r) = root() else { return };
+    let mut rf: Romfs = Romfs::open(&r).unwrap();
+    let fl: HM<String, Flow> = patched(&mut rf);
+    let mut s: Sim = sim(&r, fl).unwrap();
+    let all: [&str; 5] = ["Item_PoacherSaw", "Item_ClaimCheck", "Item_WeirdEgg", "Item_AlarmCucco", "Item_ZeldaLetter"];
+    // Age before the change, the adult's and the child's button, the counts before and after
+    // (Saw, Claim Check, Weird Egg, cucco, letter).
+    type Case = (&'static str, &'static str, &'static str, [i64; 5], [i64; 5]);
+    let cases: [Case; 7] = [
+        // To childhood: every adult trade item is parked, the child's own stay as they were.
+        ("false", "PoacherSaw", "ZeldaLetter", [1, P, 0, P, 1], [P, P, 0, P, 1]),
+        // The child's button names a parked one: it comes out.
+        ("false", "ClaimCheck", "ZeldaLetter", [P, 1, 0, P, P], [P, P, 0, P, 1]),
+        // None of the child's is out and the button holds something else: the earliest comes out.
+        ("false", "ClaimCheck", "Bomb", [P, 1, P, 0, P], [P, P, 1, 0, P]),
+        // To adulthood: the adult button's own comes out, the child's are left alone.
+        ("true", "ClaimCheck", "ZeldaLetter", [P, P, 0, P, 1], [P, 1, 0, P, 1]),
+        // Another item on the adult's button: the earliest parked one comes out.
+        ("true", "Bow", "ZeldaLetter", [P, P, 0, 0, 1], [1, P, 0, 0, 1]),
+        // The adult's button names an item that was handed in: the earliest parked one.
+        ("true", "ClaimCheck", "Empty", [P, 0, 0, 0, 0], [1, 0, 0, 0, 0]),
+        // No trade item at all: nothing to do.
+        ("true", "Bow", "Empty", [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]),
+    ];
+    for (kid, adult_button, kid_button, before, after) in cases {
+        let own: Vec<(&str, i64)> = all.iter().copied().zip(before).collect();
+        let fins: Vec<Fin> = run(&mut s, &counted(ERA_FLOW, ERA_FLOW, &[(AGE, kid), (BUTTON, adult_button), (KID_BUTTON, kid_button)], &own)).unwrap();
+        assert!(!fins.is_empty());
+        for f in &fins {
+            let now: Vec<i64> = all.iter().map(|a| count(&mut s, f, a)).collect();
+            assert_eq!(now, after.to_vec(), "child {kid}, buttons {adult_button} / {kid_button}, from {before:?}");
+        }
+    }
+}
+
+#[test]
+fn a_child_switches_between_the_child_s_trade_items_by_showing_one_to_nobody() {
+    let Some(r) = root() else { return };
+    let mut rf: Romfs = Romfs::open(&r).unwrap();
+    let fl: HM<String, Flow> = patched(&mut rf);
+    let show_flow: Flow = fl[SHOW_FLOW].clone();
+    let mut s: Sim = sim(&r, fl).unwrap();
+    s.opts.verbose = true;
+    let own: [(&str, i64); 3] = [("Item_ZeldaLetter", 1), ("Item_AlarmCucco", P), ("Item_CojiroCucco", P)];
+    // Button, the item that goes on it (its Item index), then the letter's and the cucco's count.
+    let cases: [(&str, Option<i32>, i64, i64); 2] = [("ZeldaLetter", Some(32), P, 1), ("Bomb", None, 1, P)];
+    for (button, want, letter, cucco) in cases {
+        let sc: Scene = counted(SHOW_FLOW, SHOW_ENTRY, &[KIDDO, (KID_BUTTON, button), (BUTTON, "CojiroCucco"), (STEP, "Step07")], &own);
+        let fins: Vec<Fin> = run(&mut s, &sc).unwrap();
+        assert!(!fins.is_empty());
+        for (f, p) in fins.iter().zip(picks(&fins, &show_flow)) {
+            assert_eq!(p, want, "button {button}");
+            assert_eq!((count(&mut s, f, "Item_ZeldaLetter"), count(&mut s, f, "Item_AlarmCucco"), count(&mut s, f, "Item_CojiroCucco")), (letter, cucco, P), "button {button}: the adult's parked item is never the child's next");
+            assert_eq!(step(&s, f), "Step07", "a child's switch leaves the adult quest alone");
+        }
+    }
+    // The letter alone: nothing to switch to.
+    let sc: Scene = counted(SHOW_FLOW, SHOW_ENTRY, &[KIDDO, (KID_BUTTON, "ZeldaLetter")], &[("Item_ZeldaLetter", 1)]);
+    let fins: Vec<Fin> = run(&mut s, &sc).unwrap();
+    assert!(picks(&fins, &show_flow).iter().all(Option::is_none));
+    assert!(fins.iter().all(|f| count(&mut s, f, "Item_ZeldaLetter") == 1));
+}
+
+#[test]
+fn the_guard_and_talon_put_the_child_s_other_trade_item_on_the_button() {
+    let Some(r) = root() else { return };
+    let mut rf: Romfs = Romfs::open(&r).unwrap();
+    let fl: HM<String, Flow> = patched(&mut rf);
+    let flows: HM<String, Flow> = fl.clone();
+    let mut s: Sim = sim(&r, fl).unwrap();
+    s.opts.verbose = true;
+    // Flow, entry, the item taken, the parked one that takes over and its Item index.
+    let cases: [(&str, &str, &str, &str, i32); 2] = [
+        ("Npc_Hylia_Soldier_003", "ShowItem_ZeldaLetter", "Item_ZeldaLetter", "Item_AlarmCucco", 32),
+        ("Dm_HrlCastle_0020", "EntryPoint0", "Item_AlarmCucco", "Item_ZeldaLetter", 33),
+    ];
+    for (flow, entry, shown, other, index) in cases {
+        let fins: Vec<Fin> = run(&mut s, &counted(flow, entry, &[KIDDO], &[(shown, 1), (other, P), ("Item_CojiroCucco", P)])).unwrap();
+        let took: Vec<&Fin> = fins.iter().filter(|f| granted(f, shown) == -1).collect();
+        assert!(!took.is_empty(), "{flow} {entry} never takes {shown}");
+        for f in took {
+            assert_eq!((count(&mut s, f, shown), count(&mut s, f, other), count(&mut s, f, "Item_CojiroCucco")), (0, 1, P), "{flow} {entry}");
+            assert_eq!(last_pick(f, &flows[flow]), Some(index), "{flow} {entry}: {other} goes on the button");
+        }
+        // Nothing else held: the button is left alone.
+        let fins: Vec<Fin> = run(&mut s, &counted(flow, entry, &[KIDDO], &[(shown, 1)])).unwrap();
+        for f in fins.iter().filter(|f| granted(f, shown) == -1) {
+            assert_eq!(last_pick(f, &flows[flow]), None, "{flow} {entry}");
+        }
+    }
+}
+
+#[test]
+fn the_weird_egg_hatch_takes_the_egg_from_a_count_of_one_or_not_at_all() {
+    let Some(r) = root() else { return };
+    let mut rf: Romfs = Romfs::open(&r).unwrap();
+    let fl: HM<String, Flow> = patched(&mut rf);
+    let mut s: Sim = sim(&r, fl).unwrap();
+    // The egg's count before, whether the hatch takes it, the cucco's count after.
+    let cases: [(i64, bool, i64); 3] = [(P, true, P), (1, true, P), (0, false, P)];
+    for (egg, taken, cucco) in cases {
+        let sc: Scene = counted(KID_QUEST, "EggHatch", &[KIDDO, (KID_BUTTON, "ZeldaLetter")], &[("Item_WeirdEgg", egg), ("Item_ZeldaLetter", 1)]);
+        let fins: Vec<Fin> = run(&mut s, &sc).unwrap();
+        let hatched: Vec<&Fin> = fins.iter().filter(|f| granted(f, "Item_AlarmCucco") == 1).collect();
+        assert!(!hatched.is_empty(), "egg count {egg}: {:?}", fins.iter().map(|f| format!("{:?}", f.end)).collect::<Vec<_>>());
+        for f in hatched {
+            assert_eq!(granted(f, "Item_WeirdEgg") == -1, taken, "egg count {egg}");
+            assert_eq!(count(&mut s, f, "Item_WeirdEgg"), 0, "egg count {egg}: never below zero, never left parked");
+            assert_eq!((count(&mut s, f, "Item_AlarmCucco"), count(&mut s, f, "Item_ZeldaLetter")), (cucco, 1), "egg count {egg}: the letter is on the button, so the new cucco waits");
+        }
+    }
 }

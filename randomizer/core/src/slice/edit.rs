@@ -559,7 +559,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     // A Bow or Slingshot from any gift or pickup brings its starting bag, as a chest's does.
     crate::starter_bags::stage(&mut rf, &mut late, &work)?;
-    crate::dungeon_packs::stage(&mut rf, &mut late, &work, &crate::dungeon_packs::picked_up(&d, seed))?;
+    crate::dungeon_packs::stage(&mut rf, &mut late, &work, &crate::dungeon_packs::credits(&d, seed))?;
     crate::pickup_tiers::stage(&mut rf, &mut late, &work, &crate::pickup_tiers::families(&d, seed))?;
     crate::ocarina_hold::stage(&mut rf, &mut late, &work, crate::ocarina_hold::picked_up(&d, seed))?;
     // Rooms that could lock Link in once their item is shuffled away (crate::dungeon_fixes).

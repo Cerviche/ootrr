@@ -1,9 +1,10 @@
-//! The menu's hint for the trade slot: each adult trade item's description (its caption in
+//! The menu's hint for the trade slot: each trade item's description (its caption in
 //! `ActorMsg/PouchContent.msbt`, shown when the cursor is on the slot) ends with a line that says
 //! A switches trade items. The caption box holds three lines, so a caption that already fills it
-//! is replaced by a two-line one ([`SHORT`]) before the hint.
+//! is replaced by a two-line one ([`SHORT`], [`KID_SHORT`]) before the hint. The child's three
+//! trade items get the hint too: the child switches the same way.
 
-use super::ORDER;
+use super::{Trade, KID, ORDER};
 use crate::error::{Error, Res};
 use crate::msbt::{self, Msbt, Tok};
 use crate::sarc::{self, Entry};
@@ -28,6 +29,18 @@ pub const SHORT: [&str; 11] = [
     "A claim check for a sword that\nBiggoron is repairing.",
 ];
 
+/// The same for the child's trade items ([`KID`]).
+pub const KID_SHORT: [&str; 3] = [
+    "Malon gave you this egg. You can feel\nsomething moving around inside...",
+    "Hatched from the weird egg. Its mighty\ncrow wakes even the heaviest sleepers.",
+    "Zelda gave you this letter at Hyrule\nCastle. It even has her signature on it!",
+];
+
+/// Every trade item with a hinted caption, each with its two-line caption.
+pub fn all() -> impl Iterator<Item = (&'static Trade, &'static str)> {
+    ORDER.iter().zip(SHORT).chain(KID.iter().zip(KID_SHORT))
+}
+
 pub fn label(actor: &str) -> String {
     format!("{actor}_Caption")
 }
@@ -36,29 +49,30 @@ fn lines(t: &[Tok]) -> usize {
     1 + t.iter().map(|k| if let Tok::Text(s) = k { s.matches('\n').count() } else { 0 }).sum::<usize>()
 }
 
-/// The caption with the hint as its last line.
-pub fn hinted(m: &Msbt, k: usize) -> Res<Vec<Tok>> {
-    let name: String = label(ORDER[k].actor);
+/// The caption of `actor` with the hint as its last line; `short` replaces a caption that has no
+/// room for it.
+pub fn hinted(m: &Msbt, actor: &str, short: &str) -> Res<Vec<Tok>> {
+    let name: String = label(actor);
     let mut t: Vec<Tok> = m.text(&name)?;
     let ends: bool = matches!(t.last(), Some(Tok::Text(s)) if s.ends_with(HINT));
     if ends {
         return Err(Error::Msg(format!("trade shuffle: {name} already has the switch hint")));
     }
     if lines(&t) >= LINES {
-        t = msbt::from_markup(SHORT[k])?;
+        t = msbt::from_markup(short)?;
     }
     t.push(Tok::Text(format!("\n{HINT}")));
     Ok(t)
 }
 
-/// A language archive with the hint on every adult trade item's caption.
+/// A language archive with the hint on every trade item's caption.
 pub fn archive(raw: &[u8]) -> Res<Vec<u8>> {
     let mut es: Vec<Entry> = sarc::parse(raw)?;
     let b: Vec<u8> = sarc::get(&es, FILE).ok_or(Error::Format("trade shuffle: a message archive has no PouchContent.msbt"))?.data.clone();
     let mut m: Msbt = msbt::parse(&b)?;
-    for k in 0..ORDER.len() {
-        let t: Vec<Tok> = hinted(&m, k)?;
-        m.set_tokens(&label(ORDER[k].actor), &t)?;
+    for (x, short) in all() {
+        let t: Vec<Tok> = hinted(&m, x.actor, short)?;
+        m.set_tokens(&label(x.actor), &t)?;
     }
     let w: Vec<u8> = m.write()?;
     msbt::parse(&w)?;
@@ -73,10 +87,11 @@ mod tests {
 
     #[test]
     fn the_short_captions_leave_room_for_the_hint() {
-        for s in SHORT {
+        for (_, s) in all() {
             assert_eq!(s.lines().count(), LINES - 1, "{s}");
             assert!(s.lines().all(|l| l.len() <= 42), "{s}");
         }
+        assert_eq!(all().count(), ORDER.len() + KID.len());
         assert!(HINT.len() <= 42);
     }
 
@@ -96,7 +111,7 @@ mod tests {
             assert!(archive(&out).is_err(), "{l}: a second pass is refused");
             let before: Msbt = msbt::parse(&sarc::get(&sarc::parse(&raw).unwrap(), FILE).unwrap().data).unwrap();
             let m: Msbt = msbt::parse(&sarc::get(&sarc::parse(&out).unwrap(), FILE).unwrap().data).unwrap();
-            for (k, x) in ORDER.iter().enumerate() {
+            for (x, short) in all() {
                 let text: String = msbt::to_markup(&m.text(&label(x.actor)).unwrap());
                 let rows: Vec<&str> = text.split('\n').collect();
                 assert!(rows.len() <= LINES, "{l} {}: {text}", x.actor);
@@ -105,7 +120,7 @@ mod tests {
                 if old.split('\n').count() < LINES {
                     assert!(text.starts_with(&old), "{l} {}: a caption with room keeps its own text", x.actor);
                 } else {
-                    assert!(text.starts_with(SHORT[k]), "{l} {}", x.actor);
+                    assert!(text.starts_with(short), "{l} {}", x.actor);
                 }
                 assert_eq!(m.raw(&format!("{}_Name", x.actor)), before.raw(&format!("{}_Name", x.actor)), "names are untouched");
             }

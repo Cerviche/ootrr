@@ -1002,6 +1002,7 @@ pub struct KeyCredit {
     pub base: String,
     pub item: crate::gift_keys::Item,
     pub dungeon: &'static str,
+    pub pack: Option<crate::dungeon_packs::Pack>,
 }
 
 pub fn key_credits(d: &Data, seed: &crate::settings::seed::SeedFile) -> Vec<KeyCredit> {
@@ -1026,7 +1027,7 @@ pub fn key_credits(d: &Data, seed: &crate::settings::seed::SeedFile) -> Vec<KeyC
         names.sort();
         names.dedup();
         if !out.iter().any(|c| c.names == names) {
-            out.push(KeyCredit { names, label: item.clone(), base: i.actor.clone().unwrap_or_default(), item: k, dungeon: dg });
+            out.push(KeyCredit { names, label: item.clone(), base: i.actor.clone().unwrap_or_default(), item: k, dungeon: dg, pack: crate::dungeon_packs::of(d, item) });
         }
     }
     out
@@ -1157,7 +1158,8 @@ pub fn stage_key_credit(rf: &mut Romfs, work: &P, tail: &mut Vec<Out>, cs: &[Key
         return Ok(0);
     }
     for l in crate::hints::languages(rf)? {
-        stage_late_file(rf, tail, work, &l, |raw: &[u8]| name_keys(raw, cs))?;
+        let english: bool = crate::dungeon_text::is_english(&l);
+        stage_late_file(rf, tail, work, &l, |raw: &[u8]| name_keys(raw, cs, english))?;
     }
     let mut n: usize = 0;
     stage_late(rf, tail, work, GET_FLOW, |b| add_key_sweep(b, cs).map(|k| n = k))?;
@@ -1169,13 +1171,18 @@ pub fn stage_key_credit(rf: &mut Romfs, work: &P, tail: &mut Vec<Out>, cs: &[Key
 
 /// Names every dungeon item pickup in the item texts: its _Name is the item's own name (Small
 /// Key (Forest Temple)), its other texts are the shared item's.
-fn name_keys(raw: &[u8], cs: &[KeyCredit]) -> Res<Vec<u8>> {
+fn name_keys(raw: &[u8], cs: &[KeyCredit], english: bool) -> Res<Vec<u8>> {
     let mut es: Vec<sarc::Entry> = sarc::parse(raw)?;
     let names: &str = crate::dungeon_text::NAMES;
     let e: &sarc::Entry = sarc::get(&es, names).ok_or_else(|| E::Msg(format!("the language archive has no {names}")))?;
     let mut m: Msbt = msbt::parse(&e.data)?;
+    let places: Msbt = crate::dungeon_packs::places_of(&es)?;
     for c in cs {
         for n in &c.names {
+            if let Some(p) = c.pack {
+                crate::dungeon_packs::put_texts(&mut m, &places, n, p, english)?;
+                continue;
+            }
             for sfx in ["_Caption", "_GetCaption", "_ShopCaption"] {
                 let own: String = format!("{n}{sfx}");
                 if m.find(&own).is_some() {

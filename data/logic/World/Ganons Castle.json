@@ -117,13 +117,7 @@
         "region_name": "Ganons Castle Shadow Trial Second Gap",
         "dungeon": "Ganons Castle",
         "locations": {
-            "Ganons Castle Shadow Trial Golden Gauntlets Chest": "True",
-            "Ganons Castle Shadow Trial Recovery Heart 1": "
-                logic_lens_castle or can_use(Lens_of_Truth) or Hover_Boots",
-            "Ganons Castle Shadow Trial Recovery Heart 2": "
-                logic_lens_castle or can_use(Lens_of_Truth) or Hover_Boots",
-            "Ganons Castle Shadow Trial Recovery Heart 3": "
-                logic_lens_castle or can_use(Lens_of_Truth) or Hover_Boots"
+            "Ganons Castle Shadow Trial Golden Gauntlets Chest": "True"
         },
         "exits": {
             "Ganons Castle Shadow Trial Ending": "
@@ -147,7 +141,6 @@
         "region_name": "Ganons Castle Fire Trial",
         "dungeon": "Ganons Castle",
         "locations": {
-            "Ganons Castle Fire Trial Recovery Heart": "True",
             "Ganons Castle Fire Trial Silver Rupee Right Back": "is_adult or logic_fire_trial_slug_rupee",
             "Ganons Castle Fire Trial Silver Rupee Flamethrower": "True",
             "Ganons Castle Fire Trial Silver Rupee Right Center": "
@@ -229,7 +222,6 @@
         "region_name": "Ganons Castle Spirit Trial",
         "dungeon": "Ganons Castle",
         "locations": {
-            "Ganons Castle Spirit Trial Recovery Heart": "True",
             "Ganons Castle Spirit Trial Silver Rupee Ceiling": "
                 can_use(Hookshot) or (logic_spirit_trial_hookshot and can_jumpslash)",
             "Ganons Castle Spirit Trial Silver Rupee Front Right": "True",

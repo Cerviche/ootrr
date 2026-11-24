@@ -1,7 +1,7 @@
 use crate::logic_items::ItemId;
 use crate::slice::data::Data;
 use crate::slice::support::Plan;
-use crate::world::{LocId, World};
+use crate::world::{LocId, Placement, World};
 
 pub struct Spot<'a> {
     pub d: &'a Data,
@@ -103,20 +103,42 @@ pub const LOW_JUNK: [(&str, u64); 8] = [
     ("Deku Seeds (30)", 4),
 ];
 
-pub fn roll_low_junk(w: &World, l: LocId, ok: &dyn Fn(ItemId, LocId) -> bool, rng: &mut crate::rng::Rng) -> Option<ItemId> {
-    let cands: Vec<(ItemId, u64)> = LOW_JUNK.iter().filter_map(|(n, wt)| w.item(n).filter(|i| ok(*i, l)).map(|i| (i, *wt))).collect();
-    let total: u64 = cands.iter().map(|c| c.1).sum();
+/// An excluded spot `l` trades its junk for a low junk item (LOW_JUNK, picked by weight) that the
+/// fill put at one of the `others`. A trade keeps the seed's item counts, which the build matches
+/// against the chests the game ships (slice::chest_targets): a newly rolled item would add a copy
+/// the game files do not hold ("the seed places N copies of X but its chests hold N-1"). With no
+/// low junk to trade for, the spot keeps the fill's junk, which the excluded rule already made junk.
+pub fn swap_low_junk(w: &World, got: &mut Placement, l: LocId, others: &[LocId], ok: &dyn Fn(ItemId, LocId) -> bool, rng: &mut crate::rng::Rng) {
+    let low = |i: ItemId| LOW_JUNK.iter().find(|(n, _)| w.item(n) == Some(i)).map(|(_, wt)| *wt);
+    let Some(mine) = got.get(l) else {
+        return;
+    };
+    if low(mine).is_some() {
+        return;
+    }
+    let cands: Vec<(LocId, ItemId, u64)> = others
+        .iter()
+        .copied()
+        .filter(|m| *m != l)
+        .filter_map(|m| {
+            let i: ItemId = got.get(m)?;
+            let wt: u64 = low(i)?;
+            (ok(i, l) && ok(mine, m)).then_some((m, i, wt))
+        })
+        .collect();
+    let total: u64 = cands.iter().map(|c| c.2).sum();
     if total == 0 {
-        return None;
+        return;
     }
     let mut r: u64 = rng.below(total);
-    for (i, wt) in cands {
+    for (m, i, wt) in cands {
         if r < wt {
-            return Some(i);
+            got.put(l, i);
+            got.put(m, mine);
+            return;
         }
         r -= wt;
     }
-    None
 }
 
 fn silver(s: &Spot) -> Option<bool> {
