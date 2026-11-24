@@ -64,8 +64,8 @@ pub const DUNGEONS: [(&str, &str, &str); 12] = [
 /// Maps where Navi never offers a trip: the boss rooms, the final battle, the boss rush, the
 /// Chamber of Sages, demo maps and the miniboss arenas. Leaving a boss or miniboss fight with a
 /// map change kept the game in its fight state: the save button stayed disabled and the room
-/// could stay locked. That state is the game code's, not game data, so no flag write undoes it;
-/// the fight has to end the game's own way (win, game over or a reload).
+/// could stay locked. Every trip now also leaves the game's safety section and stops and hides
+/// the minigame timer before the map change, the calls the game's own exits make.
 pub const STAY: [&str; 30] = [
     "GohmaStage",
     "DodongoStage",
@@ -225,12 +225,18 @@ struct Slots {
     map: (u16, u16),
     child: (u16, u16),
     timer: (u16, u16),
+    leave: (u16, u16),
+    stop: (u16, u16),
+    hide: (u16, u16),
 }
 
 /// The question, the answer switch and the map change, returning the question.
 fn offer(f: &mut Flow, s: &Slots, label: &str, to: (&str, &str), stay: u16) -> Res<u16> {
     let go: u16 = push(f, Kind::Action { next: NONE, actor: s.warp.0, act: s.warp.1, params: Some(warp(to.0, to.1)) })?;
-    let pick: u16 = push(f, Kind::Switch { actor: s.choice.0, query: s.choice.1, cases: two(go, stay), params: None })?;
+    let hide: u16 = push(f, Kind::Action { next: go, actor: s.hide.0, act: s.hide.1, params: None })?;
+    let stop: u16 = push(f, Kind::Action { next: hide, actor: s.stop.0, act: s.stop.1, params: None })?;
+    let leave: u16 = push(f, Kind::Action { next: stop, actor: s.leave.0, act: s.leave.1, params: None })?;
+    let pick: u16 = push(f, Kind::Switch { actor: s.choice.0, query: s.choice.1, cases: two(leave, stay), params: None })?;
     push(f, Kind::Action { next: pick, actor: s.talk.0, act: s.talk.1, params: Some(talk(label)) })
 }
 
@@ -266,6 +272,9 @@ pub fn patch_flow(b: &mut Bf, mode: Mode) -> Res<usize> {
         map: query_slot(f, "GameDataActor", "EventQueryIsGameDataString64")?,
         child: query_slot(f, "Player_Event", "EventQueryPlayerIsChild")?,
         timer: query_slot(f, TIMER_ACTOR, TIMER)?,
+        leave: slot(f, SYSTEM, "EventTriggerLeaveGameSafetySection")?,
+        stop: slot(f, TIMER_ACTOR, "EventTriggerMiniGameTimerStop")?,
+        hide: slot(f, TIMER_ACTOR, "EventTriggerUnshowTimerUI")?,
     };
     let mut tail: u16 = stay;
     if mode == Mode::Everywhere {
@@ -516,6 +525,7 @@ mod tests {
 
     fn walk_timed(f: &Flow, map: &str, child: bool, yes: bool, counting: bool) -> Option<(String, String)> {
         let mut i: u16 = f.entries[0].main;
+        let mut seen: Vec<String> = Vec::new();
         for _ in 0..500 {
             match &f.events[i as usize].kind {
                 Kind::Switch { actor, query, cases, params } => {
@@ -535,7 +545,10 @@ mod tests {
                 }
                 Kind::Action { next, actor, act, params } => {
                     let a: &str = &f.actors[*actor as usize].actions[*act as usize];
+                    seen.push(format!("{}.{a}", f.actors[*actor as usize].name));
                     if a == "EventReserveBancChange" {
+                        let n: usize = seen.len();
+                        assert_eq!(&seen[n - 4..], ["GameSystemActor.EventTriggerLeaveGameSafetySection", "ChallengeSystemActor.EventTriggerMiniGameTimerStop", "ChallengeSystemActor.EventTriggerUnshowTimerUI", "GameSystemActor.EventReserveBancChange"]);
                         let c: &Cont = params.as_ref().unwrap();
                         let s = |k: &str| match c.get(k) {
                             Some(Val::Str(x)) => x.clone(),
@@ -602,6 +615,38 @@ mod tests {
     }
 
     #[test]
+    fn every_map_change_the_patch_adds_is_reached_only_after_the_leave_and_the_timer_calls() {
+        for mode in [Mode::Dungeons, Mode::Everywhere] {
+            let mut b: Bf = sample();
+            let before: Vec<Event> = b.flows[0].events.clone();
+            patch_flow(&mut b, mode).unwrap();
+            let f: &Flow = &b.flows[0];
+            assert_eq!(&f.events[..before.len()], &before[..]);
+            let name = |i: u16| -> String {
+                match &f.events[i as usize].kind {
+                    Kind::Action { actor, act, .. } => format!("{}.{}", f.actors[*actor as usize].name, f.actors[*actor as usize].actions[*act as usize]),
+                    _ => String::new(),
+                }
+            };
+            let mut changes: usize = 0;
+            for (i, e) in f.events.iter().enumerate().skip(before.len()) {
+                if name(i as u16) != "GameSystemActor.EventReserveBancChange" {
+                    continue;
+                }
+                changes += 1;
+                let from: Vec<&Event> = f.events.iter().filter(|x| matches!(&x.kind, Kind::Action { next, .. } if *next as usize == i)).collect();
+                assert_eq!(from.len(), 1, "{}", e.name);
+                let Kind::Action { actor, act, .. } = &from[0].kind else {
+                    panic!("not an action");
+                };
+                assert_eq!(format!("{}.{}", f.actors[*actor as usize].name, f.actors[*actor as usize].actions[*act as usize]), "ChallengeSystemActor.EventTriggerUnshowTimerUI");
+                assert!(!f.events.iter().any(|x| matches!(&x.kind, Kind::Switch { cases, .. } if cases.iter().any(|c| c.ev as usize == i))));
+            }
+            assert_eq!(changes, if mode == Mode::Dungeons { 12 } else { 14 });
+        }
+    }
+
+    #[test]
     fn the_patch_refuses_a_second_run_and_the_off_mode() {
         let mut b: Bf = sample();
         assert!(patch_flow(&mut b, Mode::Off).is_err());
@@ -616,7 +661,7 @@ mod tests {
         }
         let mut b: Bf = sample();
         let n: usize = patch_flow(&mut b, Mode::Dungeons).unwrap();
-        assert_eq!(n, DUNGEONS.len() + 12 * 3 + 1);
+        assert_eq!(n, DUNGEONS.len() + 12 * 6 + 1);
     }
 
     #[test]
@@ -699,6 +744,27 @@ mod tests {
         let mine: &Actor = &f.actors[*actor as usize];
         let theirs: &Actor = sword.actors.iter().find(|a| a.name == TIMER_ACTOR).unwrap();
         assert_eq!((&mine.params, mine.ep, mine.cut), (&theirs.params, theirs.ep, theirs.cut));
+    }
+
+    #[test]
+    fn the_game_flows_still_hold_the_leave_and_the_timer_calls_the_trip_copies() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let has = |f: &Flow, actor: &str, act: &str| f.actors.iter().any(|a| a.name == actor && a.actions.iter().any(|x| x == act));
+        let go: Flow = flow_of(&mut rf, "Dm_SY_BancChangeGo");
+        assert!(has(&go, SYSTEM, "EventTriggerLeaveGameSafetySection"));
+        let goron: Flow = flow_of(&mut rf, "SubEvent_GetSwordBigGoron");
+        assert!(has(&goron, TIMER_ACTOR, "EventTriggerMiniGameTimerStop"));
+        assert!(has(&goron, TIMER_ACTOR, "EventTriggerUnshowTimerUI"));
+        let none = |_: &str| -> Option<Vec<u8>> { None };
+        let outs: Vec<Out> = stage(&mut rf, Mode::Everywhere, &none).unwrap();
+        let b: Bf = Bf::parse(&rf.zs.decompress(&outs[0].z).unwrap()).unwrap();
+        let f: &Flow = b.flows.iter().find(|f| f.name == FLOW).unwrap();
+        assert!(has(f, SYSTEM, "EventTriggerLeaveGameSafetySection"));
+        assert!(has(f, TIMER_ACTOR, "EventTriggerMiniGameTimerStop"));
+        assert!(has(f, TIMER_ACTOR, "EventTriggerUnshowTimerUI"));
     }
 
     #[test]
