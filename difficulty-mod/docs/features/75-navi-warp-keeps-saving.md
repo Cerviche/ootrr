@@ -81,7 +81,7 @@ For details about implementation and testing, see difficulty-mod/docs/features/7
 
 Using Return with Navi to leave a locked enemy room (for example the Deku Tree scrub room) left the game refusing manual saves and autosaves until a game over or reload. The trip now leaves the game's safety section, and stops and hides any minigame timer, before it changes the map. Tested in the game by script: on nightly the trip out of the Deku Tree scrub room left Save greyed (0 save files changed); with the fix the same test wrote the save (3 files) and Save was not greyed. A trip from the lobby and saving inside the locked room behave as before. Other locked rooms were not played.
 
-Only the Navi flow changes (3 more events per question); with the setting off nothing changes. Base: nightly.
+Only the Navi flow changes (3 more events per question); with the setting off nothing changes. Merged with nightly dda8087, which fixed nightly's own tests. Base: nightly.
 
 Fixes #71, #72.
 
