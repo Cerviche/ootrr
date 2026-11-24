@@ -245,16 +245,26 @@ pub fn check_excluded(d: &Data, w: &World, p: &Plan, free: &[LocId], base: &Plac
     Ok(notes)
 }
 
-pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Generated> {
+pub struct Prep {
+    pub p: Plan,
+    pub lay: Option<crate::shops::Layout>,
+    pub owned: Option<Data>,
+    pub w: World,
+    pub vanilla: Placement,
+    pub pk: Pick,
+    pub gates: Option<crate::entr::Layout>,
+    pub base: Placement,
+}
+
+pub fn prepare(d: &Data, s: &Settings, seed: &str, plando: &[Entry]) -> Res<Prep> {
     if d.scan.rows.is_empty() {
         return Err(E::Format("the chest list in data/slice.json is empty, run slice-scan first"));
     }
-    let watch: Watch = Watch::new(o.limit, o.live.clone());
     let mut p: Plan = plan(s)?;
     p.notes.extend(p.trials.note());
     let room: crate::shops::layout::Room = crate::shops::rules::room(d, &p)?;
-    let forced: Vec<String> = o.plando.iter().map(|e| e.location.clone()).collect();
-    let mut lay: Option<crate::shops::Layout> = crate::shops::layout::of_with(&p.shops, seed, room, &forced)?;
+    let forced: Vec<String> = plando.iter().map(|e| e.location.clone()).collect();
+    let lay: Option<crate::shops::Layout> = crate::shops::layout::of_with(&p.shops, seed, room, &forced)?;
     p.notes.extend(lay.as_ref().and_then(|l| crate::shops::rules::cut_note(l.cut, room)));
     let owned: Option<Data> = lay.as_ref().map(|l| crate::shops::logic::data_with(d, l)).transpose()?;
     let d: &Data = owned.as_ref().unwrap_or(d);
@@ -300,6 +310,13 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     }
     let ex: Vec<String> = check_excluded(d, &w, &p, &pk.free, &base)?;
     p.notes.extend(ex);
+    Ok(Prep { p, lay, owned, w, vanilla, pk, gates, base })
+}
+
+pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Generated> {
+    let watch: Watch = Watch::new(o.limit, o.live.clone());
+    let Prep { p, mut lay, owned, w, vanilla, pk, gates, base } = prepare(d, s, seed, &o.plando)?;
+    let d: &Data = owned.as_ref().unwrap_or(d);
     let seen: Vec<Cell<u8>> = vec![Cell::new(0); w.items.len() * w.locs.len()];
     let ok = |it: ItemId, l: LocId| {
         let c: &Cell<u8> = &seen[it * w.locs.len() + l];
@@ -421,10 +438,9 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     };
     let mut got: Placement = got;
     let mut jr: Rng = Rng::from_text(&format!("{seed} excluded junk"));
+    let open: Vec<LocId> = pk.free.iter().copied().filter(|l| !p.excluded.contains(&w.locs[*l].name)).collect();
     for l in pk.free.iter().filter(|l| p.excluded.contains(&w.locs[**l].name)) {
-        if let Some(i) = crate::slice::place_rules::roll_low_junk(&w, *l, &ok, &mut jr) {
-            got.put(*l, i);
-        }
+        crate::slice::place_rules::swap_low_junk(&w, &mut got, *l, &open, &ok, &mut jr);
     }
     if p.skulls != crate::slice::skulls::Mode::Off {
         crate::slice::skulls::check_tokens(&w, &vanilla, &got)?;

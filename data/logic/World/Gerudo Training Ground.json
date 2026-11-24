@@ -21,8 +21,6 @@
             "Gerudo Training Ground Maze Path Second Chest": "(Small_Key_Gerudo_Training_Ground, 6)",
             "Gerudo Training Ground Maze Path Third Chest": "(Small_Key_Gerudo_Training_Ground, 7)",
             "Gerudo Training Ground Maze Path Final Chest": "(Small_Key_Gerudo_Training_Ground, 9)",
-            "Gerudo Training Ground Beamos Recovery Heart 1": "True",
-            "Gerudo Training Ground Beamos Recovery Heart 2": "True",
             # In the Beamos room, shoot the Gerudo symbol above the door to the lava room.
             "Wall Fairy": "has_bottle and can_use(Bow)",
             "Gerudo Training Ground Beamos Wonderitem": "can_use(Bow)"
@@ -97,7 +95,7 @@
         "locations": {
             "Gerudo Training Ground Maze Right Central Chest": "True",
             "Gerudo Training Ground Maze Right Side Chest": "True",
-            "Gerudo Training Ground Freestanding Key": "True"
+            "Gerudo Training Ground Maze Right Key Chest": "True"
         },
         "exits": {
             "Gerudo Training Ground Lava Room Front": "True",

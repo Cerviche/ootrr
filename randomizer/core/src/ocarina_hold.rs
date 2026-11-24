@@ -468,16 +468,23 @@ mod pickup_tests {
         let d: Data = Data::load().unwrap();
         let mut s: Settings = Settings::default();
         crate::slice::pick::shuffle_both(&mut s);
-        let mut g = crate::slice::generate::generate_data(&d, &s, "ocarina chest", &crate::slice::GenOpts::default()).unwrap();
         let chest: &str = "KF Midos Top Left Chest";
-        let at: String = g.seed_file.placements.iter().find(|(_, i)| i.as_str() == "Ocarina").map(|(l, _)| l.clone()).unwrap();
-        if at != chest {
-            let there: String = g.seed_file.placements[chest].clone();
-            g.seed_file.placements.insert(at, there);
-            g.seed_file.placements.insert(chest.to_string(), "Ocarina".to_string());
-        }
+        // Swapping the Ocarina into the chest can push a key item out of tier order on some
+        // seeds, so take the first of a few seeds where the swap stays valid.
+        let (g, (ts, _, _)) = (0..8)
+            .find_map(|n| {
+                let mut g = crate::slice::generate::generate_data(&d, &s, &format!("ocarina chest {n}"), &crate::slice::GenOpts::default()).unwrap();
+                let at: String = g.seed_file.placements.iter().find(|(_, i)| i.as_str() == "Ocarina").map(|(l, _)| l.clone()).unwrap();
+                if at != chest {
+                    let there: String = g.seed_file.placements[chest].clone();
+                    g.seed_file.placements.insert(at, there);
+                    g.seed_file.placements.insert(chest.to_string(), "Ocarina".to_string());
+                }
+                let t = crate::slice::chest_targets::targets(&d, &g.seed_file).ok()?;
+                Some((g, t))
+            })
+            .unwrap();
         assert!(super::in_chest(&d, chest));
-        let (ts, _, _) = crate::slice::chest_targets::targets(&d, &g.seed_file).unwrap();
         let t = ts.iter().find(|t| t.name == chest).unwrap();
         assert_eq!(t.family, Some("Ocarina"));
         assert!(super::is_form(&t.new_actor), "{}", t.new_actor);

@@ -18,8 +18,8 @@ KF_HOUSE = [
 ]
 
 HEART_CHESTS = [
-    "HF Tektite Grotto Freestanding PoH",
-    "GV Crate Freestanding PoH",
+    "HF Near GV Paradox Chest",
+    "GV Ledge Chest",
     "Graveyard Dampe Race Freestanding PoH",
 ]
 

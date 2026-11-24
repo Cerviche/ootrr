@@ -32,8 +32,14 @@
 //! readable from a graph, so a press that changes nothing on the item tab (an empty slot) also
 //! switches. Nothing is added to the menu's opening sequence: it waits for each of its steps to
 //! finish, and a selector there froze the menu.
+//!
+//! Each age runs the frame for its own trade items and its own item button ([`Group`]): the
+//! adult's eleven, or the child's three (Weird Egg, cucco, Zelda's Letter), kept and switched the
+//! same way. The child's frame first parks every adult trade item that is out ([`away`]): the
+//! slot lists the adult ones first and would show one over the child's own. The flows do the same
+//! on gets and era changes; this is what catches an older save or a ground pickup.
 
-use super::{count_name, BUTTON, ORDER, PARKED};
+use super::{count_name, Group, ADULT, CHILD as KIDS, ORDER, PARKED};
 use crate::ainb::build::{Spec, QUERY};
 use crate::ainb::{audit, Ainb};
 use crate::error::{Error, Res};
@@ -66,8 +72,14 @@ pub const REOPEN: f32 = -8100.0;
 pub const CLOSE_AFTER: f32 = 2.0;
 pub const OPEN_AFTER: f32 = 5.0;
 const GAP: f32 = 20.0;
+/// The place that stands for "no trade item on the button" in the notes: past both groups.
+pub const NO_ITEM: usize = ORDER.len();
+/// The seeds of the adult's and the child's nodes.
+const ADULT_TAG: &str = "OOTRRTradeMenu";
+const KID_TAG: &str = "OOTRRKidMenu";
 
-/// The note for trade item `k` on the button; `ORDER.len()` stands for no trade item.
+/// The note for trade item `k` of the age's group on the button; [`NO_ITEM`] stands for no trade
+/// item, at either age.
 pub fn idle(k: usize) -> f32 {
     IDLE - GAP * k as f32
 }
@@ -258,11 +270,15 @@ fn equals(a: &mut Ainb, seed: &str, value: i32, src: usize, yes_el: usize, no_el
     compare(a, seed, value, src, no_el, yes_el, no_el)
 }
 
-/// The nodes every branch reads.
+/// The nodes every branch of one age's frame reads.
 struct Parts {
+    /// The age's trade items and item button.
+    g: Group,
+    /// The seed prefix of the age's nodes.
+    tag: &'static str,
     dummy: usize,
     memo: usize,
-    /// "Trade item k is on the button", one per ORDER entry.
+    /// "Trade item k is on the button", one per item of the group.
     on: Vec<usize>,
     /// "Some trade item is on the button".
     any: usize,
@@ -279,68 +295,68 @@ struct Parts {
     child: usize,
 }
 
-fn parts(a: &mut Ainb) -> Res<Parts> {
-    let dummy: usize = a.add_node(&Spec::node(DUMMY, "OOTRRTradeMenu#dummy"))?;
+fn parts(a: &mut Ainb, g: Group, tag: &'static str) -> Res<Parts> {
+    let dummy: usize = a.add_node(&Spec::node(DUMMY, &format!("{tag}#dummy")))?;
     let memo_name: Vec<u8> = text(a, MEMO);
     let memo: usize = a.add_node(
-        &Spec::query(GET_FLOAT, "OOTRRTradeMenu#memo")
+        &Spec::query(GET_FLOAT, &format!("{tag}#memo"))
             .idle(S32, "GameDataIndex", int(-1))
             .idle(BOOL, "IsDirect", yes(false))
             .constant(STR, "GameDataFullName", memo_name)
             .out(F32, "Value"),
     )?;
-    let button_name: Vec<u8> = text(a, BUTTON);
+    let button_name: Vec<u8> = text(a, g.button);
     let button: usize = a.add_node(
-        &Spec::query(GET_ENUM, "OOTRRTradeMenu#button")
+        &Spec::query(GET_ENUM, &format!("{tag}#button"))
             .idle(S32, "GameDataIndex", int(-1))
             .constant(BOOL, "IsDirect", yes(true))
             .constant(STR, "GameDataFullName", button_name.clone())
             .out_ptr("Value", U32),
     )?;
-    let ask: usize = set_memo(a, "OOTRRTradeMenu#ask_redraw", REDRAW)?;
-    let clear: usize = set_memo(a, "OOTRRTradeMenu#no_switch", idle(ORDER.len()))?;
+    let ask: usize = set_memo(a, &format!("{tag}#ask_redraw"), REDRAW)?;
+    let clear: usize = set_memo(a, &format!("{tag}#no_switch"), idle(NO_ITEM))?;
     let mut on: Vec<usize> = Vec::new();
     let mut stock: Vec<usize> = Vec::new();
     let mut write: Vec<usize> = Vec::new();
     let mut plain: Vec<usize> = Vec::new();
-    for (k, t) in ORDER.iter().enumerate() {
-        let h: usize = const_hash(a, &format!("OOTRRTradeMenu#slot{k}"), t.slot)?;
-        on.push(a.add_node(&Spec::query(IS_EQUAL, &format!("OOTRRTradeMenu#on{k}")).linked_ptr("ValueA", U32, button).linked_ptr("ValueB", U32, h).out(BOOL, "IsEqual"))?);
+    for (k, t) in g.items.iter().enumerate() {
+        let h: usize = const_hash(a, &format!("{tag}#slot{k}"), t.slot)?;
+        on.push(a.add_node(&Spec::query(IS_EQUAL, &format!("{tag}#on{k}")).linked_ptr("ValueA", U32, button).linked_ptr("ValueB", U32, h).out(BOOL, "IsEqual"))?);
         let count: Vec<u8> = text(a, &count_name(t.actor));
         stock.push(a.add_node(
-            &Spec::query(GET_INT, &format!("OOTRRTradeMenu#stock{k}"))
+            &Spec::query(GET_INT, &format!("{tag}#stock{k}"))
                 .idle(S32, "GameDataIndex", int(-1))
                 .constant(BOOL, "IsDirect", yes(true))
                 .constant(STR, "GameDataFullName", count)
                 .out(S32, "Value"),
         )?);
         let set: usize = a.add_node(
-            &Spec::node(SET_ENUM, &format!("OOTRRTradeMenu#write{k}"))
+            &Spec::node(SET_ENUM, &format!("{tag}#write{k}"))
                 .prop(BOOL, "ExecuteEveryFrame", yes(false))
                 .idle(S32, "GameDataIndex", int(-1))
                 .constant(STR, "GameDataFullName", button_name.clone())
                 .linked_ptr("Value", U32, h),
         )?;
-        write.push(parallel(a, &format!("OOTRRTradeMenu#put{k}"), &[set, ask])?);
+        write.push(parallel(a, &format!("{tag}#put{k}"), &[set, ask])?);
         plain.push(set);
     }
     let mut any: usize = on[0];
     for (k, &o) in on.iter().enumerate().skip(1) {
-        any = a.add_node(&Spec::query(EITHER, &format!("OOTRRTradeMenu#any{k}")).linked(BOOL, "ValueA", any, 0).linked(BOOL, "ValueB", o, 0).out(BOOL, "Result"))?;
+        any = a.add_node(&Spec::query(EITHER, &format!("{tag}#any{k}")).linked(BOOL, "ValueA", any, 0).linked(BOOL, "ValueB", o, 0).out(BOOL, "Result"))?;
     }
     let child_name: Vec<u8> = text(a, CHILD);
     let child: usize = a.add_node(
-        &Spec::query(GET_BOOL, "OOTRRTradeMenu#child")
+        &Spec::query(GET_BOOL, &format!("{tag}#child"))
             .idle(S32, "GameDataIndex", int(-1))
             .idle(BOOL, "IsDirect", yes(false))
             .constant(STR, "GameDataFullName", child_name)
             .out(BOOL, "Value"),
     )?;
-    Ok(Parts { dummy, memo, on, any, stock, write, plain, ask, clear, child })
+    Ok(Parts { g, tag, dummy, memo, on, any, stock, write, plain, ask, clear, child })
 }
 
-fn set_count(a: &mut Ainb, seed: &str, k: usize, v: i32) -> Res<usize> {
-    let name: Vec<u8> = text(a, &count_name(ORDER[k].actor));
+fn set_count(a: &mut Ainb, seed: &str, actor: &str, v: i32) -> Res<usize> {
+    let name: Vec<u8> = text(a, &count_name(actor));
     a.add_node(
         &Spec::node(SET_INT, seed)
             .prop(BOOL, "ExecuteEveryFrame", yes(false))
@@ -362,65 +378,81 @@ fn set_count(a: &mut Ainb, seed: &str, k: usize, v: i32) -> Res<usize> {
 /// It runs before the switch in the frame, so a change is redrawn in the same frame on the item
 /// tab; on another tab the request waits for the item tab.
 fn keep(a: &mut Ainb, p: &Parts) -> Res<usize> {
-    let n: usize = ORDER.len();
+    let n: usize = p.g.items.len();
+    let tag: &str = p.tag;
     let mut show: Vec<usize> = Vec::new();
     let mut park: Vec<usize> = Vec::new();
-    for k in 0..n {
+    for (k, t) in p.g.items.iter().enumerate() {
         // Every change asks for a redraw: the page shows what the counts were when it was built.
-        let out: usize = set_count(a, &format!("OOTRRTradeMenu#show{k}"), k, 1)?;
-        show.push(parallel(a, &format!("OOTRRTradeMenu#show_redraw{k}"), &[out, p.ask])?);
-        let away: usize = set_count(a, &format!("OOTRRTradeMenu#park{k}"), k, PARKED)?;
-        park.push(parallel(a, &format!("OOTRRTradeMenu#park_redraw{k}"), &[away, p.ask])?);
+        let out: usize = set_count(a, &format!("{tag}#show{k}"), t.actor, 1)?;
+        show.push(parallel(a, &format!("{tag}#show_redraw{k}"), &[out, p.ask])?);
+        let away: usize = set_count(a, &format!("{tag}#park{k}"), t.actor, PARKED)?;
+        park.push(parallel(a, &format!("{tag}#park_redraw{k}"), &[away, p.ask])?);
     }
     let mut first_parked: usize = p.dummy;
     for k in (0..n).rev() {
-        first_parked = equals(a, &format!("OOTRRTradeMenu#parked{k}"), PARKED, p.stock[k], show[k], first_parked)?;
+        first_parked = equals(a, &format!("{tag}#parked{k}"), PARKED, p.stock[k], show[k], first_parked)?;
     }
     let mut none_out: usize = first_parked;
     for k in (0..n).rev() {
-        none_out = equals(a, &format!("OOTRRTradeMenu#out{k}"), 1, p.stock[k], p.dummy, none_out)?;
+        none_out = equals(a, &format!("{tag}#out{k}"), 1, p.stock[k], p.dummy, none_out)?;
     }
     let mut pick: usize = none_out;
     for k in (0..n).rev() {
-        let mut each: Vec<usize> = vec![equals(a, &format!("OOTRRTradeMenu#own{k}"), PARKED, p.stock[k], show[k], p.dummy)?];
+        let mut each: Vec<usize> = vec![equals(a, &format!("{tag}#own{k}"), PARKED, p.stock[k], show[k], p.dummy)?];
         for j in (0..n).filter(|&j| j != k) {
-            each.push(equals(a, &format!("OOTRRTradeMenu#other{k}_{j}"), 1, p.stock[j], park[j], p.dummy)?);
+            each.push(equals(a, &format!("{tag}#other{k}_{j}"), 1, p.stock[j], park[j], p.dummy)?);
         }
-        let tidy: usize = parallel(a, &format!("OOTRRTradeMenu#tidy{k}"), &each)?;
+        let tidy: usize = parallel(a, &format!("{tag}#tidy{k}"), &each)?;
         let mut before: usize = p.dummy;
         for d in (1..n).rev() {
             let j: usize = (k + n - d) % n;
-            before = equals(a, &format!("OOTRRTradeMenu#before{k}_{d}"), PARKED, p.stock[j], show[j], before)?;
+            before = equals(a, &format!("{tag}#before{k}_{d}"), PARKED, p.stock[j], show[j], before)?;
         }
         let mut stale: usize = before;
         for j in (0..n).rev().filter(|&j| j != k) {
-            stale = equals(a, &format!("OOTRRTradeMenu#take_over{k}_{j}"), 1, p.stock[j], p.plain[j], stale)?;
+            stale = equals(a, &format!("{tag}#take_over{k}_{j}"), 1, p.stock[j], p.plain[j], stale)?;
         }
-        let held: usize = equals(a, &format!("OOTRRTradeMenu#gone{k}"), 0, p.stock[k], stale, tidy)?;
-        pick = selector(a, &format!("OOTRRTradeMenu#button{k}"), p.on[k], 0, held, pick)?;
+        let held: usize = equals(a, &format!("{tag}#gone{k}"), 0, p.stock[k], stale, tidy)?;
+        pick = selector(a, &format!("{tag}#button{k}"), p.on[k], 0, held, pick)?;
     }
     Ok(pick)
+}
+
+/// The child's frame parks every adult trade item that is out, and asks for a redraw: the slot
+/// lists the adult items first, so one that is out would show over the child's own.
+fn away(a: &mut Ainb, adult: &Parts, kid: &Parts) -> Res<usize> {
+    let tag: &str = kid.tag;
+    let mut each: Vec<usize> = Vec::new();
+    for (k, t) in adult.g.items.iter().enumerate() {
+        let set: usize = set_count(a, &format!("{tag}#adult_away{k}"), t.actor, PARKED)?;
+        let park: usize = parallel(a, &format!("{tag}#adult_away_redraw{k}"), &[set, kid.ask])?;
+        each.push(equals(a, &format!("{tag}#adult_out{k}"), 1, adult.stock[k], park, kid.dummy)?);
+    }
+    parallel(a, &format!("{tag}#adult_away"), &each)
 }
 
 /// Puts the next held (out or parked) trade item after `k` on the button, tried in ORDER and
 /// wrapping; with no other one held the wait just ends.
 fn next_after(a: &mut Ainb, p: &Parts, k: usize) -> Res<usize> {
-    let n: usize = ORDER.len();
+    let n: usize = p.g.items.len();
+    let tag: &str = p.tag;
     let mut next: usize = p.clear;
     for d in (1..n).rev() {
         let j: usize = (k + d) % n;
-        next = equals(a, &format!("OOTRRTradeMenu#held{k}_{d}"), 0, p.stock[j], next, p.write[j])?;
+        next = equals(a, &format!("{tag}#held{k}_{d}"), 0, p.stock[j], next, p.write[j])?;
     }
     Ok(next)
 }
 
 /// Notes which trade item is on the button.
 fn record(a: &mut Ainb, p: &Parts) -> Res<usize> {
-    let n: usize = ORDER.len();
-    let mut pick: usize = set_memo(a, "OOTRRTradeMenu#note_none", idle(n))?;
+    let n: usize = p.g.items.len();
+    let tag: &str = p.tag;
+    let mut pick: usize = set_memo(a, &format!("{tag}#note_none"), idle(NO_ITEM))?;
     for k in (0..n).rev() {
-        let set: usize = set_memo(a, &format!("OOTRRTradeMenu#note{k}"), idle(k))?;
-        pick = selector(a, &format!("OOTRRTradeMenu#is{k}"), p.on[k], 0, set, pick)?;
+        let set: usize = set_memo(a, &format!("{tag}#note{k}"), idle(k))?;
+        pick = selector(a, &format!("{tag}#is{k}"), p.on[k], 0, set, pick)?;
     }
     Ok(pick)
 }
@@ -429,17 +461,17 @@ fn record(a: &mut Ainb, p: &Parts) -> Res<usize> {
 /// (a direct close), wait with the screen gone, then open it the way the menu's start does and
 /// run what entering the item tab runs (button hit tests on, the tab's category set). Then the
 /// note starts over.
-fn redraw(a: &mut Ainb, tick: usize) -> Res<Vec<(f32, f32, usize)>> {
+fn redraw(a: &mut Ainb, tag: &str, tick: usize) -> Res<Vec<(f32, f32, usize)>> {
     let half: f32 = 0.5;
     let name: Vec<u8> = text(a, SCREEN);
-    let close: usize = a.add_node(&Spec::node(CLOSE, "OOTRRTradeMenu#close").prop(BOOL, "ExecuteEveryFrame", yes(false)).constant(BOOL, "IsDirect", yes(true)).constant(STR, "ScreenName", name.clone()))?;
-    let gone: usize = set_memo(a, "OOTRRTradeMenu#closed", REOPEN)?;
-    let shut: usize = sequence(a, "OOTRRTradeMenu#shut", &[close, gone])?;
-    let open: usize = a.add_node(&Spec::node(OPEN, "OOTRRTradeMenu#open").prop(BOOL, "ExecuteEveryFrame", yes(false)).constant(S32, "Option", int(OPEN_OPTION)).constant(STR, "ScreenName", name.clone()))?;
-    let hit: usize = a.add_node(&Spec::node(HIT_TEST, "OOTRRTradeMenu#hit_test").prop(BOOL, "ExecuteEveryFrame", yes(false)).constant(BOOL, "IsEnable", yes(true)).constant(STR, "ScreenName", name))?;
-    let tab: usize = a.add_node(&Spec::node(SET_CATEGORY, "OOTRRTradeMenu#tab").prop(BOOL, "ExecuteEveryFrame", yes(false)).constant(S32, "Category", int(ITEMS)).idle(BOOL, "IsBasedOnInputKey", yes(false)))?;
-    let clear: usize = set_memo(a, "OOTRRTradeMenu#redrawn", idle(ORDER.len()))?;
-    let again: usize = sequence(a, "OOTRRTradeMenu#reopen", &[open, hit, tab, clear])?;
+    let close: usize = a.add_node(&Spec::node(CLOSE, &format!("{tag}#close")).prop(BOOL, "ExecuteEveryFrame", yes(false)).constant(BOOL, "IsDirect", yes(true)).constant(STR, "ScreenName", name.clone()))?;
+    let gone: usize = set_memo(a, &format!("{tag}#closed"), REOPEN)?;
+    let shut: usize = sequence(a, &format!("{tag}#shut"), &[close, gone])?;
+    let open: usize = a.add_node(&Spec::node(OPEN, &format!("{tag}#open")).prop(BOOL, "ExecuteEveryFrame", yes(false)).constant(S32, "Option", int(OPEN_OPTION)).constant(STR, "ScreenName", name.clone()))?;
+    let hit: usize = a.add_node(&Spec::node(HIT_TEST, &format!("{tag}#hit_test")).prop(BOOL, "ExecuteEveryFrame", yes(false)).constant(BOOL, "IsEnable", yes(true)).constant(STR, "ScreenName", name))?;
+    let tab: usize = a.add_node(&Spec::node(SET_CATEGORY, &format!("{tag}#tab")).prop(BOOL, "ExecuteEveryFrame", yes(false)).constant(S32, "Category", int(ITEMS)).idle(BOOL, "IsBasedOnInputKey", yes(false)))?;
+    let clear: usize = set_memo(a, &format!("{tag}#redrawn"), idle(NO_ITEM))?;
+    let again: usize = sequence(a, &format!("{tag}#reopen"), &[open, hit, tab, clear])?;
     Ok(vec![
         (REDRAW - half, REDRAW + CLOSE_AFTER - half, tick),
         (REDRAW + CLOSE_AFTER - half, REDRAW + GAP, shut),
@@ -450,34 +482,35 @@ fn redraw(a: &mut Ainb, tick: usize) -> Res<Vec<(f32, f32, usize)>> {
 
 /// The A switch, on the item tab only.
 fn switch(a: &mut Ainb, p: &Parts, trig: usize) -> Res<usize> {
-    let n: usize = ORDER.len();
+    let n: usize = p.g.items.len();
+    let tag: &str = p.tag;
     let half: f32 = 0.5;
     let mut start: Vec<(f32, f32, usize)> = Vec::new();
     for k in 0..n {
-        let s: usize = set_memo(a, &format!("OOTRRTradeMenu#start{k}"), pend(k))?;
+        let s: usize = set_memo(a, &format!("{tag}#start{k}"), pend(k))?;
         start.push((idle(k) - half, idle(k) + half, s));
     }
-    let press: usize = float_switch(a, "OOTRRTradeMenu#press", p.memo, &start, p.dummy)?;
+    let press: usize = float_switch(a, &format!("{tag}#press"), p.memo, &start, p.dummy)?;
     let one: Vec<u8> = 1f32.to_le_bytes().to_vec();
     let memo_name: Vec<u8> = text(a, MEMO);
-    let tick: usize = a.add_node(&Spec::node(ADD_FLOAT, "OOTRRTradeMenu#tick").idle(S32, "GameDataIndex", int(-1)).constant(F32, "Value", one).constant(STR, "GameDataFullName", memo_name))?;
+    let tick: usize = a.add_node(&Spec::node(ADD_FLOAT, &format!("{tag}#tick")).idle(S32, "GameDataIndex", int(-1)).constant(F32, "Value", one).constant(STR, "GameDataFullName", memo_name))?;
     let mut wait: Vec<(f32, f32, usize)> = Vec::new();
     for k in 0..n {
         // Every way out of the wait sets the note once: a switch asks for the redraw, a press
         // that put another item on the button (or found no other trade item) starts over.
         let next: usize = next_after(a, p, k)?;
-        let done: usize = selector(a, &format!("OOTRRTradeMenu#picked_trade{k}"), p.any, 0, next, p.clear)?;
+        let done: usize = selector(a, &format!("{tag}#picked_trade{k}"), p.any, 0, next, p.clear)?;
         wait.push((pend(k) - half, pend(k) + WAIT - half, tick));
         wait.push((pend(k) + WAIT - half, pend(k) + GAP / 2.0, done));
     }
-    wait.extend(redraw(a, tick)?);
+    wait.extend(redraw(a, tag, tick)?);
     let note: usize = record(a, p)?;
-    let idle_frame: usize = float_switch(a, "OOTRRTradeMenu#wait", p.memo, &wait, note)?;
-    let pressed: usize = selector(a, "OOTRRTradeMenu#pressed", trig, A, press, idle_frame)?;
+    let idle_frame: usize = float_switch(a, &format!("{tag}#wait"), p.memo, &wait, note)?;
+    let pressed: usize = selector(a, &format!("{tag}#pressed"), trig, A, press, idle_frame)?;
     let cat: usize = a.add_node(
-        &Spec::query(CATEGORY, "OOTRRTradeMenu#category").idle(BOOL, "IsBasedOnInputKey", yes(false)).constant(BOOL, "IsMinus", yes(false)).out(S32, "Category"),
+        &Spec::query(CATEGORY, &format!("{tag}#category")).idle(BOOL, "IsBasedOnInputKey", yes(false)).constant(BOOL, "IsMinus", yes(false)).out(S32, "Category"),
     )?;
-    equals(a, "OOTRRTradeMenu#items", ITEMS, cat, pressed, p.dummy)
+    equals(a, &format!("{tag}#items"), ITEMS, cat, pressed, p.dummy)
 }
 
 /// The menu's idle branch: the default case of the cursor-direction switch that the last menu
@@ -525,12 +558,18 @@ pub fn patch(raw: &[u8]) -> Res<Vec<u8>> {
     };
     let (sw, at) = idle_branch(&a, trig)?;
     let (st, out) = leave(&a)?;
-    let p: Parts = parts(&mut a)?;
+    let p: Parts = parts(&mut a, ADULT, ADULT_TAG)?;
+    let kp: Parts = parts(&mut a, KIDS, KID_TAG)?;
 
     let kept: usize = keep(&mut a, &p)?;
     let menu: usize = switch(&mut a, &p, trig)?;
     let adult: usize = parallel(&mut a, "OOTRRTradeMenu#adult_frame", &[kept, menu])?;
-    let root: usize = selector(&mut a, "OOTRRTradeMenu#adult", p.child, 0, p.dummy, adult)?;
+    // The child's frame: the adult trade items go away first, then the child's own are kept.
+    let gone: usize = away(&mut a, &p, &kp)?;
+    let kid_kept: usize = keep(&mut a, &kp)?;
+    let kid_menu: usize = switch(&mut a, &kp, trig)?;
+    let kid: usize = parallel(&mut a, "OOTRRKidMenu#child_frame", &[gone, kid_kept, kid_menu])?;
+    let root: usize = selector(&mut a, "OOTRRTradeMenu#adult", p.child, 0, kid, adult)?;
     a.params[sw].plugs[at].a = root as u32;
 
     // Leaving hands the borrowed counter back at zero.
@@ -548,6 +587,7 @@ pub fn patch(raw: &[u8]) -> Res<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::{BUTTON, KID, KID_BUTTON};
     use super::*;
     use crate::murmur::murmur3_32;
     use crate::romfs::Romfs;
@@ -584,11 +624,12 @@ mod tests {
     /// Bytes per pointer input record: name, class, source, output, flags, zero.
     const PTR_IN: usize = 20;
 
-    /// What the graph reads and writes: the item button, the trade counts, the note, and what a
-    /// frame did to the screen.
+    /// What the graph reads and writes: each age's item button, the trade counts (the adult items
+    /// in ORDER, then the child's from [`KID0`]), the note, and what a frame did to the screen.
     #[derive(Clone, Debug, PartialEq)]
     struct World {
         button: String,
+        kid_button: String,
         counts: Vec<i32>,
         memo: f32,
         child: bool,
@@ -597,25 +638,37 @@ mod tests {
         screen: Vec<String>,
     }
 
+    /// Where the child's trade items start in the counts.
+    const KID0: usize = ORDER.len();
+
     fn world(button: &str, held: &[(usize, i32)]) -> World {
-        let mut counts: Vec<i32> = vec![0; ORDER.len()];
+        let mut counts: Vec<i32> = vec![0; ORDER.len() + KID.len()];
         for &(k, c) in held {
             counts[k] = c;
         }
-        World { button: button.to_string(), counts, memo: 0.0, child: false, category: ITEMS, press_a: false, screen: Vec::new() }
+        World { button: button.to_string(), kid_button: "Empty".to_string(), counts, memo: 0.0, child: false, category: ITEMS, press_a: false, screen: Vec::new() }
+    }
+
+    /// A child with `button` on the child's item button; the adult's button holds `adult`.
+    fn kid_world(button: &str, adult: &str, held: &[(usize, i32)]) -> World {
+        let mut w: World = world(adult, held);
+        w.kid_button = button.to_string();
+        w.child = true;
+        w
     }
 
     fn item(a: &Ainb, i: usize) -> usize {
         let name: &str = a.in_str(i, "GameDataFullName").unwrap();
-        ORDER.iter().position(|t| count_name(t.actor) == name).unwrap()
+        ORDER.iter().chain(KID.iter()).position(|t| count_name(t.actor) == name).unwrap()
     }
 
     fn u32_of(a: &Ainb, w: &World, i: usize) -> u32 {
         match a.el_name(i) {
-            GET_ENUM => {
-                assert_eq!(a.in_str(i, "GameDataFullName"), Some(BUTTON));
-                murmur3_32(w.button.as_bytes(), 0)
-            }
+            GET_ENUM => match a.in_str(i, "GameDataFullName") {
+                Some(BUTTON) => murmur3_32(w.button.as_bytes(), 0),
+                Some(KID_BUTTON) => murmur3_32(w.kid_button.as_bytes(), 0),
+                other => panic!("no button named {other:?}"),
+            },
             HASH => murmur3_32(a.in_str(i, "String").unwrap().as_bytes(), 0),
             other => panic!("no u32 from {other}"),
         }
@@ -678,8 +731,18 @@ mod tests {
                 w.memo += f32_in(a, i);
             }
             (0, SET_ENUM) => {
-                assert_eq!(a.in_str(i, "GameDataFullName"), Some(BUTTON));
-                w.button = a.in_str(link(a, i, PTR, "Value"), "String").unwrap().to_string();
+                let v: String = a.in_str(link(a, i, PTR, "Value"), "String").unwrap().to_string();
+                match a.in_str(i, "GameDataFullName") {
+                    Some(BUTTON) => {
+                        assert!(!w.child, "a child's frame never writes the adult's button");
+                        w.button = v;
+                    }
+                    Some(KID_BUTTON) => {
+                        assert!(w.child, "an adult's frame never writes the child's button");
+                        w.kid_button = v;
+                    }
+                    other => panic!("no button named {other:?}"),
+                }
             }
             (0, DUMMY) => {}
             (0, CLOSE) | (0, HIT_TEST) => {
@@ -873,15 +936,101 @@ mod tests {
         m.frame(&mut w);
         assert_eq!((w.button.as_str(), w.counts[CUCCO], w.counts[CHECK]), (slot(CHECK), PARKED, 1));
         assert!(w.screen.is_empty());
-        // No trade items at all, and a child: nothing happens.
+        // No trade items at all: nothing happens.
         let mut w: World = world("Bow", &[]);
         m.frames(&mut w, 2);
         assert!(w.counts.iter().all(|&c| c == 0));
-        let mut w: World = world(slot(SAW), &[(CUCCO, 1), (SAW, 1)]);
-        w.child = true;
-        w.press_a = true;
-        m.frames(&mut w, 12);
-        assert_eq!((w.counts[CUCCO], w.counts[SAW], w.button.as_str(), w.memo), (1, 1, slot(SAW), 0.0));
+        // The child's trade items are not the adult's to keep: both stay as they are.
+        let mut w: World = world(slot(SAW), &[(SAW, 1), (KID0 + LETTER, 1), (KID0 + WAKER, 1)]);
+        assert!(m.settle(&mut w).is_empty());
+        assert_eq!((w.counts[SAW], w.counts[KID0 + LETTER], w.counts[KID0 + WAKER], w.kid_button.as_str()), (1, 1, 1, "Empty"));
+    }
+
+    const EGG: usize = 0;
+    const WAKER: usize = 1;
+    const LETTER: usize = 2;
+
+    fn kid_slot(k: usize) -> &'static str {
+        KID[k].slot
+    }
+
+    #[test]
+    fn a_child_never_has_an_adult_trade_item_out() {
+        let Some(rf) = real() else {
+            return;
+        };
+        let (m, _, _) = menu(&rf);
+        let redraw: Vec<String> = [CLOSE, OPEN, HIT_TEST, SET_CATEGORY].iter().map(|s| s.to_string()).collect();
+        // Adult trade items found as a child (or an older save): all parked in one frame, the
+        // adult's button is left alone, and the page that showed one of them is redrawn.
+        let mut w: World = kid_world(kid_slot(LETTER), slot(SAW), &[(CUCCO, 1), (SAW, 1), (CHECK, PARKED), (KID0 + LETTER, 1)]);
+        m.frame(&mut w);
+        assert_eq!((w.counts[CUCCO], w.counts[SAW], w.counts[CHECK], w.counts[KID0 + LETTER]), (PARKED, PARKED, PARKED, 1));
+        assert_eq!(m.settle(&mut w), redraw);
+        assert_eq!((w.button.as_str(), w.kid_button.as_str()), (slot(SAW), kid_slot(LETTER)));
+        assert_eq!((w.counts[CUCCO], w.counts[SAW], w.counts[CHECK], w.counts[KID0 + LETTER]), (PARKED, PARKED, PARKED, 1));
+        for _ in 0..3 {
+            m.frame(&mut w);
+            assert!(w.screen.is_empty(), "then nothing changes and nothing is redrawn");
+        }
+        // On every tab; the redraw waits for the item tab.
+        let mut w: World = kid_world("Bow", slot(SAW), &[(SAW, 1)]);
+        w.category = 3;
+        m.frame(&mut w);
+        assert_eq!(w.counts[SAW], PARKED);
+        assert!(w.screen.is_empty());
+        w.category = ITEMS;
+        assert_eq!(m.settle(&mut w), redraw);
+        // Back as an adult, the adult's frame brings the button's own item out again.
+        w.child = false;
+        w.memo = 0.0;
+        m.settle(&mut w);
+        assert_eq!((w.counts[SAW], w.button.as_str()), (1, slot(SAW)));
+        // With adult trade items only, a child's presses switch nothing.
+        let mut w: World = kid_world("Bow", slot(SAW), &[(CUCCO, PARKED), (SAW, PARKED)]);
+        m.frame(&mut w);
+        assert!(m.press(&mut w).is_empty());
+        assert_eq!((w.counts[CUCCO], w.counts[SAW], w.button.as_str(), w.kid_button.as_str()), (PARKED, PARKED, slot(SAW), "Bow"));
+    }
+
+    #[test]
+    fn a_child_keeps_and_switches_the_child_s_own_trade_items() {
+        let Some(rf) = real() else {
+            return;
+        };
+        let (m, _, _) = menu(&rf);
+        let redraw: Vec<String> = [CLOSE, OPEN, HIT_TEST, SET_CATEGORY].iter().map(|s| s.to_string()).collect();
+        // The letter and the cucco are both out: the button's stays, the other is parked.
+        let mut w: World = kid_world(kid_slot(WAKER), "Bow", &[(KID0 + WAKER, 1), (KID0 + LETTER, 1)]);
+        m.frame(&mut w);
+        assert_eq!((w.counts[KID0 + WAKER], w.counts[KID0 + LETTER]), (1, PARKED));
+        assert_eq!(m.settle(&mut w), redraw);
+        assert_eq!(w.memo, idle(WAKER));
+        // A second A on the slot goes round the held ones, and back.
+        for want in [LETTER, WAKER, LETTER] {
+            let did: Vec<String> = m.press(&mut w);
+            assert_eq!(w.kid_button, kid_slot(want));
+            for k in [WAKER, LETTER] {
+                assert_eq!(w.counts[KID0 + k], if k == want { 1 } else { PARKED }, "{} after switching to {}", kid_slot(k), kid_slot(want));
+            }
+            assert_eq!(w.counts[KID0 + EGG], 0, "an item that is not held never comes up");
+            assert_eq!(did, redraw);
+            assert_eq!(w.memo, idle(want));
+            assert_eq!(w.button, "Bow", "the adult's button is not the child's to write");
+        }
+        // The guard took the letter and the button still names it: the parked cucco takes over.
+        let mut w: World = kid_world(kid_slot(LETTER), "Bow", &[(KID0 + WAKER, PARKED)]);
+        m.settle(&mut w);
+        assert_eq!((w.kid_button.as_str(), w.counts[KID0 + WAKER]), (kid_slot(WAKER), 1));
+        // Another item on the button and none out: the earliest parked one comes out.
+        let mut w: World = kid_world("Bow", "Bow", &[(KID0 + EGG, PARKED), (KID0 + LETTER, PARKED)]);
+        m.settle(&mut w);
+        assert_eq!((w.counts[KID0 + EGG], w.counts[KID0 + LETTER], w.kid_button.as_str()), (1, PARKED, "Bow"));
+        // One child trade item only: nothing to switch to.
+        let mut w: World = kid_world(kid_slot(LETTER), "Bow", &[(KID0 + LETTER, 1)]);
+        m.frame(&mut w);
+        assert!(m.press(&mut w).is_empty());
+        assert_eq!((w.kid_button.as_str(), w.counts[KID0 + LETTER], w.memo), (kid_slot(LETTER), 1, idle(LETTER)));
     }
 
     #[test]
@@ -957,13 +1106,17 @@ mod tests {
         };
         let y = rf.read_byml(crate::chest_slot::LIST).unwrap();
         let rows = y.root.get("Data").and_then(|d| d.get("Enum")).and_then(|e| e.as_arr()).unwrap();
-        let h: u32 = murmur3_32(BUTTON.as_bytes(), 0);
-        let row = rows.iter().find(|r| matches!(r.get("Hash"), Some(crate::byml::Node::U32(x)) if *x == h)).unwrap();
-        let vals = row.get("Values").and_then(|v| v.as_arr()).unwrap();
-        let raw = row.get("RawValues").and_then(|v| v.as_arr()).unwrap();
-        for t in ORDER {
-            let i: usize = raw.iter().position(|r| matches!(r, crate::byml::Node::Str(s) if s == t.slot)).unwrap();
-            assert_eq!(vals[i], crate::byml::Node::U64(murmur3_32(t.slot.as_bytes(), 0) as u64), "{}", t.slot);
+        for g in [ADULT, KIDS] {
+            let h: u32 = murmur3_32(g.button.as_bytes(), 0);
+            let row = rows.iter().find(|r| matches!(r.get("Hash"), Some(crate::byml::Node::U32(x)) if *x == h)).unwrap();
+            let vals = row.get("Values").and_then(|v| v.as_arr()).unwrap();
+            let raw = row.get("RawValues").and_then(|v| v.as_arr()).unwrap();
+            for t in g.items {
+                let i: usize = raw.iter().position(|r| matches!(r, crate::byml::Node::Str(s) if s == t.slot)).unwrap();
+                assert_eq!(vals[i], crate::byml::Node::U64(murmur3_32(t.slot.as_bytes(), 0) as u64), "{}", t.slot);
+                // EventPlayerSetSelectedItem counts the same enum without its Empty value.
+                assert_eq!(t.index, i as i32 - 1, "{}", t.slot);
+            }
         }
     }
 
@@ -974,7 +1127,7 @@ mod tests {
         };
         let y = rf.read_byml(crate::chest_slot::LIST).unwrap();
         let ints = y.root.get("Data").and_then(|d| d.get("Int")).and_then(|e| e.as_arr()).unwrap();
-        for t in ORDER {
+        for t in ORDER.iter().chain(KID.iter()) {
             let h: u32 = murmur3_32(count_name(t.actor).as_bytes(), 0);
             assert!(ints.iter().any(|r| matches!(r.get("Hash"), Some(crate::byml::Node::U32(x)) if *x == h)), "{}", t.actor);
         }

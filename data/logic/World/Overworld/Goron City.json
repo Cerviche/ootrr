@@ -107,15 +107,7 @@
         "region_name": "GC Spinning Pot",
         "scene": "Goron City",
         "locations": {
-            "GC Pot Freestanding PoH": "True",
-            "GC Spinning Pot Bomb Drop 1": "True",
-            "GC Spinning Pot Bomb Drop 2": "True",
-            "GC Spinning Pot Bomb Drop 3": "True",
-            "GC Spinning Pot Rupee Drop 1": "True",
-            "GC Spinning Pot Rupee Drop 2": "True",
-            "GC Spinning Pot Rupee Drop 3": "True",
-            "GC Spinning Pot PoH Drop Rupee 1": "True",
-            "GC Spinning Pot PoH Drop Rupee 2": "True"
+            "GC Pot Freestanding PoH": "True"
         }
     },
     {

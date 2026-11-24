@@ -59,7 +59,7 @@
         "scene": "Gerudo Valley",
         "hint": "GERUDO_VALLEY",
         "locations": {
-            "GV Crate Freestanding PoH": "can_break_crate",
+            "GV Ledge Chest Near Octorok Grotto": "True",
             "GV Freestanding PoH Crate": "can_break_crate"
         },
         "exits": {

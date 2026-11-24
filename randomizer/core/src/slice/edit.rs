@@ -70,6 +70,10 @@ pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str) -> Res<Built>
     build_for(seed, romfs, load, mod_name, Host::Eden)
 }
 
+pub fn given_at_start(i: &crate::slice::data::Item) -> bool {
+    (i.actor.is_some() || !i.tiers.is_empty()) && i.dungeon.is_none()
+}
+
 /// The item actors the skipped story would have handed out at `locs`: the placed item, or the
 /// vanilla one when the location is not shuffled. Each must have an actor the pouch can take.
 /// A progressive item given more than once steps through its tiers, so two ocarinas become the
@@ -84,6 +88,9 @@ pub fn skipped_items(d: &Data, seed: &SeedFile, locs: &[&str]) -> Res<Vec<String
             continue;
         };
         let i = d.item(name).ok_or_else(|| E::Msg(format!("{loc} holds {name}, which is not an item")))?;
+        if !given_at_start(i) {
+            return Err(E::Msg(format!("{loc} holds {name}, which cannot be given when a new game starts")));
+        }
         let k: usize = *given.get(name).unwrap_or(&0);
         let actor: Option<String> = if i.tiers.is_empty() { i.actor.clone() } else { i.tiers.get(k).cloned() };
         let actor: String = actor.ok_or_else(|| E::Msg(format!("{loc} holds {name}, which cannot be given when a new game starts")))?;
@@ -136,12 +143,22 @@ pub fn skipped_locations(p: &crate::slice::support::Plan) -> Vec<&'static str> {
 }
 
 pub fn build_for(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -> Res<Built> {
-    let b: Built = crate::slice::seed_packs::build(seed, romfs, load, mod_name, host)?;
+    build_for_with(seed, romfs, load, mod_name, host, None)
+}
+
+pub fn build_for_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, hook: Option<&mut Hook>) -> Res<Built> {
+    let b: Built = crate::slice::seed_packs::build_hooked(seed, romfs, load, mod_name, host, hook)?;
     crate::shelf::seed::after(seed, romfs, load, mod_name, host, b)
 }
 
+pub type Hook<'a> = dyn FnMut(&mut Romfs, &P, &mut Vec<crate::staging::Out>) -> Res<()> + 'a;
+
 pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, extra: &Extra) -> Res<Built> {
-    let d: Data = Data::load()?;
+    build_data(Data::load()?, seed, romfs, load, mod_name, host, extra, None)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn build_data(d: Data, seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, extra: &Extra, mut hook: Option<&mut Hook>) -> Res<Built> {
     let loaded = seed.settings()?;
     let p = plan(&loaded.settings)?;
     let d: Data = crate::slice::treasure::with(d, p.treasure);
@@ -553,7 +570,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     // A Bow or Slingshot from any gift or pickup brings its starting bag, as a chest's does.
     crate::starter_bags::stage(&mut rf, &mut late, &work)?;
-    crate::dungeon_packs::stage(&mut rf, &mut late, &work, &crate::dungeon_packs::picked_up(&d, seed))?;
+    crate::dungeon_packs::stage(&mut rf, &mut late, &work, &crate::dungeon_packs::credits(&d, seed))?;
     crate::pickup_tiers::stage(&mut rf, &mut late, &work, &crate::pickup_tiers::families(&d, seed))?;
     crate::ocarina_hold::stage(&mut rf, &mut late, &work, crate::ocarina_hold::picked_up(&d, seed))?;
     // Rooms that could lock Link in once their item is shuffled away (crate::dungeon_fixes).
@@ -657,6 +674,20 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         crate::debug_names::stage_credit_flows(&mut rf, &d, &work, &mut tail, &listed, &sales)?;
         crate::debug_names::stage_credit_chests(&mut rf, &d, &work, &mut tail, &chest_cs)?;
         for o in tail {
+            pk.write_romfs(&o.path, &o.z)?;
+            extra += 1;
+            if rst.is_none() {
+                rst = Some(rsizetable::load(&mut rf)?);
+            }
+            if let Some(t) = rst.as_mut() {
+                grown += crate::staging::grow_out(&mut rf, t, &o)?;
+            }
+        }
+    }
+    if let Some(h) = hook.as_mut() {
+        let mut outs: Vec<crate::staging::Out> = Vec::new();
+        h(&mut rf, &work, &mut outs)?;
+        for o in outs {
             pk.write_romfs(&o.path, &o.z)?;
             extra += 1;
             if rst.is_none() {
