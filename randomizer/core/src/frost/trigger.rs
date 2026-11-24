@@ -20,6 +20,8 @@ const ASK: &str = "EventQueryIsGameDataString64";
 const TARGET: &str = "UI_MessageTargetActorName";
 const CREATE: &str = "EventTriggerRequestCreateConditionSensor";
 const DELETE: &str = "EventTriggerRequestDeleteConditionSensor";
+const POUCH: &str = "PouchSystemActor";
+const EXISTS: &str = "EventQueryIsExistInPouch";
 const GAME: &str = "GameSystemActor";
 const SETTING_TEMPLATE: &str = "CrumblingGanonCastle_Arrive";
 const ANALYZED_TEMPLATE: &str = "NaviLockOnHint";
@@ -71,17 +73,34 @@ pub fn hook_get(b: &mut Bf, names: &[String]) -> Res<usize> {
     Ok(sites.len())
 }
 
-pub fn add_event(b: &mut Bf) -> Res<()> {
+pub fn add_event(b: &mut Bf, fakes: &[String]) -> Res<()> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == GIVE_FLOW).ok_or(E::Format("the give flow has no flow of its name"))?;
     if f.entries.iter().any(|e| e.name == EVENT) {
         return Ok(());
     }
     let (g, mk): (u16, u16) = action_slot(f, GAME, CREATE)?;
     let (_, rm): (u16, u16) = action_slot(f, GAME, DELETE)?;
-    let at: u16 = idx(f.events.len())?;
-    f.events.push(Event { name: EVENT.to_string(), kind: Kind::Action { next: at + 1, actor: g, act: rm, params: None } });
+    let (pa, take): (u16, u16) = action_slot(f, POUCH, ADD)?;
+    let (qa, has): (u16, u16) = crate::start_state::query_slot(f, POUCH, EXISTS)?;
+    let clear: u16 = idx(f.events.len())?;
+    f.events.push(Event { name: format!("{EVENT}_Clear"), kind: Kind::Action { next: clear + 1, actor: g, act: rm, params: None } });
     f.events.push(Event { name: format!("{EVENT}_Make"), kind: Kind::Action { next: NONE, actor: g, act: mk, params: Some(Cont { items: vec![("ActorName".to_string(), Val::Str(crate::frost::sensor::NAME.to_string()))] }) } });
-    f.entries.push(Entry { name: EVENT.to_string(), subs: Vec::new(), vars: Vec::new(), main: at, pad: 0 });
+    let mut next: u16 = clear;
+    for n in fakes.iter().rev() {
+        let out: Cont = Cont {
+            items: vec![
+                ("Actor".to_string(), Val::Str(n.clone())),
+                ("Num".to_string(), Val::Int(-1)),
+                ("IsSetMessageTargetActorName".to_string(), Val::Bool(0)),
+                ("IsEquipDIrect".to_string(), Val::Bool(0)),
+                ("IsGetEvent".to_string(), Val::Bool(0)),
+            ],
+        };
+        let gone: u16 = push(f, Kind::Action { next, actor: pa, act: take, params: Some(out) })?;
+        let ask: Cont = Cont { items: vec![("Actor".to_string(), Val::Str(n.clone())), ("Num".to_string(), Val::Int(1))] };
+        next = push(f, Kind::Switch { actor: qa, query: has, cases: vec![Case { val: 0, ev: gone }, Case { val: 1, ev: next }], params: Some(ask) })?;
+    }
+    f.entries.push(Entry { name: EVENT.to_string(), subs: Vec::new(), vars: Vec::new(), main: next, pad: 0 });
     Ok(())
 }
 

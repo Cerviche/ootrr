@@ -40,6 +40,11 @@ const CHILD: &str = "Player_Child";
 const CHILD_CONDITION: &str = "Component/ConditionParam/Player_Child.game__component__ConditionParam.bgyml";
 const CHILD_LINK: &str = "Component/ELink/Player.engine__component__ELinkParam.bgyml";
 const ADULT_USER: &str = "Player_Adult";
+const CHILD_USER: &str = "OOTRR_Player_Child_Cold";
+const SHELLS: usize = 16;
+const BONE_BIT: u64 = 1 << 12;
+const SCALE_BIT: u64 = 1 << 13;
+const CHILD_SIZE: f32 = 0.7;
 const GET_TEXT: &str = "FOOL!";
 const FROZEN_CALL: &str = "Condition_Frozen";
 const FULL_BODY_CALL: &str = "全身凍結";
@@ -250,7 +255,8 @@ fn tables(c: &mut Ctx, fakes: &[(String, String)], grounds: &[(String, String)])
     let mut ts: [Byml; 3] = [Byml::parse(&firsts[0])?, Byml::parse(&firsts[1])?, Byml::parse(&firsts[2])?];
     add_actor(&mut ts, sensor::SUN, sensor::NAME, None)?;
     for (look, name) in fakes {
-        add_actor(&mut ts, look, name, Some(fake::RUPEE_ROW))?;
+        let pouch: String = if rows::find(&ts[2], look).is_some() { look.clone() } else { fake::RUPEE_ROW.to_string() };
+        add_actor(&mut ts, look, name, Some(&pouch))?;
     }
     for (orig, g) in grounds {
         let pouch: &str = if rows::find(&ts[2], orig).is_some() { orig } else { fake::RUPEE_ROW };
@@ -327,7 +333,37 @@ fn full_body(raw: &[u8]) -> Res<Vec<u8>> {
     if n == 0 {
         return Err(E::Format("the effect table has no frozen and full body calls in one user"));
     }
+    child_user(&mut l)?;
     l.write()
+}
+
+fn child_user(l: &mut crate::difficulty::elink::Link) -> Res<()> {
+    if l.user(CHILD_USER).is_some() {
+        return Ok(());
+    }
+    let a: usize = l.user(ADULT_USER).ok_or(E::Format("the effect table has no adult Link user"))?;
+    let scale: u32 = l.direct_f32(CHILD_SIZE).ok_or(E::Format("the effect table has no 0.7 scale value"))?;
+    let mut u: crate::difficulty::elink::User = l.users[a].clone();
+    for k in 1..=SHELLS {
+        let c: usize = l.find_key(a, &format!("Condition_Frozen_{k:02}")).ok_or_else(|| E::Msg(format!("adult Link has no frozen shell {k}")))?;
+        let mut p: crate::difficulty::elink::Param = l.param_at(u.calls[c].param_pos()).cloned().ok_or(E::Format("a frozen shell has no field record"))?;
+        if p.mask & BONE_BIT == 0 || p.mask & SCALE_BIT != 0 {
+            return Err(E::Msg(format!("frozen shell {k} is not sized by a bone")));
+        }
+        let at: usize = (p.mask & (BONE_BIT - 1)).count_ones() as usize;
+        p.mask = (p.mask & !BONE_BIT) | SCALE_BIT;
+        *p.vals.get_mut(at).ok_or(E::Format("a frozen shell record is short"))? = scale;
+        let pos: u64 = l.add_param(p);
+        u.calls[c].raw[PARAM_AT..PARAM_AT + 8].copy_from_slice(&pos.to_le_bytes());
+    }
+    let h: u32 = crate::rsizetable::hash(CHILD_USER);
+    u.hash = h;
+    let at: usize = l.hashes.partition_point(|x| *x < h);
+    l.users.push(u);
+    let slot: usize = l.users.len() - 1;
+    l.hashes.insert(at, h);
+    l.slots.insert(at, slot);
+    Ok(())
 }
 
 fn child(raw: &[u8]) -> Res<Vec<u8>> {
@@ -338,7 +374,7 @@ fn child(raw: &[u8]) -> Res<Vec<u8>> {
     sarc::set(&mut es, CHILD_CONDITION, y.write()?);
     let e: &Entry = sarc::get(&es, CHILD_LINK).ok_or(E::Format("child Link has no effect file"))?;
     let mut y: Byml = Byml::parse(&e.data)?;
-    y.root.set("UserName", Node::Str(ADULT_USER.to_string()));
+    y.root.set("UserName", Node::Str(CHILD_USER.to_string()));
     sarc::set(&mut es, CHILD_LINK, y.write()?);
     sarc::write(&es)
 }
@@ -376,10 +412,9 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     let box4: Vec<Entry> = c.pack(sensor::TRAP_CHEST)?;
     let s: sensor::Made = sensor::make(&sun, &frz, &box4)?;
     packs.push((sensor::NAME.to_string(), s.pack, s.fresh, s.peers));
-    let rupee: Vec<Entry> = c.pack(fake::RUPEE)?;
     for (look, name) in &fakes {
         let lp: Vec<Entry> = c.pack(look)?;
-        let f: fake::Fake = fake::make(&lp, &rupee, look, name)?;
+        let f: fake::Fake = fake::make(&lp, look, name)?;
         packs.push((f.name, f.pack, f.fresh, f.peers));
     }
     let mut grounds: Vec<(String, String)> = Vec::new();
@@ -433,6 +468,7 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     let mut names: Vec<String> = traps.iter().flat_map(|t| t.trigger_names()).collect();
     names.sort();
     names.dedup();
+    let fake_names: Vec<String> = fakes.iter().map(|f| f.1.clone()).collect();
     files.push(c.file(trigger::GET_FILE, |r: &[u8]| {
         let mut b: Bf = Bf::parse(r)?;
         trigger::hook_get(&mut b, &names)?;
@@ -440,7 +476,7 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     })?);
     files.push(c.file(trigger::GIVE_FILE, |r: &[u8]| {
         let mut b: Bf = Bf::parse(r)?;
-        trigger::add_event(&mut b)?;
+        trigger::add_event(&mut b, &fake_names)?;
         b.write()
     })?);
     files.push(c.file(SETTING_TABLE, trigger::setting)?);
