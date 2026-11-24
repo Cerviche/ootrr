@@ -252,13 +252,18 @@ fn add_actor(ts: &mut [Byml; 3], from: &str, name: &str, pouch: Option<&str>) ->
     Ok(())
 }
 
-fn tables(c: &mut Ctx, fakes: &[(String, String)]) -> Res<Vec<File>> {
+fn tables(c: &mut Ctx, fakes: &[(String, String)], grounds: &[(String, String)]) -> Res<Vec<File>> {
     let firsts: Vec<Vec<u8>> = [ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO].iter().map(|t| c.read(t)).collect::<Res<Vec<Vec<u8>>>>()?;
     let mut ts: [Byml; 3] = [Byml::parse(&firsts[0])?, Byml::parse(&firsts[1])?, Byml::parse(&firsts[2])?];
     add_actor(&mut ts, sensor::SUN, sensor::NAME, None)?;
     for (look, name) in fakes {
         let pouch: String = if rows::find(&ts[2], look).is_some() { look.clone() } else { fake::RUPEE_ROW.to_string() };
         add_actor(&mut ts, look, name, Some(&pouch))?;
+    }
+    for (g, fake) in grounds {
+        let list: &mut Vec<Node> = ts[0].root.as_arr_mut().ok_or(E::Format("the actor table is not a list"))?;
+        let r: &mut Node = list.iter_mut().find(|r| rows::id(r) == Some(g.as_str())).ok_or_else(|| E::Msg(format!("the actor table has no {g} row")))?;
+        r.set(rows::ACTOR_NAME, Node::Str(fake.clone()));
     }
     let mut out: Vec<File> = Vec::new();
     for (i, t) in [ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO].iter().enumerate() {
@@ -386,16 +391,12 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
         let f: fake::Fake = fake::make(&lp, look, name)?;
         packs.push((f.name, f.pack, f.fresh, f.peers));
     }
-    let mut files: Vec<File> = tables(&mut c, &fakes)?;
-    let mut grounds: Vec<String> = Vec::new();
-    for t in traps.iter().filter(|t| t.place == Place::Ground) {
-        let g: String = ground::name_for(&t.fake);
-        if grounds.contains(&g) {
-            continue;
-        }
-        let fake: String = t.fake.clone();
-        files.push(c.file(&pack_of(&g), |r: &[u8]| shelf(r, &g, &fake))?);
-        grounds.push(g);
+    let mut grounds: Vec<(String, String)> = traps.iter().filter(|t| t.place == Place::Ground).map(|t| (ground::name_for(&t.fake), t.fake.clone())).collect();
+    grounds.sort();
+    grounds.dedup();
+    let mut files: Vec<File> = tables(&mut c, &fakes, &grounds)?;
+    for (g, fake) in &grounds {
+        files.push(c.file(&pack_of(g), |r: &[u8]| shelf(r, g, fake))?);
     }
     let mut by_file: BM<String, BM<u64, chest::Swap>> = BM::new();
     for t in traps {
@@ -438,6 +439,13 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
         trigger::hook_get(&mut b, &names)?;
         b.write()
     })?);
+    for flow in trigger::PICKUPS {
+        files.push(c.file(&format!("Event/EventFlow/{flow}.bfevfl.zs"), |r: &[u8]| {
+            let mut b: Bf = Bf::parse(r)?;
+            trigger::hook_pickup(&mut b, flow, &names)?;
+            b.write()
+        })?);
+    }
     files.push(c.file(trigger::GIVE_FILE, |r: &[u8]| {
         let mut b: Bf = Bf::parse(r)?;
         trigger::add_event(&mut b, &fake_names)?;

@@ -16,6 +16,8 @@ pub const GIVE_FLOW: &str = "Dm_SY_GetInEvent";
 pub const FLOWCHART: &str = "Work/Event/EventFlow/Dm_SY_GetInEvent.evfc";
 pub const MAIN: &str = "Sequence/MainUpdate.module.ainb";
 const ADD: &str = "EventTriggerAddOrRemovePouchContent";
+const SET_NAME: &str = "EventTriggerSetOwnNameToMessage";
+pub const PICKUPS: [&str; 2] = ["Dm_SY_Get", "Dm_SY_Get_WithoutPlayer"];
 const ASK: &str = "EventQueryIsGameDataString64";
 const TARGET: &str = "UI_MessageTargetActorName";
 const CREATE: &str = "EventTriggerRequestCreateConditionSensor";
@@ -36,27 +38,10 @@ fn ask(name: &str) -> Cont {
     Cont { items: vec![("GameDataName".to_string(), Val::Str(TARGET.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(name.to_string()))] }
 }
 
-pub fn hook_get(b: &mut Bf, names: &[String]) -> Res<usize> {
-    let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == GET_FLOW).ok_or(E::Format("the get flow has no flow of its name"))?;
-    let (pa, padd): (usize, usize) = f
-        .actors
-        .iter()
-        .enumerate()
-        .find_map(|(i, a)| a.actions.iter().position(|x| x == ADD).map(|j| (i, j)))
-        .ok_or(E::Format("the get flow has no pouch add"))?;
-    let sites: Vec<usize> = f
-        .events
-        .iter()
-        .enumerate()
-        .filter(|(_, e)| matches!(&e.kind, Kind::Action { actor, act, params, .. } if *actor as usize == pa && *act as usize == padd && params.as_ref().is_some_and(|c| matches!(c.get("IsSetMessageTargetActorName"), Some(Val::Bool(v)) if *v != 0))))
-        .map(|(i, _)| i)
-        .collect();
-    if sites.is_empty() {
-        return Err(E::Format("the get flow has no pouch add that names its actor"));
-    }
+fn chain(f: &mut Flow, sites: &[usize], names: &[String]) -> Res<()> {
     let (qa, qt): (u16, u16) = crate::start_state::query_slot(f, HOLDER, ASK)?;
     let (sa, ss): (u16, u16) = action_slot(f, HOLDER, SET)?;
-    for at in &sites {
+    for at in sites {
         let then: u16 = match &f.events[*at].kind {
             Kind::Action { next, .. } => *next,
             _ => continue,
@@ -70,6 +55,41 @@ pub fn hook_get(b: &mut Bf, names: &[String]) -> Res<usize> {
             *n = next;
         }
     }
+    Ok(())
+}
+
+fn sites_of(f: &Flow, action: &str, named: bool) -> Vec<usize> {
+    f.events
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| match &e.kind {
+            Kind::Action { actor, act, params, .. } => {
+                f.actors.get(*actor as usize).and_then(|a| a.actions.get(*act as usize)).is_some_and(|x| x == action)
+                    && (!named || params.as_ref().is_some_and(|c| matches!(c.get("IsSetMessageTargetActorName"), Some(Val::Bool(v)) if *v != 0)))
+            }
+            _ => false,
+        })
+        .map(|(i, _)| i)
+        .collect()
+}
+
+pub fn hook_get(b: &mut Bf, names: &[String]) -> Res<usize> {
+    let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == GET_FLOW).ok_or(E::Format("the get flow has no flow of its name"))?;
+    let sites: Vec<usize> = sites_of(f, ADD, true);
+    if sites.is_empty() {
+        return Err(E::Format("the get flow has no pouch add that names its actor"));
+    }
+    chain(f, &sites, names)?;
+    Ok(sites.len())
+}
+
+pub fn hook_pickup(b: &mut Bf, flow: &str, names: &[String]) -> Res<usize> {
+    let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == flow).ok_or_else(|| E::Msg(format!("{flow} has no flow of its name")))?;
+    let sites: Vec<usize> = sites_of(f, SET_NAME, false);
+    if sites.is_empty() {
+        return Err(E::Msg(format!("{flow} has no pickup that names itself")));
+    }
+    chain(f, &sites, names)?;
     Ok(sites.len())
 }
 
