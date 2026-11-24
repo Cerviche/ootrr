@@ -303,6 +303,11 @@ impl Data {
                     d.item_ix.insert(it.name.clone(), d.items.len());
                     d.items.push(it.clone());
                 }
+                if let Some(a) = &it.actor
+                    && !d.flow.accept.contains(a)
+                {
+                    d.flow.accept.push(a.clone());
+                }
             }
         }
         Ok(d)
