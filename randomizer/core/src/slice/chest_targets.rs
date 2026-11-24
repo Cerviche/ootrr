@@ -110,6 +110,11 @@ pub(crate) fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
     let mut out: BM<String, String> = BM::new();
     for (item, locs) in &dests {
         let mut acts: Vec<String> = pool.get(item).cloned().unwrap_or_default();
+        if acts.is_empty()
+            && let Some(a) = crate::ap::item::foreign_actor(d, item)
+        {
+            acts = vec![a; locs.len()];
+        }
         let net: isize = crate::pot_slice::targets::delta(d, seed, item) + crate::shops::seed::delta(seed, item) + crate::slice::silver::delta(seed, item);
         adjust(d, item, net, &mut acts);
         if stripped {
@@ -117,6 +122,9 @@ pub(crate) fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
         }
         if pl.rewards.trade_items {
             crate::open_world::trade_shuffle::fit_actors(d, item, locs.len(), &mut acts);
+        }
+        if crate::slice::data::loose() && acts.len() != locs.len() {
+            adjust(d, item, locs.len() as isize - acts.len() as isize, &mut acts);
         }
         if acts.len() != locs.len() {
             return Err(E::Msg(format!(
