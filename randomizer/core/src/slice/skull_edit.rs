@@ -40,9 +40,10 @@ pub fn drops_with(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Res<
         if item == TOKEN {
             continue;
         }
-        let actor: String = match pickup(&t, d, item) {
-            Some(from) => kit_actor(&from),
-            None => drop_actor(&t, d, item, fixed.get(loc).map(|s| s.as_str())).map_err(|e| E::Msg(format!("{item} has no world pickup, so {loc} cannot drop it: {e}")))?,
+        let actor: String = match (seed.drops.get(loc), pickup(&t, d, item)) {
+            (Some(a), _) => a.clone(),
+            (None, Some(from)) => kit_actor(&from),
+            (None, None) => drop_actor(&t, d, item, fixed.get(loc).map(|s| s.as_str())).map_err(|e| E::Msg(format!("{item} has no world pickup, so {loc} cannot drop it: {e}")))?,
         };
         let hs: Vec<u64> = crate::slice::skull_names::hashes(d, loc);
         if hs.is_empty() {

@@ -32,7 +32,37 @@ use crate::zs;
 use crate::TITLE_ID;
 
 pub const TRAP: &str = "Ice Trap";
-pub const LOOKS: [&str; 14] = ["Boomerang", "Megaton Hammer", "Lens of Truth", "Iron Boots", "Hover Boots", "Mirror Shield", "Goron Tunic", "Zora Tunic", "Dins Fire", "Farores Wind", "Nayrus Love", "Fire Arrows", "Ice Arrows", "Light Arrows"];
+pub const LOOKS: [&str; 24] = [
+    "Ocarina",
+    "Slingshot",
+    "Boomerang",
+    "Bow",
+    "Bomb Bag",
+    "Progressive Hookshot",
+    "Megaton Hammer",
+    "Lens of Truth",
+    "Dins Fire",
+    "Farores Wind",
+    "Nayrus Love",
+    "Fire Arrows",
+    "Ice Arrows",
+    "Light Arrows",
+    "Iron Boots",
+    "Hover Boots",
+    "Goron Tunic",
+    "Zora Tunic",
+    "Mirror Shield",
+    "Bottle",
+    "Kokiri Sword",
+    "Progressive Strength Upgrade",
+    "Biggoron Sword",
+    "Progressive Scale",
+];
+const NO_SONG: &str = "Scarecrow Song";
+pub const SETTING: &str = "shuffle_ice_traps";
+pub const COUNT: &str = "ice_trap_count";
+pub const NUM: u16 = 204;
+pub const COUNT_NUM: u16 = 205;
 const GROUND_KINDS: [&str; 4] = ["freestanding", "heart", "bossheart", "key"];
 const POUCH_MSG: &str = "ActorMsg/PouchContent.msbt";
 const CHILD: &str = "Player_Child";
@@ -62,6 +92,7 @@ pub struct Trap {
     pub loc: String,
     pub place: Place,
     pub look: String,
+    pub item: String,
     pub actor: String,
     pub fake: String,
     pub kit: String,
@@ -100,28 +131,100 @@ fn spheres(w: &crate::world::World, place: &crate::world::Placement) -> BM<usize
     out
 }
 
-fn looks(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
+fn pool(d: &Data, seed: &SeedFile) -> Vec<String> {
+    let set: Option<crate::settings::Settings> = seed.settings().ok().map(|l| l.settings);
+    let is = |id: &str, v: &str| set.as_ref().and_then(|s| s.text(id).ok()).is_some_and(|x| x == v);
+    let mut out: Vec<String> = LOOKS.iter().map(|x| x.to_string()).collect();
+    for i in &d.items {
+        let song: bool = i.kind == "Song" && i.name != NO_SONG && is("shuffle_songs", "anywhere");
+        let reward: bool = i.kind == "DungeonReward" && is("shuffle_dungeon_rewards", "anywhere");
+        if (song || reward) && i.actor.is_some() {
+            out.push(i.name.clone());
+        }
+    }
+    out.retain(|n| d.item(n).is_some_and(|i| i.actor.is_some()));
+    out
+}
+
+fn place_of(d: &Data, seed: &SeedFile, loc: &str) -> Res<Place> {
+    let kind: Option<&str> = d.cat.by_name(loc).map(|l| l.kind.as_str());
+    Ok(if crate::shops::is_loc(loc) {
+        Place::Shop(seed.shops.get(loc).map(|s| s.price).ok_or_else(|| E::Msg(format!("{loc} holds {TRAP} but has no shop entry")))?)
+    } else if kind == Some("chest") {
+        Place::Chest
+    } else if kind.is_some_and(|k| GROUND_KINDS.contains(&k)) {
+        Place::Ground
+    } else if kind == Some("gs") {
+        Place::Skull
+    } else {
+        return Err(E::Msg(format!("{loc} holds {TRAP}, which this build can only put in a chest, on the ground, in a shop or at a Gold Skulltula")));
+    })
+}
+
+pub fn can_hold(d: &Data, loc: &str) -> bool {
+    crate::shops::is_loc(loc) || d.cat.by_name(loc).is_some_and(|l| l.kind == "chest" || l.kind == "gs" || GROUND_KINDS.contains(&l.kind.as_str()))
+}
+
+fn tier_of(d: &Data, item: &str, held: usize) -> Option<(String, bool)> {
+    let i = d.item(item)?;
+    if i.tiers.is_empty() {
+        return (held == 0).then(|| (i.actor.clone().unwrap_or_default(), false));
+    }
+    i.tiers.get(held).map(|t| (t.clone(), true))
+}
+
+fn fits(d: &Data, place: Place, item: &str, actor: &str, tiered: bool) -> bool {
+    let tier: Option<&str> = tiered.then_some(actor);
+    match place {
+        Place::Chest => true,
+        Place::Ground => crate::slice::key_spots::resolve(d, item, tier).is_ok(),
+        Place::Skull => crate::slice::key_spots::resolve_kit(d, item, tier).is_ok_and(|p| p.hang_with().is_ok()),
+        Place::Shop(_) => !tiered && d.item(item).is_some_and(|i| i.kind == "Item"),
+    }
+}
+
+/// Chooses each trap's look: a key item the logic says the player cannot hold yet where the trap
+/// is reached, and for an upgrade the next tier the player lacks there.
+fn looks(d: &Data, seed: &SeedFile, places: &BM<String, Place>) -> Res<BM<String, (String, String, bool)>> {
     let (w, place): (crate::world::World, crate::world::Placement) = crate::slice::starts::rebuild(d, seed)?;
     let at: BM<usize, usize> = spheres(&w, &place);
-    let first = |item: &str| -> usize {
-        let Some(it) = w.item(item) else { return usize::MAX };
-        if w.start.iter().any(|(i, n)| *i == it && *n > 0) {
+    let names: Vec<String> = pool(d, seed);
+    let held = |item: &str, here: usize| -> usize {
+        let Some(it) = w.item(item) else { return 0 };
+        if here == usize::MAX {
             return 0;
         }
-        w.real.iter().filter(|l| place.get(**l) == Some(it)).map(|l| at.get(l).copied().unwrap_or(usize::MAX)).min().unwrap_or(usize::MAX)
+        let start: usize = w.start.iter().filter(|(i, _)| *i == it).map(|(_, n)| *n as usize).sum();
+        start + w.real.iter().filter(|l| place.get(**l) == Some(it) && at.get(*l).is_some_and(|s| *s < here)).count()
     };
-    let mut out: BM<String, String> = BM::new();
-    for (loc, item) in &seed.placements {
-        if item != TRAP {
-            continue;
-        }
+    let skull = |l: &str| d.cat.by_name(l).is_some_and(|c| c.kind == "gs");
+    let at_skulls: Vec<&String> = seed.placements.iter().filter(|(l, i)| *i != TRAP && skull(l)).map(|(_, i)| i).collect();
+    let at_shops: Vec<&String> = seed.placements.iter().filter(|(l, i)| *i != TRAP && crate::shops::is_loc(l)).map(|(_, i)| i).collect();
+    let mut out: BM<String, (String, String, bool)> = BM::new();
+    for (loc, pl) in places {
         let here: usize = w.loc(loc).and_then(|l| at.get(&l).copied()).unwrap_or(usize::MAX);
-        let mut later: Vec<&str> = LOOKS.iter().copied().filter(|k| here == usize::MAX || first(k) > here).collect();
-        if later.is_empty() {
-            later = LOOKS.to_vec();
+        let taken = |n: &String| match pl {
+            Place::Skull => at_skulls.contains(&n),
+            Place::Shop(_) => at_shops.contains(&n),
+            _ => false,
+        };
+        let pick = |late: bool| -> Vec<(String, String, bool)> {
+            names
+                .iter()
+                .filter(|n| !taken(n))
+                .filter_map(|n| tier_of(d, n, if late { held(n, here) } else { 0 }).map(|(a, t)| (n.clone(), a, t)))
+                .filter(|(n, a, t)| fits(d, *pl, n, a, *t))
+                .collect()
+        };
+        let mut c: Vec<(String, String, bool)> = pick(true);
+        if c.is_empty() {
+            c = pick(false);
+        }
+        if c.is_empty() {
+            return Err(E::Msg(format!("{loc} holds {TRAP} but no key item can show there")));
         }
         let mut r: Rng = Rng::from_text(&format!("{}/{loc}/look", seed.seed));
-        out.insert(loc.clone(), later[r.below(later.len() as u64) as usize].to_string());
+        out.insert(loc.clone(), c.swap_remove(r.below(c.len() as u64) as usize));
     }
     Ok(out)
 }
@@ -131,45 +234,97 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
         return Ok((seed.clone(), Vec::new()));
     }
     let d: Data = Data::load()?;
-    let chosen: BM<String, String> = looks(&d, seed)?;
+    let mut places: BM<String, Place> = BM::new();
+    for (loc, item) in &seed.placements {
+        if item == TRAP {
+            places.insert(loc.clone(), place_of(&d, seed, loc)?);
+        }
+    }
+    let chosen: BM<String, (String, String, bool)> = looks(&d, seed, &places)?;
     let mut out: SeedFile = seed.clone();
     let mut traps: Vec<Trap> = Vec::new();
     let mut short: Vec<String> = shortfall(&d, seed);
-    for (loc, item) in &seed.placements {
-        if item != TRAP {
-            continue;
-        }
-        let kind: Option<&str> = d.cat.by_name(loc).map(|l| l.kind.as_str());
-        let place: Place = if crate::shops::is_loc(loc) {
-            Place::Shop(seed.shops.get(loc).map(|s| s.price).ok_or_else(|| E::Msg(format!("{loc} holds {TRAP} but has no shop entry")))?)
-        } else if kind == Some("chest") {
-            Place::Chest
-        } else if kind.is_some_and(|k| GROUND_KINDS.contains(&k)) {
-            Place::Ground
-        } else if kind == Some("gs") {
-            Place::Skull
-        } else {
-            return Err(E::Msg(format!("{loc} holds {TRAP}, which this build can only put in a chest, on the ground or in a shop")));
-        };
-        let look: String = chosen.get(loc).cloned().ok_or_else(|| E::Msg(format!("{loc} has no look")))?;
-        let actor: String = d.item(&look).and_then(|i| i.actor.clone()).ok_or_else(|| E::Msg(format!("{look} has no actor")))?;
+    for (loc, place) in places {
+        let (look, actor, tiered): (String, String, bool) = chosen.get(&loc).cloned().ok_or_else(|| E::Msg(format!("{loc} has no look")))?;
+        // A chest or shop keeps the look as its item, so it stands as that item would. An upgrade,
+        // a ground spot and a skulltula keep a junk carrier instead, so the upgrade tier order of
+        // the real copies is untouched, and the trap's own pickup is swapped in.
+        let carry: bool = tiered || matches!(place, Place::Ground | Place::Skull);
         let pick: Option<usize> = short.iter().position(|x| !d.item(x).is_some_and(|i| i.adv)).or(if short.is_empty() { None } else { Some(0) });
-        if let Some(k) = pick {
-            let held: String = short.remove(k);
-            *out.copies.entry(held).or_insert(0) -= 1;
+        let held: Option<String> = pick.map(|k| short.remove(k));
+        let stand: String = if carry { held.clone().unwrap_or_else(|| fake::RUPEE_ITEM.to_string()) } else { look.clone() };
+        if let Some(h) = &held {
+            *out.copies.entry(h.clone()).or_insert(0) -= 1;
         }
-        *out.copies.entry(look.clone()).or_insert(0) += 1;
-        if place == Place::Ground {
-            out.named.insert(ground::name_for(&fake_name(&actor)), look.clone());
+        *out.copies.entry(stand.clone()).or_insert(0) += 1;
+        let fake: String = fake_name(&actor);
+        let mut kit: String = String::new();
+        match place {
+            Place::Ground => {
+                let g: String = ground::name_for(&fake);
+                if tiered {
+                    out.tiers.insert(g.clone(), actor.clone());
+                }
+                out.named.insert(g, look.clone());
+            }
+            Place::Skull => {
+                let tier: Option<&str> = tiered.then_some(actor.as_str());
+                let t: crate::slice::skulls::Table = crate::slice::skulls::table()?;
+                kit = crate::slice::skulls::drop_actor(&t, &d, &look, tier)?;
+                if crate::slice::skulls::pickup(&t, &d, &look).is_none() {
+                    out.kits.insert(kit.clone(), look.clone());
+                    if let Some(a) = tier {
+                        out.tiers.insert(kit.clone(), a.to_string());
+                    }
+                }
+                out.drops.insert(loc.clone(), kit.clone());
+            }
+            Place::Shop(_) => {
+                if let Some(s) = out.shops.get_mut(&loc) {
+                    s.item = look.clone();
+                }
+            }
+            Place::Chest => {}
         }
-        out.placements.insert(loc.clone(), look.clone());
-        if let (Place::Shop(_), Some(s)) = (place, out.shops.get_mut(loc)) {
-            s.item = look.clone();
-        }
-        let kit: String = if place == Place::Skull { crate::slice::skulls::drop_actor(&crate::slice::skulls::table()?, &d, &look, None)? } else { String::new() };
-        traps.push(Trap { loc: loc.clone(), place, look, fake: fake_name(&actor), actor, kit });
+        out.placements.insert(loc.clone(), stand);
+        traps.push(Trap { loc, place, look: look.clone(), item: look, fake, actor, kit });
     }
     Ok((out, traps))
+}
+
+/// Swaps junk in the generated seed for traps: up to the set count, never at an excluded
+/// location, only at a chest, a ground spot, a shuffled shop slot or a skulltula whose actor is known.
+pub fn sprinkle(d: &Data, s: &crate::settings::Settings, seed: &str, f: &mut SeedFile, excluded: &[String]) -> usize {
+    if !s.flag(SETTING).unwrap_or(false) {
+        return 0;
+    }
+    let n: usize = s.int(COUNT).unwrap_or(0).clamp(0, 20) as usize;
+    let contested: Vec<String> = crate::slice::skulls::shared().map(|t| t.contested.clone()).unwrap_or_default();
+    let mut spots: Vec<String> = f
+        .placements
+        .iter()
+        .filter(|(l, i)| {
+            crate::slice::place_rules::junk(d, i)
+                && !excluded.contains(l)
+                && can_hold(d, l)
+                && !crate::pot_slice::targets::is_loc(d, l)
+                && !crate::slice::silver::is_spot(l)
+                && (!crate::shops::is_loc(l) || f.shops.get(*l).is_some_and(|e| e.deal && e.item == **i))
+                && d.cat.by_name(l).is_none_or(|c| c.kind != "gs" || (c.conf != crate::catalog::Conf::Pool && !contested.contains(l)))
+        })
+        .map(|(l, _)| l.clone())
+        .collect();
+    let mut r: Rng = Rng::from_text(&format!("{seed}/cold"));
+    let mut out: usize = 0;
+    while out < n && !spots.is_empty() {
+        let l: String = spots.swap_remove(r.below(spots.len() as u64) as usize);
+        f.placements.insert(l.clone(), TRAP.to_string());
+        if let Some(e) = f.shops.get_mut(&l) {
+            e.item = TRAP.to_string();
+        }
+        out += 1;
+    }
+    out
 }
 
 fn shortfall(d: &Data, seed: &SeedFile) -> Vec<String> {

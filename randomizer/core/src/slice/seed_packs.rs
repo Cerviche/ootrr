@@ -93,8 +93,12 @@ pub fn need(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Res<BM<Str
         let w: &mut Want = out.entry(p.pack.clone()).or_insert_with(|| Want { name: p.pack.clone(), pick: p, kind: Kind::Free, spots: Vec::new(), named: false });
         w.spots.push(loc);
     }
+    for (name, item) in &seed.kits {
+        let p: Pick = crate::slice::key_spots::resolve_kit(d, item, seed.tiers.get(name).map(|t| t.as_str())).map_err(|e| E::Msg(format!("the skulltula drop {name} for {item} cannot be built: {e}")))?;
+        out.entry(name.clone()).or_insert_with(|| Want { name: name.clone(), pick: p, kind: Kind::Skull, spots: Vec::new(), named: false });
+    }
     for (name, item) in &seed.named {
-        let p: Pick = resolve(d, item, None).map_err(|e| E::Msg(format!("the pickup {name} for {item} cannot be built: {e}")))?;
+        let p: Pick = resolve(d, item, seed.tiers.get(name).map(|t| t.as_str())).map_err(|e| E::Msg(format!("the pickup {name} for {item} cannot be built: {e}")))?;
         out.insert(name.clone(), Want { name: name.clone(), pick: p, kind: Kind::Free, spots: Vec::new(), named: true });
     }
     for w in out.values() {
