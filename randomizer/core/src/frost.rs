@@ -394,7 +394,15 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     let mut grounds: Vec<(String, String)> = traps.iter().filter(|t| t.place == Place::Ground).map(|t| (ground::name_for(&t.fake), t.fake.clone())).collect();
     grounds.sort();
     grounds.dedup();
-    let mut files: Vec<File> = tables(&mut c, &fakes, &grounds)?;
+    let mut renamed: Vec<(String, String)> = grounds.clone();
+    for t in traps {
+        if let Place::Shop(p) = t.place {
+            renamed.push((crate::shelf::shelf_name(&t.actor, p as i32), t.fake.clone()));
+        }
+    }
+    renamed.sort();
+    renamed.dedup();
+    let mut files: Vec<File> = tables(&mut c, &fakes, &renamed)?;
     for (g, fake) in &grounds {
         files.push(c.file(&pack_of(g), |r: &[u8]| shelf(r, g, fake))?);
     }
@@ -443,6 +451,13 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
         files.push(c.file(&format!("Event/EventFlow/{flow}.bfevfl.zs"), |r: &[u8]| {
             let mut b: Bf = Bf::parse(r)?;
             trigger::hook_pickup(&mut b, flow, &names)?;
+            b.write()
+        })?);
+    }
+    if traps.iter().any(|t| matches!(t.place, Place::Shop(_))) {
+        files.push(c.file(trigger::SHOP_FILE, |r: &[u8]| {
+            let mut b: Bf = Bf::parse(r)?;
+            trigger::hook_shop(&mut b, &names)?;
             b.write()
         })?);
     }

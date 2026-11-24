@@ -18,6 +18,10 @@ pub const MAIN: &str = "Sequence/MainUpdate.module.ainb";
 const ADD: &str = "EventTriggerAddOrRemovePouchContent";
 const SET_NAME: &str = "EventTriggerSetOwnNameToMessage";
 pub const PICKUPS: [&str; 2] = ["Dm_SY_Get", "Dm_SY_Get_WithoutPlayer"];
+pub const SHOP_FILE: &str = "Event/EventFlow/DisplayShop.bfevfl.zs";
+const SHOP_ACTOR: &str = "Npc_EventStarter";
+const SHOP_GRANT: &str = "EventTriggerGetItemAtShop";
+const ON_SALE: &str = "Shop_SelectItemName";
 const ASK: &str = "EventQueryIsGameDataString64";
 const SET_TEXT: &str = "EventTriggerSetGameDataString64";
 const TARGET: &str = "UI_MessageTargetActorName";
@@ -35,11 +39,11 @@ const BOOL: usize = 1;
 const STR: usize = 3;
 const SELECTOR: u16 = 7;
 
-fn ask(name: &str) -> Cont {
-    Cont { items: vec![("GameDataName".to_string(), Val::Str(TARGET.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(name.to_string()))] }
+fn ask(key: &str, name: &str) -> Cont {
+    Cont { items: vec![("GameDataName".to_string(), Val::Str(key.to_string())), ("Index".to_string(), Val::Int(-1)), ("Value".to_string(), Val::Str(name.to_string()))] }
 }
 
-fn chain(f: &mut Flow, sites: &[usize], names: &[String]) -> Res<()> {
+fn chain(f: &mut Flow, sites: &[usize], key: &str, names: &[String]) -> Res<()> {
     let (qa, qt): (u16, u16) = crate::start_state::query_slot(f, HOLDER, ASK)?;
     let (sa, ss): (u16, u16) = action_slot(f, HOLDER, SET)?;
     for at in sites {
@@ -50,7 +54,7 @@ fn chain(f: &mut Flow, sites: &[usize], names: &[String]) -> Res<()> {
         let mark: u16 = push(f, Kind::Action { next: then, actor: sa, act: ss, params: Some(set_bool(FLAG.to_string())) })?;
         let mut next: u16 = then;
         for n in names.iter().rev() {
-            next = push(f, Kind::Switch { actor: qa, query: qt, cases: vec![Case { val: 0, ev: mark }, Case { val: 1, ev: next }], params: Some(ask(n)) })?;
+            next = push(f, Kind::Switch { actor: qa, query: qt, cases: vec![Case { val: 0, ev: mark }, Case { val: 1, ev: next }], params: Some(ask(key, n)) })?;
         }
         if let Kind::Action { next: n, .. } = &mut f.events[*at].kind {
             *n = next;
@@ -80,7 +84,7 @@ pub fn hook_get(b: &mut Bf, names: &[String]) -> Res<usize> {
     if sites.is_empty() {
         return Err(E::Format("the get flow has no pouch add that names its actor"));
     }
-    chain(f, &sites, names)?;
+    chain(f, &sites, TARGET, names)?;
     Ok(sites.len())
 }
 
@@ -90,7 +94,26 @@ pub fn hook_pickup(b: &mut Bf, flow: &str, names: &[String]) -> Res<usize> {
     if sites.is_empty() {
         return Err(E::Msg(format!("{flow} has no pickup that names itself")));
     }
-    chain(f, &sites, names)?;
+    chain(f, &sites, TARGET, names)?;
+    Ok(sites.len())
+}
+
+pub fn hook_shop(b: &mut Bf, names: &[String]) -> Res<usize> {
+    let f: &mut Flow = b.flows.first_mut().ok_or(E::Format("the shop flow file holds no flow"))?;
+    let sites: Vec<usize> = f
+        .events
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| match &e.kind {
+            Kind::Action { actor, act, .. } => f.actors.get(*actor as usize).is_some_and(|a| a.name == SHOP_ACTOR && a.actions.get(*act as usize).is_some_and(|x| x == SHOP_GRANT)),
+            _ => false,
+        })
+        .map(|(i, _)| i)
+        .collect();
+    if sites.is_empty() {
+        return Err(E::Format("the shop flow has no purchase grant"));
+    }
+    chain(f, &sites, ON_SALE, names)?;
     Ok(sites.len())
 }
 
