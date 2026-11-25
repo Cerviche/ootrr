@@ -4,7 +4,7 @@ use crate::error::{Fail, Hr};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::state::Shared;
-use crate::{update, api_build, api_colors, api_fs, api_generate, api_info, api_items, api_open, api_seed, api_settings, api_tracker, api_validate, assets, body};
+use crate::{update, api_ap, api_build, api_colors, api_fs, api_generate, api_info, api_items, api_open, api_seed, api_settings, api_tracker, api_validate, assets, body};
 
 fn need(r: &Req, m: &str) -> Hr<()> {
     if r.method == m {
@@ -125,6 +125,15 @@ fn api(sh: &Shared, r: &Req) -> Hr<Resp> {
         "/api/build" => {
             need(r, "POST")?;
             let j: Json = api_build::run(&sh.jobs, &body::json(r)?)?;
+            return Ok(Resp::json(202, &j));
+        }
+        "/api/ap/read" => {
+            need(r, "POST")?;
+            api_ap::read(&body::json(r)?)?
+        }
+        "/api/ap/build" => {
+            need(r, "POST")?;
+            let j: Json = api_ap::build(&sh.jobs, &body::json(r)?)?;
             return Ok(Resp::json(202, &j));
         }
         _ => return Err(Fail::new(404, "no such endpoint")),

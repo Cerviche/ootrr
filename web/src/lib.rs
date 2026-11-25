@@ -1,3 +1,4 @@
+mod api_ap;
 mod api_build;
 mod api_colors;
 mod api_fs;
