@@ -6,7 +6,7 @@ use crate::rsizetable::{crc32, hash};
 use crate::sarc;
 use crate::staging::Out;
 
-pub const NUM: u16 = 204;
+pub const NUM: u16 = 206;
 pub const SETTING: &str = "disable_low_health_warnings";
 pub const NOTE: &str = "Suppresses the low-health beep, critical-health pose and expression, heart flashing, and red pulse on Link. The red pulse change needs playtesting; normal damage feedback should remain.";
 
