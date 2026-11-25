@@ -81,6 +81,38 @@ mod tests {
     }
 
     #[test]
+    fn only_the_tree_wall_changes() {
+        let p: std::path::PathBuf = ootrr_game::test_romfs::path();
+        if !p.join("Pack").join("ZsDic.pack.zs").is_file() {
+            eprintln!("skipped, no RomFS dump at {} (set OOTRR_ROMFS)", p.display());
+            return;
+        }
+        let mut rf: Romfs = Romfs::open(&p).unwrap();
+        for (file, hash) in [(ADULT, ADULT_WALL), (CHILD, CHILD_WALL)] {
+            let raw: Vec<u8> = rf.read_zs(file).unwrap();
+            let out: Vec<u8> = bytes(&raw, hash).unwrap();
+            let a: Byml = Byml::parse(&raw).unwrap();
+            let b: Byml = Byml::parse(&out).unwrap();
+            let before: &[Node] = a.root.get("Actors").and_then(|n| n.as_arr()).unwrap();
+            let after: &[Node] = b.root.get("Actors").and_then(|n| n.as_arr()).unwrap();
+            assert_eq!(before.len(), after.len());
+            let mut changed: usize = 0;
+            for (x, y) in before.iter().zip(after.iter()) {
+                if x != y {
+                    changed += 1;
+                    assert_eq!(x.get("Hash"), Some(&Node::U64(hash)));
+                }
+            }
+            assert_eq!(changed, 1);
+            let walls: usize = before
+                .iter()
+                .filter(|n| n.get("Gyaml").and_then(|g| g.as_str()) == Some(WALL_GYAML) && n.get("Presence").is_some())
+                .count();
+            assert_eq!(walls, 1);
+        }
+    }
+
+    #[test]
     fn staged_edits_keep_the_water_gate_edit() {
         let p: std::path::PathBuf = ootrr_game::test_romfs::path();
         if !p.join("Pack").join("ZsDic.pack.zs").is_file() {

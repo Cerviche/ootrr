@@ -36,7 +36,7 @@ Not byte-identical to nightly by design. A default-preset build (time savers and
 
 ## How to test it in the game
 
-Plan: `playtest/lh-tree-wall/PLAN.md` (not yet written; see the report). By hand: adult, night (or Gold Skulltulas at any time on), Longshot, Water Temple Longshot chest not opened. Stand at Lake Hylia below the tree and hook the token. Before the fix the hook is stopped by the wall; after it the token is collected. Then the same with the Hookshot only, to decide whether the logic may be relaxed.
+Plan: `playtest/lh-tree-wall/PLAN.md`. By hand: adult, night (or Gold Skulltulas at any time on), Longshot, Water Temple Longshot chest not opened. Stand at Lake Hylia below the tree and hook the token. Before the fix the hook is stopped by the wall; after it the token is collected. Then the same with the Hookshot only, to decide whether the logic may be relaxed.
 
 ## MR Drafts
 
