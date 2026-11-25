@@ -63,6 +63,8 @@ pub const SETTING: &str = "shuffle_ice_traps";
 pub const COUNT: &str = "ice_trap_count";
 pub const NUM: u16 = 204;
 pub const COUNT_NUM: u16 = 205;
+/// The most Ice Traps a seed can ask for, for now.
+pub const MAX: i64 = 10;
 const GROUND_KINDS: [&str; 4] = ["freestanding", "heart", "bossheart", "key"];
 const POUCH_MSG: &str = "ActorMsg/PouchContent.msbt";
 const CHILD: &str = "Player_Child";
@@ -412,7 +414,7 @@ pub fn sprinkle(d: &Data, s: &crate::settings::Settings, seed: &str, f: &mut See
     if !s.flag(SETTING).unwrap_or(false) {
         return 0;
     }
-    let n: usize = s.int(COUNT).unwrap_or(0).clamp(0, 20) as usize;
+    let n: usize = s.int(COUNT).unwrap_or(0).clamp(0, MAX) as usize;
     let contested: Vec<String> = crate::slice::skulls::shared().map(|t| t.contested.clone()).unwrap_or_default();
     let mut spots: Vec<String> = f
         .placements
@@ -855,7 +857,41 @@ mod tests {
         for (k, v) in [("shuffle_pots", "all"), ("shuffle_crates", "all"), ("shuffle_rocks", "all"), ("shuffle_grass", "all"), ("shuffle_freestanding_items", "all"), ("shuffle_skulltulas", "pinned"), ("shuffle_songs", "anywhere"), ("shuffle_dungeon_rewards", "anywhere")] {
             s.set(k, Value::s(v)).unwrap();
         }
+        s.set(SETTING, Value::Bool(true)).unwrap();
         s
+    }
+
+    #[test]
+    fn traps_are_off_until_asked_for_and_at_most_ten() {
+        let d: Data = Data::load().unwrap();
+        let sch = crate::settings::schema();
+        let (on, count) = (sch.get(SETTING).unwrap(), sch.get(COUNT).unwrap());
+        assert_eq!(on.default, Value::Bool(false));
+        assert_eq!((count.default.clone(), count.min, count.max), (Value::Int(MAX), 1, MAX));
+        assert_eq!(MAX, 10);
+        let plain: Settings = Settings::default();
+        assert!(!plain.flag(SETTING).unwrap());
+        assert!(traps(&generate_data(&d, &plain, "cold default", &super::tests::on()).unwrap()).is_empty());
+        let mut s: Settings = wide();
+        assert_eq!(traps(&generate_data(&d, &s, "cold ten", &super::tests::on()).unwrap()).len(), 10);
+        assert!(s.set(COUNT, Value::Int(MAX + 1)).is_err());
+        assert!(s.set(COUNT, Value::Int(0)).is_err());
+        s.set(COUNT, Value::Int(1)).unwrap();
+        assert_eq!(traps(&generate_data(&d, &s, "cold one", &super::tests::on()).unwrap()).len(), 1);
+    }
+
+    /// A string with no value for the setting comes from a release that had no traps.
+    #[test]
+    fn a_settings_string_without_the_setting_has_no_traps() {
+        let mut on: Settings = Settings::default();
+        on.set(SETTING, Value::Bool(true)).unwrap();
+        on.set(COUNT, Value::Int(4)).unwrap();
+        let (a, b): (String, String) = (on.encode().unwrap(), Settings::default().encode().unwrap());
+        assert_ne!(a, b);
+        let back: Settings = Settings::decode(&a).unwrap().settings;
+        assert!(back.flag(SETTING).unwrap());
+        assert_eq!(back.int(COUNT).unwrap(), 4);
+        assert!(!Settings::decode(&b).unwrap().settings.flag(SETTING).unwrap());
     }
 
     fn traps(g: &Generated) -> Vec<String> {

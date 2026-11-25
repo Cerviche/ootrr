@@ -660,8 +660,8 @@ const LOCATIONS_TAB: &[PortSection] = &[
             Entry::Plain("shuffle_gerudo_card"),
             Entry::View(&SKULLTULAS),
             Entry::View(&FREESTANDING),
-            Entry::Hidden(crate::frost::SETTING),
-            Entry::Hidden(crate::frost::COUNT),
+            Entry::Plain(crate::frost::SETTING),
+            Entry::Plain(crate::frost::COUNT),
         ],
     ),
     port(
