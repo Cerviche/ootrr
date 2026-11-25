@@ -1,9 +1,11 @@
 """Nightly build versions.
 
 python tools/nightly_version.py next <yyyymmdd>[.<n>]
-    Prints the nightly version: the next patch after Cargo.toml's version, as a
-    prerelease, so 0.8.2 and 20261121.57 give 0.8.3-nightly.20261121.57. It sorts
-    above the release it was built after and below the release it leads to.
+    Prints the nightly version: the release it leads to, as a prerelease. That
+    release is [workspace.metadata.nightly] next in Cargo.toml when it is set and
+    newer than the version, so 0.9.0 and 20261125.8 give 0.9.0-nightly.20261125.8;
+    otherwise the next patch, so 0.8.2 and 20261121.57 give 0.8.3-nightly.20261121.57.
+    It sorts above the release it was built after and below the release it leads to.
 
 python tools/nightly_version.py set <version>
     Writes <version> into Cargo.toml and into Cargo.lock's entries for the
@@ -18,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TOML = ROOT / "Cargo.toml"
 LOCK = ROOT / "Cargo.lock"
 WS_VERSION = re.compile(r'(\[workspace\.package\][^\[]*?\nversion = ")([^"]+)(")')
+NEXT = re.compile(r'\[workspace\.metadata\.nightly\][^\[]*?\nnext = "([^"]*)"')
 SEMVER = re.compile(r"\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?")
 
 
@@ -28,12 +31,29 @@ def current() -> str:
     return m.group(2)
 
 
+def parts(v: str) -> tuple[int, int, int]:
+    major, minor, patch = (int(x) for x in v.split("-")[0].split("+")[0].split("."))
+    return major, minor, patch
+
+
+def target() -> tuple[int, int, int] | None:
+    m = NEXT.search(TOML.read_text(encoding="utf-8"))
+    if not m:
+        return None
+    if not re.fullmatch(r"\d+\.\d+\.\d+", m.group(1)):
+        sys.exit(f"[workspace.metadata.nightly] next must be major.minor.patch, not {m.group(1)!r}")
+    return parts(m.group(1))
+
+
 def next_nightly(day: str) -> str:
     if not re.fullmatch(r"\d{8}(\.[1-9]\d*)?", day):
         sys.exit(f"the build stamp must be yyyymmdd or yyyymmdd.n, not {day!r}")
-    base = current().split("-")[0].split("+")[0]
-    major, minor, patch = (int(x) for x in base.split("."))
-    return f"{major}.{minor}.{patch + 1}-nightly.{day}"
+    major, minor, patch = parts(current())
+    lead = (major, minor, patch + 1)
+    t = target()
+    if t is not None and t > (major, minor, patch):
+        lead = t
+    return f"{lead[0]}.{lead[1]}.{lead[2]}-nightly.{day}"
 
 
 def set_version(v: str) -> None:
