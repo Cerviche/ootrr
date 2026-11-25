@@ -198,7 +198,8 @@ pub fn build_data(d: Data, seed: &SeedFile, romfs: &P, load: &P, mod_name: &str,
         }
     }
     let mut keys: Vec<&'static str> = if roam { KEY_DUNGEONS.to_vec() } else { Vec::new() };
-    for k in crate::gift_keys::small_dungeons(&gift_keys) {
+    let sent: Vec<(crate::gift_keys::Item, &'static str)> = crate::slice::data::extra_dungeon_items();
+    for k in crate::gift_keys::small_dungeons(&gift_keys).into_iter().chain(sent.iter().filter(|(i, _)| *i == crate::gift_keys::Item::Small).map(|(_, d)| *d)) {
         if !keys.contains(&k) {
             keys.push(k);
         }
@@ -374,6 +375,10 @@ pub fn build_data(d: Data, seed: &SeedFile, romfs: &P, load: &P, mod_name: &str,
     let pots: Vec<u64> = crate::pot_slice::apply::hashes(&pot_ts);
     let mut marked: BS<(crate::dungeon_grant::Kind, &'static str)> = passes.marks.used.clone();
     marked.extend(crate::gift_keys::marked(&gift_keys));
+    marked.extend(sent.iter().filter_map(|(i, d)| match i {
+        crate::gift_keys::Item::Other(k) => Some((*k, *d)),
+        crate::gift_keys::Item::Small => None,
+    }));
     // Boss keys, maps and compasses sold in a shop deal name their dungeon after the sale.
     for (loc, item) in &seed.placements {
         if !crate::shops::is_loc(loc) {
