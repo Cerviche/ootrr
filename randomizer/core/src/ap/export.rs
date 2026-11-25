@@ -352,11 +352,15 @@ pub fn export_with(d0: &Data, s: &Settings, preset: &str, seed: &str, n: usize) 
     let mut loose: usize = 0;
     let det: Detect = Detect::load()?;
     let shared: BS<String> = det.shared(d);
+    let placed: std::collections::BTreeMap<String, String> = free.iter().map(|l| (w.locs[*l].name.clone(), String::new())).collect();
     let mut blind: Vec<String> = Vec::new();
     for l in &free {
         let name: &str = &w.locs[*l].name;
-        let tier: bool = crate::slice::tier_order::fixed_spot(d, name);
-        let deny: Vec<ItemId> = kinds.iter().copied().filter(|i| !allowed(d, &w, &p, *i, *l) || (tier && d.family(&w.items.names[*i]).is_some())).collect();
+        let fixed = |i: ItemId| {
+            let item: &str = &w.items.names[i];
+            d.family(item).is_some_and(|f| crate::slice::tier_order::give_of(d, &placed, name, item, f) != crate::slice::tier_order::Give::Flow)
+        };
+        let deny: Vec<ItemId> = kinds.iter().copied().filter(|i| !allowed(d, &w, &p, *i, *l) || fixed(*i)).collect();
         if deny.is_empty() {
             loose += 1;
         }
@@ -557,5 +561,21 @@ mod tests {
             done += 1;
         }
         assert!(done >= 10, "only {done} rolled settings exported");
+    }
+
+    /// Song from Royal Familys Tomb is a sale spot without the tier wrapper, so the build gives
+    /// an upgrade there one fixed tier and refused the slot when the order did not hold. The
+    /// export now keeps upgrades off every spot the build would give a fixed tier.
+    #[test]
+    fn upgrades_stay_off_every_spot_that_gives_a_fixed_tier() {
+        let d: Data = Data::load().unwrap();
+        let mut s: Settings = preset("default");
+        s.set("shuffle_songs", crate::settings::model::Value::s("anywhere")).unwrap();
+        let b: Json = export(&d, &s.finish().unwrap(), "custom").unwrap();
+        let items: &[Json] = arr(b.get("world").unwrap(), "items");
+        let deny: Vec<&str> = arr(row(&b, "Song from Royal Familys Tomb"), "deny").iter().map(|i| items[i.as_i64().unwrap() as usize].get("name").unwrap().as_str().unwrap()).collect();
+        assert!(deny.contains(&"Bomb Bag"), "{deny:?}");
+        let chest: Vec<&str> = arr(row(&b, "KF Midos Top Left Chest"), "deny").iter().map(|i| items[i.as_i64().unwrap() as usize].get("name").unwrap().as_str().unwrap()).collect();
+        assert!(!chest.contains(&"Bomb Bag"));
     }
 }
