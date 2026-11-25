@@ -1,11 +1,11 @@
 {
  "format": 1,
  "revision": 1,
- "note": "Identifiers only. Remake freestanding rupees and recovery hearts: placed Obj_Rupee and Obj_Heart actors with a permanent row (reset type 24) whose hash no other catalog row holds. One row per actor hash, so the adult and the child copy of a spot are two rows. Names are made up for this tool and never change, Archipelago reads them. item is the placed actor, vanilla its item. region and rule are chosen like data/pots_remake.json revision 2: every region the data offers (OoTR candidates of the remake research, the tracker guess, the known checks within 20 units in the same layer), the HARDER one at the age of the spot, and the baseline rule (the age only) unless every OoTR candidate agrees on one region and rule. Left out: the Zora diving game rupees, actors with a Presence flag, and spots with no known check nearby. They join the shuffle with shuffle_freestanding_items set to all and hold any item.",
+ "note": "Identifiers only. Remake freestanding rupees and recovery hearts: placed Obj_Rupee and Obj_Heart actors with a permanent row (reset type 24) whose hash no other catalog row holds. One row per actor hash, so the adult and the child copy of a spot are two rows. Names describe where the actor stands (2026-11-24 name audit). item is the placed actor, vanilla its item. region and rule follow the actor position checked on 2026-11-24 (basis gives the position). Left out: the Zora diving game rupees, actors with a Presence flag, and spots with no known check nearby. They join the shuffle with shuffle_freestanding_items set to all and hold any item.",
  "retire": [],
  "locations": [
   {
-   "name": "DMC Central Local Remake Rupee 1",
+   "name": "DMC Fire Temple Entrance Green Rupee 1",
    "area": "Death Mountain Crater",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -29,10 +29,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess DMC Child Blue Rupee 1, took the harder region (sphere 13)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (1, 108, -20) in DeathMountainCrater_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "DMC Central Local Remake Rupee 2",
+   "name": "DMC Central Rock Green Rupee 1",
    "area": "Death Mountain Crater",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -42,7 +42,7 @@
    "via": "actor",
    "age": "both",
    "region": "DMC Central Local",
-   "rule": "True",
+   "rule": "is_adult and (can_use(Hookshot) or can_use(Longshot))",
    "refs": [
     {
      "hash": "4077912846886775366",
@@ -56,10 +56,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess DMC Child Blue Rupee 3, took the harder region (sphere 13)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (5, 118, 8) in DeathMountainCrater_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "DMC Central Local Remake Rupee 3",
+   "name": "DMC Central Rock Green Rupee 2",
    "area": "Death Mountain Crater",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -69,7 +69,7 @@
    "via": "actor",
    "age": "both",
    "region": "DMC Central Local",
-   "rule": "True",
+   "rule": "is_adult and (can_use(Hookshot) or can_use(Longshot))",
    "refs": [
     {
      "hash": "6794008535785537922",
@@ -83,10 +83,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess DMC Child Blue Rupee 4, took the harder region (sphere 13)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (6, 118, 6) in DeathMountainCrater_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "DMC Central Local Remake Rupee 4",
+   "name": "DMC Fire Temple Entrance Green Rupee 2",
    "area": "Death Mountain Crater",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -96,7 +96,7 @@
    "via": "actor",
    "age": "both",
    "region": "DMC Central Local",
-   "rule": "True",
+   "rule": "is_adult and (can_use(Hookshot) or can_use(Longshot))",
    "refs": [
     {
      "hash": "9089638521355540295",
@@ -110,10 +110,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check DMC GS Bean Patch, took the harder region (sphere 13) over DMC Central Nearby (13)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (1, 108, -21) in DeathMountainCrater_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "DMC Central Local Remake Rupee 5",
+   "name": "DMC Central Rock Green Rupee 3",
    "area": "Death Mountain Crater",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -137,10 +137,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess DMC Child Blue Rupee 2, took the harder region (sphere 13)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (5, 118, 7) in DeathMountainCrater_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "DMC Central Local Remake Rupee 6",
+   "name": "DMC Central Rock Purple Rupee",
    "area": "Death Mountain Crater",
    "kind": "freestanding",
    "vanilla": "Rupees (50)",
@@ -150,7 +150,7 @@
    "via": "actor",
    "age": "both",
    "region": "DMC Central Local",
-   "rule": "True",
+   "rule": "is_adult and (can_use(Hookshot) or can_use(Longshot))",
    "refs": [
     {
      "hash": "12599391464019187002",
@@ -164,10 +164,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess DMC Child Blue Rupee 6, took the harder region (sphere 13)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Purple at (6, 118, 7) in DeathMountainCrater_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "DMC Central Local Remake Rupee 7",
+   "name": "DMC Fire Temple Entrance Red Rupee",
    "area": "Death Mountain Crater",
    "kind": "freestanding",
    "vanilla": "Rupees (20)",
@@ -191,10 +191,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in DMC Central Local with the rule is_child"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Red at (1, 108, -17) in DeathMountainCrater_Adult_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "DMC Central Local Remake Rupee 8",
+   "name": "DMC Central Rock Green Rupee 4",
    "area": "Death Mountain Crater",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -204,7 +204,7 @@
    "via": "actor",
    "age": "both",
    "region": "DMC Central Local",
-   "rule": "True",
+   "rule": "is_adult and (can_use(Hookshot) or can_use(Longshot))",
    "refs": [
     {
      "hash": "16794923646428529814",
@@ -218,10 +218,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess DMC Child Red Rupee 2, took the harder region (sphere 13)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (7, 118, 8) in DeathMountainCrater_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "DMC Central Local Remake Rupee 9",
+   "name": "DMC Central Rock Green Rupee 5",
    "area": "Death Mountain Crater",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -231,7 +231,7 @@
    "via": "actor",
    "age": "both",
    "region": "DMC Central Local",
-   "rule": "True",
+   "rule": "is_adult and (can_use(Hookshot) or can_use(Longshot))",
    "refs": [
     {
      "hash": "17170677546946622823",
@@ -245,10 +245,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess DMC Child Red Rupee 1, took the harder region (sphere 13)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (7, 118, 7) in DeathMountainCrater_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "DMC Central Local Remake Rupee 10",
+   "name": "DMC Central Rock Green Rupee 6",
    "area": "Death Mountain Crater",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -258,7 +258,7 @@
    "via": "actor",
    "age": "both",
    "region": "DMC Central Local",
-   "rule": "True",
+   "rule": "is_adult and (can_use(Hookshot) or can_use(Longshot))",
    "refs": [
     {
      "hash": "17524442172396680694",
@@ -272,10 +272,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess DMC Child Blue Rupee 5, took the harder region (sphere 13)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (6, 118, 8) in DeathMountainCrater_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Death Mountain Remake Rupee 1",
+   "name": "DMT Storms Grotto Green Rupee 1",
    "area": "Death Mountain Trail",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -284,7 +284,7 @@
    "folder": "DeathMountainTrail",
    "via": "actor",
    "age": "both",
-   "region": "Death Mountain",
+   "region": "DMT Storms Grotto",
    "rule": "True",
    "refs": [
     {
@@ -299,10 +299,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess DMT Rock Red Rupee, took the harder region (sphere 4)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-2, 58, -42) in DeathMountainTrail_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Death Mountain Remake Rupee 2",
+   "name": "DMT Storms Grotto Green Rupee 2",
    "area": "Death Mountain Trail",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -311,7 +311,7 @@
    "folder": "DeathMountainTrail",
    "via": "actor",
    "age": "both",
-   "region": "Death Mountain",
+   "region": "DMT Storms Grotto",
    "rule": "True",
    "refs": [
     {
@@ -326,10 +326,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check DMT Rock Red Rupee, took the harder region (sphere 4)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-9, 58, -40) in DeathMountainTrail_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Death Mountain Remake Rupee 3",
+   "name": "DMT Storms Grotto Blue Rupee 1",
    "area": "Death Mountain Trail",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -338,8 +338,8 @@
    "folder": "DeathMountainTrail",
    "via": "actor",
    "age": "both",
-   "region": "Death Mountain",
-   "rule": "is_child and (has_explosives or (logic_boomerang_boulders and Boomerang))",
+   "region": "DMT Storms Grotto",
+   "rule": "True",
    "refs": [
     {
      "hash": "9972535766636368278",
@@ -353,10 +353,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in Death Mountain with the rule is_child and (has_explosives or (logic_boomerang_boulders and Boomerang))"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-12, 58, -36) in DeathMountainTrail_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Death Mountain Remake Rupee 4",
+   "name": "DMT Storms Grotto Blue Rupee 2",
    "area": "Death Mountain Trail",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -365,8 +365,8 @@
    "folder": "DeathMountainTrail",
    "via": "actor",
    "age": "both",
-   "region": "Death Mountain",
-   "rule": "is_child and (has_explosives or (logic_boomerang_boulders and Boomerang))",
+   "region": "DMT Storms Grotto",
+   "rule": "True",
    "refs": [
     {
      "hash": "12472730518306029279",
@@ -380,10 +380,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in Death Mountain with the rule is_child and (has_explosives or (logic_boomerang_boulders and Boomerang))"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (2, 58, -40) in DeathMountainTrail_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Death Mountain Remake Rupee 5",
+   "name": "DMT Storms Grotto Green Rupee 3",
    "area": "Death Mountain Trail",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -392,7 +392,7 @@
    "folder": "DeathMountainTrail",
    "via": "actor",
    "age": "both",
-   "region": "Death Mountain",
+   "region": "DMT Storms Grotto",
    "rule": "True",
    "refs": [
     {
@@ -407,10 +407,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check DMT Rock Red Rupee, took the harder region (sphere 4)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-5, 58, -38) in DeathMountainTrail_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Deku Tree Before Boss Remake Heart 1",
+   "name": "Deku Tree Before Boss Pool Recovery Heart 1",
    "area": "Deku Tree",
    "kind": "freestanding",
    "vanilla": "Recovery Heart",
@@ -433,10 +433,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate Deku Tree Basement Recovery Heart 1, OoTR candidate Deku Tree Basement Recovery Heart 2, OoTR candidate Deku Tree Basement Recovery Heart 3 and more, took the harder region (sphere 2) over Deku Tree Lobby (1)"
+   "basis": "2026-11-24 name audit: Obj_Heart_InWater at (-23, 52, 2) in InsideTheDekuTree_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Deku Tree Before Boss Remake Heart 2",
+   "name": "Deku Tree Lobby Upper Ledge Recovery Heart 1",
    "area": "Deku Tree",
    "kind": "freestanding",
    "vanilla": "Recovery Heart",
@@ -459,10 +459,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "room 0, the top ledge of the lobby beside the Compass Room door, under a big skulltula"
+   "basis": "2026-11-24 name audit: Obj_Heart at (-3, 121, -11) in InsideTheDekuTree_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Deku Tree Before Boss Remake Heart 3",
+   "name": "Deku Tree Before Boss Pool Recovery Heart 2",
    "area": "Deku Tree",
    "kind": "freestanding",
    "vanilla": "Recovery Heart",
@@ -485,10 +485,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate Deku Tree Basement Recovery Heart 1, OoTR candidate Deku Tree Basement Recovery Heart 2, OoTR candidate Deku Tree Basement Recovery Heart 3 and more, took the harder region (sphere 2) over Deku Tree Lobby (1)"
+   "basis": "2026-11-24 name audit: Obj_Heart_InWater at (-23, 52, 0) in InsideTheDekuTree_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Deku Tree Before Boss Remake Heart 4",
+   "name": "Deku Tree Lobby Upper Ledge Recovery Heart 2",
    "area": "Deku Tree",
    "kind": "freestanding",
    "vanilla": "Recovery Heart",
@@ -511,10 +511,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "room 0, the top ledge of the lobby beside the Compass Room door, under a big skulltula"
+   "basis": "2026-11-24 name audit: Obj_Heart at (-3, 121, -12) in InsideTheDekuTree_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Deku Tree Before Boss Remake Heart 5",
+   "name": "Deku Tree Lobby Upper Ledge Recovery Heart 3",
    "area": "Deku Tree",
    "kind": "freestanding",
    "vanilla": "Recovery Heart",
@@ -537,10 +537,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "room 0, the top ledge of the lobby beside the Compass Room door, under a big skulltula"
+   "basis": "2026-11-24 name audit: Obj_Heart at (-4, 121, -12) in InsideTheDekuTree_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Deku Tree Before Boss Remake Heart 6",
+   "name": "Deku Tree Before Boss Pool Recovery Heart 3",
    "area": "Deku Tree",
    "kind": "freestanding",
    "vanilla": "Recovery Heart",
@@ -563,10 +563,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate Deku Tree Basement Recovery Heart 1, OoTR candidate Deku Tree Basement Recovery Heart 2, OoTR candidate Deku Tree Basement Recovery Heart 3 and more, took the harder region (sphere 2) over Deku Tree Lobby (1)"
+   "basis": "2026-11-24 name audit: Obj_Heart_InWater at (-35, 52, 1) in InsideTheDekuTree_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Fire Temple Boulder Maze Upper Remake Heart 1",
+   "name": "Fire Temple Boulder Maze Upper Recovery Heart 1",
    "area": "Fire Temple",
    "kind": "freestanding",
    "vanilla": "Recovery Heart",
@@ -589,10 +589,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate Fire Temple Moving Fire Room Recovery Heart 1, OoTR candidate Fire Temple Moving Fire Room Recovery Heart 2, tracker guess Fire Temple Moving Fire Room Recovery Heart 2, took the harder region (sphere 16) over Fire Temple Elevator Room (15), Fire Temple Narrow Path Room (16)"
+   "basis": "2026-11-24 name audit: Obj_Heart at (25, 150, -7) in FireTemple_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Fire Temple Boulder Maze Upper Remake Heart 2",
+   "name": "Fire Temple Boulder Maze Upper Recovery Heart 2",
    "area": "Fire Temple",
    "kind": "freestanding",
    "vanilla": "Recovery Heart",
@@ -615,11 +615,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate Fire Temple Moving Fire Room Recovery Heart 1, OoTR candidate Fire Temple Moving Fire Room Recovery Heart 2, tracker guess Fire Temple Moving Fire Room Recovery Heart 1, took the harder region (sphere 16) over Fire Temple Elevator Room (15), Fire Temple Narrow Path Room (16)"
+   "basis": "2026-11-24 name audit: Obj_Heart at (18, 150, -1) in FireTemple_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Hyrule Field Adult Remake Rupee 1",
-   "area": "Hyrule Field",
+   "name": "LH Adult Lakebed Water Temple Gate Blue Rupee",
+   "area": "Lake Hylia",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
    "item": "Obj_Rupee_Blue",
@@ -627,7 +627,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "adult",
-   "region": "Hyrule Field",
+   "region": "Lake Hylia",
    "rule": "is_adult",
    "refs": [
     {
@@ -641,10 +641,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check HF Adult Grass 9, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-178, 103, 491) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Kokiri Forest Adult Remake Rupee 1",
+   "name": "KF Adult Ledge Near Deku Tree Path Green Rupee 1",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -667,10 +667,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate KF Grass Near Ramp Green Rupee 1, OoTR candidate KF Grass Near Ramp Green Rupee 2, OoTR candidate KF Grass Near Midos Green Rupee 1 and more, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (22, 117, -14) in KokiriForest_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Kokiri Forest Adult Remake Rupee 2",
+   "name": "KF Adult Ledge Near Deku Tree Path Green Rupee 2",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -693,10 +693,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate KF Grass Near Ramp Green Rupee 1, OoTR candidate KF Grass Near Ramp Green Rupee 2, OoTR candidate KF Grass Near Midos Green Rupee 1 and more, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (21, 117, -13) in KokiriForest_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Kokiri Forest Adult Remake Rupee 3",
+   "name": "KF Adult Ledge Near Deku Tree Path Green Rupee 3",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -719,10 +719,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate KF Grass Near Ramp Green Rupee 1, OoTR candidate KF Grass Near Ramp Green Rupee 2, OoTR candidate KF Grass Near Midos Green Rupee 1 and more, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (21, 117, -13) in KokiriForest_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Kokiri Forest Adult Remake Rupee 4",
+   "name": "KF Adult Ledge Near Deku Tree Path Green Rupee 4",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -745,10 +745,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate KF Grass Near Ramp Green Rupee 1, OoTR candidate KF Grass Near Ramp Green Rupee 2, OoTR candidate KF Grass Near Midos Green Rupee 1 and more, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (21, 117, -15) in KokiriForest_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Kokiri Forest Adult Remake Rupee 5",
+   "name": "KF Adult Ledge Near Deku Tree Path Green Rupee 5",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -771,10 +771,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate KF Grass Near Ramp Green Rupee 1, OoTR candidate KF Grass Near Ramp Green Rupee 2, OoTR candidate KF Grass Near Midos Green Rupee 1 and more, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (22, 117, -13) in KokiriForest_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Kokiri Forest Adult Remake Rupee 6",
+   "name": "KF Adult Ledge Near Deku Tree Path Green Rupee 6",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -797,10 +797,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate KF Grass Near Ramp Green Rupee 1, OoTR candidate KF Grass Near Ramp Green Rupee 2, OoTR candidate KF Grass Near Midos Green Rupee 1 and more, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (22, 117, -15) in KokiriForest_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Kokiri Forest Adult Remake Rupee 7",
+   "name": "KF Adult Ledge Near Deku Tree Path Green Rupee 7",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -823,10 +823,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate KF Grass Near Ramp Green Rupee 1, OoTR candidate KF Grass Near Ramp Green Rupee 2, OoTR candidate KF Grass Near Midos Green Rupee 1 and more, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (22, 117, -14) in KokiriForest_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Kokiri Forest Adult Remake Rupee 8",
+   "name": "KF Adult Ledge Near Deku Tree Path Green Rupee 8",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -849,10 +849,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate KF Grass Near Ramp Green Rupee 1, OoTR candidate KF Grass Near Ramp Green Rupee 2, OoTR candidate KF Grass Near Midos Green Rupee 1 and more, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (21, 117, -14) in KokiriForest_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Kokiri Forest Adult Remake Rupee 9",
+   "name": "KF Adult Ledge Near Deku Tree Path Purple Rupee",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupees (50)",
@@ -875,10 +875,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check KF GS House of Twins, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Purple at (22, 117, -14) in KokiriForest_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Kokiri Forest Remake Rupee 1",
+   "name": "KF Boulder Maze Blue Rupee",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -902,10 +902,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in Kokiri Forest with the rule is_child"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-87, 119, 19) in KokiriForest_Adult_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Kokiri Forest Child Remake Rupee 1",
+   "name": "KF Child Near Fado Blue Rupee",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -928,10 +928,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in Kokiri Forest with the rule is_child"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-25, 116, -9) in KokiriForest_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Kokiri Forest Child Remake Rupee 2",
+   "name": "KF Child Stream Blue Rupee 1",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -954,10 +954,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in Kokiri Forest with the rule is_child"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (15, 108, -9) in KokiriForest_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Kokiri Forest Child Remake Rupee 3",
+   "name": "KF Child Stream Blue Rupee 2",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -980,10 +980,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in Kokiri Forest with the rule is_child"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-24, 107, -31) in KokiriForest_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Kokiri Forest Child Remake Rupee 4",
+   "name": "KF Child Stream Blue Rupee 3",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -1006,10 +1006,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in Kokiri Forest with the rule is_child"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-20, 110, -23) in KokiriForest_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Kokiri Forest Child Remake Rupee 5",
+   "name": "KF Child Stream Green Rupee",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1032,10 +1032,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in Kokiri Forest with the rule is_child"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-21, 110, -19) in KokiriForest_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Kokiri Forest Child Remake Rupee 6",
+   "name": "KF Child Shop Blue Rupee",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -1058,10 +1058,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in Kokiri Forest with the rule is_child"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (1, 110, -27) in KokiriForest_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Kokiri Forest Child Remake Rupee 7",
+   "name": "KF Child Boulder Maze Blue Rupee",
    "area": "Kokiri Forest",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -1084,10 +1084,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in Kokiri Forest with the rule is_child"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-94, 119, 30) in KokiriForest_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "LH Lab Adult Remake Rupee 1",
+   "name": "LH Adult Scarecrow Island Red Rupee",
    "area": "Lake Hylia",
    "kind": "freestanding",
    "vanilla": "Rupees (20)",
@@ -1096,8 +1096,8 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "adult",
-   "region": "LH Lab",
-   "rule": "is_adult and ((Progressive_Scale, 2) or can_use(Iron_Boots))",
+   "region": "Lake Hylia",
+   "rule": "is_adult",
    "refs": [
     {
      "hash": "14062454289055492415",
@@ -1110,10 +1110,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in LH Lab with the rule is_adult and ((Progressive_Scale, 2) or can_use(Iron_Boots))"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Red at (-215, 131, 531) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "LH Lab Remake Rupee 1",
+   "name": "LH Lab Pool Blue Rupee",
    "area": "Lake Hylia",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -1137,10 +1137,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check LH GS Lab Crate, took the harder region (sphere 2) over Lake Hylia (2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-179, 128, 420) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "LH Lab Remake Rupee 2",
+   "name": "LH Lab Pool Red Rupee",
    "area": "Lake Hylia",
    "kind": "freestanding",
    "vanilla": "Rupees (20)",
@@ -1164,11 +1164,11 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in LH Lab with the rule (Progressive_Scale, 2) or can_use(Iron_Boots)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Red at (-177, 128, 418) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule (Progressive_Scale, 2) or can_use(Iron_Boots)"
   },
   {
-   "name": "LH Lab Child Remake Rupee 1",
-   "area": "Lake Hylia",
+   "name": "HF Child Zora River Waterfall Green Rupee 6",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1176,7 +1176,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "child",
-   "region": "LH Lab",
+   "region": "Hyrule Field",
    "rule": "is_child",
    "refs": [
     {
@@ -1190,11 +1190,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess LH Lab Dive Red Rupee 1, took the harder region (sphere 2) over Lake Hylia (2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (193, 153, 200) in HyruleField_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "LH Lab Child Remake Rupee 2",
-   "area": "Lake Hylia",
+   "name": "HF Child Zora River Waterfall Green Rupee 7",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1202,7 +1202,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "child",
-   "region": "LH Lab",
+   "region": "Hyrule Field",
    "rule": "is_child",
    "refs": [
     {
@@ -1216,11 +1216,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess LH Lab Dive Red Rupee 2, took the harder region (sphere 2) over Lake Hylia (2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (193, 153, 200) in HyruleField_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "LH Lab Child Remake Rupee 3",
-   "area": "Lake Hylia",
+   "name": "HF Child Zora River Waterfall Green Rupee 8",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1228,7 +1228,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "child",
-   "region": "LH Lab",
+   "region": "Hyrule Field",
    "rule": "is_child",
    "refs": [
     {
@@ -1242,10 +1242,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess LH Lab Dive Red Rupee 3, took the harder region (sphere 2) over Lake Hylia (2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (192, 153, 199) in HyruleField_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Lake Hylia Adult Remake Rupee 1",
+   "name": "LH Adult Lakebed Water Temple Gate Green Rupee 1",
    "area": "Lake Hylia",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1268,10 +1268,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-179, 103, 490) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Lake Hylia Adult Remake Rupee 2",
+   "name": "LH Adult Lakebed Water Temple Gate Green Rupee 2",
    "area": "Lake Hylia",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1294,10 +1294,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-179, 103, 492) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Lake Hylia Adult Remake Rupee 3",
+   "name": "LH Adult Lakebed Water Temple Gate Green Rupee 3",
    "area": "Lake Hylia",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1320,10 +1320,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-178, 104, 490) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Lake Hylia Adult Remake Rupee 4",
+   "name": "LH Adult Lakebed Water Temple Gate Green Rupee 4",
    "area": "Lake Hylia",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1346,11 +1346,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 12)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-178, 103, 492) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Lake Hylia Remake Rupee 1",
-   "area": "Lake Hylia",
+   "name": "HF Grotto Near Zora River Green Rupee 1",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1358,7 +1358,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "both",
-   "region": "Lake Hylia",
+   "region": "HF Grotto Near Zora River",
    "rule": "True",
    "refs": [
     {
@@ -1373,11 +1373,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (177, 137, 178) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Lake Hylia Remake Rupee 2",
-   "area": "Lake Hylia",
+   "name": "HF Grotto Near Zora River Green Rupee 2",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1385,7 +1385,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "both",
-   "region": "Lake Hylia",
+   "region": "HF Grotto Near Zora River",
    "rule": "True",
    "refs": [
     {
@@ -1400,11 +1400,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (177, 137, 178) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Lake Hylia Remake Rupee 3",
-   "area": "Lake Hylia",
+   "name": "HF Grotto Near Zora River Green Rupee 3",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1412,7 +1412,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "both",
-   "region": "Lake Hylia",
+   "region": "HF Grotto Near Zora River",
    "rule": "True",
    "refs": [
     {
@@ -1427,11 +1427,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (177, 137, 178) in HyruleField_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Lake Hylia Child Remake Rupee 1",
-   "area": "Lake Hylia",
+   "name": "HF Child Zora River Waterfall Green Rupee 1",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1439,7 +1439,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "child",
-   "region": "Lake Hylia",
+   "region": "Hyrule Field",
    "rule": "is_child",
    "refs": [
     {
@@ -1453,11 +1453,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (192, 153, 199) in HyruleField_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Lake Hylia Child Remake Rupee 2",
-   "area": "Lake Hylia",
+   "name": "HF Child Zora River Waterfall Blue Rupee",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
    "item": "Obj_Rupee_Blue",
@@ -1465,7 +1465,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "child",
-   "region": "Lake Hylia",
+   "region": "Hyrule Field",
    "rule": "is_child",
    "refs": [
     {
@@ -1479,11 +1479,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess LH Underwater Near Shore Green Rupee, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (192, 153, 200) in HyruleField_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Lake Hylia Child Remake Rupee 3",
-   "area": "Lake Hylia",
+   "name": "HF Child Zora River Waterfall Green Rupee 2",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1491,7 +1491,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "child",
-   "region": "Lake Hylia",
+   "region": "Hyrule Field",
    "rule": "is_child",
    "refs": [
     {
@@ -1505,11 +1505,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2 and more, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (192, 153, 201) in HyruleField_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Lake Hylia Child Remake Rupee 4",
-   "area": "Lake Hylia",
+   "name": "HF Child Zora River Waterfall Green Rupee 3",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1517,7 +1517,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "child",
-   "region": "Lake Hylia",
+   "region": "Hyrule Field",
    "rule": "is_child",
    "refs": [
     {
@@ -1531,11 +1531,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (191, 153, 200) in HyruleField_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Lake Hylia Child Remake Rupee 5",
-   "area": "Lake Hylia",
+   "name": "HF Child Zora River Waterfall Green Rupee 4",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1543,7 +1543,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "child",
-   "region": "Lake Hylia",
+   "region": "Hyrule Field",
    "rule": "is_child",
    "refs": [
     {
@@ -1557,11 +1557,11 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2 and more, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (193, 153, 199) in HyruleField_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Lake Hylia Child Remake Rupee 6",
-   "area": "Lake Hylia",
+   "name": "HF Child Zora River Waterfall Green Rupee 5",
+   "area": "Hyrule Field",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
    "item": "Obj_Rupee_Green",
@@ -1569,7 +1569,7 @@
    "folder": "HyruleField",
    "via": "actor",
    "age": "child",
-   "region": "Lake Hylia",
+   "region": "Hyrule Field",
    "rule": "is_child",
    "refs": [
     {
@@ -1583,10 +1583,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (192, 153, 200) in HyruleField_Child_Dynamic; name and region follow the actor position, rule is_child"
   },
   {
-   "name": "Lake Hylia Child Remake Rupee 7",
+   "name": "LH Child Underwater Near Rutos Letter Green Rupee 1",
    "area": "Lake Hylia",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1596,7 +1596,7 @@
    "via": "actor",
    "age": "child",
    "region": "Lake Hylia",
-   "rule": "is_child",
+   "rule": "is_child and can_dive",
    "refs": [
     {
      "hash": "8976284932613239030",
@@ -1609,10 +1609,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-148, 125, 456) in HyruleField_Child_Static; name and region follow the actor position, rule is_child and can_dive"
   },
   {
-   "name": "Lake Hylia Child Remake Rupee 8",
+   "name": "LH Child Underwater Near Rutos Letter Green Rupee 2",
    "area": "Lake Hylia",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1622,7 +1622,7 @@
    "via": "actor",
    "age": "child",
    "region": "Lake Hylia",
-   "rule": "is_child",
+   "rule": "is_child and can_dive",
    "refs": [
     {
      "hash": "10016653679204206712",
@@ -1635,10 +1635,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "OoTR candidate LH Underwater Near Shore Green Rupee, OoTR candidate LH Underwater Green Rupee 1, OoTR candidate LH Underwater Green Rupee 2, took the harder region (sphere 2)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-149, 125, 457) in HyruleField_Child_Static; name and region follow the actor position, rule is_child and can_dive"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 1",
+   "name": "ZF Underwater Green Rupee 1",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1661,10 +1661,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (64, 84, -4) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 2",
+   "name": "ZF Underwater Green Rupee 2",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1687,10 +1687,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (27, 83, -30) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 3",
+   "name": "ZF Underwater Green Rupee 3",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1713,10 +1713,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (38, 75, -22) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 4",
+   "name": "ZF Underwater Green Rupee 4",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1739,10 +1739,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (65, 73, -20) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 5",
+   "name": "ZF Underwater Heart Piece Ring Green Rupee 1",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1765,10 +1765,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (55, 71, -26) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 6",
+   "name": "ZF Underwater Green Rupee 5",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1791,10 +1791,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (70, 77, -12) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 7",
+   "name": "ZF Underwater Heart Piece Ring Green Rupee 2",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1817,10 +1817,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (55, 71, -27) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 8",
+   "name": "ZF Underwater Heart Piece Ring Green Rupee 3",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1843,10 +1843,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (58, 71, -26) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 9",
+   "name": "ZF Underwater Heart Piece Ring Green Rupee 4",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1869,10 +1869,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (55, 71, -29) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 10",
+   "name": "ZF Underwater Heart Piece Ring Green Rupee 5",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1895,10 +1895,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (59, 71, -27) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 11",
+   "name": "ZF Underwater Heart Piece Ring Green Rupee 6",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1921,10 +1921,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (57, 71, -25) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 12",
+   "name": "ZF Underwater Green Rupee 6",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1947,10 +1947,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (65, 87, -49) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 13",
+   "name": "ZF Underwater Heart Piece Ring Green Rupee 7",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1973,10 +1973,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (58, 71, -29) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 14",
+   "name": "ZF Underwater Green Rupee 7",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -1999,10 +1999,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (47, 72, -22) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 15",
+   "name": "ZF Underwater Heart Piece Ring Green Rupee 8",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2025,10 +2025,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (57, 71, -30) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "ZF Underwater Adult Remake Rupee 16",
+   "name": "ZF Underwater Green Rupee 8",
    "area": "Zoras Fountain",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2051,10 +2051,10 @@
     "remake"
    ],
    "grade": "likely",
-   "basis": "every OoTR candidate sits in ZF Underwater with the rule is_adult"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (73, 84, -5) in ZoraFountain_Adult_Dynamic; name and region follow the actor position, rule is_adult"
   },
   {
-   "name": "Zora River Remake Rupee 1",
+   "name": "ZR Riverbed Below Open Grotto Green Rupee 1",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2078,10 +2078,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Adult Rock 7, nearby check ZR Child Rock 7, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-2, 100, 4) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 2",
+   "name": "ZR Riverbed Below Open Grotto Green Rupee 2",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2105,10 +2105,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Adult Rock 7, nearby check ZR Child Rock 7, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-7, 100, 7) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 3",
+   "name": "ZR Middle Waterfall Green Rupee 1",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2132,10 +2132,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Adult Rock 8, nearby check ZR Child Rock 8, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (46, 105, -12) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 4",
+   "name": "ZR Upper Ruins Green Rupee 1",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2159,10 +2159,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess ZR Waterfall Red Rupee 2, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (77, 107, -30) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 5",
+   "name": "ZR Upper Ruins Green Rupee 2",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2186,10 +2186,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess ZR Waterfall Red Rupee 1, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (77, 107, -24) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 6",
+   "name": "ZR Riverbank Near Bean Salesman Green Rupee 1",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2213,10 +2213,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR GS Near Raised Grottos, nearby check ZR Near Open Grotto Freestanding PoH, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-31, 96, -13) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 7",
+   "name": "ZR Riverbed Below Heart Piece Pillar Green Rupee 1",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2240,10 +2240,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Near Open Grotto Freestanding PoH, nearby check ZR Adult Grass 1, nearby check ZR Child Grass 1, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-9, 100, -29) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 8",
+   "name": "ZR Upper Ruins Green Rupee 3",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2267,10 +2267,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR GS Above Bridge, nearby check ZR GS Ladder, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (76, 107, -18) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 9",
+   "name": "ZR Riverbed Below Heart Piece Pillar Green Rupee 2",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2294,10 +2294,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Near Open Grotto Freestanding PoH, nearby check ZR Adult Grass 1, nearby check ZR Child Grass 1, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-4, 100, -31) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 10",
+   "name": "ZR Riverbed Below Open Grotto Green Rupee 3",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2321,10 +2321,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Adult Rock 7, nearby check ZR Child Rock 7, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (9, 100, 2) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 11",
+   "name": "ZR Upper Ruins Green Rupee 4",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2348,10 +2348,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess ZR Waterfall Red Rupee 4, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (86, 107, -34) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 12",
+   "name": "ZR Riverbed Below Open Grotto Green Rupee 4",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2375,10 +2375,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Adult Rock 7, nearby check ZR Child Rock 7, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (14, 100, 1) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 13",
+   "name": "ZR Middle Waterfall Green Rupee 2",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2402,10 +2402,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Adult Rock 8, nearby check ZR Child Rock 8, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (52, 105, -12) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 14",
+   "name": "ZR Riverbed Below Heart Piece Pillar Green Rupee 3",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2429,10 +2429,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Near Open Grotto Freestanding PoH, nearby check ZR Adult Grass 1, nearby check ZR Child Grass 1, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-14, 100, -27) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 15",
+   "name": "ZR Riverbed Below Open Grotto Blue Rupee 1",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -2456,10 +2456,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR GS Near Raised Grottos, nearby check ZR Child Rock 7, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-12, 100, 7) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 16",
+   "name": "ZR Riverbank Near Bean Salesman Green Rupee 2",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2483,10 +2483,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Near Open Grotto Freestanding PoH, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (-29, 96, -15) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 17",
+   "name": "ZR Riverbed Below Open Grotto Blue Rupee 2",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -2510,10 +2510,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR GS Near Raised Grottos, nearby check ZR Child Rock 7, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-16, 100, 6) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 18",
+   "name": "ZR Upper Ruins Green Rupee 5",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2537,10 +2537,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "tracker guess ZR Waterfall Red Rupee 3, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (83, 107, -49) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 19",
+   "name": "ZR Riverbed Below Open Grotto Blue Rupee 3",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupees (5)",
@@ -2564,10 +2564,10 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR GS Near Raised Grottos, nearby check ZR Child Rock 7, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Blue at (-14, 100, 7) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   },
   {
-   "name": "Zora River Remake Rupee 20",
+   "name": "ZR Riverbed Below Open Grotto Green Rupee 5",
    "area": "Zora River",
    "kind": "freestanding",
    "vanilla": "Rupee (1)",
@@ -2591,7 +2591,7 @@
     "remake"
    ],
    "grade": "guess",
-   "basis": "nearby check ZR Adult Rock 7, nearby check ZR Child Rock 7, took the harder region (sphere 6)"
+   "basis": "2026-11-24 name audit: Obj_Rupee_Green at (4, 100, 2) in ZoraRiver_Adult_Dynamic; name and region follow the actor position, rule True"
   }
  ],
  "unmatched_oot": [],

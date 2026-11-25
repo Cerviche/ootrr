@@ -32,6 +32,7 @@ mod progressive_cmd;
 mod qol_cmd;
 mod save_cmd;
 mod mem_watch_cmd;
+mod ap_bridge;
 mod ap_cmd;
 mod serve_cmd;
 mod settings_cmd;
@@ -117,6 +118,9 @@ const USAGE: &str = "usage:
   ootrr pots-persist <romfs_root> <load_dir> <mod_name>
   ootrr ap-test-mod <romfs_root> <load_dir> <mod_name> <item_actor>...
   ootrr ap-flag <flag_name> [on|off]
+  ootrr ap-export <out_dir> [--probes <dir>] | --settings <settings string> --out <file> [--seed <seed>] | --roll <count> <dir>
+  ootrr ap-build <patch.apootrr> <romfs_root> <load_dir> [mod_name] [--host eden|hookshot|longshot|nx2navi]
+  ootrr ap-bridge   (started by the Archipelago client)
   ootrr pack-add <romfs_root> <load_dir> <mod_name> <Item_Actor> [--name <Obj_Actor>] [--press] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--place <ActorHash>]... [--tag <TagName>]... [--ammo] [--magic] [--own] [--model-from <Actor>] [--dry]
   ootrr pack-kit <romfs_root> <load_dir> <mod_name> <Item_Actor|Obj_Actor> [--name <Obj_Actor_GS>] [--heap N] [--host eden|hookshot|longshot|nx2navi] [--base <mod_romfs_dir>] [--rst-from <rsizetable.zs>] [--drop <SkulltulaHash>]... [--model-from <Actor>] [--dry]
   ootrr flags-build <romfs_root> <out_json>
@@ -397,6 +401,9 @@ fn main() -> ExitCode {
         Some("mem-watch") => mem_watch_cmd::run(&a[1..]),
         Some("ap-test-mod") => ap_cmd::test_mod(&a[1..]),
         Some("ap-flag") => ap_cmd::flag(&a[1..]),
+        Some("ap-export") => ap_cmd::export(&a[1..]),
+        Some("ap-build") => ap_cmd::build(&a[1..]),
+        Some("ap-bridge") => ap_bridge::run(&a[1..]),
         None => serve_cmd::run(&[]),
         Some("help") | Some("--help") | Some("-h") => {
             println!("{USAGE}");

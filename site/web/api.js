@@ -99,7 +99,7 @@ async function raw(method, path, body) {
   }
   await start();
   const r = await call({ op: "req", method, path, body: body === undefined ? null : JSON.stringify(body) });
-  if (method === "POST" && path === "/api/build") zip = null;
+  if (method === "POST" && (path === "/api/build" || path === "/api/ap/build")) zip = null;
   if (r.zip) zip = r.zip;
   return r;
 }

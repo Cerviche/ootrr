@@ -73,8 +73,10 @@ pub const FIELD_FLOW_FILE: &str = "Event/EventFlow/Goto_HyruleCastle.bfevfl.zs";
 pub const FIELD_FLOW: &str = "Goto_HyruleCastle";
 /// The write after Saria's bridge scene that marks the first visit.
 pub const FIELD_FIRST_EVENT: &str = "Event218";
-/// True from Link's first steps into Hyrule Field until Impa's send off: the field then keeps a
-/// fixed daytime light and the clock does not move. Only the send off clears it.
+/// True from Link's first steps into Hyrule Field until the first field owl (Goto_HyruleCastle
+/// Event217, then a palette rebuild): while it is true, a clear sky in Hyrule Field and Lake Hylia
+/// uses MainField_Bluesky_First, whose sun is fixed in the north-east at every hour. Only that owl
+/// clears it in the game's own flows.
 pub const FIELD_FIRST_VISIT: &str = "HyruleField_ChangeENV";
 
 /// Saria's bridge scene still plays with an open Kakariko, and it ran after the new game writes,
@@ -145,9 +147,9 @@ pub const KAKARIKO_FLAGS: [(&str, bool); 35] = [
     ("ActionGuide_IsEnd.ItemShortcut", true),
     ("UI_IsNeedOpenShortCutActionGuide", false),
     // True marks Link's first visit to Hyrule Field: the castle story sets it as he leaves the
-    // forest and clears it after Impa's send off. While it is true the field keeps its fixed
-    // daytime look and the clock stands still. The send off is skipped, so the flag stays at its
-    // cleared value here, and the forest exit scene no longer sets it (see `keep_field_clock`).
+    // forest and the first field owl clears it. While it is true a clear sky keeps a fixed sun.
+    // The owl is marked as played here, so the flag stays cleared, and neither the forest exit
+    // scene (see `keep_field_clock`) nor Saria's gift (story_skip) sets it.
     (FIELD_FIRST_VISIT, false),
     ("HavePlayedEvent.Dm_Kokiri_0045", true),
     ("HavePlayedEvent.Dm_Kokiri_0050", true),

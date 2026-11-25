@@ -19,8 +19,18 @@
 //!   trade item out and onto the item button and parks the shown one ([`cycle`]), then settles.
 //!   In the item menu a second A press on the trade slot does the same ([`menu`]), and each trade
 //!   item's description says so ([`text`]).
-//! - The Pocket Egg only hatches when it is held and no Pocket Cucco is ([`EGG_ENTRY`]).
+//! - The Pocket Egg only hatches when it is held and no Pocket Cucco is ([`EGG_ENTRY`]). It is not
+//!   in the pool: the Pocket Cucco stands in for it ([`pool`]).
 //! - The slot's list is earliest first ([`pouch_order`]).
+//! - Each age has its own trade items ([`ADULT`], [`CHILD`]). The slot lists the adult ones
+//!   first and draws the first one that is out whatever Link's age, so an adult trade item found
+//!   as a child hid the Weird Egg, the cucco and Zelda's Letter. While Link is a child every adult
+//!   trade item is parked: a get parks it at once ([`get`]), the game's own equipment swap of an
+//!   era change parks them all and brings the adult's one back out on the way to adulthood
+//!   ([`era`]), and the menu keeps the rule every frame. The child's three items follow the same
+//!   one-out rule with the child's item button, so the child switches between them the same two
+//!   ways, and the guard and Talon put the other one on the button after their take
+//!   ([`KID_NPCS`]). A parked Weird Egg comes out before its hatch takes it ([`kid_hatch`]).
 
 use crate::bfevfl::flow::NONE;
 use crate::bfevfl::{Actor, Bf, Case, Cont, Event, Flow, Kind, Val};
@@ -74,8 +84,33 @@ pub const ORDER: [Trade; 11] = [
     t("Claim Check", "Item_ClaimCheck", "ClaimCheck", 44, Some("Step11")),
 ];
 
-/// The trade item that the egg hatch hands out, not a trade spot's gift.
+/// The child's trade items, in the order the game hands them out: same slot, the child's button.
+/// None of them has a step of the adult quest.
+pub const KID: [Trade; 3] = [
+    t("Weird Egg", "Item_WeirdEgg", "WeirdEgg", 31, None),
+    t("Wake-Up Cucco", "Item_AlarmCucco", "AlarmCucco", 32, None),
+    t("Zeldas Letter", "Item_ZeldaLetter", "ZeldaLetter", 33, None),
+];
+pub const KID_BUTTON: &str = "PlayerStatus.AssignableItem.Child";
+/// True while Link is a child.
+pub const AGE: &str = "Sequence_IsChildhood";
+
+/// The trade items of one age and that age's item button. Only one item of a group is out at a
+/// time; while Link is a child the whole adult group is parked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Group {
+    pub items: &'static [Trade],
+    pub button: &'static str,
+}
+
+pub const ADULT: Group = Group { items: &ORDER, button: BUTTON };
+pub const CHILD: Group = Group { items: &KID, button: KID_BUTTON };
+
+/// The trade item that the egg hatch hands out. In the pool it stands in for the egg.
 pub const HATCHED: &str = "Pocket Cucco";
+/// Not in the pool: the Pocket Cucco takes its place, so the two never both turn up. A plando or
+/// an older seed can still hold one, and it hatches as before ([`egg`]).
+pub const EGG: &str = "Pocket Egg";
 
 pub fn item(actor: &str) -> bool {
     ORDER.iter().any(|x| x.actor == actor)
@@ -106,11 +141,18 @@ pub const SHOW_ENTRY: &str = "EntryPoint0";
 pub const GET_FLOW: &str = crate::starter_bags::FLOW;
 pub const GET_ADD: (usize, &str) = (0, "Event0");
 pub const EGG_ENTRY: &str = "WaitEggHatch_Npc_Navi_StepStart";
+/// The game's equipment swap, run by every era change right before Link's age flips.
+pub const ERA_FLOW: &str = "ReplaceEquipmentForEraChange";
+/// The child's quest flow, whose hatch takes the Weird Egg.
+pub const KID_QUEST: &str = "Goto_HyruleCastle";
+/// The flows that take a child trade item: the Kakariko gate guard (Zelda's Letter) and Talon's
+/// wake up scene (the cucco).
+pub const KID_NPCS: [&str; 2] = ["Npc_Hylia_Soldier_003", "Dm_HrlCastle_0020"];
 
 pub const POUCH_UI: &str = "UI/Pouch/PouchTable/PouchTable.game__ui__PouchTable.bgyml";
 pub const TRADE_BUTTON: &str = "Pa_ItemIcon_23";
 
-pub const NOTE: &str = "Adult trade shuffle: the eleven adult trade items are shuffled and the ten trade hand ins give only their shuffled item. Every trade item you find stays until its NPC takes it, so you can hand them over in any order. The quest follows the earliest trade item you hold (Grog and Fado appear for it), and only the trade item you picked shows in the menu, the L/R list and on the item button. To switch, press A on the menu's trade slot again, or show the trade item where nobody takes it: the next one you hold comes up. The Pocket Egg only hatches while you hold no Pocket Cucco.";
+pub const NOTE: &str = "Adult trade shuffle: the ten adult trade items, Pocket Cucco to Claim Check, are shuffled and the ten trade hand ins give only their shuffled item (Anju's first gift is in the pool as the Pocket Cucco, there is no Pocket Egg). Every trade item you find stays until its NPC takes it, so you can hand them over in any order. The quest follows the earliest trade item you hold (Grog and Fado appear for it), and only the trade item you picked shows in the menu, the L/R list and on the item button. To switch, press A on the menu's trade slot again, or show the trade item where nobody takes it: the next one you hold comes up. Each age sees its own trade items: as a child the slot holds the Weird Egg, the cucco and Zelda's Letter (switched the same way) and the adult trade items wait for adult Link.";
 
 const PROGRESS: &str = "EventExecuteProgressChallengeStep";
 const ROLLBACK: &str = "EventExecuteRollbackChallengeStep";
@@ -205,43 +247,82 @@ fn set_count(f: &mut Flow, actor: &str, v: i32, next: u16) -> Res<u16> {
     push(f, Kind::Action { next, actor: a, act: x, params: cont(vec![("Index", Val::Int(-1)), ("GameDataName", s(&count_name(actor))), ("Value", Val::Int(v))]) })
 }
 
-/// After a new trade item came in: when the item button's own trade item is out, every other out
-/// trade item is parked, so the slot keeps showing the button's item. With another item on the
-/// button nothing is parked (the slot then shows the earliest one that is out).
-pub fn park_others(f: &mut Flow, then: u16) -> Res<u16> {
+/// After a new trade item came in: when the group's item button holds one of its trade items and
+/// that one is out, every other out trade item of the group is parked, so the slot keeps showing
+/// the button's item. With another item on the button nothing is parked (the slot then shows the
+/// earliest one that is out).
+pub fn park_others(f: &mut Flow, g: &Group, then: u16) -> Res<u16> {
     let mut at: u16 = then;
-    for x in ORDER.iter().rev() {
+    for x in g.items.iter().rev() {
         let park: u16 = set_count(f, x.actor, PARKED, at)?;
         let out: u16 = int3(f, &count_name(x.actor), 0, at, at, park)?;
-        at = is_enum(f, BUTTON, x.slot, at, out)?;
+        at = is_enum(f, g.button, x.slot, at, out)?;
     }
     let mut gate: u16 = then;
-    for x in ORDER.iter().rev() {
+    for x in g.items.iter().rev() {
         let out: u16 = int3(f, &count_name(x.actor), 0, then, then, at)?;
-        gate = is_enum(f, BUTTON, x.slot, out, gate)?;
+        gate = is_enum(f, g.button, x.slot, out, gate)?;
     }
     Ok(gate)
 }
 
-/// After trade item `k` was handed in, the item button still names it and would show nothing.
-/// A trade item that is out goes on the button; with none out, the nearest parked one before `k`
-/// in [`ORDER`] (wrapping: the one a forward switch came from) comes out and goes on the button.
-pub fn fall_back(f: &mut Flow, k: usize, then: u16) -> Res<u16> {
+/// After trade item `k` of the group was handed in, the item button still names it and would show
+/// nothing. A trade item that is out goes on the button; with none out, the nearest parked one
+/// before `k` in the group (wrapping: the one a forward switch came from) comes out and goes on
+/// the button.
+pub fn fall_back(f: &mut Flow, g: &Group, k: usize, then: u16) -> Res<u16> {
     let (pa, px) = action(f, PLAYER, "EventPlayerSetSelectedItem")?;
-    let n: usize = ORDER.len();
+    let n: usize = g.items.len();
     let mut un: u16 = then;
     for d in (1..n).rev() {
         let j: usize = (k + n - d) % n;
-        let select: u16 = push(f, Kind::Action { next: then, actor: pa, act: px, params: cont(vec![("Item", Val::Int(ORDER[j].index)), ("IsWaitEnd", Val::Bool(1))]) })?;
-        let show: u16 = set_count(f, ORDER[j].actor, 1, select)?;
-        un = int3(f, &count_name(ORDER[j].actor), 0, show, un, un)?;
+        let select: u16 = push(f, Kind::Action { next: then, actor: pa, act: px, params: cont(vec![("Item", Val::Int(g.items[j].index)), ("IsWaitEnd", Val::Bool(1))]) })?;
+        let show: u16 = set_count(f, g.items[j].actor, 1, select)?;
+        un = int3(f, &count_name(g.items[j].actor), 0, show, un, un)?;
     }
     let mut check: u16 = un;
     for j in (0..n).rev().filter(|&j| j != k) {
-        let select: u16 = push(f, Kind::Action { next: then, actor: pa, act: px, params: cont(vec![("Item", Val::Int(ORDER[j].index)), ("IsWaitEnd", Val::Bool(1))]) })?;
-        check = int3(f, &count_name(ORDER[j].actor), 0, check, check, select)?;
+        let select: u16 = push(f, Kind::Action { next: then, actor: pa, act: px, params: cont(vec![("Item", Val::Int(g.items[j].index)), ("IsWaitEnd", Val::Bool(1))]) })?;
+        check = int3(f, &count_name(g.items[j].actor), 0, check, check, select)?;
     }
     Ok(check)
+}
+
+/// Parks every trade item of the group that is out.
+pub fn park_all(f: &mut Flow, g: &Group, then: u16) -> Res<u16> {
+    let mut at: u16 = then;
+    for x in g.items.iter().rev() {
+        let park: u16 = set_count(f, x.actor, PARKED, at)?;
+        at = int3(f, &count_name(x.actor), 0, at, at, park)?;
+    }
+    Ok(at)
+}
+
+/// Brings one trade item of the group out, for the age that is about to use it: the one its item
+/// button names when that one is parked; else, with none out, the earliest parked one. The button
+/// is left alone (it belongs to the age, and this runs before the age flips).
+pub fn bring_out(f: &mut Flow, g: &Group, then: u16) -> Res<u16> {
+    let mut first: u16 = then;
+    for x in g.items.iter().rev() {
+        let show: u16 = set_count(f, x.actor, 1, then)?;
+        first = int3(f, &count_name(x.actor), 0, show, first, first)?;
+    }
+    let mut none_out: u16 = first;
+    for x in g.items.iter().rev() {
+        none_out = int3(f, &count_name(x.actor), 0, none_out, none_out, then)?;
+    }
+    let mut gate: u16 = none_out;
+    for x in g.items.iter().rev() {
+        let show: u16 = set_count(f, x.actor, 1, then)?;
+        let own: u16 = int3(f, &count_name(x.actor), 0, show, none_out, then)?;
+        gate = is_enum(f, g.button, x.slot, own, gate)?;
+    }
+    Ok(gate)
+}
+
+/// Is Link a child? Case 0 is yes.
+fn child(f: &mut Flow, yes: u16, no: u16) -> Res<u16> {
+    ask(f, DATA, "EventQueryIsGameDataBool", cont(vec![("Index", Val::Int(-1)), ("GameDataName", s(AGE))]), yes, no)
 }
 
 fn is_enum(f: &mut Flow, data: &str, value: &str, yes: u16, no: u16) -> Res<u16> {
@@ -296,27 +377,35 @@ fn wait(f: &mut Flow, next: u16) -> Res<u16> {
     push(f, Kind::Action { next, actor: a, act: x, params: cont(vec![("Frames", Val::Int(1))]) })
 }
 
-/// Appends the button switch and returns its first event, ending at `then`: an adult whose item
-/// button holds an adult trade item gets the next held one of [`ORDER`] (wrapping): it comes out
-/// (count 1), goes on the button, and the shown one is parked. Then a settle.
-pub fn cycle(f: &mut Flow, then: u16) -> Res<u16> {
-    let end: u16 = settle(f, then)?;
+/// The switch within one group, ending at `end`: with trade item i of the group on its item
+/// button, the next held one (wrapping) comes out (count 1), goes on the button, and the shown
+/// one is parked. With no trade item of the group on the button nothing changes.
+fn turn(f: &mut Flow, g: &Group, end: u16) -> Res<u16> {
     let (pa, px) = action(f, PLAYER, "EventPlayerSetSelectedItem")?;
-    let n: usize = ORDER.len();
+    let n: usize = g.items.len();
     let mut sel: u16 = end;
     for i in (0..n).rev() {
         // The shown item is parked once the next one is out and on the button.
-        let park: u16 = set_count(f, ORDER[i].actor, PARKED, end)?;
+        let park: u16 = set_count(f, g.items[i].actor, PARKED, end)?;
         let mut look: u16 = end;
         for k in (1..n).rev() {
             let j: usize = (i + k) % n;
-            let set: u16 = push(f, Kind::Action { next: park, actor: pa, act: px, params: cont(vec![("Item", Val::Int(ORDER[j].index)), ("IsWaitEnd", Val::Bool(1))]) })?;
-            let out: u16 = set_count(f, ORDER[j].actor, 1, set)?;
-            look = holds(f, ORDER[j].actor, out, look)?;
+            let set: u16 = push(f, Kind::Action { next: park, actor: pa, act: px, params: cont(vec![("Item", Val::Int(g.items[j].index)), ("IsWaitEnd", Val::Bool(1))]) })?;
+            let out: u16 = set_count(f, g.items[j].actor, 1, set)?;
+            look = holds(f, g.items[j].actor, out, look)?;
         }
-        sel = is_enum(f, BUTTON, ORDER[i].slot, look, sel)?;
+        sel = is_enum(f, g.button, g.items[i].slot, look, sel)?;
     }
-    ask(f, PLAYER, "EventQueryPlayerIsChild", None, then, sel)
+    Ok(sel)
+}
+
+/// Appends the button switch and returns its first event, ending at `then`: Link's own trade
+/// items take turns ([`turn`]): the adult's, followed by a settle, or the child's.
+pub fn cycle(f: &mut Flow, then: u16) -> Res<u16> {
+    let end: u16 = settle(f, then)?;
+    let adult: u16 = turn(f, &ADULT, end)?;
+    let kid: u16 = turn(f, &CHILD, then)?;
+    ask(f, PLAYER, "EventQueryPlayerIsChild", None, kid, adult)
 }
 
 fn is_request(f: &Flow, e: &Event) -> Option<String> {
@@ -363,12 +452,41 @@ pub fn npc(f: &mut Flow) -> Res<usize> {
         let Some(k) = taken(&f.events[*i]) else { continue };
         let then: u16 = if next == NONE { wait(f, NONE)? } else { next };
         let settled: u16 = settle(f, then)?;
-        let first: u16 = fall_back(f, k, settled)?;
+        let first: u16 = fall_back(f, &ADULT, k, settled)?;
         if let Kind::Action { next, .. } = &mut f.events[*i].kind {
             *next = first;
         }
     }
     Ok(hits.len() + takes.len())
+}
+
+/// After every take of a child trade item in the flow, another child trade item goes on the
+/// button ([`fall_back`]). Returns how many takes it followed.
+pub fn kid_npc(f: &mut Flow) -> Res<usize> {
+    if f.events.iter().any(|e| e.name.starts_with(PREFIX)) {
+        return Err(Error::Msg(format!("trade shuffle: {} is already patched", f.name)));
+    }
+    let takes: Vec<(usize, usize)> = (0..f.events.len()).filter_map(|i| removes(f, &f.events[i], &CHILD).map(|k| (i, k))).collect();
+    if takes.is_empty() {
+        return Err(Error::Msg(format!("trade shuffle: {} takes no child trade item, the game files differ", f.name)));
+    }
+    for (i, k) in &takes {
+        let next: u16 = match &f.events[*i].kind {
+            Kind::Action { next, .. } => *next,
+            _ => continue,
+        };
+        let then: u16 = if next == NONE { wait(f, NONE)? } else { next };
+        let first: u16 = fall_back(f, &CHILD, *k, then)?;
+        if let Kind::Action { next, .. } = &mut f.events[*i].kind {
+            *next = first;
+        }
+    }
+    Ok(takes.len())
+}
+
+pub fn kid_npc_bf(b: &mut Bf, flow: &str) -> Res<usize> {
+    let f: &mut Flow = crate::open_world::guard::flow_mut(b, flow)?;
+    kid_npc(f)
 }
 
 /// The trade item a pouch action names, as its place in [`ORDER`].
@@ -380,15 +498,24 @@ fn taken(e: &Event) -> Option<usize> {
 }
 
 fn takes_trade(f: &Flow, e: &Event) -> bool {
-    let Kind::Action { actor, act, params, .. } = &e.kind else { return false };
+    removes(f, e, &ADULT).is_some()
+}
+
+/// The place in the group of the trade item this event takes from the pouch.
+fn removes(f: &Flow, e: &Event, g: &Group) -> Option<usize> {
+    let Kind::Action { actor, act, params, .. } = &e.kind else { return None };
     let a: Option<&str> = f.actors.get(*actor as usize).and_then(|x| x.actions.get(*act as usize)).map(|s| s.as_str());
     if a != Some("EventTriggerAddOrRemovePouchContent") {
-        return false;
+        return None;
     }
-    let p: Option<&Cont> = params.as_ref();
-    let n: bool = matches!(p.and_then(|c| c.get("Num")), Some(Val::Int(n)) if *n < 0);
-    let who: bool = matches!(p.and_then(|c| c.get("Actor")), Some(Val::Str(s)) if item(s));
-    n && who
+    let p: &Cont = params.as_ref()?;
+    if !matches!(p.get("Num"), Some(Val::Int(n)) if *n < 0) {
+        return None;
+    }
+    match p.get("Actor")? {
+        Val::Str(s) => g.items.iter().position(|x| x.actor == s),
+        _ => None,
+    }
 }
 
 pub fn npc_bf(b: &mut Bf, flow: &str) -> Res<usize> {
@@ -437,8 +564,10 @@ pub fn show(b: &mut Bf) -> Res<()> {
     Ok(())
 }
 
-/// The item gets: right after GetPouchContent's pouch add, a new trade item is parked when the
-/// button's own trade item is out, then a settle.
+/// The item gets, right after GetPouchContent's pouch add. A child parks every adult trade item
+/// that is out, so a new one never shows in the child's slot; an adult parks a new adult trade
+/// item when the button's own is out. The child's own trade items follow the same rule with the
+/// child's button, at either age. Then a settle.
 pub fn get(b: &mut Bf) -> Res<()> {
     let f: &mut Flow = crate::open_world::guard::flow_mut(b, GET_FLOW)?;
     if f.events.iter().any(|e| e.name.starts_with(PREFIX)) {
@@ -451,10 +580,85 @@ pub fn get(b: &mut Bf) -> Res<()> {
     };
     let then: u16 = if then == NONE { wait(f, NONE)? } else { then };
     let settled: u16 = settle(f, then)?;
-    let first: u16 = park_others(f, settled)?;
+    let own: u16 = park_others(f, &CHILD, settled)?;
+    let adult: u16 = park_others(f, &ADULT, own)?;
+    let kid: u16 = park_all(f, &ADULT, own)?;
+    let first: u16 = child(f, kid, adult)?;
     if let Kind::Action { next, .. } = &mut f.events[i].kind {
         *next = first;
     }
+    Ok(())
+}
+
+/// The era change: the game's equipment swap runs right before Link's age flips, so its end sets
+/// the trade slot up for the age to come. On the way to childhood every adult trade item is
+/// parked and one of the child's comes out; on the way to adulthood one of the adult's comes out
+/// (the adult button's own when it is held).
+pub fn era(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = crate::open_world::guard::flow_mut(b, ERA_FLOW)?;
+    if f.events.iter().any(|e| e.name.starts_with(PREFIX)) {
+        return Err(Error::Format("trade shuffle: the era change is already patched"));
+    }
+    let main: u16 = f.entries.iter().find(|e| e.name == ERA_FLOW).map(|e| e.main).ok_or(Error::Format("trade shuffle: the era change has no entry"))?;
+    let mut ends: Vec<usize> = Vec::new();
+    let mut seen: Vec<bool> = vec![false; f.events.len()];
+    let mut todo: Vec<u16> = vec![main];
+    while let Some(i) = todo.pop() {
+        if i == NONE || seen[i as usize] {
+            continue;
+        }
+        seen[i as usize] = true;
+        match &f.events[i as usize].kind {
+            Kind::Action { next, .. } => {
+                if *next == NONE {
+                    ends.push(i as usize);
+                }
+                todo.push(*next);
+            }
+            Kind::Switch { cases, .. } => todo.extend(cases.iter().map(|c| c.ev)),
+            _ => return Err(Error::Format("trade shuffle: the era change is no longer a plain chain of checks and writes")),
+        }
+    }
+    let [end] = ends.as_slice() else {
+        return Err(Error::Msg(format!("trade shuffle: the era change should end on one event, found {}", ends.len())));
+    };
+    let end: usize = *end;
+    let stop: u16 = wait(f, NONE)?;
+    let to_adult: u16 = bring_out(f, &ADULT, stop)?;
+    let kid: u16 = bring_out(f, &CHILD, stop)?;
+    let to_child: u16 = park_all(f, &ADULT, kid)?;
+    let first: u16 = child(f, to_adult, to_child)?;
+    if let Kind::Action { next, .. } = &mut f.events[end].kind {
+        *next = first;
+    }
+    Ok(())
+}
+
+/// The Weird Egg's hatch takes the egg from a count of 1: a parked egg comes out first, and with
+/// no egg held (the hatch runs on the child quest's step, whoever holds the egg) nothing is
+/// taken, so the count never drops below the parked value.
+pub fn kid_hatch(b: &mut Bf) -> Res<()> {
+    let f: &mut Flow = crate::open_world::guard::flow_mut(b, KID_QUEST)?;
+    if f.events.iter().any(|e| e.name.starts_with(PREFIX)) {
+        return Err(Error::Format("trade shuffle: the child quest flow is already patched"));
+    }
+    let egg: &Trade = &KID[0];
+    let takes: Vec<usize> = (0..f.events.len()).filter(|&i| removes(f, &f.events[i], &CHILD) == Some(0)).collect();
+    let [at] = takes.as_slice() else {
+        return Err(Error::Msg(format!("trade shuffle: the child quest flow should take the Weird Egg once, found {}", takes.len())));
+    };
+    let at: usize = *at;
+    let after: u16 = match &f.events[at].kind {
+        Kind::Action { next, .. } => *next,
+        _ => NONE,
+    };
+    let after: u16 = if after == NONE { wait(f, NONE)? } else { after };
+    let take: u16 = idx(f.events.len())?;
+    let kind: Kind = f.events[at].kind.clone();
+    f.events.push(Event { name: format!("{PREFIX}{take}"), kind });
+    let out: u16 = set_count(f, egg.actor, 1, take)?;
+    let guard: u16 = int3(f, &count_name(egg.actor), 0, out, after, take)?;
+    f.events[at].kind = f.events[guard as usize].kind.clone();
     Ok(())
 }
 
@@ -498,38 +702,49 @@ pub fn pouch_order(raw: &[u8]) -> Res<Vec<u8>> {
     y.write()
 }
 
-/// The pool: each shuffled trade spot adds its chain item and one junk item becomes the Pocket
-/// Cucco (the egg hatch gives it in the vanilla chain). Returns the notes.
+/// The pool: each shuffled trade spot adds its chain item, and Anju's first gift adds the Pocket
+/// Cucco in place of the Pocket Egg ([`EGG`]): the egg is not in the pool, so nothing hatches
+/// into a second Pocket Cucco. When Anju's first gift is not shuffled, one junk item becomes the
+/// Pocket Cucco. Returns the notes.
 pub fn pool(d: &Data, w: &World, free: &[LocId], base: &mut Placement) -> Res<Vec<String>> {
+    let cucco: ItemId = w.item(HATCHED).ok_or_else(|| Error::Msg(format!("trade shuffle: {HATCHED} is not a logic item")))?;
     let mut n: usize = 0;
+    let mut hatched: bool = false;
     for l in free {
         let name: &str = &w.locs[*l].name;
         if !crate::flow_extra::trade::is(name) {
             continue;
         }
         let v: &str = d.flow.by_name(name).map(|x| x.vanilla.as_str()).ok_or_else(|| Error::Msg(format!("trade shuffle: {name} is not a flow location")))?;
-        let it: ItemId = w.item(v).ok_or_else(|| Error::Msg(format!("trade shuffle: {v} is not a logic item")))?;
+        let it: ItemId = if v == EGG {
+            hatched = true;
+            cucco
+        } else {
+            w.item(v).ok_or_else(|| Error::Msg(format!("trade shuffle: {v} is not a logic item")))?
+        };
         base.put(*l, it);
         n += 1;
     }
     if n == 0 {
         return Ok(Vec::new());
     }
-    let cucco: ItemId = w.item(HATCHED).ok_or_else(|| Error::Msg(format!("trade shuffle: {HATCHED} is not a logic item")))?;
+    if hatched {
+        return Ok(vec![format!("Adult trade shuffle: {n} trade spots add their trade item to the pool. Anju's first gift adds the {HATCHED}: there is no {EGG}.")]);
+    }
     let spot: Option<LocId> = free.iter().copied().find(|l| !crate::flow_extra::trade::is(&w.locs[*l].name) && base.get(*l).is_some_and(|i| JUNK.contains(&w.items.names[i].as_str())));
     let Some(spot) = spot else {
         return Err(Error::Format("trade shuffle: no junk item left in the pool for the Pocket Cucco"));
     };
     base.put(spot, cucco);
-    Ok(vec![format!("Adult trade shuffle: {n} trade spots add their trade item to the pool, and one junk item became the {HATCHED}.")])
+    Ok(vec![format!("Adult trade shuffle: {n} trade spots add their trade item to the pool, and one junk item became the {HATCHED}. There is no {EGG}.")])
 }
 
 /// The junk items whose copies the trade spots and the Pocket Cucco take from the pool.
 pub const JUNK: [&str; 3] = ["Rupees (5)", "Rupee (1)", "Rupees (20)"];
 
 /// The seed build's actor count per placed item: the trade spots joined the pool with their trade
-/// item where the vanilla data has junk, and one junk became the Pocket Cucco ([]). A trade
-/// item is its own actor; a junk item drops the copies it gave up.
+/// item where the vanilla data has junk ([`pool`]). A trade item is its own actor; a junk item
+/// drops the copies it gave up.
 pub fn fit_actors(d: &Data, item: &str, want: usize, acts: &mut Vec<String>) {
     if let Some(x) = by_name(item) {
         acts.clear();
@@ -550,6 +765,11 @@ pub fn stage(rf: &mut Romfs, late: &mut Vec<Out>, work: &std::path::Path) -> Res
     crate::story_skip::stage_late(rf, late, work, SHOW_FLOW, show)?;
     crate::story_skip::stage_late(rf, late, work, GET_FLOW, get)?;
     crate::story_skip::stage_late(rf, late, work, QUEST, egg)?;
+    crate::story_skip::stage_late(rf, late, work, ERA_FLOW, era)?;
+    crate::story_skip::stage_late(rf, late, work, KID_QUEST, kid_hatch)?;
+    for flow in KID_NPCS {
+        crate::story_skip::stage_late(rf, late, work, flow, |b| kid_npc_bf(b, flow).map(|_| ()))?;
+    }
     late_plain(rf, late, work, POUCH_UI, pouch_order)?;
     late_plain(rf, late, work, menu::FILE, menu::patch)?;
     for l in crate::hints::languages(rf)? {

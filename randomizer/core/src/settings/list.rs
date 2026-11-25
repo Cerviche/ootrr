@@ -332,6 +332,8 @@ pub fn build() -> Schema {
             .tip("Beds offer Sleep until morning and Sleep until night before the Zelda meeting.")
             .when_on("time_always_passes"),
     );
+    s.push(Setting::toggle(crate::frost::NUM, crate::frost::SETTING, "shuffle", "Shuffle Ice Traps", true).tip("Adds Ice Traps to the item pool in place of junk."));
+    s.push(Setting::number(crate::frost::COUNT_NUM, crate::frost::COUNT, "shuffle", "Ice Traps", 10, 0, 20).tip("How many Ice Traps replace junk.").when_on(crate::frost::SETTING));
     s.push(
         Setting::toggle(crate::slice::skull_day::NUM, crate::slice::skull_day::SETTING, "world", "Skulltulas by day", false)
             .tip("The Gold Skulltulas that normally only come out at night are out at any hour, day or night. The logic no longer waits for night to reach them. Tested in the game in nearly every scene."),
@@ -518,7 +520,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(171, "adult_trade_shuffle", "shuffle", "Shuffle adult trade items", false)
-            .tip("The eleven adult trade items (Pocket Egg to Claim Check) can be anywhere and the ten trade hand ins give only their shuffled item. You keep every trade item you find and hand any of them over whenever you like. Show a trade item where nobody takes it to put the next one you hold on the item button.")
+            .tip("The ten adult trade items (Pocket Cucco to Claim Check) can be anywhere and the ten trade hand ins give only their shuffled item. There is no Pocket Egg: Anju's first gift is in the pool as the Pocket Cucco. You keep every trade item you find and hand any of them over whenever you like. Press A again on the menu's trade slot, or show a trade item where nobody takes it, to put the next one you hold on the item button. Each age sees its own trade items in the slot, and the child switches between the Weird Egg, the cucco and Zelda's Letter the same way.")
             .when("shuffle_rewards", "supported")
             .when_on("shuffle_trade_checks"),
     );

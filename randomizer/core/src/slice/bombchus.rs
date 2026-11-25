@@ -5,11 +5,16 @@ pub const LOGIC_KEY: &str = "free_bombchu_drops";
 
 pub const NOTE: &str = "Bombchus count as explosives in the logic without a Bomb Bag. Experimental and untested in the game. In our test Bombchus only worked once a Bomb Bag and its ammo maximum were set, so a seed may expect Bombchus where the game will not let you use them.";
 
+/// Forced off: the setting still reads (so old settings strings that tick it stay valid), but
+/// Bombchus never count as explosives in the logic, whatever it says.
+pub const FORCED_OFF: bool = true;
+
 pub fn mode(s: &Settings, bad: &mut Vec<String>) -> bool {
-    s.flag(SETTING).unwrap_or_else(|e| {
+    let ticked: bool = s.flag(SETTING).unwrap_or_else(|e| {
         bad.push(e.to_string());
         false
-    })
+    });
+    ticked && !FORCED_OFF
 }
 
 #[cfg(test)]
@@ -74,6 +79,15 @@ mod tests {
     }
 
     #[test]
+    fn a_ticked_setting_is_accepted_but_forced_off() {
+        let p: Plan = plan(&on()).unwrap();
+        assert!(!p.chus);
+        assert!(!p.logic().contains(&(LOGIC_KEY, "true")));
+        assert!(!p.notes.iter().any(|n| n == NOTE));
+    }
+
+    #[test]
+    #[ignore = "bombchus_in_logic is forced off"]
     fn on_is_accepted_sets_the_logic_flag_and_adds_the_caution() {
         let p: Plan = plan(&on()).unwrap();
         assert!(p.chus);
@@ -152,6 +166,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "bombchus_in_logic is forced off"]
     fn off_matches_the_default_and_both_settings_generate_beatable_seeds() {
         let d: Data = Data::load().unwrap();
         let mut explicit: Settings = Settings::default();
@@ -187,6 +202,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "bombchus_in_logic is forced off"]
     fn a_ticked_seed_can_need_bombchus_that_the_unticked_logic_cannot_use() {
         let d: Data = Data::load().unwrap();
         let p_on: Plan = plan(&wide(true)).unwrap();

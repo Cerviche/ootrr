@@ -12,10 +12,15 @@ use crate::romfs::Romfs;
 use crate::staging::{edit_staged, rewrite, Out};
 use crate::zs;
 
+pub mod build;
+pub mod export;
+pub mod item;
 pub mod mailbox;
 pub mod markers;
+pub mod patch;
 pub mod saved;
 pub mod watch;
+pub mod world;
 
 use mailbox::Record;
 
@@ -60,20 +65,20 @@ pub fn stage(rf: &mut Romfs, outs: &mut Vec<Out>, work: &P, seed: &str, recs: &[
     let goal_flag: String = markers::goal_flag(seed);
     let mut names: Vec<String> = vec![seed_flag.clone(), goal_flag.clone()];
     names.extend(mailbox::flags(recs));
-    edit_zs(rf, outs, crate::chest_slot::LIST, |raw| table_edit(raw, |y| saved::add_bools(y, &names).map(|_| ())))?;
+    edit_staged(rf, outs, work, crate::chest_slot::LIST, true, |raw| table_edit(raw, |y| saved::add_bools(y, &names).map(|_| ())))?;
     for (h, flag) in [(markers::SEED, &seed_flag), (markers::GOAL, &goal_flag)] {
-        edit_zs(rf, outs, h.file, |raw| flow_edit(raw, "markers", |b| markers::patch(b, h, flag).map(|_| ())))?;
+        edit_staged(rf, outs, work, h.file, true, |raw| flow_edit(raw, "markers", |b| markers::patch(b, h, flag).map(|_| ())))?;
     }
     if recs.is_empty() {
         return Ok(());
     }
     let need: Need = give_need(rf)?;
-    edit_zs(rf, outs, mailbox::GIVE_FILE, |raw| flow_edit(raw, "mailbox", |b| mailbox::add_entries(b, recs).map(|_| ())))?;
-    edit_zs(rf, outs, SETTING_TABLE, |raw| table_edit(raw, |y| mailbox::add_settings(y, recs).map(|_| ())))?;
-    edit_zs(rf, outs, ANALYZED_TABLE, |raw| table_edit(raw, |y| mailbox::add_analyzed(y, recs, &need).map(|_| ())))?;
+    edit_staged(rf, outs, work, mailbox::GIVE_FILE, true, |raw| flow_edit(raw, "mailbox", |b| mailbox::add_entries(b, recs).map(|_| ())))?;
+    edit_staged(rf, outs, work, SETTING_TABLE, true, |raw| table_edit(raw, |y| mailbox::add_settings(y, recs).map(|_| ())))?;
+    edit_staged(rf, outs, work, ANALYZED_TABLE, true, |raw| table_edit(raw, |y| mailbox::add_analyzed(y, recs, &need).map(|_| ())))?;
     edit_staged(rf, outs, work, watch::MAIN, false, |raw| {
         let mut a: Ainb = Ainb::parse(raw)?;
-        watch::add_watchers(&mut a, recs)?;
+        watch::add_dispatch(&mut a)?;
         let bad: Vec<String> = crate::ainb::audit(&a);
         if !bad.is_empty() {
             return Err(Error::Msg(format!("watchers: the edited MainUpdate fails its audit: {}", bad.join("; "))));
@@ -122,10 +127,10 @@ mod tests {
         let Kind::Action { params: got, .. } = &f.events[*next as usize].kind else { panic!("no Got action after the give") };
         assert_eq!(got.as_ref().unwrap().get("GameDataName"), Some(&Val::Str(r.got())));
         let s: Byml = Byml::parse(&get(SETTING_TABLE)).unwrap();
-        let row: &Node = s.root.as_arr().unwrap().iter().find(|x| x.get("__RowId").and_then(|v| v.as_str()) == Some(&r.event())).unwrap();
+        let row: &Node = s.root.as_arr().unwrap().iter().find(|x| x.get("__RowId").and_then(|v| v.as_str()) == Some(mailbox::DISPATCH)).unwrap();
         assert_eq!(row.get("FlowchartFileName").and_then(|v| v.as_str()), Some(mailbox::FLOWCHART));
         let an: Byml = Byml::parse(&get(ANALYZED_TABLE)).unwrap();
-        let row: &Node = an.root.as_arr().unwrap().iter().find(|x| x.get("__RowId").and_then(|v| v.as_str()) == Some(&r.event())).unwrap();
+        let row: &Node = an.root.as_arr().unwrap().iter().find(|x| x.get("__RowId").and_then(|v| v.as_str()) == Some(mailbox::DISPATCH)).unwrap();
         let subs: Vec<&str> = row.get("SubFlowList").unwrap().as_arr().unwrap().iter().filter_map(|x| x.as_str()).collect();
         assert!(subs.contains(&"Dm_SY_Get") || subs.contains(&"GetPouchContent"), "{subs:?}");
         let a: Ainb = Ainb::parse(&get(watch::MAIN)).unwrap();

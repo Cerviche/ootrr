@@ -180,10 +180,10 @@ mod tests {
         let day: World = world(&d).unwrap();
         let night: World = world_with(&d, &[("gold_skulls_ignore_daytime", "true")]).unwrap();
         assert_ne!(node(&day, "LLR GS House Window"), node(&night, "LLR GS House Window"));
-        for n in ["LH GS Small Island", "LLR GS Rain Shed", "ZR GS Tree"] {
+        for n in ["LH GS Small Island", "HF GS Lone Tree East of LLR", "ZR GS Tree"] {
             assert_eq!(node(&day, n), node(&night, n), "{n}");
         }
         assert_eq!(node(&day, "ZR GS Tree"), node(&day, "KF GS Bean Patch"));
-        assert_eq!(node(&day, "LLR GS Rain Shed"), node(&day, "LLR GS Tree"));
+        assert_eq!(node(&day, "HF GS Lone Tree East of LLR"), node(&day, "LLR GS Tree"));
     }
 }

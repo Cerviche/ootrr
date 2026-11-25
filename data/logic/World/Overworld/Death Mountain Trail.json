@@ -7,10 +7,6 @@
             "DMT Chest": "can_blast_or_smash",
             "DMT Freestanding PoH": "
                 is_adult and here(can_plant_bean and (plant_beans or has_explosives or Progressive_Strength_Upgrade))",
-            "DMT Rock Red Rupee": "
-                is_child and (here(can_blast_or_smash) or (logic_boomerang_boulders and Boomerang))",
-            "DMT Rock Blue Rupee": "
-                is_child and (has_explosives or (logic_boomerang_boulders and Boomerang))",
             "DMT GS Bean Patch": "
                 can_plant_bugs and can_child_attack and
                 (has_explosives or Progressive_Strength_Upgrade or (logic_dmt_soil_gs and can_use(Boomerang)))",

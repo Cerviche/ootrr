@@ -169,10 +169,6 @@
         "region_name": "Water Temple River",
         "dungeon": "Water Temple",
         "locations": {
-            "Water Temple River Recovery Heart 1": "True",
-            "Water Temple River Recovery Heart 2": "True",
-            "Water Temple River Recovery Heart 3": "True",
-            "Water Temple River Recovery Heart 4": "True",
             "Water Temple River Pot 1": "True",
             "Water Temple River Pot 2": "True",
             # On a rock wall, taken with the Longshot.

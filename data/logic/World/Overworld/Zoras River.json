@@ -41,10 +41,6 @@
             "ZR Near Open Grotto Freestanding PoH": "
                 is_child or here(can_plant_bean) or Hover_Boots or logic_zora_river_lower",
             "ZR Near Domain Freestanding PoH": "is_child or Hover_Boots or logic_zora_river_upper",
-            "ZR Waterfall Red Rupee 1": "is_adult and (Iron_Boots or logic_zora_river_rupees)",
-            "ZR Waterfall Red Rupee 2": "is_adult and (Iron_Boots or logic_zora_river_rupees)",
-            "ZR Waterfall Red Rupee 3": "is_adult and (Iron_Boots or logic_zora_river_rupees)",
-            "ZR Waterfall Red Rupee 4": "is_adult and (Iron_Boots or logic_zora_river_rupees)",
             "ZR Child River Wonderitem 1": "is_child",
             "ZR Child River Wonderitem 2": "is_child",
             "ZR Child River Wonderitem 3": "is_child",

@@ -14,7 +14,7 @@ use crate::romfs::Romfs;
 use crate::rsizetable::{Rst, TABLE_PATH};
 use crate::settings::seed::SeedFile;
 use crate::slice::data::Data;
-use crate::slice::edit::{build_with, Built};
+use crate::slice::edit::Built;
 use crate::slice::key_spots::{resolve, shield, Pick};
 use crate::slice::tier_order::{fixed_actors, Verdict};
 
@@ -37,14 +37,16 @@ pub struct Want {
     pub pick: Pick,
     pub kind: Kind,
     pub spots: Vec<String>,
+    pub named: bool,
 }
 
 impl Want {
     pub fn spec(&self) -> Res<(Spec, Layers)> {
-        match self.kind {
-            Kind::Skull => self.pick.hang_with(),
-            _ => self.pick.spec(),
-        }
+        let (s, l): (Spec, Layers) = match self.kind {
+            Kind::Skull => self.pick.hang_with()?,
+            _ => self.pick.spec()?,
+        };
+        Ok(if self.named { (Spec { name: self.name.clone(), ..s }, l) } else { (s, l) })
     }
 }
 
@@ -82,14 +84,22 @@ pub fn need(d: &Data, seed: &SeedFile, fixed: &BM<String, String>) -> Res<BM<Str
             Err(e) => return Err(E::Msg(format!("{loc} holds {item}, which this build cannot place there yet: {e}"))),
         };
         let name: String = if k.kit() { p.hang() } else { p.pack.clone() };
-        let w: &mut Want = out.entry(name.clone()).or_insert_with(|| Want { name, pick: p, kind: k, spots: Vec::new() });
+        let w: &mut Want = out.entry(name.clone()).or_insert_with(|| Want { name, pick: p, kind: k, spots: Vec::new(), named: false });
         w.spots.push(loc.clone());
     }
     // An Ocarina at an NPC gift that holds the item up is handed out as its pickup actor, which
     // either tier's branch can show, so both packs are built (crate::ocarina_hold).
     for (loc, p) in crate::ocarina_hold::wanted(d, seed) {
-        let w: &mut Want = out.entry(p.pack.clone()).or_insert_with(|| Want { name: p.pack.clone(), pick: p, kind: Kind::Free, spots: Vec::new() });
+        let w: &mut Want = out.entry(p.pack.clone()).or_insert_with(|| Want { name: p.pack.clone(), pick: p, kind: Kind::Free, spots: Vec::new(), named: false });
         w.spots.push(loc);
+    }
+    for (name, item) in &seed.kits {
+        let p: Pick = crate::slice::key_spots::resolve_kit(d, item, seed.tiers.get(name).map(|t| t.as_str())).map_err(|e| E::Msg(format!("the skulltula drop {name} for {item} cannot be built: {e}")))?;
+        out.entry(name.clone()).or_insert_with(|| Want { name: name.clone(), pick: p, kind: Kind::Skull, spots: Vec::new(), named: false });
+    }
+    for (name, item) in &seed.named {
+        let p: Pick = resolve(d, item, seed.tiers.get(name).map(|t| t.as_str())).map_err(|e| E::Msg(format!("the pickup {name} for {item} cannot be built: {e}")))?;
+        out.insert(name.clone(), Want { name: name.clone(), pick: p, kind: Kind::Free, spots: Vec::new(), named: true });
     }
     for w in out.values() {
         w.spec()?;
@@ -182,13 +192,17 @@ pub fn audit(rf: &mut Romfs, base: &P, wants: &BM<String, Want>) -> Res<Vec<Stri
 }
 
 pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -> Res<Built> {
+    build_hooked(seed, romfs, load, mod_name, host, None)
+}
+
+pub fn build_hooked(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, hook: Option<&mut crate::slice::edit::Hook>) -> Res<Built> {
     let d: Data = Data::load()?;
     let order: Verdict = fixed_actors(&d, seed)?;
     let wants: BM<String, Want> = need(&d, seed, &order.assign)?;
     let gives: Vec<crate::pot_slice::targets::Give> = crate::pot_slice::targets::targets_with(&d, seed, &order.assign)?;
     let twins: Vec<&str> = fall::wanted(gives.iter().map(|g| g.actor.as_str()));
     if wants.is_empty() && twins.is_empty() {
-        return build_with(seed, romfs, load, mod_name, host, &Extra::default());
+        return crate::slice::edit::build_data(Data::load()?, seed, romfs, load, mod_name, host, &Extra::default(), hook);
     }
     if let Some(b) = order.bad.first() {
         return Err(E::Msg(format!("this seed places key items at pickup spots out of upgrade tier order, generate it again with this build: {b}")));
@@ -196,7 +210,7 @@ pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -
     let x: Extra = if wants.is_empty() { Extra::default() } else { pool(romfs, host, &wants)? };
     let mut rf: Romfs = Romfs::open(romfs)?;
     check_swaps_with(&mut rf, &[], &x)?;
-    let mut b: Built = build_with(seed, romfs, load, mod_name, host, &x)?;
+    let mut b: Built = crate::slice::edit::build_data(Data::load()?, seed, romfs, load, mod_name, host, &x, hook)?;
     let base: PB = b.root.join("romfs");
 
     for w in wants.values() {

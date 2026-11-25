@@ -36,7 +36,6 @@
         "region_name": "Dodongos Cavern Lower Right Side",
         "dungeon": "Dodongos Cavern",
         "locations": {
-            "Dodongos Cavern Lower Lizalfos Hidden Recovery Heart": "True",
             "Dodongos Cavern Lower Lizalfos Chest": "is_adult or Sticks or Slingshot or Bombs or Kokiri_Sword",
             "Dodongos Cavern Right Side Pot 1": "True",
             "Dodongos Cavern Right Side Pot 2": "True",
@@ -103,7 +102,6 @@
             "Dodongos Cavern Deku Scrub Near Bomb Bag Left": "
                 can_blast_or_smash or
                 (logic_dc_scrub_room and is_adult and Progressive_Strength_Upgrade)",
-            "Dodongos Cavern Blade Room Behind Block Recovery Heart": "True",
             "Dodongos Cavern Staircase Pot 1": "True",
             "Dodongos Cavern Staircase Pot 2": "True",
             "Dodongos Cavern Staircase Pot 3": "True",
@@ -136,9 +134,7 @@
         "region_name": "Dodongos Cavern Upper Lizalfos",
         "dungeon": "Dodongos Cavern",
         "locations": {
-            "Dodongos Cavern Lizalfos Upper Recovery Heart 1": "True",
-            "Dodongos Cavern Upper Lizalfos Chest": "is_adult or Sticks or Slingshot or Bombs or Kokiri_Sword",
-            "Dodongos Cavern Lizalfos Upper Recovery Heart 2": "True"
+            "Dodongos Cavern Upper Lizalfos Chest": "is_adult or Sticks or Slingshot or Bombs or Kokiri_Sword"
         },
         "exits": {
             "Dodongos Cavern Before Upper Lizalfos": "True",

@@ -110,13 +110,21 @@ pub(crate) fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
     let mut out: BM<String, String> = BM::new();
     for (item, locs) in &dests {
         let mut acts: Vec<String> = pool.get(item).cloned().unwrap_or_default();
-        let net: isize = crate::pot_slice::targets::delta(d, seed, item) + crate::shops::seed::delta(seed, item) + crate::slice::silver::delta(seed, item);
+        let net: isize = crate::pot_slice::targets::delta(d, seed, item) + crate::shops::seed::delta(seed, item) + crate::slice::silver::delta(seed, item) + seed.copies.get(item).copied().unwrap_or(0) as isize;
+        if acts.is_empty()
+            && let Some(a) = crate::ap::item::foreign_actor(d, item)
+        {
+            acts = vec![a; locs.len()];
+        }
         adjust(d, item, net, &mut acts);
         if stripped {
             crate::start_items::pool::fit_actors(d, item, locs.len(), &mut acts);
         }
         if pl.rewards.trade_items {
             crate::open_world::trade_shuffle::fit_actors(d, item, locs.len(), &mut acts);
+        }
+        if crate::slice::data::loose() && acts.len() != locs.len() {
+            adjust(d, item, locs.len() as isize - acts.len() as isize, &mut acts);
         }
         if acts.len() != locs.len() {
             return Err(E::Msg(format!(
@@ -341,8 +349,10 @@ mod tests {
         for n in 12..24 {
             let g = generate(&s, &format!("auditb{n}")).unwrap();
             let f: &SeedFile = &g.seed_file;
-            assert!(crate::pot_slice::targets::delta(&d, f, item) < 0);
-            assert!(crate::shops::seed::delta(f, item) > 0);
+            // Seed luck: only seeds where the pots took a copy and a shop deal gives one back count.
+            if crate::pot_slice::targets::delta(&d, f, item) >= 0 || crate::shops::seed::delta(f, item) <= 0 {
+                continue;
+            }
             let given: BM<String, String> = actors_for(&d, f).unwrap();
             placed += given.keys().filter(|l| f.placements.get(*l).is_some_and(|i| i == item)).count();
             if placed > 0 {
@@ -350,6 +360,26 @@ mod tests {
             }
         }
         assert!(placed > 0);
+    }
+
+    /// A tester's settings with three excluded checks (the two Deku Theater masks and the Lost
+    /// Woods Ocarina game): the excluded spots used to roll a new junk item after the fill, so
+    /// the seed held one Rupees (5), Deku Nuts (5) or Deku Sticks (3) more than its chests.
+    const EXCLUDED: &str = "OOTRR1-AMAQABABAAGUWAY2IRSWW5JAKRUGKYLUMVZCATLBONVSA33GEBKHE5LUNALUIZLLOUQFI2DFMF2GK4RAKNVXK3DMEBGWC43LCZGFOICPMNQXE2LOMEQE2ZLNN5ZHSICHMFWWKEABAESAGAQZDUSQIAYDBAFSMAIBE4AQCKABAEUQCAJKAEAS2AIBGMAQCNABAI3ACAKBAEAUMAICI4AQCSABAFEQCAKLAEAUYAIBJYAQETYBAJIAUCIAAEBAGBAFAYDQQUQBAFJQCAKVAEAV2AIBLYAQCYABAFQQCA3EAEAWSAIANUAQE3QCVQBG6AVAAZYQCAMHAEAQBCABAEAY2AIBAGKQCAIBTEAQCANDAEAQDJABAEAVDHA";
+
+    #[test]
+    fn excluded_checks_keep_the_chest_counts() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = Settings::decode(EXCLUDED).unwrap().settings;
+        for name in ["88dghfbnedg9", "p1", "p2", "p3", "p4", "p5"] {
+            let g = generate(&s, name).unwrap();
+            let f: &SeedFile = &g.seed_file;
+            actors_for(&d, f).unwrap_or_else(|e| panic!("{name}: {e}"));
+            for loc in ["Deku Theater Mask of Truth", "Deku Theater Skull Mask", "LW Ocarina Memory Game"] {
+                let item: &String = f.placements.get(loc).unwrap();
+                assert!(crate::slice::place_rules::junk(&d, item), "{name}: {loc} holds {item}");
+            }
+        }
     }
 
     #[test]

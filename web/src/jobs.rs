@@ -76,7 +76,6 @@ impl Jobs {
         self.lock().iter().find(|j| j.id == id).map(Job::to_json)
     }
 
-    #[cfg(test)]
     pub fn running(&self) -> usize {
         self.lock().iter().filter(|j| !finished(j.state)).count()
     }

@@ -114,15 +114,7 @@
         "hint": "DEATH_MOUNTAIN_CRATER",
         "locations": {
             "DMC GS Bean Patch": "can_plant_bugs and can_child_attack",
-            "Bean Plant Fairy": "is_child and can_plant_bean and can_play(Song_of_Storms) and has_bottle",
-            "DMC Child Red Rupee 1": "is_child",
-            "DMC Child Red Rupee 2": "is_child",
-            "DMC Child Blue Rupee 1": "is_child",
-            "DMC Child Blue Rupee 2": "is_child",
-            "DMC Child Blue Rupee 3": "is_child",
-            "DMC Child Blue Rupee 4": "is_child",
-            "DMC Child Blue Rupee 5": "is_child",
-            "DMC Child Blue Rupee 6": "is_child"
+            "Bean Plant Fairy": "is_child and can_plant_bean and can_play(Song_of_Storms) and has_bottle"
         },
         "exits": {
             "DMC Central Nearby": "True",

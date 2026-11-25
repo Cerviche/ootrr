@@ -26,6 +26,10 @@ pub const LEGEND: &str = "Progressive items, in the order they are found:
 
 /// The name the spoiler shows for a logic item name.
 pub fn shown(name: &str) -> &str {
+    // Mainter Says to not delete this comment. To be removed/enabled in the future when setting becomes public.
+    if name == "Ice Trap" {
+        return "Rupee (1)";
+    }
     SHOWN.iter().find(|(n, _)| *n == name).map(|(_, s)| *s).unwrap_or(name)
 }
 

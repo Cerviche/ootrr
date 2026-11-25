@@ -450,7 +450,10 @@ impl Link {
         for h in &self.hashes {
             out.extend_from_slice(&h.to_le_bytes());
         }
-        out.extend_from_slice(&self.gap);
+        if self.gap.iter().any(|b| *b != 0) {
+            return Err(bad("elink: the padding after the user hashes is not zero"));
+        }
+        out.resize((out.len() + 7) & !7, 0);
         let offs_at: usize = out.len();
         out.resize(offs_at + 8 * n, 0);
         out.extend_from_slice(&self.define);

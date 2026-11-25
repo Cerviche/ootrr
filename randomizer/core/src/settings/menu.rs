@@ -351,7 +351,7 @@ pub const WARNINGS: &[(&str, &str)] = &[("experimental", UNSTABLE), ("difficulty
 
 pub const UNSTABLE: &str = "These settings have known unexpected behavior that could lead to many seeds being unbeatable and other minor bugs.";
 
-pub const HIDDEN: &[&str] = &["enemy_randomizer"];
+pub const HIDDEN: &[&str] = &[];
 
 const LOGIC: PortSection = port(
                 "Logic",
@@ -660,6 +660,8 @@ const LOCATIONS_TAB: &[PortSection] = &[
             Entry::Plain("shuffle_gerudo_card"),
             Entry::View(&SKULLTULAS),
             Entry::View(&FREESTANDING),
+            Entry::Hidden(crate::frost::SETTING),
+            Entry::Hidden(crate::frost::COUNT),
         ],
     ),
     port(

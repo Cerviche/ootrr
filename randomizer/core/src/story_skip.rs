@@ -1893,7 +1893,7 @@ pub fn stage_rauru_give(rf: &mut Romfs, late: &mut Vec<Out>, g: &SceneGive) -> R
 
 /// Saria's gift (KokiriForest_ArriveLostWood in Goto_HyruleCastle), the bridge trigger. Nothing of
 /// it plays: the trigger's event bool is set, both scenes (Dm_Kokiri_0150 and the gift scene
-/// Dm_Kokiri_0155) are marked as played, the field palette flag is set, and the placed item is
+/// Dm_Kokiri_0155) are marked as played, the field palette flag is cleared, and the placed item is
 /// given. Link stays on the bridge: no BGM stop, camera, fade, warps or area change to Hyrule
 /// Field. The item get needs Link in the event, so the event still starts with Link taken (sword
 /// drawn, then rolling), joining and unequipping. Runs after patch_bridge.
@@ -1929,7 +1929,7 @@ pub fn patch_saria_give(b: &mut Bf, g: &SceneGive) -> Res<()> {
     let at: u16 = item_get(f, SARIA_GIVE, g, NONE, &[SARIA_ENTRY])?;
     let k1: Kind = set_bool(f, LONG_FLAG, true)?;
     let k2: Kind = set_bool(f, "HavePlayedEvent.Dm_Kokiri_0155", true)?;
-    let k3: Kind = set_bool(f, SARIA_AFTER, true)?;
+    let k3: Kind = set_bool(f, SARIA_AFTER, false)?;
     let first: u16 = chain(f, SARIA_GIVE, vec![k1, k2, k3], at)?;
     set_next(&mut f.events[wait].kind, first)?;
     set_next(&mut f.events[roll].kind, idx(join)?)?;
@@ -2591,6 +2591,52 @@ mod tests {
         assert!(w[5].contains("EventReserveBancChange"));
         Bf::parse(&b.write().unwrap()).unwrap();
     }
+
+    fn reach(f: &Flow, from: u16) -> Vec<usize> {
+        let mut seen: Vec<bool> = vec![false; f.events.len()];
+        let mut todo: Vec<u16> = vec![from];
+        let mut out: Vec<usize> = Vec::new();
+        while let Some(i) = todo.pop() {
+            let n: usize = usize::from(i);
+            if i == NONE || n >= f.events.len() || seen[n] {
+                continue;
+            }
+            seen[n] = true;
+            out.push(n);
+            match &f.events[n].kind {
+                Kind::Action { next, .. } | Kind::Sub { next, .. } | Kind::Join { next } => todo.push(*next),
+                Kind::Switch { cases, .. } | Kind::SubSwitch { cases, .. } => todo.extend(cases.iter().map(|c| c.ev)),
+                Kind::Fork { join, forks } => {
+                    todo.push(*join);
+                    todo.extend(forks.iter().copied());
+                }
+                Kind::Label { .. } => {}
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn the_real_saria_gift_clears_the_field_palette_flag_and_never_sets_it() {
+        let Some(root) = dump() else {
+            return;
+        };
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let mut b: Bf = Bf::parse(&rf.read_zs(BRIDGE_FILE).unwrap()).unwrap();
+        patch_bridge(&mut b).unwrap();
+        let g: SceneGive = SceneGive { actor: "Item_Test".to_string(), family: None, key: None, line: None };
+        patch_saria_give(&mut b, &g).unwrap();
+        let f: &Flow = b.flows.iter().find(|f| f.name == BRIDGE_FLOW).unwrap();
+        let main: u16 = f.entries.iter().find(|e| e.name == SARIA_ENTRY).unwrap().main;
+        let hits: Vec<Option<&Val>> = reach(f, main).into_iter().filter(|&i| text(&f.events[i], "GameDataName") == Some(SARIA_AFTER)).map(|i| f.events[i].kind.params().and_then(|c| c.get("Value"))).collect();
+        assert_eq!(hits, vec![Some(&Val::Bool(FALSE))]);
+        let owl: u16 = f.entries.iter().find(|e| e.name == "Goto_HyruleCastle_Kaepora_00").unwrap().main;
+        let cleared: Vec<usize> = reach(f, owl).into_iter().filter(|&i| text(&f.events[i], "GameDataName") == Some(SARIA_AFTER)).collect();
+        assert_eq!(cleared.len(), 1);
+        assert_eq!(f.events[cleared[0]].kind.params().and_then(|c| c.get("Value")), Some(&Val::Bool(0)));
+        Bf::parse(&b.write().unwrap()).unwrap();
+    }
+
     #[test]
     fn the_real_dungeon_endings_keep_only_the_reward_scenes() {
         let Some(root) = dump() else {

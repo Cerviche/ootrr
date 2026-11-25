@@ -70,6 +70,10 @@ pub fn build(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str) -> Res<Built>
     build_for(seed, romfs, load, mod_name, Host::Eden)
 }
 
+pub fn given_at_start(i: &crate::slice::data::Item) -> bool {
+    (i.actor.is_some() || !i.tiers.is_empty()) && i.dungeon.is_none()
+}
+
 /// The item actors the skipped story would have handed out at `locs`: the placed item, or the
 /// vanilla one when the location is not shuffled. Each must have an actor the pouch can take.
 /// A progressive item given more than once steps through its tiers, so two ocarinas become the
@@ -84,6 +88,9 @@ pub fn skipped_items(d: &Data, seed: &SeedFile, locs: &[&str]) -> Res<Vec<String
             continue;
         };
         let i = d.item(name).ok_or_else(|| E::Msg(format!("{loc} holds {name}, which is not an item")))?;
+        if !given_at_start(i) {
+            return Err(E::Msg(format!("{loc} holds {name}, which cannot be given when a new game starts")));
+        }
         let k: usize = *given.get(name).unwrap_or(&0);
         let actor: Option<String> = if i.tiers.is_empty() { i.actor.clone() } else { i.tiers.get(k).cloned() };
         let actor: String = actor.ok_or_else(|| E::Msg(format!("{loc} holds {name}, which cannot be given when a new game starts")))?;
@@ -136,12 +143,24 @@ pub fn skipped_locations(p: &crate::slice::support::Plan) -> Vec<&'static str> {
 }
 
 pub fn build_for(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host) -> Res<Built> {
-    let b: Built = crate::slice::seed_packs::build(seed, romfs, load, mod_name, host)?;
-    crate::shelf::seed::after(seed, romfs, load, mod_name, host, b)
+    build_for_with(seed, romfs, load, mod_name, host, None)
 }
 
+pub fn build_for_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, hook: Option<&mut Hook>) -> Res<Built> {
+    let (seed, cold): (SeedFile, Vec<crate::frost::Trap>) = crate::frost::prepare(seed)?;
+    let b: Built = crate::slice::seed_packs::build_hooked(&seed, romfs, load, mod_name, host, hook)?;
+    let b: Built = crate::shelf::seed::after(&seed, romfs, load, mod_name, host, b)?;
+    crate::frost::after(&cold, romfs, load, mod_name, host, b)
+}
+
+pub type Hook<'a> = dyn FnMut(&mut Romfs, &P, &mut Vec<crate::staging::Out>) -> Res<()> + 'a;
+
 pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, extra: &Extra) -> Res<Built> {
-    let d: Data = Data::load()?;
+    build_data(Data::load()?, seed, romfs, load, mod_name, host, extra, None)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn build_data(d: Data, seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Host, extra: &Extra, mut hook: Option<&mut Hook>) -> Res<Built> {
     let loaded = seed.settings()?;
     let p = plan(&loaded.settings)?;
     let d: Data = crate::slice::treasure::with(d, p.treasure);
@@ -469,7 +488,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     let give_for = |loc: &str| -> crate::story_skip::SceneGive {
         let vanilla: String = d.flow.by_name(loc).and_then(|l| l.item.clone()).unwrap_or_default();
         crate::story_skip::SceneGive {
-            actor: flows.iter().find(|c| c.location == loc).map(|c| c.item.clone()).unwrap_or(vanilla),
+            actor: seed.drops.get(loc).cloned().or_else(|| flows.iter().find(|c| c.location == loc).map(|c| c.item.clone())).unwrap_or(vanilla),
             // An unshuffled prize keeps the tier check its guard gave it (flow_wrap::PRIZES).
             family: placed.get(loc).copied().or_else(|| {
                 if seed.placements.contains_key(loc) {
@@ -486,6 +505,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         late.extend(crate::story_skip::worked(&mut rf, &pk)?);
         crate::story_skip::stage_arrows_give(&mut rf, &mut late, &give_for(crate::lacs_key::LOC))?;
         crate::story_skip::stage_saria_give(&mut rf, &mut late, &give_for(crate::slice::flow_rules::SARIA))?;
+        crate::field_palette::stage(&mut rf, &mut late, &work)?;
         crate::story_skip::stage_requiem(&mut rf, &mut late, &work)?;
         crate::story_skip::stage_arrows_row(&mut rf, &mut late, &work)?;
         crate::story_skip::stage_rauru_give(&mut rf, &mut late, &give_for(crate::story_skip::RAURU_LOC))?;
@@ -552,7 +572,7 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
     }
     // A Bow or Slingshot from any gift or pickup brings its starting bag, as a chest's does.
     crate::starter_bags::stage(&mut rf, &mut late, &work)?;
-    crate::dungeon_packs::stage(&mut rf, &mut late, &work, &crate::dungeon_packs::picked_up(&d, seed))?;
+    crate::dungeon_packs::stage(&mut rf, &mut late, &work, &crate::dungeon_packs::credits(&d, seed))?;
     crate::pickup_tiers::stage(&mut rf, &mut late, &work, &crate::pickup_tiers::families(&d, seed))?;
     crate::ocarina_hold::stage(&mut rf, &mut late, &work, crate::ocarina_hold::picked_up(&d, seed))?;
     // Rooms that could lock Link in once their item is shuffled away (crate::dungeon_fixes).
@@ -656,6 +676,20 @@ pub fn build_with(seed: &SeedFile, romfs: &P, load: &P, mod_name: &str, host: Ho
         crate::debug_names::stage_credit_flows(&mut rf, &d, &work, &mut tail, &listed, &sales)?;
         crate::debug_names::stage_credit_chests(&mut rf, &d, &work, &mut tail, &chest_cs)?;
         for o in tail {
+            pk.write_romfs(&o.path, &o.z)?;
+            extra += 1;
+            if rst.is_none() {
+                rst = Some(rsizetable::load(&mut rf)?);
+            }
+            if let Some(t) = rst.as_mut() {
+                grown += crate::staging::grow_out(&mut rf, t, &o)?;
+            }
+        }
+    }
+    if let Some(h) = hook.as_mut() {
+        let mut outs: Vec<crate::staging::Out> = Vec::new();
+        h(&mut rf, &work, &mut outs)?;
+        for o in outs {
             pk.write_romfs(&o.path, &o.z)?;
             extra += 1;
             if rst.is_none() {
@@ -843,7 +877,7 @@ mod tests {
             std::fs::write(&p, other.to_zs().unwrap()).unwrap();
         }
         let b: Built = build_for(&g.seed_file, &root, &load, "ootrr-longshot", Host::Longshot).unwrap();
-        assert_eq!(b.root, load.join(TITLE_ID).join("ootrr-longshot"));
+        assert_eq!(b.root, load.join("ootrr-longshot"));
         assert!(!b.root.join("coop-seed.txt").exists());
         let ours: Rst = Rst::parse(&rf.zs.decompress(&std::fs::read(b.root.join("romfs").join(rsizetable::TABLE_PATH)).unwrap()).unwrap()).unwrap();
         assert_eq!(ours.get("OotrrTest/only_in_other.bin"), Some(4321));
