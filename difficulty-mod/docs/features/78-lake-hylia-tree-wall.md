@@ -28,7 +28,7 @@ A build report line is added (`NOTE`).
 - Without the fix (the stage left out of the list, tests kept): `a_default_build_stages_the_tree_wall` fails, the other two pass. The unfixed file itself is checked by the first test, which asserts the wall waits for `WaterTemple_Room07_00` before the edit. How often the bug occurs in generated seeds was not counted: not reproduced in the game; this is a guard against a seed that needs the token before the Longshot chest is open.
 - Full workspace tests (`cargo test --workspace`, game files set, through the build gate): 1763 passed, 1 failed, 10 ignored. The failure was the build-report note count in `defaults_are_accepted_and_noted` (24 to 25, fixed in this change; that test and the rest of `support::` then pass, 25 of 25). The workspace was not run a second time.
 - Default output: see below.
-- Played by hand on the fix build, adult at Lake Hylia with the Water Temple Longshot chest not opened: the hook reached the tree, and the tester accepted the result. Scripted runs could not fire the hook, so nothing was measured by script.
+- Played by hand on the fix build, adult at Lake Hylia with the Water Temple Longshot chest not opened: the person playing reported that it worked. Scripted runs could not fire the hook, so nothing was measured by script.
 
 ## Default output
 
