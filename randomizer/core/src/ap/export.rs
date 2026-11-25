@@ -227,7 +227,12 @@ impl Detect {
     pub fn of(&self, d: &Data, name: &str) -> (BS<String>, BS<String>) {
         let mut flags: BS<String> = BS::new();
         let mut keys: BS<String> = BS::new();
-        if let Some(c) = d.cat.by_name(name) {
+        if crate::slice::skulls::is_skull(d, name) {
+            for h in crate::slice::skull_names::hashes(d, name) {
+                keys.insert(h.to_string());
+                flags.insert(format!("{SKULL_FLAG}{h}"));
+            }
+        } else if let Some(c) = d.cat.by_name(name) {
             for r in &c.refs {
                 if c.kind == "chest" {
                     flags.insert(format!("{CHEST_FLAG}{}", r.hash));
@@ -499,6 +504,28 @@ mod tests {
             assert!(det.of(&d, n).0.is_empty(), "{n}");
         }
         assert_eq!(det.of(&d, "Bottom of the Well Freestanding Key").0.into_iter().collect::<Vec<_>>(), vec!["BottomOfTheWell_Level_Room_03_Get_SmallKey".to_string()]);
+    }
+
+    /// The catalog had 24 Gold Skulltulas' hashes swapped in cycles (Fire Temple GS Boulder Maze
+    /// held Scarecrow Top's), so killing one sent another's check. A Skulltula is now seen through
+    /// the hash the build uses (crate::slice::skull_names), and every Skulltula keeps its signals.
+    #[test]
+    fn every_skulltula_is_seen_through_the_hash_the_build_uses() {
+        let d: Data = Data::load().unwrap();
+        let det: Detect = Detect::load().unwrap();
+        let shared: BS<String> = det.shared(&d);
+        let skulls: Vec<&str> = d.cat.locs.iter().map(|l| l.name.as_str()).filter(|n| crate::slice::skulls::is_skull(&d, n)).collect();
+        assert!(skulls.len() >= 90, "{}", skulls.len());
+        for n in skulls {
+            let want: Vec<String> = crate::slice::skull_names::hashes(&d, n).iter().map(|h| h.to_string()).collect();
+            let (f, k) = det.of(&d, n);
+            for h in &want {
+                assert!(k.contains(h) && !shared.contains(h), "{n}: {h} missing or shared");
+                assert!(f.contains(&format!("{SKULL_FLAG}{h}")), "{n}: no flag for {h}");
+            }
+        }
+        let (_, k) = det.of(&d, "Fire Temple GS Boulder Maze");
+        assert!(!k.contains("9172014785497046138"), "Boulder Maze still watches Scarecrow Top's hash");
     }
 
     /// Breaking one Barinade pot sent its neighbours' checks too: they shared map hashes.
