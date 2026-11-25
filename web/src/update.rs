@@ -163,6 +163,8 @@ mod tests {
         assert!(!newer("0.8.3-nightly.20261121.57", "v0.8.2"));
         assert!(!newer("0.8.3-nightly.20261121.57", "v0.8.3-nightly.20261122.58"));
         assert!(!newer("0.8.3", "v0.8.3"));
+        assert!(newer("0.9.0-nightly.20261125.8", "v0.9.0"));
+        assert!(!newer("0.9.0-nightly.20261125.8", "v0.8.3"));
     }
 
     #[test]
