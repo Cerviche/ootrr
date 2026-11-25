@@ -29,8 +29,25 @@ pub fn set_extra_items(v: Vec<Item>) {
 }
 
 /// Back to plain builds: no extra items, chest counts checked strictly again.
+static EXTRA_DUNGEON: std::sync::Mutex<Vec<(crate::gift_keys::Item, &'static str)>> = std::sync::Mutex::new(Vec::new());
+
+/// Dungeon items a build hands out outside the seed's placements (Archipelago items from other
+/// worlds), so their dungeon lines are staged with the rest.
+pub fn set_extra_dungeon_items(v: Vec<(crate::gift_keys::Item, &'static str)>) {
+    if let Ok(mut g) = EXTRA_DUNGEON.lock() {
+        *g = v;
+    }
+}
+
+pub fn extra_dungeon_items() -> Vec<(crate::gift_keys::Item, &'static str)> {
+    EXTRA_DUNGEON.lock().map(|g| g.clone()).unwrap_or_default()
+}
+
 pub fn clear_extra_items() {
     if let Ok(mut g) = EXTRA.lock() {
+        g.clear();
+    }
+    if let Ok(mut g) = EXTRA_DUNGEON.lock() {
         g.clear();
     }
     LOOSE.store(false, std::sync::atomic::Ordering::SeqCst);

@@ -29,13 +29,25 @@ pub const DISPATCH: &str = "OOTRR_AP_Dispatch";
 const ASK_BOOL: &str = "EventQueryIsGameDataBool";
 const YES: u32 = 0;
 const NO: u32 = 1;
-const LOCAL_KINDS: [&str; 10] = ["SmallKey", "BossKey", "GanonBossKey", "Map", "Compass", "HideoutSmallKey", "SmallKeyRing", "HideoutSmallKeyRing", "TCGSmallKey", "TCGSmallKeyRing"];
+pub const LOCAL_KINDS: [&str; 10] = ["SmallKey", "BossKey", "GanonBossKey", "Map", "Compass", "HideoutSmallKey", "SmallKeyRing", "HideoutSmallKeyRing", "TCGSmallKey", "TCGSmallKeyRing"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Style {
     Get(String),
     Tiers(String, String),
     Window(String),
+    Dungeon(String, crate::gift_keys::Item, &'static str),
+}
+
+/// A dungeon item the mailbox can hand over: shown with the get window, then credited to its
+/// dungeon the way a credited chest does (crate::gift_keys::credit).
+pub fn dungeon_item(d: &Data, item: &str) -> Option<(String, crate::gift_keys::Item, &'static str)> {
+    let i = d.item(item)?;
+    let k: crate::gift_keys::Item = crate::gift_keys::Item::of(&i.kind)?;
+    let dg: &'static str = i.dungeon.as_deref().and_then(crate::dungeon_grant::struct_of)?;
+    let actor: String = i.actor.clone()?;
+    actor_ok(&actor).ok()?;
+    Some((actor, k, dg))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,7 +82,8 @@ impl Record {
         key_ok(key)?;
         let i = d.item(item).ok_or_else(|| Error::Msg(format!("mailbox: {item} is not an OOTRR item")))?;
         if LOCAL_KINDS.contains(&i.kind.as_str()) {
-            return Err(Error::Msg(format!("mailbox: {item} is a dungeon item, it cannot come from another world")));
+            let (actor, k, dg) = dungeon_item(d, item).ok_or_else(|| Error::Msg(format!("mailbox: {item} is a dungeon item this build cannot hand over from another world")))?;
+            return Ok(Record { key: key.to_string(), item: item.to_string(), style: Style::Dungeon(actor, k, dg) });
         }
         let style: Style = match d.family(item) {
             Some(fam) => {
@@ -153,6 +166,12 @@ fn add_one(f: &mut Flow, r: &Record) -> Res<()> {
             f.entries.push(Entry { name: name.clone(), subs: vec![give], vars: Vec::new(), main: give, pad: 0 });
             crate::progressive::wrap_grant(f, give as usize, &format!("{name}_Give"), "ActorName", fam)?;
             return Ok(());
+        }
+        Style::Dungeon(actor, k, dg) => {
+            let first: u16 = crate::gift_keys::credit(f, *k, dg, got)?;
+            let p: Cont = Cont { items: vec![("ActorName".to_string(), Val::Str(actor.clone()))] };
+            let window: u16 = push(f, format!("{name}_Show"), Kind::Sub { next: first, params: Some(p), flow: WINDOW_FLOW.to_string(), entry: WINDOW_ENTRY.to_string() })?;
+            (window, vec![window])
         }
         Style::Window(actor) => {
             let p: Cont = Cont { items: vec![("ActorName".to_string(), Val::Str(actor.clone()))] };
@@ -252,7 +271,7 @@ pub fn add_analyzed(y: &mut Byml, recs: &[Record], need: &Need) -> Res<usize> {
     let mut flows: BS<String> = need.flows.clone();
     flows.remove("");
     flows.remove(GIVE_FLOW);
-    if recs.iter().any(|r| matches!(r.style, Style::Window(_))) {
+    if recs.iter().any(|r| matches!(r.style, Style::Window(_) | Style::Dungeon(..))) {
         flows.insert(WINDOW_FLOW.to_string());
     }
     n.set("__RowId", Node::Str(DISPATCH.to_string()));
@@ -286,8 +305,24 @@ mod tests {
         assert!(matches!(Record::of(&d, k, "Progressive Hookshot").unwrap().style, Style::Tiers(_, _)));
         assert!(matches!(Record::of(&d, k, "Zeldas Lullaby").unwrap().style, Style::Window(_)));
         assert!(matches!(Record::of(&d, k, "Boomerang").unwrap().style, Style::Get(_)));
-        assert!(Record::of(&d, k, "Small Key (Forest Temple)").is_err());
         assert!(Record::of(&d, k, "No Such Item").is_err());
+    }
+
+    #[test]
+    fn dungeon_items_from_another_world_are_credited_to_their_dungeon() {
+        use crate::dungeon_grant::Kind as G;
+        use crate::gift_keys::Item as I;
+        let d: Data = Data::load().unwrap();
+        let k: &str = "00000000a11e";
+        let style = |n: &str| Record::of(&d, k, n).unwrap().style;
+        assert_eq!(style("Small Key (Forest Temple)"), Style::Dungeon("Item_Dungeon_SmallKey".to_string(), I::Small, "ForestTemple"));
+        assert_eq!(style("Small Key (Ganons Castle)"), Style::Dungeon("Item_Dungeon_SmallKey".to_string(), I::Small, "InsideGanonCastle"));
+        assert_eq!(style("Boss Key (Forest Temple)"), Style::Dungeon("Item_Dungeon_BossKey".to_string(), I::Other(G::Boss), "ForestTemple"));
+        assert_eq!(style("Boss Key (Ganons Castle)"), Style::Dungeon("Item_Dungeon_BossKey".to_string(), I::Other(G::Boss), "InsideGanonCastle"));
+        assert_eq!(style("Map (Deku Tree)"), Style::Dungeon("Item_Dungeon_Map".to_string(), I::Other(G::Map), "InsideTheDekuTree"));
+        assert_eq!(style("Compass (Forest Temple)"), Style::Dungeon("Item_Dungeon_Compass".to_string(), I::Other(G::Compass), "ForestTemple"));
+        assert!(Record::of(&d, k, "Small Key (Thieves Hideout)").is_err());
+        assert!(Record::of(&d, k, "Small Key Ring (Forest Temple)").is_err());
     }
 
     /// Double Defense from another world stopped the whole build: its actor name is 29 characters.
