@@ -44,6 +44,11 @@ Location names, logic for many overworld and dungeon checks, the Dampé crash, v
 
 - First Archipelago support: an `ootrr.apworld` for Archipelago 0.6.8, `ootrr ap-export` (logic bundles), `ootrr ap-build` (builds the mod from an `.apootrr` patch), and `ootrr ap-bridge` with a client that sends checks and hands out received items. Items from other worlds show as an Archipelago medallion. Any OOTRR settings string works, not only the presets. See `archipelago/README.md`. *Nothing is checked in game.*
 
+## Settings
+
+- **Enemy randomizer** is shown again on the Difficulty page (it was hidden in 0.8.3-nightly.20261124.7). The page still carries the warning about unexpected behavior.
+- **Bombchus in logic is off for everyone.** It stays hidden, and settings strings that ticked it still load, but the logic never counts Bombchus as explosives without a Bomb Bag.
+
 ## Build
 
 - The merges left `slice/edit.rs` with two versions of the seed build, so nightly did not compile. Both are kept in one: the Archipelago build hook and the post-build pass from #127 now run for every build, `ap-build` included.
