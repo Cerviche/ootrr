@@ -63,5 +63,6 @@ The OOTRR app has an **Archipelago** page (in the menu, under Configuration) tha
 - A settings string needs the OOTRR app on the computer that generates the room.
 - With pots, crates, grass and other new kinds of checks, many locations cannot be seen by the client yet. They hold only your own items.
 - Items sent by the server itself (`!getitem`) or by item links are not handed over.
-- Dungeon items stay in their own world.
+- Dungeon items stay in their own world unless their setting is Anywhere. Hideout keys and key rings always stay.
+- Songs, NPC gifts and boss rewards hold only your own items for now, because the client cannot see those spots on their own yet.
 - No DeathLink.

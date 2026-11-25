@@ -12,6 +12,8 @@ from NetUtils import ClientStatus
 
 from .tables import GAME, LOCATION_NAME_TO_ID, bundle
 
+ITEM_GET_FLAG = "HavePlayedGetEvent."
+
 ITEMS_HANDLING = 0b101
 PENDING = "OOTRR.AP.Pending"
 POLL = 1.0
@@ -149,9 +151,14 @@ class OOTRRContext(CommonContext):
             sd = args.get("slot_data") or {}
             self.seed_key = sd.get("seed_key")
             if "detect" in sd:
-                self.detect = {n: (list(v[0]), list(v[1])) for n, v in sd["detect"].items()}
+                raw = {n: (list(v[0]), list(v[1])) for n, v in sd["detect"].items()}
             else:
-                self.detect = bundle(sd.get("preset", "default")).detect
+                raw = bundle(sd.get("preset", "default")).detect
+            self.detect = {}
+            for n, (f, k) in raw.items():
+                f = [x for x in f if not x.startswith(ITEM_GET_FLAG)]
+                if f or k:
+                    self.detect[n] = (f, k)
             self.status = "Connected. Waiting for the game."
 
     async def disconnect(self, *args: Any, **kwargs: Any) -> None:

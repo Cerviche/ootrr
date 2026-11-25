@@ -150,8 +150,21 @@ pub fn world_json(w: &World) -> Json {
         .with("tod_users", Json::Arr(tod.iter().map(|s| Json::Int(*s as i64)).collect()))
 }
 
+/// Where a dungeon item may go, by its kind's setting.
+fn keep(p: &Plan, kind: &str) -> Option<crate::slice::support::Keep> {
+    match kind {
+        "SmallKey" => Some(p.keys.small),
+        k => crate::slice::dungeon_items::keep_of(p, k),
+    }
+}
+
+/// True for an item that stays in its own world. A dungeon item may go to other worlds only when
+/// its setting is Anywhere and the mailbox can hand it over (crate::ap::mailbox::dungeon_item).
 fn local_only(d: &Data, p: &Plan, name: &str) -> bool {
     let Some(i) = d.item(name) else { return false };
+    if super::mailbox::LOCAL_KINDS.contains(&i.kind.as_str()) {
+        return !(keep(p, &i.kind) == Some(crate::slice::support::Keep::Anywhere) && super::mailbox::dungeon_item(d, name).is_some());
+    }
     if scoped(p, &i.kind) || crate::slice::dungeon_items::handles(p, &i.kind) {
         return true;
     }
@@ -164,6 +177,13 @@ fn local_only(d: &Data, p: &Plan, name: &str) -> bool {
 const TARGETS: &str = include_str!("../../../../data/tracker_targets.json");
 pub const CHEST_FLAG: &str = "IsTreasureBoxOpen.";
 pub const SKULL_FLAG: &str = "IsGoldSkullDead.IsGoldSkullDead_";
+/// Set whenever an item's get plays, wherever it came from, so it tells nothing about one
+/// location once items are shuffled (a received Song of Time set Song from Ocarina of Time's).
+pub const ITEM_GET_FLAG: &str = "HavePlayedGetEvent.";
+
+pub fn location_flag(f: &str) -> bool {
+    !f.starts_with(ITEM_GET_FLAG)
+}
 
 pub struct Detect {
     by: std::collections::HashMap<String, Vec<Json>>,
@@ -197,7 +217,7 @@ impl Detect {
         for t in self.by.get(name).map(|v| v.as_slice()).unwrap_or(&[]) {
             let skull: bool = t.get("kind").and_then(|v| v.as_str()) == Some("skulltula");
             match t.get("how").and_then(|v| v.as_str()) {
-                Some("flag") if !t.get("weak").and_then(|v| v.as_bool()).unwrap_or(false) => flags.extend(strs(t, "flags")),
+                Some("flag") if !t.get("weak").and_then(|v| v.as_bool()).unwrap_or(false) => flags.extend(strs(t, "flags").into_iter().filter(|f| location_flag(f))),
                 Some("key") => {
                     for k in strs(t, "keys").into_iter().chain(strs(t, "keys2")) {
                         if skull {
@@ -407,6 +427,47 @@ mod tests {
         pool.sort();
         placed.sort();
         assert_eq!(pool, placed);
+    }
+
+    fn row<'a>(b: &'a Json, name: &str) -> &'a Json {
+        let locs: &[Json] = arr(b.get("world").unwrap(), "locs");
+        arr(b, "free").iter().find(|r| locs[r.get("loc").unwrap().as_i64().unwrap() as usize].get("name").and_then(|v| v.as_str()) == Some(name)).unwrap()
+    }
+
+    fn local(b: &Json, name: &str) -> bool {
+        let items: &[Json] = arr(b.get("world").unwrap(), "items");
+        let id: i64 = items.iter().position(|i| i.get("name").and_then(|v| v.as_str()) == Some(name)).unwrap() as i64;
+        arr(b, "pool_items").iter().find(|m| m.get("id").and_then(|v| v.as_i64()) == Some(id)).and_then(|m| m.get("local")).and_then(|v| v.as_bool()).unwrap()
+    }
+
+    fn preset(id: &str) -> Settings {
+        crate::settings::presets::builtin().unwrap().into_iter().find(|p| p.id == id).unwrap().apply(&Settings::default()).unwrap()
+    }
+
+    /// A song received from another world set its own song spot's get flag, so the client sent
+    /// that spot's check without it being done. Item get flags are not used to see a location.
+    #[test]
+    fn no_location_is_seen_through_an_item_get_flag() {
+        let d: Data = Data::load().unwrap();
+        let s: Settings = preset("full_shuffle");
+        let b: Json = export(&d, &s, "full_shuffle").unwrap();
+        for r in arr(&b, "free") {
+            for f in arr(r, "flags") {
+                assert!(location_flag(f.as_str().unwrap()), "{f:?}");
+            }
+        }
+        let blind: Vec<&str> = arr(&b, "blind").iter().filter_map(|x| x.as_str()).collect();
+        assert!(blind.contains(&"HC Malon Egg"));
+        assert_eq!(row(&b, "KF Midos Top Left Chest").get("flags").and_then(|v| v.as_arr()).map(|v| v.len()), Some(1));
+    }
+
+    #[test]
+    fn keys_set_to_anywhere_may_go_to_other_worlds() {
+        let d: Data = Data::load().unwrap();
+        let ks: Json = export(&d, &preset("keysanity"), "keysanity").unwrap();
+        assert!(!local(&ks, "Small Key (Forest Temple)"));
+        let def: Json = export(&d, &preset("default"), "default").unwrap();
+        assert!(local(&def, "Small Key (Forest Temple)"));
     }
 
     #[test]

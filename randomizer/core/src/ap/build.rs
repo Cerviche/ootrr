@@ -108,6 +108,14 @@ pub fn build(p: &Patch, romfs: &P, load: &P, name: &str, host: Host) -> Res<(Bui
         return Err(E::Msg(c.notes.join(" ")));
     }
     let recs: Vec<Record> = p.records(&d)?;
+    crate::slice::data::set_extra_dungeon_items(
+        recs.iter()
+            .filter_map(|r| match &r.style {
+                super::mailbox::Style::Dungeon(_, k, dg) => Some((*k, *dg)),
+                _ => None,
+            })
+            .collect(),
+    );
     let key: String = p.seed_key.clone();
     let mut hook = |rf: &mut Romfs, work: &P, outs: &mut Vec<Out>| -> Res<()> {
         super::stage(rf, outs, work, &key, &recs)?;
