@@ -225,6 +225,21 @@ class OOTRRWorld(World):
             return
         self.random.shuffle(spots)
         mine: List[Item] = [it for it in self.multiworld.itempool if it.player == self.player and not it.advancement]
+        kinds: Dict[str, Item] = {}
+        for it in mine:
+            kinds.setdefault(it.name, it)
+        picky: List[Location] = [l for l in spots if not any(l.item_rule(x) for x in kinds.values())]
+        if picky:
+            fit: List[Item] = [it for it in self.multiworld.itempool if it.player == self.player and it.advancement and any(l.item_rule(it) for l in picky)]
+            self.random.shuffle(fit)
+            skip: Set[int] = {id(x) for x in fit}
+            self.multiworld.itempool = [it for it in self.multiworld.itempool if id(it) not in skip]
+            fill_restrictive(self.multiworld, self.own_state(skip), picky, fit, single_player_placement=True, lock=True, allow_partial=True, allow_excluded=True, name="OOTRR reward spots")
+            self.multiworld.itempool.extend(fit)
+            left: List[str] = [l.name for l in picky if l.item is None]
+            if left:
+                raise ValueError(f"OOTRR: {self.player_name}'s {', '.join(left)} take only some of {self.player_name}'s own items, and none of them fit there")
+            spots = [l for l in spots if l.item is None]
         need: int = len(spots) - len(mine)
         if need > 0:
             prog: List[Item] = [it for it in self.multiworld.itempool if it.player == self.player and it.advancement]
