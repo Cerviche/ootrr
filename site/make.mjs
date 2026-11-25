@@ -89,6 +89,29 @@ function summary(res) {`);
   return s;
 });
 
+edit(js("ap.js"), (t) => {
+  let s = must(t, 'import { get, get_blob, post, q } from "./api.js";', 'import { get, get_blob, post, q, last_zip } from "./api.js";');
+  s = must(s, "function build_status() {", `function zip_button() {
+  const z = last_zip();
+  const name = \`\${((ap.sum && ap.sum.mod_name) || "ootrr").replace(/[^A-Za-z0-9._ !-]/g, "-")}.zip\`;
+  return h("button", { type: "button", class: "btn primary", disabled: !z, onclick: () => {
+    const u = URL.createObjectURL(z);
+    const a = h("a", { href: u, download: name });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 60000);
+  } }, "Download the mod (.zip)");
+}
+
+function build_status() {`);
+  s = must(s, 'done && ap.target ? h("p", { class: "genline ready" }, `Mod written to ${ap.target}. Start a new save with it.`) : null,',
+    'done ? h("div", { class: "row" }, h("p", { class: "genline ready" }, "The mod is ready. Download it, unzip it into your mods folder and start a new save with it."), zip_button()) : null,');
+  s = must(s, "It builds your mod the same way Generate does, into the mod folder on the Configuration page.", "It builds your mod the same way Generate does, and offers it as a zip download.");
+  s = must(s, "Check the server window.", "Reload the page and try again.");
+  return s;
+});
+
 edit(js("config.js"), (t) => {
   let s = must(t, '  if (f.id === "game" || f.id === "mod") {',
     `  if (f.id === "mod") return row(f, terms, h("p", { class: "muted" }, "In the browser the mod is built in memory on your computer and offered as a zip download when it is ready. Unzip it into the folder your emulator loads mods from."));

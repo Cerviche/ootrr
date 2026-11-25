@@ -24,6 +24,8 @@ pub fn info(sh: &Shared) -> Json {
         .with("os", os.into())
         .with("sep", std::path::MAIN_SEPARATOR.to_string().into())
         .with("lan", sh.guard.lan.into())
+        // False in the browser build: no folders of this computer, no programs to start.
+        .with("desktop", (!cfg!(target_os = "wasi")).into())
         .with("update_check", sh.updates.into())
         .with("title_id", TITLE_ID.into())
         .with("color_parts", color_parts())

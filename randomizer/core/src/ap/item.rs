@@ -18,7 +18,8 @@ pub const PREFIX: &str = "Item_AP_";
 pub const TEMPLATE: &str = "Item_Medal_Forest";
 pub const MESSAGES: &str = "ActorMsg/PouchContent.msbt";
 pub const KIND: &str = "Item";
-pub const MAX_ACTOR: usize = crate::ap::mailbox::MAX_ACTOR;
+/// The longest name of an actor the mod adds. Longer new names were seen to crash the item get.
+pub const MAX_ACTOR: usize = 25;
 pub const TABLES: [&str; 3] = [ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO];
 
 #[derive(Debug, Clone, PartialEq, Eq)]

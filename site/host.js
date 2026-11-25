@@ -107,7 +107,8 @@ export class Host {
   async once(method, path, body) {
     const job = /^\/api\/jobs\/(\d+)$/.exec(path);
     if (job && method === "GET" && this.jobs.has(job[1])) return { ...this.jobs.get(job[1]), built: this.built };
-    const build = method === "POST" && path === "/api/build";
+    // Both builds start job 1 in their own instance: ask for it in the same run and keep the answer.
+    const build = method === "POST" && (path === "/api/build" || path === "/api/ap/build");
     if (build) {
       dir_at(this.root, "zip").children.delete("mods");
       dir_at(this.root, OUT);

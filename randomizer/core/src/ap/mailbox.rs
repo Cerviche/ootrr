@@ -18,7 +18,12 @@ pub const WINDOW_ENTRY: &str = "DisplayGetByActorName";
 pub const FLOWCHART: &str = "Work/Event/EventFlow/Dm_SY_GetInEvent.evfc";
 pub const SETTING_TEMPLATE: &str = "CrumblingGanonCastle_Arrive";
 pub const ANALYZED_TEMPLATE: &str = "NaviLockOnHint";
-pub const MAX_ACTOR: usize = 25;
+/// The longest actor name a record hands out. The game's own Dm_SY_GetInEvent passes
+/// Item_FairyBless_DefenseDouble (29 characters) as ActorName at the Great Fairy of Courage, and
+/// seeds give Item_DekuStickBundle_Small and Item_Melody_ShadowNocturne (26) through
+/// GetInEvent_NotTurn_NotNpc, so names of that length are known to work. Actors the mod adds
+/// keep the shorter limit of [`crate::ap::item::MAX_ACTOR`].
+pub const MAX_ACTOR: usize = 29;
 pub const PENDING: &str = "OOTRR.AP.Pending";
 pub const DISPATCH: &str = "OOTRR_AP_Dispatch";
 const ASK_BOOL: &str = "EventQueryIsGameDataBool";
@@ -49,7 +54,7 @@ fn key_ok(key: &str) -> Res<()> {
 
 fn actor_ok(actor: &str) -> Res<()> {
     if actor.is_empty() || actor.len() > MAX_ACTOR || !actor.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'_') {
-        return Err(Error::Msg(format!("mailbox: {actor:?} is not a usable actor name (at most {MAX_ACTOR} characters, longer names crash the item get)")));
+        return Err(Error::Msg(format!("mailbox: {actor:?} is not a usable actor name (letters, digits and _, at most {MAX_ACTOR} characters: the longest the game's own item get passes)")));
     }
     Ok(())
 }
@@ -283,5 +288,25 @@ mod tests {
         assert!(matches!(Record::of(&d, k, "Boomerang").unwrap().style, Style::Get(_)));
         assert!(Record::of(&d, k, "Small Key (Forest Temple)").is_err());
         assert!(Record::of(&d, k, "No Such Item").is_err());
+    }
+
+    /// Double Defense from another world stopped the whole build: its actor name is 29 characters.
+    #[test]
+    fn every_item_another_world_can_send_gets_a_record() {
+        let d: Data = Data::load().unwrap();
+        let k: &str = "00000000a11e";
+        assert_eq!(Record::of(&d, k, "Double Defense").unwrap().style, Style::Get("Item_FairyBless_DefenseDouble".to_string()));
+        assert_eq!(Record::of(&d, k, "Nocturne of Shadow").unwrap().style, Style::Window("Item_Melody_ShadowNocturne".to_string()));
+        assert_eq!(Record::of(&d, k, "Deku Sticks (3)").unwrap().style, Style::Get("Item_DekuStickBundle_Small".to_string()));
+        let mut refused: Vec<String> = Vec::new();
+        for i in &d.items {
+            if LOCAL_KINDS.contains(&i.kind.as_str()) || i.actor.is_none() {
+                continue;
+            }
+            if let Err(e) = Record::of(&d, k, &i.name) {
+                refused.push(format!("{}: {e}", i.name));
+            }
+        }
+        assert_eq!(refused, Vec::<String>::new());
     }
 }

@@ -18,6 +18,9 @@ function changed() {
   for (const f of subs) f();
 }
 
+// False on the browser build of this page: it cannot see an Archipelago folder or start programs.
+const desktop = () => !(state.info && state.info.desktop === false);
+
 function load() {
   if (ap.loaded) return;
   ap.loaded = true;
@@ -29,7 +32,7 @@ function load() {
   } catch {
     ap.folder = "";
   }
-  check();
+  if (desktop()) check();
 }
 
 function save() {
@@ -110,6 +113,14 @@ function setup_status() {
 }
 
 function setup_section() {
+  if (!desktop()) {
+    return h(
+      "div",
+      { class: "msec" },
+      h("h4", null, "1. Set up Archipelago"),
+      notice("info", "The browser cannot reach your Archipelago folder, so set it up by hand: save the OOTRR world file in step 2 and put it in the custom_worlds folder of Archipelago (0.6.7 or newer). The OOTRR app for your computer does this for you."),
+    );
+  }
   const inp = h("input", { type: "text", id: "ap_folder", value: ap.folder, spellcheck: "false", autocomplete: "off", placeholder: "The folder Archipelago is installed in" });
   const later = debounce(check, 400);
   inp.addEventListener("input", () => {
@@ -323,6 +334,14 @@ function build_section() {
 }
 
 function play_section() {
+  if (!desktop()) {
+    return h(
+      "div",
+      { class: "msec" },
+      h("h4", null, "4. Play"),
+      notice("info", "Playing in a room needs the OOTRR app on your computer: Archipelago's OOTRR Client runs it to read the game and hand over items. Open the Archipelago Launcher, start OOTRR Client and connect with the room's address and your player name. The first time, it asks where ootrr.exe is."),
+    );
+  }
   const addr = h("input", { type: "text", id: "ap_address", value: ap.address, spellcheck: "false", autocomplete: "off", maxlength: "255", placeholder: "For example archipelago.gg:38281" });
   addr.addEventListener("input", () => {
     ap.address = addr.value;
