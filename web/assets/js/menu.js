@@ -10,6 +10,7 @@ import { panel as plando_panel } from "./plando.js";
 import { live, refresh_string } from "./strings.js";
 import { register, set_first, on_show, go, show, current_page } from "./nav.js";
 import { tip_button } from "./tooltip.js";
+import { ap_page } from "./ap.js";
 
 let pages = [];
 let index = [];
@@ -283,6 +284,7 @@ function set_query(v) {
 function nav_items() {
   const out = [{ heading: "Configuration", id: "config", label: "Configuration" }];
   if (state.result || busy()) out.push({ heading: "Configuration", id: "seed", label: "Seed" });
+  out.push({ heading: "Configuration", id: "archipelago", label: "Archipelago" });
   for (const p of pages) {
     if (p.id === "cosmetics") continue;
     out.push({ heading: p.heading, id: p.id, label: p.label });
@@ -480,6 +482,7 @@ export function start_menu() {
   register("cosmetics", screen(() => config_page("cosmetics", "Cosmetics", "Changes the mod you build, never the seed")));
   register("seed", screen(() => [head("Seed", state.result ? `Seed ${state.result.seed}` : ""), ...render_seed(show)]));
   register("plando", screen(plando_page));
+  register("archipelago", screen(() => [head("Archipelago", "Play your seed in a multiworld with other games"), ...ap_page()]));
   for (const p of pages) if (p.id !== "cosmetics") register(p.id, screen(() => settings_page(p)));
   set_first("config");
   on_show(() => {

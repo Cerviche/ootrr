@@ -76,7 +76,7 @@ pub fn delete_others(root: &std::path::Path) -> std::io::Result<Vec<String>> {
 }
 const SPOILER_MAX: usize = 4 * 1024 * 1024;
 
-fn put_spoiler(root: &PB, text: Option<&str>) -> std::io::Result<()> {
+pub fn put_spoiler(root: &PB, text: Option<&str>) -> std::io::Result<()> {
     let p: PB = root.join(SPOILER_FILE);
     match text {
         Some(t) => fs::write(&p, t),
@@ -96,8 +96,59 @@ fn mods_slot(md: &PB, game: &PB, romfs: &PB) -> bool {
     })
 }
 
+/// Where a build reads the game and writes the mod, checked: shared by seed and Archipelago builds.
+pub struct Place {
+    pub load: PB,
+    pub name: String,
+    pub target: PB,
+    pub host: Host,
+    pub source: Source,
+    pub with_update: bool,
+    pub delete_others: bool,
+}
+
 pub fn plan(b: &Json) -> Hr<Plan> {
     let seed: SeedFile = SeedFile::parse(body::text(b, "seed_text")?)?;
+    let pl: Place = place(b)?;
+    let music: Music = match body::opt_text(b, "music")? {
+        None | Some("") => Music::Off,
+        Some(s) => Music::parse(s).ok_or_else(|| refuse("Music: use off, grouped or anywhere."))?,
+    };
+    let sfx: Sfx = match body::opt_text(b, "sfx")? {
+        None | Some("") => Sfx::Off,
+        Some(s) => Sfx::parse(s).ok_or_else(|| refuse("Sound effects: use off, grouped or anywhere."))?,
+    };
+    let colors: Colors = match body::opt_text(b, "colors")? {
+        None | Some("") => Colors::Off,
+        Some(s) => Colors::parse(s).ok_or_else(|| refuse("Colours: use off, custom, random or shared."))?,
+    };
+    let seed_text: String = body::opt_text(b, "cosmetic_seed")?.unwrap_or("").trim().to_string();
+    if seed_text.len() > 64 {
+        return Err(refuse("Cosmetic seed: at most 64 characters."));
+    }
+    let title: bool = b.get("title_logo").and_then(|x| x.as_bool()) != Some(false);
+    let mut pairs: Vec<(String, String)> = Vec::new();
+    if let Some(v) = b.get("color_parts") {
+        let o: &[(String, Json)] = v.as_obj().ok_or_else(|| refuse("Colours: the part colours must be a list of part names and colours."))?;
+        if o.len() > colors::ITEMS.len() {
+            return Err(refuse("Colours: too many part colours."));
+        }
+        for (k, x) in o {
+            let t: &str = x.as_str().ok_or_else(|| refuse("Colours: each part colour is follow, original, random or a #rrggbb colour."))?;
+            pairs.push((k.clone(), t.to_string()));
+        }
+    }
+    let parts: colors::Picks = colors::parse_picks(&pairs).map_err(|e| refuse(&format!("Colours: {e}")))?;
+    let cos: Cosmetics = Cosmetics { music, sfx, colors, seed: seed_text, title, parts };
+    let spoiler: Option<String> = match body::opt_text(b, "spoiler_text")? {
+        None | Some("") => None,
+        Some(t) if t.len() > SPOILER_MAX => return Err(refuse("Spoiler: the spoiler log is too large.")),
+        Some(t) => Some(t.to_string()),
+    };
+    Ok(Plan { seed, load: pl.load, name: pl.name, target: pl.target, host: pl.host, cos, spoiler, source: pl.source, with_update: pl.with_update, delete_others: pl.delete_others })
+}
+
+pub fn place(b: &Json) -> Hr<Place> {
     let game: PB = pathsafe::abs(body::short(b, "game_dir")?)?;
     let upd: Option<PB> = api_validate::opt_path(body::opt_text(b, "update_dir")?)?;
     let rep: Report = api_validate::inspect_with(&game, upd.as_deref());
@@ -140,47 +191,15 @@ pub fn plan(b: &Json) -> Hr<Plan> {
             return Err(refuse("Mod folder: it may not be inside the game folder. Hookshot, Longshot and NX2navi use the game's mods folder."));
         }
     }
-    let music: Music = match body::opt_text(b, "music")? {
-        None | Some("") => Music::Off,
-        Some(s) => Music::parse(s).ok_or_else(|| refuse("Music: use off, grouped or anywhere."))?,
-    };
-    let sfx: Sfx = match body::opt_text(b, "sfx")? {
-        None | Some("") => Sfx::Off,
-        Some(s) => Sfx::parse(s).ok_or_else(|| refuse("Sound effects: use off, grouped or anywhere."))?,
-    };
-    let colors: Colors = match body::opt_text(b, "colors")? {
-        None | Some("") => Colors::Off,
-        Some(s) => Colors::parse(s).ok_or_else(|| refuse("Colours: use off, custom, random or shared."))?,
-    };
-    let seed_text: String = body::opt_text(b, "cosmetic_seed")?.unwrap_or("").trim().to_string();
-    if seed_text.len() > 64 {
-        return Err(refuse("Cosmetic seed: at most 64 characters."));
-    }
-    let title: bool = b.get("title_logo").and_then(|x| x.as_bool()) != Some(false);
-    let mut pairs: Vec<(String, String)> = Vec::new();
-    if let Some(v) = b.get("color_parts") {
-        let o: &[(String, Json)] = v.as_obj().ok_or_else(|| refuse("Colours: the part colours must be a list of part names and colours."))?;
-        if o.len() > colors::ITEMS.len() {
-            return Err(refuse("Colours: too many part colours."));
-        }
-        for (k, x) in o {
-            let t: &str = x.as_str().ok_or_else(|| refuse("Colours: each part colour is follow, original, random or a #rrggbb colour."))?;
-            pairs.push((k.clone(), t.to_string()));
-        }
-    }
-    let parts: colors::Picks = colors::parse_picks(&pairs).map_err(|e| refuse(&format!("Colours: {e}")))?;
-    let cos: Cosmetics = Cosmetics { music, sfx, colors, seed: seed_text, title, parts };
-    let spoiler: Option<String> = match body::opt_text(b, "spoiler_text")? {
-        None | Some("") => None,
-        Some(t) if t.len() > SPOILER_MAX => return Err(refuse("Spoiler: the spoiler log is too large.")),
-        Some(t) => Some(t.to_string()),
-    };
     let target: PB = if host.no_title() { md.join(name) } else { md.join(TITLE_ID).join(name) };
     let delete_others: bool = b.get("delete_others").and_then(|x| x.as_bool()) == Some(true);
-    Ok(Plan { seed, load: md, name: name.to_string(), target, host, cos, spoiler, source, with_update, delete_others })
+    Ok(Place { load: md, name: name.to_string(), target, host, source, with_update, delete_others })
 }
 
 pub fn run(jobs: &Arc<Jobs>, b: &Json) -> Hr<Json> {
+    if ootrr_core::ap::build::running() {
+        return Err(Fail::new(409, "An Archipelago mod is being built. Wait for it to finish, then build again."));
+    }
     let p: Plan = plan(b)?;
     let target: String = pathsafe::text(&p.target);
     let n: usize = p.seed.placements.len();

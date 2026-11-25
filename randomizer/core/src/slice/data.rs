@@ -28,6 +28,14 @@ pub fn set_extra_items(v: Vec<Item>) {
     LOOSE.store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
+/// Back to plain builds: no extra items, chest counts checked strictly again.
+pub fn clear_extra_items() {
+    if let Ok(mut g) = EXTRA.lock() {
+        g.clear();
+    }
+    LOOSE.store(false, std::sync::atomic::Ordering::SeqCst);
+}
+
 pub fn loose() -> bool {
     LOOSE.load(std::sync::atomic::Ordering::SeqCst)
 }

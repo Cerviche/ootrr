@@ -4,7 +4,8 @@ const CSS: &str = "text/css; charset=utf-8";
 const FONT: &str = "font/woff2";
 
 #[cfg(test)]
-pub const JS_FILES: [&str; 38] = [
+pub const JS_FILES: [&str; 39] = [
+    "/js/ap.js",
     "/app.js",
     "/js/dom.js",
     "/js/api.js",
@@ -90,6 +91,7 @@ pub fn get(p: &str) -> Option<(&'static str, &'static str)> {
         "/js/update.js" => (JS, include_str!("../assets/js/update.js")),
         "/js/report.js" => (JS, include_str!("../assets/js/report.js")),
         "/js/plando.js" => (JS, include_str!("../assets/js/plando.js")),
+        "/js/ap.js" => (JS, include_str!("../assets/js/ap.js")),
         "/js/sfx.js" => (JS, include_str!("../assets/js/sfx.js")),
         "/js/tracker_api.js" => (JS, include_str!("../assets/js/tracker_api.js")),
         "/js/tracker_store.js" => (JS, include_str!("../assets/js/tracker_store.js")),

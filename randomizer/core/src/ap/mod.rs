@@ -12,6 +12,7 @@ use crate::romfs::Romfs;
 use crate::staging::{edit_staged, rewrite, Out};
 use crate::zs;
 
+pub mod build;
 pub mod export;
 pub mod item;
 pub mod mailbox;
@@ -19,6 +20,7 @@ pub mod markers;
 pub mod patch;
 pub mod saved;
 pub mod watch;
+pub mod world;
 
 use mailbox::Record;
 

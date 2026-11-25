@@ -44,6 +44,9 @@ Location names, logic for many overworld and dungeon checks, the Dampé crash, v
 
 - First Archipelago support: an `ootrr.apworld` for Archipelago 0.6.8, `ootrr ap-export` (logic bundles), `ootrr ap-build` (builds the mod from an `.apootrr` patch), and `ootrr ap-bridge` with a client that sends checks and hands out received items. Items from other worlds show as an Archipelago medallion. Any OOTRR settings string works, not only the presets. See `archipelago/README.md`. *Nothing is checked in game.*
 
+- **Archipelago page in the app** (menu, under Configuration), in four steps. *Set up Archipelago* finds your Archipelago folder, puts the OOTRR world in `custom_worlds` and tells Archipelago where the app is. *Make your player file* saves your player file (a preset, or your own settings) and the world file for a host who does not use the app. *Build your mod* opens your `.apootrr` file and builds into the Configuration page's mod folder. *Play* opens the OOTRR Client with the room address and your name. The app now packs the world file itself, so no Python is needed. *Tried against a stand-in Archipelago folder only: not yet with a real Archipelago install or a real room.*
+- `ootrr --help` lists `ap-export`, `ap-build` and `ap-bridge`.
+
 ## Settings
 
 - **Enemy randomizer** is shown again on the Difficulty page (it was hidden in 0.8.3-nightly.20261124.7). The page still carries the warning about unexpected behavior.

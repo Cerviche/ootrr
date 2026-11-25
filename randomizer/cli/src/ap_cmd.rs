@@ -163,32 +163,10 @@ pub fn build(a: &[String]) -> Res<()> {
     let path: &str = rest.first().map(|s| s.as_str()).ok_or(Error::Format("ap-build <patch.apootrr> <romfs_root> <load_dir> [mod_name] [--host longshot]"))?;
     let romfs: &P = P::new(rest.get(1).map(|s| s.as_str()).ok_or(Error::Format("missing romfs_root"))?);
     let load: &P = P::new(rest.get(2).map(|s| s.as_str()).ok_or(Error::Format("missing load_dir"))?);
-    let p: ap::patch::Patch = ap::patch::Patch::parse(&std::fs::read_to_string(path)?)?;
-    let name: String = rest.get(3).cloned().unwrap_or_else(|| format!("ZZ OOTRR AP {}", ap_safe(&p.slot)));
-    let foreign: Vec<ap::item::Foreign> = p.foreign_list();
-    let mut d: Data = Data::load()?;
-    let before: usize = d.items.len();
-    ap::item::register(&mut d, &foreign)?;
-    ootrr_core::slice::data::set_extra_items(d.items[before..].to_vec());
-    let d: Data = Data::load()?;
-    let c: ap::patch::Checked = ap::patch::check(&d, &p)?;
-    if !c.won {
-        return Err(Error::Msg(c.notes.join(" ")));
-    }
-    let recs: Vec<Record> = p.records(&d)?;
-    let key: String = p.seed_key.clone();
-    let mut hook = |rf: &mut Romfs, work: &P, outs: &mut Vec<Out>| -> Res<()> {
-        ap::stage(rf, outs, work, &key, &recs)?;
-        ap::item::stage(rf, work, outs, &foreign)
-    };
-    let b = ootrr_core::slice::edit::build_for_with(&c.seed, romfs, load, &name, host, Some(&mut hook))?;
+    let p: ap::patch::Patch = ap::build::read(&std::fs::read_to_string(path)?)?;
+    let name: String = rest.get(3).cloned().unwrap_or_else(|| ap::build::default_name(&p.slot));
+    let (b, _) = ap::build::build(&p, romfs, load, &name, host)?;
     print!("{}", b.report);
-    println!("Archipelago: slot {} of {}, {} items to receive, {} items for other players, seed marker {}", p.slot, p.seed_name, recs.len(), foreign.len(), markers::seed_flag(&p.seed_key));
     println!("mod written to {}", b.root.display());
     Ok(())
-}
-
-fn ap_safe(s: &str) -> String {
-    let t: String = s.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).take(24).collect();
-    if t.is_empty() { "slot".to_string() } else { t }
 }

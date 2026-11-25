@@ -5,11 +5,20 @@ OOTRR can play as one game in an Archipelago multiworld. The items of your shuff
 ## What you need
 
 - Archipelago 0.6.7 or newer.
-- `ootrr.apworld`, built from this folder by `tools/build_apworld.py`.
+- `ootrr.apworld`. The app's Archipelago page installs it or saves it for you; `tools/build_apworld.py` builds the same file from this folder.
 - The OOTRR app (`ootrr.exe`) of the same version as the apworld.
 - Your game dump and Longshot, as for a normal OOTRR seed.
 
-## Steps
+## The quick way: the app's Archipelago page
+
+The OOTRR app has an **Archipelago** page (in the menu, under Configuration) that does the steps below for you:
+
+1. **Set up Archipelago:** pick your Archipelago folder. The app puts the OOTRR world in `custom_worlds` and writes its own place into `host.yaml`. Do it again after you update the app.
+2. **Make your player file:** type your player name and save the file. It names the preset your settings match, or carries your settings string. The host's copy of the world can be saved from here too.
+3. **Build your mod:** open the `.apootrr` file the host sent you. The mod goes to the mod folder of the Configuration page.
+4. **Play:** type the room's address and open the OOTRR Client.
+
+## Steps by hand
 
 1. Put `ootrr.apworld` in Archipelago's `custom_worlds` folder.
 2. Write your player file with `game: OOTRR` and pick a preset:
