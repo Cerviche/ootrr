@@ -192,6 +192,7 @@ class OOTRRWorld(World):
                 continue
             self.get_location(loc).place_locked_item(self.create_item(item))
             pool.remove(item)
+        self.plando(pool, forced)
         local_dungeon = {n for n, m in self.b.meta.items() if m.get("local") and m.get("dungeon")}
         for n in pool:
             it: Item = self.create_item(n)
@@ -199,6 +200,21 @@ class OOTRRWorld(World):
                 self.pre_items.append(it)
             else:
                 self.multiworld.itempool.append(it)
+
+    def plando(self, pool: List[str], forced: Dict[str, str]) -> None:
+        who: str = self.player_name
+        for loc, item in dict(self.options.ootrr_plando.value or {}).items():
+            loc, item = str(loc).strip(), str(item).strip()
+            if loc not in self.b.free_names or loc in self.dead or loc in forced:
+                raise ValueError(f"OOTRR: {who}'s plandomizer names {loc!r}, which these settings do not shuffle")
+            if item not in pool:
+                raise ValueError(f"OOTRR: {who}'s plandomizer puts {item!r} at {loc!r}, but {item!r} is not in {who}'s item pool, or every copy of it is already placed")
+            spot: Location = self.get_location(loc)
+            it: Item = self.create_item(item)
+            if not spot.item_rule(it):
+                raise ValueError(f"OOTRR: {who}'s plandomizer puts {item!r} at {loc!r}, which OOTRR does not allow there")
+            spot.place_locked_item(it)
+            pool.remove(item)
 
     def get_pre_fill_items(self) -> List[Item]:
         return list(self.pre_items)
