@@ -29,6 +29,10 @@ fn api(sh: &Shared, r: &Req) -> Hr<Resp> {
         need(r, "GET")?;
         return api_items::icon(sh, r);
     }
+    if r.path == "/api/ap/world" {
+        need(r, "GET")?;
+        return api_ap::world_file();
+    }
     let j: Json = match r.path.as_str() {
         "/api/info" => {
             need(r, "GET")?;
@@ -130,6 +134,22 @@ fn api(sh: &Shared, r: &Req) -> Hr<Resp> {
         "/api/ap/read" => {
             need(r, "POST")?;
             api_ap::read(&body::json(r)?)?
+        }
+        "/api/ap/setup" => {
+            if r.method == "GET" {
+                api_ap::setup(r.param("path"))?
+            } else {
+                need(r, "POST")?;
+                api_ap::install(&body::json(r)?)?
+            }
+        }
+        "/api/ap/player" => {
+            need(r, "POST")?;
+            api_ap::player(&body::json(r)?)?
+        }
+        "/api/ap/client" => {
+            need(r, "POST")?;
+            api_ap::client(sh.guard.lan, &body::json(r)?)?
         }
         "/api/ap/build" => {
             need(r, "POST")?;

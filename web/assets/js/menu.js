@@ -482,8 +482,7 @@ export function start_menu() {
   register("cosmetics", screen(() => config_page("cosmetics", "Cosmetics", "Changes the mod you build, never the seed")));
   register("seed", screen(() => [head("Seed", state.result ? `Seed ${state.result.seed}` : ""), ...render_seed(show)]));
   register("plando", screen(plando_page));
-  const ap_redraw = () => current_page() === "archipelago" && !query.trim() && show();
-  register("archipelago", screen(() => [head("Archipelago", "Build your slot's mod from its .apootrr file"), ...ap_page(ap_redraw)]));
+  register("archipelago", screen(() => [head("Archipelago", "Play your seed in a multiworld with other games"), ...ap_page()]));
   for (const p of pages) if (p.id !== "cosmetics") register(p.id, screen(() => settings_page(p)));
   set_first("config");
   on_show(() => {

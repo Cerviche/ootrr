@@ -20,6 +20,7 @@ pub mod markers;
 pub mod patch;
 pub mod saved;
 pub mod watch;
+pub mod world;
 
 use mailbox::Record;
 
