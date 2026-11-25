@@ -63,6 +63,8 @@ pub const SETTING: &str = "shuffle_ice_traps";
 pub const COUNT: &str = "ice_trap_count";
 pub const NUM: u16 = 204;
 pub const COUNT_NUM: u16 = 205;
+/// The most Ice Traps a seed can ask for, for now.
+pub const MAX: i64 = 10;
 const GROUND_KINDS: [&str; 4] = ["freestanding", "heart", "bossheart", "key"];
 const POUCH_MSG: &str = "ActorMsg/PouchContent.msbt";
 const CHILD: &str = "Player_Child";
@@ -102,6 +104,92 @@ pub struct Trap {
 
 pub fn fake_name(actor: &str) -> String {
     format!("OOTRR_{actor}_Cold")
+}
+
+/// What a trap's stand-in keeps of the pouch row of the item it looks like: how its get is shown.
+const SHOWN: [&str; 2] = ["BundleActorNum", "PouchGetType"];
+const CATEGORY: &str = "PouchCategory";
+const TAB: &str = "PouchTabCategory";
+/// The category of a plain key item (a medallion, a dungeon map).
+pub const PLAIN: &str = "KeyItem";
+const NO_DEAL: &str = "None";
+
+/// The pouch row columns that change what Link owns or can do when the row's item is added: bag
+/// sizes and refills, lift grade, dive depth, magic, equipment, weapons, bottles, bundles.
+pub const EFFECTS: [&str; 32] = [
+    "ActorFullOnlyIfIsGetWhenGetBag",
+    "AdultEquipment",
+    "AfterExpansionMaxNum",
+    "ArmorEffectType",
+    "AssignableItem",
+    "BottleItem",
+    "BowQuiverName",
+    "BundleActor",
+    "ChildEquipment",
+    "DiveDepth",
+    "EquipmentPerformance",
+    "ExpansionAvility",
+    "ExpansionMaxNumActor",
+    "FixedMaxNum",
+    "HitPointRecover",
+    "IsAbleToGetBagIfGet",
+    "IsEquipDerivationActor",
+    "IsFairy",
+    "IsItemStockMaxIfGet",
+    "LiftableGrade",
+    "MPMax",
+    "MPRecover",
+    "MaxNumGameData",
+    "OcarinaTypeValue",
+    "ShootableActor",
+    "SmallBagActor",
+    "WeaponSheathName",
+    "WeaponSubType",
+    "WeaponType",
+    "IsUsable",
+    "IsUsableSelectItemInWater",
+    "IsUsableSelectItemRiding",
+];
+
+/// The pouch row of a trap's stand-in. It must not be the row of the item it looks like: that row
+/// makes the stand-in a working copy (a second Slingshot with no bullet bag, a bag or scale that
+/// raises what Link can carry or do, an Ocarina that plays), and the freeze only takes it out
+/// afterwards, if it runs at all. So the stand-in is a plain key item that never enters the
+/// pouch, like a dungeon map: only how its get is shown stays.
+pub fn inert(look: &Node, name: &str) -> Node {
+    let mut r: Node = look.clone();
+    let gone: Vec<String> = match &r {
+        Node::Map(m) => m.iter().map(|e| e.0.clone()).filter(|k| !SHOWN.contains(&k.as_str())).collect(),
+        _ => Vec::new(),
+    };
+    for k in &gone {
+        r.remove(k);
+    }
+    r.set(rows::ROW_ID, Node::Str(name.to_string()));
+    r.set(CATEGORY, Node::Str(PLAIN.to_string()));
+    r.set(TAB, Node::Str(PLAIN.to_string()));
+    r.set(rows::DEAL, Node::Str(rows::QUIET_DEAL.to_string()));
+    r
+}
+
+/// Takes what an item does out of the row of the pickup, kit or shelf that hands a stand-in out.
+/// Its name, price and how it is shown stay.
+pub fn disarm(r: &mut Node) {
+    for k in EFFECTS {
+        r.remove(k);
+    }
+    let deal: Option<&str> = r.get(rows::DEAL).and_then(|v| v.as_str());
+    if deal.is_some_and(|x| x != NO_DEAL && x != rows::QUIET_DEAL) {
+        r.set(rows::DEAL, Node::Str(NO_DEAL.to_string()));
+    }
+}
+
+/// The item a trap's location holds in the prepared seed when the trap does not show as the item
+/// placed there. Only a rupee: a chest that holds an upgrade is sent to the upgrade chain and a
+/// chest that holds ammo to the ammo guard, whatever is put inside it afterwards, so either would
+/// hand out the real thing in place of the trap.
+fn stand_in(held: Option<&String>) -> String {
+    held.filter(|h| crate::slice::silver::junk(h).is_some()).cloned().unwrap_or_else(|| fake::RUPEE_ITEM.to_string())
 }
 
 impl Trap {
@@ -276,7 +364,7 @@ pub fn prepare(seed: &SeedFile) -> Res<(SeedFile, Vec<Trap>)> {
         let carry: bool = tiered || matches!(place, Place::Ground | Place::Skull | Place::Holder);
         let pick: Option<usize> = short.iter().position(|x| !d.item(x).is_some_and(|i| i.adv)).or(if short.is_empty() { None } else { Some(0) });
         let held: Option<String> = pick.map(|k| short.remove(k));
-        let stand: String = if carry { held.clone().unwrap_or_else(|| fake::RUPEE_ITEM.to_string()) } else { look.clone() };
+        let stand: String = if carry { stand_in(held.as_ref()) } else { look.clone() };
         if let Some(h) = &held {
             *out.copies.entry(h.clone()).or_insert(0) -= 1;
         }
@@ -326,7 +414,7 @@ pub fn sprinkle(d: &Data, s: &crate::settings::Settings, seed: &str, f: &mut See
     if !s.flag(SETTING).unwrap_or(false) {
         return 0;
     }
-    let n: usize = s.int(COUNT).unwrap_or(0).clamp(0, 20) as usize;
+    let n: usize = s.int(COUNT).unwrap_or(0).clamp(0, MAX) as usize;
     let contested: Vec<String> = crate::slice::skulls::shared().map(|t| t.contested.clone()).unwrap_or_default();
     let mut spots: Vec<String> = f
         .placements
@@ -448,11 +536,17 @@ fn tables(c: &mut Ctx, fakes: &[(String, String)], ids: &BM<String, String>, gro
         let id: &str = ids.get(name).map(|x| x.as_str()).unwrap_or(look);
         let pouch: String = [id, look.as_str()].iter().find(|k| rows::find(&ts[2], k).is_some()).map(|k| k.to_string()).unwrap_or_else(|| fake::RUPEE_ROW.to_string());
         add_actor(&mut ts, look, name, Some(&pouch))?;
+        let list: &mut Vec<Node> = ts[2].root.as_arr_mut().ok_or(E::Format("the pouch table is not a list"))?;
+        let r: &mut Node = list.iter_mut().find(|r| rows::id(r) == Some(name.as_str())).ok_or_else(|| E::Msg(format!("the pouch table has no {name} row")))?;
+        *r = inert(r, name);
     }
     for (g, fake) in grounds {
         let list: &mut Vec<Node> = ts[0].root.as_arr_mut().ok_or(E::Format("the actor table is not a list"))?;
         let r: &mut Node = list.iter_mut().find(|r| rows::id(r) == Some(g.as_str())).ok_or_else(|| E::Msg(format!("the actor table has no {g} row")))?;
         r.set(rows::ACTOR_NAME, Node::Str(fake.clone()));
+        if let Some(q) = ts[2].root.as_arr_mut().and_then(|l| l.iter_mut().find(|r| rows::id(r) == Some(g.as_str()))) {
+            disarm(q);
+        }
     }
     let mut out: Vec<File> = Vec::new();
     for (i, t) in [ACTOR_INFO, GAME_ACTOR_INFO, POUCH_INFO].iter().enumerate() {
@@ -763,7 +857,41 @@ mod tests {
         for (k, v) in [("shuffle_pots", "all"), ("shuffle_crates", "all"), ("shuffle_rocks", "all"), ("shuffle_grass", "all"), ("shuffle_freestanding_items", "all"), ("shuffle_skulltulas", "pinned"), ("shuffle_songs", "anywhere"), ("shuffle_dungeon_rewards", "anywhere")] {
             s.set(k, Value::s(v)).unwrap();
         }
+        s.set(SETTING, Value::Bool(true)).unwrap();
         s
+    }
+
+    #[test]
+    fn traps_are_off_until_asked_for_and_at_most_ten() {
+        let d: Data = Data::load().unwrap();
+        let sch = crate::settings::schema();
+        let (on, count) = (sch.get(SETTING).unwrap(), sch.get(COUNT).unwrap());
+        assert_eq!(on.default, Value::Bool(false));
+        assert_eq!((count.default.clone(), count.min, count.max), (Value::Int(MAX), 1, MAX));
+        assert_eq!(MAX, 10);
+        let plain: Settings = Settings::default();
+        assert!(!plain.flag(SETTING).unwrap());
+        assert!(traps(&generate_data(&d, &plain, "cold default", &super::tests::on()).unwrap()).is_empty());
+        let mut s: Settings = wide();
+        assert_eq!(traps(&generate_data(&d, &s, "cold ten", &super::tests::on()).unwrap()).len(), 10);
+        assert!(s.set(COUNT, Value::Int(MAX + 1)).is_err());
+        assert!(s.set(COUNT, Value::Int(0)).is_err());
+        s.set(COUNT, Value::Int(1)).unwrap();
+        assert_eq!(traps(&generate_data(&d, &s, "cold one", &super::tests::on()).unwrap()).len(), 1);
+    }
+
+    /// A string with no value for the setting comes from a release that had no traps.
+    #[test]
+    fn a_settings_string_without_the_setting_has_no_traps() {
+        let mut on: Settings = Settings::default();
+        on.set(SETTING, Value::Bool(true)).unwrap();
+        on.set(COUNT, Value::Int(4)).unwrap();
+        let (a, b): (String, String) = (on.encode().unwrap(), Settings::default().encode().unwrap());
+        assert_ne!(a, b);
+        let back: Settings = Settings::decode(&a).unwrap().settings;
+        assert!(back.flag(SETTING).unwrap());
+        assert_eq!(back.int(COUNT).unwrap(), 4);
+        assert!(!Settings::decode(&b).unwrap().settings.flag(SETTING).unwrap());
     }
 
     fn traps(g: &Generated) -> Vec<String> {
@@ -839,6 +967,105 @@ mod tests {
         }
     }
 
+    fn row(id: &str, cols: &[(&str, Node)]) -> Node {
+        let mut r: Node = Node::Map(Vec::new());
+        r.set(rows::ROW_ID, Node::Str(id.to_string()));
+        for (k, v) in cols {
+            r.set(k, v.clone());
+        }
+        r
+    }
+
+    fn s(x: &str) -> Node {
+        Node::Str(x.to_string())
+    }
+
+    /// The rows as the game ships them: a trap that showed as one of these used to be a copy of it.
+    fn shipped() -> Vec<Node> {
+        vec![
+            row(
+                "Weapon_Range_SlingShot",
+                &[("ActionGuideType", s("SlingShot")), ("AssignableItem", s("SlingShot")), ("BundleActorNum", Node::I32(1)), ("EquipmentPerformance", Node::I32(1)), ("IsAutoSaveAfterGet", Node::Bool(true)), ("PouchCategory", s("Bow")), ("PouchGetType", s("Large")), ("PouchSpecialDeal", s("None")), ("PouchTabCategory", s("Equipment")), ("ShootableActor", s("Work/Actor/Item_DekuSeed.engine__actor__ActorParam.gyml")), ("WeaponType", s("Bow"))],
+            ),
+            row(
+                "Item_BombBag_Medium",
+                &[("AfterExpansionMaxNum", Node::I32(30)), ("BundleActorNum", Node::I32(1)), ("ExpansionMaxNumActor", s("Work/Actor/Item_Bomb.engine__actor__ActorParam.gyml")), ("IsItemStockMaxIfGet", Node::Bool(true)), ("MaxNumGameData", s("Bomb")), ("PouchCategory", s("KeyItem")), ("PouchGetType", s("Large")), ("PouchSpecialDeal", s("None")), ("PouchTabCategory", s("KeyItem"))],
+            ),
+            row(
+                "Item_Gauntlet_Silver",
+                &[("AdultEquipment", s("Work/Actor/Armor_Adult_Gauntlet_Silver.engine__actor__ActorParam.gyml")), ("BundleActorNum", Node::I32(1)), ("ExpansionAvility", s("LiftGradeUP")), ("LiftableGrade", s("Middle")), ("PouchCategory", s("KeyItem")), ("PouchGetType", s("Large")), ("PouchSpecialDeal", s("Gauntlet")), ("PouchTabCategory", s("KeyItem"))],
+            ),
+            row("Item_Scale_Silver", &[("BundleActorNum", Node::I32(1)), ("DiveDepth", Node::F32(6.0)), ("ExpansionAvility", s("DiveDepthUP")), ("LiftableGrade", s("None")), ("PouchCategory", s("KeyItem")), ("PouchGetType", s("Large")), ("PouchSpecialDeal", s("None")), ("PouchTabCategory", s("KeyItem"))]),
+            row("Item_Ocarina_Fairy", &[("BundleActorNum", Node::I32(1)), ("OcarinaTypeValue", Node::I32(1)), ("PouchCategory", s("KeyItem")), ("PouchGetType", s("Small")), ("PouchSpecialDeal", s("Ocarina")), ("PouchTabCategory", s("KeyItem"))]),
+        ]
+    }
+
+    /// Players got bag and strength upgrades from traps, and a second Slingshot with no seeds.
+    #[test]
+    fn a_stand_in_row_is_a_plain_key_item_that_never_enters_the_pouch() {
+        for look in shipped() {
+            let id: String = rows::id(&look).unwrap().to_string();
+            let name: String = fake_name(&id);
+            let r: Node = inert(&look, &name);
+            let Node::Map(m) = &r else { panic!("{id}") };
+            let keys: Vec<&str> = m.iter().map(|e| e.0.as_str()).collect();
+            assert_eq!(keys, ["BundleActorNum", "PouchCategory", "PouchGetType", "PouchSpecialDeal", "PouchTabCategory", "__RowId"], "{id}");
+            assert_eq!(rows::id(&r), Some(name.as_str()));
+            assert_eq!(r.get(rows::DEAL).and_then(|v| v.as_str()), Some(rows::QUIET_DEAL), "{id}");
+            assert_eq!(r.get(CATEGORY).and_then(|v| v.as_str()), Some(PLAIN), "{id}");
+            assert_eq!(r.get(TAB).and_then(|v| v.as_str()), Some(PLAIN), "{id}");
+            assert_eq!(r.get("PouchGetType"), look.get("PouchGetType"), "{id}");
+            for k in EFFECTS {
+                assert!(r.get(k).is_none(), "{id} keeps {k}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_disarmed_row_keeps_how_it_is_shown_and_loses_what_it_does() {
+        for look in shipped() {
+            let id: String = rows::id(&look).unwrap().to_string();
+            let mut r: Node = look.clone();
+            r.set("BuyingPrice", Node::I32(120));
+            disarm(&mut r);
+            for k in EFFECTS {
+                assert!(r.get(k).is_none(), "{id} keeps {k}");
+            }
+            for k in [rows::ROW_ID, CATEGORY, TAB, "PouchGetType", "BundleActorNum", "BuyingPrice"] {
+                assert!(r.get(k).is_some(), "{id} lost {k}");
+            }
+            let deal: &str = r.get(rows::DEAL).and_then(|v| v.as_str()).unwrap();
+            assert_eq!(deal, NO_DEAL, "{id}");
+        }
+        let mut quiet: Node = row("Obj_X", &[(rows::DEAL, s(rows::QUIET_DEAL))]);
+        disarm(&mut quiet);
+        assert_eq!(quiet.get(rows::DEAL).and_then(|v| v.as_str()), Some(rows::QUIET_DEAL));
+    }
+
+    /// A chest that holds an upgrade or ammo hands that out whatever is put inside it afterwards.
+    #[test]
+    fn a_trap_spot_only_ever_holds_a_rupee_in_place_of_the_trap() {
+        let d: Data = Data::load().unwrap();
+        for junk in ["Rupee (1)", "Rupees (5)", "Rupees (20)"] {
+            assert_eq!(stand_in(Some(&junk.to_string())), junk);
+        }
+        for real in ["Bomb Bag", "Slingshot", "Progressive Hookshot", "Arrows (10)", "Bombs (5)", "Deku Seeds (30)", "Deku Shield", "Piece of Heart"] {
+            assert!(d.item(real).is_some(), "{real}");
+            assert_eq!(stand_in(Some(&real.to_string())), fake::RUPEE_ITEM, "{real}");
+        }
+        assert_eq!(stand_in(None), fake::RUPEE_ITEM);
+        let s: Settings = wide();
+        for n in 0..3 {
+            let g: Generated = generate_data(&d, &s, &format!("cold stand {n}"), &on()).unwrap();
+            let (out, ts): (SeedFile, Vec<Trap>) = prepare(&g.seed_file).unwrap();
+            for t in &ts {
+                let held: &str = out.placements.get(&t.loc).map(|x| x.as_str()).unwrap();
+                assert!(held == t.look || crate::slice::silver::junk(held).is_some(), "{} holds {held} for a trap that shows as {}", t.loc, t.look);
+                assert!(held != t.look || d.family(held).is_none(), "{} holds the upgrade {held}", t.loc);
+            }
+        }
+    }
+
     #[test]
     fn the_spoiler_shows_a_placeholder() {
         assert_eq!(crate::spoiler::shown(TRAP), "Rupee (1)");
@@ -856,6 +1083,38 @@ mod tests {
         let b: Built = crate::slice::edit::build_for(&g.seed_file, &root, &load, "cold", Host::Hookshot).unwrap();
         let actors: PB = b.root.join("romfs").join("Pack").join("Actor");
         assert!(actors.join(format!("{}.pack.zs", sensor::NAME)).is_file());
+        let mut rf: Romfs = Romfs::open(&root).unwrap();
+        let table: PB = POUCH_INFO.split('/').fold(b.root.join("romfs"), |a, s| a.join(s));
+        let y: Byml = Byml::parse(&rf.zs.decompress(&fs::read(table).unwrap()).unwrap()).unwrap();
+        let (_, ts): (SeedFile, Vec<Trap>) = prepare(&g.seed_file).unwrap();
+        assert_eq!(ts.len(), 10);
+        for t in &ts {
+            let r: &Node = rows::find(&y, &t.fake).unwrap_or_else(|| panic!("{} has no pouch row", t.fake));
+            assert_eq!(r.get(rows::DEAL).and_then(|v| v.as_str()), Some(rows::QUIET_DEAL), "{}", t.fake);
+            assert_eq!(r.get(CATEGORY).and_then(|v| v.as_str()), Some(PLAIN), "{}", t.fake);
+            for k in EFFECTS {
+                assert!(r.get(k).is_none(), "{} keeps {k}", t.fake);
+            }
+            for hand in t.trigger_names().iter().filter(|n| **n != t.fake) {
+                if let Some(q) = rows::find(&y, hand) {
+                    for k in EFFECTS {
+                        assert!(q.get(k).is_none(), "{hand} keeps {k}");
+                    }
+                }
+            }
+            let pack: Vec<u8> = rf.zs.decompress(&fs::read(actors.join(format!("{}.pack.zs", t.fake))).unwrap()).unwrap();
+            let es: Vec<Entry> = sarc::parse(&pack).unwrap();
+            let own: Byml = Byml::parse(&sarc::get(&es, &pouch_file(&t.fake)).unwrap().data).unwrap();
+            for (k, v) in fake::inert_params() {
+                assert_eq!(own.root.get(k), Some(&v), "{} {k}", t.fake);
+            }
+        }
+        for flow in trigger::PICKUPS {
+            let path: PB = b.root.join("romfs").join("Event").join("EventFlow").join(format!("{flow}.bfevfl.zs"));
+            let bf: Bf = Bf::parse(&rf.zs.decompress(&fs::read(path).unwrap()).unwrap()).unwrap();
+            let f: &crate::bfevfl::Flow = bf.flows.iter().find(|f| f.name == flow).unwrap();
+            assert!(trigger::asks_wait(f), "{flow} asks for the picked name in the frame it is set");
+        }
         let _ = fs::remove_dir_all(&load);
     }
 }

@@ -30,6 +30,8 @@ const DELETE: &str = "EventTriggerRequestDeleteConditionSensor";
 const POUCH: &str = "PouchSystemActor";
 const EXISTS: &str = "EventQueryIsExistInPouch";
 const GAME: &str = "GameSystemActor";
+const WAITER: &str = "EventSystemActor";
+const WAIT: &str = "EventWait";
 const SETTING_TEMPLATE: &str = "CrumblingGanonCastle_Arrive";
 const ANALYZED_TEMPLATE: &str = "NaviLockOnHint";
 const SUBS: &str = "SubFlowList";
@@ -130,11 +132,66 @@ pub fn hook_give(b: &mut Bf, names: &[String]) -> Res<usize> {
     Ok(sites.len())
 }
 
+fn is_wait(f: &Flow, at: u16) -> bool {
+    match f.events.get(usize::from(at)).map(|e| &e.kind) {
+        Some(Kind::Action { actor, act, .. }) => f.actors.get(usize::from(*actor)).is_some_and(|a| a.name == WAITER && a.actions.get(usize::from(*act)).is_some_and(|x| x == WAIT)),
+        _ => false,
+    }
+}
+
+/// The event after which the picked name can be asked: the pickup names itself with an
+/// EventTrigger action, which the game only carries out some frames later, so a question asked
+/// right behind it still reads the name of the pickup before. Returns the wait that follows the
+/// naming event (crate::pickup_tiers already puts one there), or a new one.
+fn settled(f: &mut Flow, at: usize) -> Res<usize> {
+    let then: u16 = match &f.events[at].kind {
+        Kind::Action { next, .. } => *next,
+        _ => return Err(E::Format("the naming event of a pickup is not an action")),
+    };
+    if is_wait(f, then) {
+        return Ok(usize::from(then));
+    }
+    let (wa, wx): (u16, u16) = action_slot(f, WAITER, WAIT)?;
+    let c: Cont = Cont { items: vec![("IsWaitEnd".to_string(), Val::Bool(1)), ("Frames".to_string(), Val::Int(crate::pickup_tiers::SETTLE))] };
+    let wait: u16 = push(f, Kind::Action { next: then, actor: wa, act: wx, params: Some(c) })?;
+    if let Kind::Action { next, .. } = &mut f.events[at].kind {
+        *next = wait;
+    }
+    Ok(usize::from(wait))
+}
+
+/// Whether every question about the picked name that directly follows an event is behind a wait,
+/// never right behind the event that sets the name.
+pub fn asks_wait(f: &Flow) -> bool {
+    let asks = |at: u16| -> bool {
+        match f.events.get(usize::from(at)).map(|e| &e.kind) {
+            Some(Kind::Switch { actor, query, params, .. }) => {
+                f.actors.get(usize::from(*actor)).is_some_and(|a| a.queries.get(usize::from(*query)).is_some_and(|q| q == ASK)) && params.as_ref().is_some_and(|c| matches!(c.get("GameDataName"), Some(Val::Str(k)) if k == TARGET))
+            }
+            _ => false,
+        }
+    };
+    sites_of(f, SET_NAME, false).into_iter().all(|i| match &f.events[i].kind {
+        Kind::Action { next, .. } => !asks(*next),
+        _ => true,
+    })
+}
+
 pub fn hook_pickup(b: &mut Bf, flow: &str, names: &[String]) -> Res<usize> {
     let f: &mut Flow = b.flows.iter_mut().find(|f| f.name == flow).ok_or_else(|| E::Msg(format!("{flow} has no flow of its name")))?;
-    let sites: Vec<usize> = sites_of(f, SET_NAME, false);
-    if sites.is_empty() {
-        return Err(E::Msg(format!("{flow} has no pickup that names itself")));
+    hook_named(f, names)
+}
+
+pub fn hook_named(f: &mut Flow, names: &[String]) -> Res<usize> {
+    // crate::pickup_tiers names the pickup a second time on its way to the window; by then the
+    // first naming has been asked about, so only the game's own naming events are hooked.
+    let named: Vec<usize> = sites_of(f, SET_NAME, false).into_iter().filter(|i| !f.events[*i].name.starts_with(crate::pickup_tiers::PREFIX)).collect();
+    if named.is_empty() {
+        return Err(E::Msg(format!("{} has no pickup that names itself", f.name)));
+    }
+    let mut sites: Vec<usize> = Vec::new();
+    for at in &named {
+        sites.push(settled(f, *at)?);
     }
     chain(f, &sites, TARGET, names)?;
     Ok(sites.len())
@@ -283,4 +340,75 @@ pub fn watch(raw: &[u8]) -> Res<Vec<u8>> {
         return Err(E::Msg(format!("the edited MainUpdate has problems: {}", bad.join("; "))));
     }
     a.write()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bfevfl::Actor;
+
+    const GUEST: &str = "PouchContentGuestPerformer";
+
+    fn actor(name: &str, acts: &[&str], queries: &[&str]) -> Actor {
+        Actor { name: name.to_string(), sub: String::new(), arg: String::new(), actions: acts.iter().map(|s| s.to_string()).collect(), queries: queries.iter().map(|s| s.to_string()).collect(), params: None, ep: 0, cut: 0 }
+    }
+
+    fn act(name: &str, actor: u16, act: u16, next: u16) -> Event {
+        Event { name: name.to_string(), kind: Kind::Action { next, actor, act, params: None } }
+    }
+
+    /// The game's pickup flow: the pickup names itself, then the rest (here one event).
+    fn pickup() -> Flow {
+        Flow { name: "Dm_SY_Get".to_string(), actors: vec![actor(GUEST, &[SET_NAME, "EventTriggerAddOwnToPouch"], &[])], events: vec![act("Event38", 0, 0, 1), act("Event35", 0, 1, NONE)], entries: Vec::new() }
+    }
+
+    fn frames(f: &Flow, at: u16) -> Option<i32> {
+        match &f.events[usize::from(at)].kind {
+            Kind::Action { params: Some(c), .. } if is_wait(f, at) => match c.get("Frames") {
+                Some(Val::Int(n)) => Some(*n),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    fn next(f: &Flow, at: u16) -> u16 {
+        match &f.events[usize::from(at)].kind {
+            Kind::Action { next, .. } => *next,
+            _ => NONE,
+        }
+    }
+
+    /// The game only carries the naming out some frames later: asked in the same frame, a trap on
+    /// the ground read the name of the pickup before it, did not freeze, and left its stand-in.
+    #[test]
+    fn a_pickup_is_asked_for_its_name_only_after_a_wait() {
+        let mut f: Flow = pickup();
+        assert_eq!(hook_named(&mut f, &["OOTRR_Item_Hookshot_Cold".to_string()]).unwrap(), 1);
+        let wait: u16 = next(&f, 0);
+        assert_eq!(frames(&f, wait), Some(crate::pickup_tiers::SETTLE));
+        let ask: u16 = next(&f, wait);
+        let Kind::Switch { cases, params, .. } = &f.events[usize::from(ask)].kind else { panic!("the wait does not lead to the question") };
+        assert_eq!(params.as_ref().and_then(|c| c.get("Value")), Some(&Val::Str("OOTRR_Item_Hookshot_Cold".to_string())));
+        let (hit, miss): (u16, u16) = (cases[0].ev, cases[1].ev);
+        assert_eq!(miss, 1);
+        assert_eq!(next(&f, hit), 1);
+        assert!(asks_wait(&f));
+    }
+
+    #[test]
+    fn a_wait_that_is_already_there_is_used_and_a_second_naming_is_left_alone() {
+        let mut f: Flow = pickup();
+        f.actors.push(actor(WAITER, &[WAIT], &[]));
+        f.events[0] = act("Event38", 0, 0, 2);
+        f.events.push(Event { name: "OOTRR_PickTier2".to_string(), kind: Kind::Action { next: 3, actor: 1, act: 0, params: Some(Cont { items: vec![("Frames".to_string(), Val::Int(5))] }) } });
+        f.events.push(act("OOTRR_PickTier3", 0, 0, 1));
+        let n: usize = f.events.len();
+        assert_eq!(hook_named(&mut f, &["OOTRR_Item_Hookshot_Cold".to_string()]).unwrap(), 1);
+        assert_eq!(next(&f, 0), 2);
+        assert!(f.events[n..].iter().all(|e| !matches!(&e.kind, Kind::Action { params: Some(c), .. } if c.get("Frames").is_some())), "a second wait was added");
+        assert!(matches!(f.events[usize::from(next(&f, 2))].kind, Kind::Switch { .. }));
+        assert_eq!(next(&f, 3), 1);
+        assert!(asks_wait(&f));
+    }
 }
