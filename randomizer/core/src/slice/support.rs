@@ -445,6 +445,7 @@ pub fn plan(s: &Settings) -> Res<Plan> {
     notes.extend(door.notes());
     notes.push(crate::bombchu_open::NOTE.to_string());
     notes.push(crate::water_gate::NOTE.to_string());
+    notes.push(crate::lake_tree_wall::NOTE.to_string());
     if short {
         notes.push(crate::short_get::NOTE.to_string());
     }
