@@ -332,8 +332,18 @@ pub fn build() -> Schema {
             .tip("Beds offer Sleep until morning and Sleep until night before the Zelda meeting.")
             .when_on("time_always_passes"),
     );
-    s.push(Setting::toggle(crate::frost::NUM, crate::frost::SETTING, "shuffle", "Shuffle Ice Traps", true).tip("Adds Ice Traps to the item pool in place of junk."));
-    s.push(Setting::number(crate::frost::COUNT_NUM, crate::frost::COUNT, "shuffle", "Ice Traps", 10, 0, 20).tip("How many Ice Traps replace junk.").when_on(crate::frost::SETTING));
+    s.push(
+        // A settings string with no value here reads as off: the releases before the setting had no
+        // traps. The two nightlies that had it hidden and on wrote no value either, so their seeds
+        // now come out with the junk their traps had replaced.
+        Setting::toggle(crate::frost::NUM, crate::frost::SETTING, "shuffle", "Ice Traps", false)
+            .tip("Some junk items in the pool become Ice Traps. A trap looks like a key item until you take it, then it freezes Link for a moment and gives nothing. Traps can be in chests, on the ground, in pots, at Gold Skulltulas, in shops and at NPC rewards, wherever those are shuffled. Experimental."),
+    );
+    s.push(
+        Setting::number(crate::frost::COUNT_NUM, crate::frost::COUNT, "shuffle", "Number of Ice Traps", crate::frost::MAX, 1, crate::frost::MAX)
+            .tip("How many junk items become Ice Traps. Fewer are placed when the seed has fewer junk items at spots that can hold a trap.")
+            .when_on(crate::frost::SETTING),
+    );
     s.push(
         Setting::toggle(crate::slice::skull_day::NUM, crate::slice::skull_day::SETTING, "world", "Skulltulas by day", false)
             .tip("The Gold Skulltulas that normally only come out at night are out at any hour, day or night. The logic no longer waits for night to reach them. Tested in the game in nearly every scene."),
