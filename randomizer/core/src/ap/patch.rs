@@ -186,7 +186,7 @@ fn held(w: &World, names: &[&str]) -> Res<Vec<ItemId>> {
 pub fn check(d: &Data, p: &Patch) -> Res<Checked> {
     let loaded = Settings::decode(&p.settings)?;
     let s: Settings = loaded.settings;
-    let Prep { w, vanilla, pk, gates, .. } = prepare(d, &s, &p.seed, &[])?;
+    let Prep { w, vanilla, pk, gates, lay, .. } = prepare(d, &s, &p.seed, &[])?;
     if gates.is_some() {
         return Err(bad("entrance shuffle is not supported yet"));
     }
@@ -225,7 +225,11 @@ pub fn check(d: &Data, p: &Patch) -> Res<Checked> {
     if !won {
         notes.push("OOTRR's own search cannot beat this world even with every item from the other worlds. The apworld and this build disagree on the logic.".to_string());
     }
-    let seed: SeedFile = SeedFile::new(&p.seed, &s, &d.scan.game, own)?;
+    let mut seed: SeedFile = SeedFile::new(&p.seed, &s, &d.scan.game, own)?;
+    if let Some(mut l) = lay {
+        crate::shops::layout::fill_deals(&mut l, &seed.placements)?;
+        seed.shops = crate::shops::seed::entries(&l);
+    }
     Ok(Checked { seed, settings: s, won, notes })
 }
 
@@ -253,5 +257,51 @@ mod tests {
         assert!(Patch::parse(&SMALL.replace("\"version\":1", "\"version\":9")).is_err());
         assert!(Patch::parse(&SMALL.replace("bbbbbbbbbbbb", "aaaaaaaaaaaa")).is_err());
         assert!(Patch::parse(&SMALL.replace("\"Slingshot\"", "\"AP: Slingshot (X)\"")).is_err());
+    }
+
+    fn solo(s: &Settings, g: &crate::slice::generate::Generated) -> Patch {
+        Patch {
+            preset: "custom".to_string(),
+            settings: s.encode().unwrap(),
+            seed: super::super::export::SEED.to_string(),
+            seed_name: "1".to_string(),
+            slot: "Link".to_string(),
+            seed_key: "0123456789ab".to_string(),
+            placements: g.seed_file.placements.clone(),
+            foreign: BM::new(),
+            remote: Vec::new(),
+            start: Vec::new(),
+            location_ids: BM::new(),
+        }
+    }
+
+    fn shop_settings(level: &str) -> Settings {
+        let mut s: Settings = Settings::default();
+        s.set("shuffle_shops", crate::settings::model::Value::s(level)).unwrap();
+        s
+    }
+
+    #[test]
+    fn a_shopsanity_slot_gets_the_generators_shop_table_and_passes_the_shop_check() {
+        use crate::slice::generate::{generate_data, GenOpts};
+        let d: Data = Data::load().unwrap();
+        for level in ["deals_1", "shuffle"] {
+            let s: Settings = shop_settings(level);
+            let g = generate_data(&d, &s, super::super::export::SEED, &GenOpts::default()).unwrap();
+            assert_eq!(g.seed_file.shops.len(), 64, "{level}");
+            let c: Checked = check(&d, &solo(&s, &g)).unwrap();
+            assert_eq!(c.seed.shops, g.seed_file.shops, "{level}");
+            let o = crate::slice::support::plan(&s).unwrap().shops;
+            crate::shops::seed::check(&o, &c.seed).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_default_slot_has_no_shop_table() {
+        use crate::slice::generate::{generate_data, GenOpts};
+        let d: Data = Data::load().unwrap();
+        let s: Settings = Settings::default();
+        let g = generate_data(&d, &s, super::super::export::SEED, &GenOpts::default()).unwrap();
+        assert!(check(&d, &solo(&s, &g)).unwrap().seed.shops.is_empty());
     }
 }
