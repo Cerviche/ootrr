@@ -24,15 +24,15 @@ A build report line is added (`NOTE`).
 
 ## Tested
 
-Commit: see the branch head.
-
-- Unit tests (`cargo test -p ootrr-core lake_tree_wall`, game files set): both Dynamic files carry the wall with the chest flag before the edit and the always-true flag after, the actor count is unchanged, a second application is refused; the adult file staged after the water gate keeps both edits and is staged once; the stage is in the stage list. Results and the without-fix run are in the report for this change.
-- Default output: see "Default output".
+- Unit tests (`cargo test -p ootrr-core lake_tree_wall`, game files set, 3 of 3 pass): both Dynamic files carry the wall with the chest flag before the edit and the always-true flag after, the actor count is unchanged, a second application is refused; the adult file staged after the water gate keeps both edits and is staged once; the stage is in the stage list.
+- Without the fix (the stage left out of the list, tests kept): `a_default_build_stages_the_tree_wall` fails, the other two pass. The unfixed file itself is checked by the first test, which asserts the wall waits for `WaterTemple_Room07_00` before the edit. How often the bug occurs in generated seeds was not counted: not reproduced in the game; this is a guard against a seed that needs the token before the Longshot chest is open.
+- Full workspace tests (`cargo test --workspace`, game files set, through the build gate): 1763 passed, 1 failed, 10 ignored. The failure was the build-report note count in `defaults_are_accepted_and_noted` (24 to 25, fixed in this change; that test and the rest of `support::` then pass, 25 of 25). The workspace was not run a second time.
+- Default output: see below.
 - Not played. Nothing here has been seen in the game.
 
 ## Default output
 
-Every build changes: the two Dynamic files differ from nightly (the adult one also by the water gate edit, already in nightly) and the build report gets one line. No other file changes. Seeds and settings strings are unchanged.
+Not byte-identical to nightly by design. A default-preset build (time savers and 20 hearts, same seed text) from this branch and from nightly 1e7d9943 gives 290 files each; exactly three differ: `HyruleField_Adult_Dynamic` and `HyruleField_Child_Dynamic` (the wall's presence) and the resource size table. Every other file is identical. Seeds and settings strings are unchanged.
 
 ## How to test it in the game
 

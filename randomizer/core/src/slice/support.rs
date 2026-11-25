@@ -475,7 +475,8 @@ mod tests {
         assert_eq!(p.keys.map, Keep::Dungeon);
         assert!(p.intro);
         assert!(p.story && p.endings);
-        assert_eq!(p.notes.len(), 24);
+        assert_eq!(p.notes.len(), 25);
+        assert!(p.notes.iter().any(|n| n == crate::lake_tree_wall::NOTE));
         assert!(p.notes.iter().any(|n| n == crate::qol::gear_cycle::NOTE), "the gear cycle is always on");
         assert!(p.short && p.notes.iter().any(|n| n == crate::short_get::NOTE));
         assert!(!p.notes.iter().any(|n| n == crate::deku_bridge::NOTE));
