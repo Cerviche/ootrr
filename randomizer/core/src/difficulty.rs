@@ -29,6 +29,7 @@ pub mod regen;
 pub mod respawn;
 pub mod spawn;
 pub mod stats;
+pub mod health;
 pub mod surprises;
 pub mod sizes;
 pub mod swap;
@@ -130,6 +131,8 @@ pub const MORE_STEP: i64 = 50;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Opts {
     pub health: i64,
+    pub boss_health: i64,
+    pub miniboss_health: i64,
     pub damage: i64,
     pub hurt: hurt::Hurt,
     pub speed: i64,
@@ -169,7 +172,7 @@ pub struct Opts {
 
 impl Default for Opts {
     fn default() -> Opts {
-        Opts { health: NORMAL, damage: NORMAL, hurt: hurt::Hurt::Normal, speed: NORMAL, no_hearts: false, no_fairies: false, no_ammo: false, lose_heart: false, no_bottles: false, no_target: false, no_dupes: false, extra: 0, respawn: false, minibosses: false, regen: false, minions: false, fairy_helps: false, backup: false, gates: false, encounters: false, cucco: false, bowling: false, talon: false, fireballs: false, spawn_combo: false, randomizer: false, sizes: sizes::Range::Off, sized_health: false, fuses: false, mega_like: false, volvagia: false, forest_open: false, shops: false, mido_gone: false, entrances: gates::Shuffle::Off, timers: NORMAL }
+        Opts { health: NORMAL, boss_health: 0, miniboss_health: 0, damage: NORMAL, hurt: hurt::Hurt::Normal, speed: NORMAL, no_hearts: false, no_fairies: false, no_ammo: false, lose_heart: false, no_bottles: false, no_target: false, no_dupes: false, extra: 0, respawn: false, minibosses: false, regen: false, minions: false, fairy_helps: false, backup: false, gates: false, encounters: false, cucco: false, bowling: false, talon: false, fireballs: false, spawn_combo: false, randomizer: false, sizes: sizes::Range::Off, sized_health: false, fuses: false, mega_like: false, volvagia: false, forest_open: false, shops: false, mido_gone: false, entrances: gates::Shuffle::Off, timers: NORMAL }
     }
 }
 
@@ -184,7 +187,7 @@ impl Opts {
     }
 
     pub fn packs(&self) -> bool {
-        self.health != NORMAL || self.damage != NORMAL || self.hurt != hurt::Hurt::Normal || self.speed != NORMAL || self.cut().any() || self.no_target || self.no_bottles
+        health::active(self) || self.damage != NORMAL || self.hurt != hurt::Hurt::Normal || self.speed != NORMAL || self.cut().any() || self.no_target || self.no_bottles
     }
 
     pub fn gate_list(&self) -> Vec<gates::Gate> {
@@ -204,7 +207,11 @@ impl Opts {
 
     pub fn notes(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
-        if self.health != NORMAL {
+        if self.boss_health != 0 || self.miniboss_health != 0 {
+            let boss: i64 = if self.boss_health == 0 { self.health } else { self.boss_health };
+            let mini: i64 = if self.miniboss_health == 0 { self.health } else { self.miniboss_health };
+            out.push(format!("Health multipliers: general enemies {}x, bosses {}x, minibosses {}x. Health tops out at 99. Scripted health is unchanged. Minibosses include MiddleBoss actors, Dead Hand and Iron Knuckles. Experimental, untested in the game.", times(self.health), times(boss), times(mini)));
+        } else if self.health != NORMAL {
             out.push(format!("Enemies and bosses have {} times their usual health, up to 99. Enemies that always go down to one scripted hit, like Deku Scrubs, are not changed.", times(self.health)));
         }
         if self.damage != NORMAL {
@@ -353,13 +360,15 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
     let speed: i64 = num(SPEED, SPEED_RANGE);
     let extra: i64 = num(MORE, MORE_RANGE) - NORMAL;
     let hurt: hurt::Hurt = chosen(s.text(HURT), bad).map(hurt::Hurt::from_setting).unwrap_or(hurt::Hurt::Normal);
+    let boss_health: i64 = chosen(s.text(health::BOSS), bad).map(health::percent).unwrap_or(0);
+    let miniboss_health: i64 = chosen(s.text(health::MINI), bad).map(health::percent).unwrap_or(0);
     let mut flag = |id: &str| -> bool {
         s.flag(id).unwrap_or_else(|e| {
             bad.push(e.to_string());
             false
         })
     };
-    let o: Opts = Opts { health, damage, hurt, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS), fairy_helps: flag(FAIRY_HELPS), backup: flag(BACKUP), gates: flag(GATES), encounters: false, cucco: flag(CUCCO), bowling: flag(BOWLING), talon: flag(TALON), fireballs: flag(FIREBALLS), spawn_combo: flag(SPAWN_COMBO), randomizer: flag(RANDOMIZER), sizes: sizes::Range::Off, sized_health: flag(SIZES_HEALTH), fuses: flag(FUSES), mega_like: flag(MEGA_LIKE), volvagia: flag(VOLVAGIA), forest_open: false, shops: false, mido_gone: false, entrances: gates::Shuffle::Off, timers: NORMAL };
+    let o: Opts = Opts { health, boss_health, miniboss_health, damage, hurt, speed, no_hearts: flag(NO_HEARTS), no_fairies: flag(NO_FAIRIES), no_ammo: flag(NO_AMMO), lose_heart: flag(LOSE_HEART), no_bottles: flag(NO_BOTTLES), no_target: flag(NO_TARGET), no_dupes: flag(NO_DUPES), extra: 0, respawn: flag(RESPAWN), minibosses: flag(MINIBOSSES), regen: flag(REGEN), minions: flag(MINIONS), fairy_helps: flag(FAIRY_HELPS), backup: flag(BACKUP), gates: flag(GATES), encounters: false, cucco: flag(CUCCO), bowling: flag(BOWLING), talon: flag(TALON), fireballs: flag(FIREBALLS), spawn_combo: flag(SPAWN_COMBO), randomizer: flag(RANDOMIZER), sizes: sizes::Range::Off, sized_health: flag(SIZES_HEALTH), fuses: flag(FUSES), mega_like: flag(MEGA_LIKE), volvagia: flag(VOLVAGIA), forest_open: false, shops: false, mido_gone: false, entrances: gates::Shuffle::Off, timers: NORMAL };
     let forest_open: bool = chosen(s.text(FOREST), bad).map(|t| t == "open").unwrap_or(true);
     let entrances: gates::Shuffle = chosen(s.text(ENTRANCES), bad).map(|t| gates::Shuffle::from_setting(t)).unwrap_or(gates::Shuffle::Wide);
     let shops: bool = chosen(s.text(crate::shops::plan::SETTING), bad).map(|t| t != "off").unwrap_or(false);
@@ -371,15 +380,15 @@ pub fn read(s: &Settings, bad: &mut Vec<String>) -> Opts {
 
 }
 
-fn edit_entry(e: &Entry, o: &Opts) -> Res<Option<Vec<u8>>> {
+fn edit_entry(e: &Entry, o: &Opts, mini_lizalfos: bool) -> Res<Option<Vec<u8>>> {
     let n: &str = &e.name;
     if o.minions && n == minions::DODONGO_PARAM {
         return minions::babies(&e.data);
     }
-    if o.health != NORMAL
-        && let Some(s) = stats::stem(n, stats::LIFE_DIR, stats::LIFE_EXT)
+    if let Some(s) = stats::stem(n, stats::LIFE_DIR, stats::LIFE_EXT)
     {
-        return if stats::is_enemy(s) { stats::life(&e.data, o.health) } else { Ok(None) };
+        let pct: i64 = health::multiplier(s, mini_lizalfos, o);
+        return if stats::is_enemy(s) && pct != NORMAL { stats::life(&e.data, pct) } else { Ok(None) };
     }
     if o.damage != NORMAL
         && let Some(s) = stats::stem(n, stats::ATTACK_DIR, stats::ATTACK_EXT)
@@ -414,10 +423,14 @@ fn edit_entry(e: &Entry, o: &Opts) -> Res<Option<Vec<u8>>> {
 }
 
 pub fn edit_pack(raw: &[u8], o: &Opts) -> Res<Option<Vec<u8>>> {
+    edit_pack_for(raw, o, false)
+}
+
+fn edit_pack_for(raw: &[u8], o: &Opts, mini_lizalfos: bool) -> Res<Option<Vec<u8>>> {
     let mut es: Vec<Entry> = sarc::parse(raw)?;
     let mut hit: bool = false;
     for e in es.iter_mut() {
-        if let Some(d) = edit_entry(e, o)? {
+        if let Some(d) = edit_entry(e, o, mini_lizalfos)? {
             e.data = d;
             hit = true;
         }
@@ -443,7 +456,8 @@ fn pack_out(rf: &mut Romfs, have: Have, path: &str, o: &Opts) -> Res<Option<Out>
     };
     let id: Option<u32> = zs::dict_of(&z);
     let raw: Vec<u8> = rf.zs.decompress(&z)?;
-    let Some(out) = edit_pack(&raw, o)? else {
+    let mini_lizalfos: bool = path == "Pack/Actor/Enemy_MiddleBoss_Lizalfos.pack.zs";
+    let Some(out) = edit_pack_for(&raw, o, mini_lizalfos)? else {
         return Ok(None);
     };
     Ok(Some(Out { path: path.to_string(), old: raw.len(), new: out.len(), z: zs::compress_raw(&out, id)? }))
@@ -753,6 +767,44 @@ mod tests {
         let out: Vec<Entry> = sarc::parse(&edit_pack(&raw, &Opts { health: 300, ..Opts::default() }).unwrap().unwrap()).unwrap();
         assert_eq!(max_life(&out, foe), Some(Node::I32(54)));
         assert_eq!(max_life(&out, hero), Some(Node::I32(12)));
+    }
+
+    #[test]
+    fn independent_health_edits_each_category_and_shared_lizalfos() {
+        let names: [&str; 5] = ["Enemy_Stalfos", "Enemy_DungeonBoss_Gohma", "Enemy_MiddleBoss_DarkLink", "Enemy_Lizalfos", "Player"];
+        let paths: Vec<String> = names.iter().map(|n| format!("{}{n}{}", stats::LIFE_DIR, stats::LIFE_EXT)).collect();
+        let es: Vec<Entry> = paths.iter().map(|n| entry(n, vec![("MaxLife", Node::I32(10))])).collect();
+        let raw: Vec<u8> = sarc::write(&es).unwrap();
+        let o: Opts = Opts { health: 150, boss_health: 300, miniboss_health: 50, ..Opts::default() };
+        for (mini, expected) in [(false, [15, 30, 5, 15, 10]), (true, [15, 30, 5, 5, 10])] {
+            let out: Vec<u8> = edit_pack_for(&raw, &o, mini).unwrap().unwrap();
+            assert_eq!(out.len(), raw.len());
+            let got: Vec<Entry> = sarc::parse(&out).unwrap();
+            for (n, v) in paths.iter().zip(expected) {
+                assert_eq!(max_life(&got, n), Some(Node::I32(v)), "{n}");
+            }
+        }
+        let o: Opts = Opts { health: 200, boss_health: 100, miniboss_health: 100, ..Opts::default() };
+        let got: Vec<Entry> = sarc::parse(&edit_pack(&raw, &o).unwrap().unwrap()).unwrap();
+        assert_eq!(max_life(&got, &paths[0]), Some(Node::I32(20)));
+        assert_eq!(max_life(&got, &paths[1]), Some(Node::I32(10)));
+        assert_eq!(max_life(&got, &paths[2]), Some(Node::I32(10)));
+    }
+
+    #[test]
+    fn health_overrides_round_trip_and_old_settings_keep_following() {
+        let mut s: Settings = Settings::default();
+        s.set(HEALTH, crate::settings::Value::Int(250)).unwrap();
+        let mut bad: Vec<String> = Vec::new();
+        let old: Opts = read(&s, &mut bad);
+        assert_eq!((old.health, old.boss_health, old.miniboss_health), (250, 0, 0));
+        s.set(health::BOSS, crate::settings::Value::s("100")).unwrap();
+        s.set(health::MINI, crate::settings::Value::s("50")).unwrap();
+        let seed: crate::settings::seed::SeedFile = crate::settings::seed::SeedFile::new("health split", &s, "1.1.1", std::collections::BTreeMap::new()).unwrap();
+        let back: crate::settings::seed::SeedFile = crate::settings::seed::SeedFile::parse(&seed.to_text()).unwrap();
+        let got: Opts = read(&back.settings().unwrap().settings, &mut bad);
+        assert!(bad.is_empty());
+        assert_eq!((got.health, got.boss_health, got.miniboss_health), (250, 100, 50));
     }
 
     fn up(y: &Byml) -> Option<&str> {

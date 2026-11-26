@@ -199,7 +199,9 @@ fn difficulty() -> Vec<Setting> {
     vec![
         Setting::number(d::HEALTH_NUM, d::HEALTH, "difficulty", "Enemy health", d::NORMAL, d::STAT_RANGE.0, d::STAT_RANGE.1)
             .multiplier(d::STAT_STEP, d::NORMAL)
-            .tip("How much health enemies and bosses have, from 0.5x to 5x. Health tops out at 99."),
+            .tip("How much health general enemies have, from 0.5x to 5x. Bosses and minibosses follow this value unless overridden under In Dev, Enemy Health. Health tops out at 99."),
+        d::health::setting(5002, d::health::BOSS, "Boss health"),
+        d::health::setting(5003, d::health::MINI, "Miniboss health"),
         Setting::number(d::DAMAGE_NUM, d::DAMAGE, "difficulty", "Enemy damage", d::NORMAL, d::STAT_RANGE.0, d::STAT_RANGE.1)
             .multiplier(d::STAT_STEP, d::NORMAL)
             .tip("How hard enemies and their projectiles hit, from 0.5x to 5x. Traps, lava, falls and grabs do their usual damage."),
