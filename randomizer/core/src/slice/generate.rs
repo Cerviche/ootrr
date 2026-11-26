@@ -247,6 +247,7 @@ pub fn check_excluded(d: &Data, w: &World, p: &Plan, free: &[LocId], base: &Plac
 }
 
 pub struct Prep {
+    pub copies: BM<String, i64>,
     pub p: Plan,
     pub lay: Option<crate::shops::Layout>,
     pub owned: Option<Data>,
@@ -309,18 +310,19 @@ pub fn prepare(d: &Data, s: &Settings, seed: &str, plando: &[Entry]) -> Res<Prep
         let n: Vec<String> = crate::open_world::trade_shuffle::pool(d, &w, &pk.free, &mut base)?;
         p.notes.extend(n);
     }
-    let replaced: usize = crate::slice::health_pool::apply(s, &w, &pk.free, &mut base)?;
+    let mut copies: BM<String, i64> = BM::new();
+    let replaced: usize = crate::slice::health_pool::apply(s, &w, &pk.free, &mut base, &mut copies)?;
     if replaced > 0 {
         p.notes.push(format!("Item Pool: {replaced} shuffled heart pieces and containers were replaced by Red Rupees. Starting hearts and unshuffled rewards are unchanged."));
     }
     let ex: Vec<String> = check_excluded(d, &w, &p, &pk.free, &base)?;
     p.notes.extend(ex);
-    Ok(Prep { p, lay, owned, w, vanilla, pk, gates, base })
+    Ok(Prep { copies, p, lay, owned, w, vanilla, pk, gates, base })
 }
 
 pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Generated> {
     let watch: Watch = Watch::new(o.limit, o.live.clone());
-    let Prep { p, mut lay, owned, w, vanilla, pk, gates, base } = prepare(d, s, seed, &o.plando)?;
+    let Prep { copies, p, mut lay, owned, w, vanilla, pk, gates, base } = prepare(d, s, seed, &o.plando)?;
     let d: &Data = owned.as_ref().unwrap_or(d);
     let seen: Vec<Cell<u8>> = vec![Cell::new(0); w.items.len() * w.locs.len()];
     let ok = |it: ItemId, l: LocId| {
@@ -468,6 +470,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         fixed_elsewhere: w.real.len() - pk.free.len(),
     };
     let mut seed_file: SeedFile = SeedFile::new(seed, s, &d.scan.game, map)?;
+    seed_file.copies = copies;
     if let Some(l) = lay.as_mut() {
         crate::shops::layout::fill_deals(l, &seed_file.placements)?;
         seed_file.shops = crate::shops::seed::entries(l);

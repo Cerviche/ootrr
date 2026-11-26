@@ -186,6 +186,9 @@ fn held(w: &World, names: &[&str]) -> Res<Vec<ItemId>> {
 pub fn check(d: &Data, p: &Patch) -> Res<Checked> {
     let loaded = Settings::decode(&p.settings)?;
     let s: Settings = loaded.settings;
+    if s.text("item_pool")? != "balanced" {
+        return Err(bad("Scarce and Minimal item pools are not supported in Archipelago yet"));
+    }
     let Prep { w, vanilla, pk, gates, lay, .. } = prepare(d, &s, &p.seed, &[])?;
     if gates.is_some() {
         return Err(bad("entrance shuffle is not supported yet"));

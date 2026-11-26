@@ -1,8 +1,10 @@
+use std::collections::BTreeMap as BM;
+
 use crate::error::{Error as E, Res};
 use crate::settings::Settings;
 use crate::world::{LocId, Placement, World};
 
-pub fn apply(s: &Settings, w: &World, free: &[LocId], base: &mut Placement) -> Res<usize> {
+pub fn apply(s: &Settings, w: &World, free: &[LocId], base: &mut Placement, copies: &mut BM<String, i64>) -> Res<usize> {
     let mode: &str = s.text("item_pool")?;
     if mode == "balanced" {
         return Ok(0);
@@ -25,6 +27,8 @@ pub fn apply(s: &Settings, w: &World, free: &[LocId], base: &mut Placement) -> R
         counts[k] += 1;
         if mode == "minimal" || counts[k] % 2 == 0 {
             base.put(*l, red);
+            *copies.entry(w.items.names[i].clone()).or_insert(0) -= 1;
+            *copies.entry(w.items.names[red].clone()).or_insert(0) += 1;
             changed += 1;
         }
     }
@@ -45,8 +49,10 @@ mod tests {
         let w: World = world(&d).unwrap();
         let mut b: Placement = vanilla_place(&w, &d).unwrap();
         let old: Vec<Option<usize>> = b.item.clone();
-        assert_eq!(apply(&Settings::default(), &w, &w.real, &mut b).unwrap(), 0);
+        let mut copies: BM<String, i64> = BM::new();
+        assert_eq!(apply(&Settings::default(), &w, &w.real, &mut b, &mut copies).unwrap(), 0);
         assert_eq!(b.item, old);
+        assert!(copies.is_empty());
     }
 
     #[test]
@@ -66,12 +72,30 @@ mod tests {
             for (l, i) in locs.iter().zip(items) {
                 b.put(*l, i);
             }
-            assert_eq!(apply(&s, &w, &locs[..8], &mut b).unwrap(), changed);
+            let mut copies: BM<String, i64> = BM::new();
+            assert_eq!(apply(&s, &w, &locs[..8], &mut b, &mut copies).unwrap(), changed);
+            assert_eq!(copies.values().sum::<i64>(), 0);
+            assert_eq!(copies.get("Rupees (20)"), Some(&(changed as i64)));
             assert_eq!(locs[..8].iter().filter(|l| b.get(**l) == Some(red)).count(), changed);
             assert_eq!(locs[..8].iter().filter(|l| matches!(b.get(**l), Some(i) if i == piece || i == heart)).count(), kept);
             assert_eq!(b.get(locs[5]), Some(tool));
             assert_eq!(b.get(locs[8]), Some(heart));
             assert_eq!(b.item.iter().filter(|i| i.is_some()).count(), 9);
+        }
+    }
+
+    #[test]
+    fn changed_pools_survive_seed_reload_and_actor_allocation() {
+        let d: Data = Data::load().unwrap();
+        for mode in ["scarce", "minimal"] {
+            let mut s: Settings = Settings::default();
+            s.set("item_pool", Value::s(mode)).unwrap();
+            let g: crate::slice::generate::Generated = crate::slice::generate::generate_data(&d, &s, "health pool build", &crate::slice::generate::GenOpts::default()).unwrap();
+            let seed: crate::settings::seed::SeedFile = crate::settings::seed::SeedFile::parse(&g.seed_file.to_text()).unwrap();
+            assert_eq!(seed.copies.values().sum::<i64>(), 0);
+            assert!(seed.copies.get("Rupees (20)").is_some_and(|n| *n > 0));
+            let actors: BM<String, String> = crate::slice::chest_targets::actors_for(&d, &seed).unwrap();
+            assert!(!actors.is_empty());
         }
     }
 }

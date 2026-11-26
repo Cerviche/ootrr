@@ -773,7 +773,7 @@ pub fn build() -> Schema {
     s.push(starting_items());
     s.push(
         Setting::choice(5001, "item_pool", "shuffle", "Item Pool", "balanced")
-            .tip("Controls heart pieces and containers in shuffled locations. Starting hearts and unshuffled rewards are unchanged. Experimental, untested in the game.")
+            .tip("Controls heart pieces and containers in shuffled locations. Starting hearts and unshuffled rewards are unchanged. Scarce and Minimal are not available in Archipelago yet. Experimental, untested in the game.")
             .opt("balanced", "Balanced", "Keep the existing item pool.")
             .opt("scarce", "Scarce", "Replace every second shuffled Heart Piece and every second shuffled Heart Container with a Red Rupee.")
             .opt("minimal", "Minimal", "Replace all shuffled Heart Pieces and Heart Containers with Red Rupees."),

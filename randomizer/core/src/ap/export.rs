@@ -339,7 +339,10 @@ fn probes(w: &World, free: &[LocId], fixed: &Placement, pool: &[ItemId], n: usiz
 }
 
 pub fn export_with(d0: &Data, s: &Settings, preset: &str, seed: &str, n: usize) -> Res<(Json, Json)> {
-    let Prep { p, lay: _, owned, w, vanilla, pk, gates, base } = prepare(d0, s, seed, &[])?;
+    if s.text("item_pool")? != "balanced" {
+        return Err(E::Format("archipelago: Scarce and Minimal item pools are not supported yet"));
+    }
+    let Prep { p, lay: _, owned, w, vanilla, pk, gates, base, .. } = prepare(d0, s, seed, &[])?;
     let d: &Data = owned.as_ref().unwrap_or(d0);
     if gates.is_some() {
         return Err(E::Format("archipelago: entrance shuffle is not supported yet"));
