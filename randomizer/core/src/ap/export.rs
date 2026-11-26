@@ -339,6 +339,9 @@ fn probes(w: &World, free: &[LocId], fixed: &Placement, pool: &[ItemId], n: usiz
 }
 
 pub fn export_with(d0: &Data, s: &Settings, preset: &str, seed: &str, n: usize) -> Res<(Json, Json)> {
+    if crate::slice::no_logic::enabled(s)? {
+        return Err(E::Format("archipelago: No Logic is not supported yet"));
+    }
     if s.text("item_pool")? != "balanced" {
         return Err(E::Format("archipelago: Scarce and Minimal item pools are not supported yet"));
     }

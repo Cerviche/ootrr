@@ -85,14 +85,6 @@ const fn gray_slider(label: &'static str, min: i64, max: i64, at: i64, tip: &'st
 
 
 
-const NO_LOGIC: View = View {
-    id: "logic_rules",
-    label: "No Logic",
-    tip: "Item placement is completely random without any verification for obtainability. MAY BE IMPOSSIBLE TO BEAT.",
-    kind: Kind::Check,
-    opts: &[yes("Off", "glitchless"), broken("On", "no_logic")],
-};
-
 const STARTING_AGE: View = View {
     id: "starting_age",
     label: "Starting Age",
@@ -356,7 +348,6 @@ pub const HIDDEN: &[&str] = &[];
 const LOGIC: PortSection = port(
                 "Logic",
                 &[
-                    Entry::View(&NO_LOGIC),
                     Entry::View(&STARTING_AGE),
                     gray_check(
                         "Blue Fire Arrows",
@@ -711,6 +702,7 @@ pub const IN_DEV: &str = "In Dev";
 pub const DEBUG: &str = "Debug";
 
 pub const MENU: &[Page] = &[
+    Page { id: "no_logic", label: "No Logic", heading: IN_DEV, sections: &[sec("Placement rules", &["logic_rules"])] },
     Page { id: "item_pool", label: "Item Pool", heading: IN_DEV, sections: &[sec("Health items", &["item_pool"])] },
     Page { id: "win", label: "Logic / Goal", heading: RANDOMIZER, sections: &[] },
     Page {

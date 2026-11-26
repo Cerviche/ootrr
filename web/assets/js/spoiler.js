@@ -26,6 +26,7 @@ export function full_text(res, ctx) {
     "Settings",
     RULE,
   ];
+  if (sp.playthrough_reason) out.splice(2, 0, sp.playthrough_reason, "");
   for (const p of ctx.pages) {
     const rows = [];
     for (const sec of p.sections) {
@@ -63,6 +64,7 @@ export function text(res) {
   const sp = res.spoiler || {};
   const locs = sp.locations && sp.locations.length ? sp.locations : res.placements || [];
   const lines = ["OOTRR spoiler", `Seed: ${res.seed}`, `Checksum: ${res.checksum}`, "", "Placements"];
+  if (sp.playthrough_reason) lines.splice(1, 0, sp.playthrough_reason, "");
   for (const [a, b] of locs) lines.push(`  ${a}: ${b}`);
   (sp.playthrough || []).forEach((step, i) => {
     lines.push("", `Step ${i + 1}`);

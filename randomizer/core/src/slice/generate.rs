@@ -166,7 +166,7 @@ fn spoiler_text(w: &World, vanilla: &Placement, got: &Placement, pk: &Pick) -> R
     Ok((out, steps))
 }
 
-fn report(s: &str, p: &Plan, pk: &Pick, c: &Counts, moved: &[String]) -> String {
+fn report(s: &str, p: &Plan, pk: &Pick, c: &Counts, moved: &[String], no_logic: bool) -> String {
     let mut out: String = String::new();
     let _ = writeln!(out, "Chest shuffle slice, seed {s:?}");
     let _ = writeln!(
@@ -189,10 +189,14 @@ fn report(s: &str, p: &Plan, pk: &Pick, c: &Counts, moved: &[String]) -> String 
     for n in &p.notes {
         let _ = writeln!(out, "{n}");
     }
-    let _ = writeln!(
-        out,
-        "Logic: OoTR glitchless rules for the vanilla world, small keys counted for real, with the Fire, Water and Spirit keys kept in their vanilla chests, every other location holds its vanilla item."
-    );
+    if no_logic {
+        let _ = writeln!(out, "{}", crate::slice::no_logic::NOTE);
+    } else {
+        let _ = writeln!(
+            out,
+            "Logic: OoTR glitchless rules for the vanilla world, small keys counted for real, with the Fire, Water and Spirit keys kept in their vanilla chests, every other location holds its vanilla item."
+        );
+    }
     out
 }
 
@@ -321,6 +325,7 @@ pub fn prepare(d: &Data, s: &Settings, seed: &str, plando: &[Entry]) -> Res<Prep
 }
 
 pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Generated> {
+    let no_logic: bool = crate::slice::no_logic::enabled(s)?;
     let watch: Watch = Watch::new(o.limit, o.live.clone());
     let Prep { p, mut lay, owned, w, vanilla, pk, gates, base, .. } = prepare(d, s, seed, &o.plando)?;
     let d: &Data = owned.as_ref().unwrap_or(d);
@@ -429,7 +434,9 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     // which changes nothing, and the assumed fill cannot place them since the logic counts
     // hearts. They keep their own spots.
     let hearts_only: bool = pk.free.iter().all(|l| base.get(*l).is_some_and(|i| HEARTS.contains(&w.items.names[i].as_str())));
-    let got: Placement = if pk.free.is_empty() || hearts_only {
+    let got: Placement = if no_logic {
+        crate::slice::no_logic::fill(&w, &base, &pk.free, &ok, &mut Rng::from_text(seed), &plan, &watch)?
+    } else if pk.free.is_empty() || hearts_only {
         base.clone()
     } else {
         let anywhere: bool = p.songs == Songs::Anywhere;
@@ -445,11 +452,11 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     };
     let mut got: Placement = got;
     let mut jr: Rng = Rng::from_text(&format!("{seed} excluded junk"));
-    let open: Vec<LocId> = pk.free.iter().copied().filter(|l| !p.excluded.contains(&w.locs[*l].name)).collect();
-    for l in pk.free.iter().filter(|l| p.excluded.contains(&w.locs[**l].name)) {
+    let open: Vec<LocId> = pk.free.iter().copied().filter(|l| !p.excluded.contains(&w.locs[*l].name) && (!no_logic || !plan.iter().any(|(at, _)| at == l))).collect();
+    for l in pk.free.iter().filter(|l| p.excluded.contains(&w.locs[**l].name) && (!no_logic || !plan.iter().any(|(at, _)| at == *l))) {
         crate::slice::place_rules::swap_low_junk(&w, &mut got, *l, &open, &ok, &mut jr);
     }
-    if p.skulls != crate::slice::skulls::Mode::Off {
+    if !no_logic && p.skulls != crate::slice::skulls::Mode::Off {
         crate::slice::skulls::check_tokens(&w, &vanilla, &got)?;
     }
     let mut map: BM<String, String> = BM::new();
@@ -480,7 +487,9 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     if o.extras {
         crate::frost::sprinkle(d, s, seed, &mut seed_file, &p.excluded);
     }
-    let (sp, spheres): (Option<String>, Steps) = if o.spoiler {
+    let (sp, spheres): (Option<String>, Steps) = if o.spoiler && no_logic {
+        (Some(crate::slice::no_logic::spoiler(&w, &got, &pk.free)), Vec::new())
+    } else if o.spoiler {
         let (mut t, st): (String, Steps) = spoiler_text(&w, &vanilla, &got, &pk)?;
         let fixed: BM<String, String> = if crate::slice::tier_fix::active(d, &w, &pk.free) {
             crate::slice::tier_fix::verdict(d, &w, &got, &pk.free)?.assign
@@ -499,7 +508,7 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
     } else {
         (None, Vec::new())
     };
-    let mut rep: String = report(seed, &p, &pk, &counts, &moved);
+    let mut rep: String = report(seed, &p, &pk, &counts, &moved, no_logic);
     if hand > 0 {
         let _ = writeln!(rep, "Plandomizer: {hand} placements were fixed by hand.");
     }

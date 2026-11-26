@@ -108,10 +108,14 @@ fn spoiler(g: &Generated, wanted: bool) -> Json {
         .iter()
         .map(|sp| Json::Arr(sp.iter().map(|(l, i)| pair(l, ootrr_core::spoiler::shown(i))).collect()))
         .collect();
-    Json::obj()
+    let mut out: Json = Json::obj()
         .with("available", true.into())
         .with("locations", Json::Arr(locs))
-        .with("playthrough", Json::Arr(steps))
+        .with("playthrough", Json::Arr(steps));
+    if g.seed_file.settings().is_ok_and(|l| matches!(l.settings.text("logic_rules"), Ok("no_logic"))) {
+        out.put("playthrough_reason", ootrr_core::slice::no_logic::NOTE.into());
+    }
+    out
 }
 
 #[cfg(test)]
@@ -146,6 +150,17 @@ mod tests {
         assert_eq!(sp.get("locations").and_then(|x| x.as_arr()).unwrap().len(), sf.placements.len());
         assert!(!sp.get("playthrough").and_then(|x| x.as_arr()).unwrap().is_empty());
         assert!(r.get("report").and_then(|x| x.as_str()).unwrap().contains("Randomized"));
+    }
+
+    #[test]
+    fn no_logic_has_locations_without_a_verified_playthrough() {
+        let r: Json = run(&j(r#"{"seed":"no logic web","settings":{"logic_rules":"no_logic"}}"#)).unwrap();
+        let sp: &Json = r.get("spoiler").unwrap();
+        assert_eq!(sp.get("available").and_then(|x| x.as_bool()), Some(true));
+        assert!(!sp.get("locations").and_then(|x| x.as_arr()).unwrap().is_empty());
+        assert!(sp.get("playthrough").and_then(|x| x.as_arr()).unwrap().is_empty());
+        assert_eq!(sp.get("playthrough_reason").and_then(|x| x.as_str()), Some(ootrr_core::slice::no_logic::NOTE));
+        assert!(r.get("report").and_then(|x| x.as_str()).unwrap().contains(ootrr_core::slice::no_logic::NOTE));
     }
 
     #[test]

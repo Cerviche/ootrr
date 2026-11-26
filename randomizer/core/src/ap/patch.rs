@@ -186,6 +186,9 @@ fn held(w: &World, names: &[&str]) -> Res<Vec<ItemId>> {
 pub fn check(d: &Data, p: &Patch) -> Res<Checked> {
     let loaded = Settings::decode(&p.settings)?;
     let s: Settings = loaded.settings;
+    if crate::slice::no_logic::enabled(&s)? {
+        return Err(bad("No Logic is not supported in Archipelago yet"));
+    }
     if s.text("item_pool")? != "balanced" {
         return Err(bad("Scarce and Minimal item pools are not supported in Archipelago yet"));
     }

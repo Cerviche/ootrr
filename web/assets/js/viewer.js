@@ -43,6 +43,7 @@ function placements(res) {
 function playthrough(res) {
   const sp = res.spoiler;
   if (!sp || !sp.available) return notice("info", (sp && sp.reason) || "The playthrough is not available for this seed file.");
+  if (sp.playthrough_reason) return notice("info", sp.playthrough_reason);
   const spheres = sp.playthrough || [];
   return h(
     "div",

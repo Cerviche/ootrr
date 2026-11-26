@@ -30,6 +30,7 @@ pub mod key_spots;
 pub mod logic;
 pub mod map_passes;
 pub mod minigame_logic;
+pub mod no_logic;
 pub mod pick;
 pub mod place_rules;
 #[cfg(test)]

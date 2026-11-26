@@ -282,7 +282,7 @@ pub fn build() -> Schema {
             .tag(Tag::Core)
             .tip("How strictly the generator guarantees that the seed can be finished.")
             .opt("glitchless", "Glitchless", "Every item is reachable without glitches.")
-            .opt("no_logic", "No logic", "Items are placed freely and the seed may be impossible."),
+            .opt("no_logic", "No logic (experimental)", "Item access and beatability are not checked. The seed may be impossible to finish. Shuffle restrictions and fixed placements still apply. Not available in Archipelago yet."),
     ];
     s.push(
         Setting::choice(2, "starting_age", "world", "Starting age", "child")
