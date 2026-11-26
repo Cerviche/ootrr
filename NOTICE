@@ -4,6 +4,8 @@ released under the MIT License. That text is kept in LICENSE-MIT and still appli
 
 The notices below belong to third party work that OOTRR builds on. They stay in force and are compatible with the GPL.
 
+The experimental Balanced, Scarce and Minimal health item pool choices follow the behaviour of Goggles of Truth 0.7.8 by AbyssDragonModding and its contributors (Apache-2.0). The Rust implementation was written for this project.
+
 Thanks to OruizGl for pull request #3 (Open Areas Settings). Its findings and ideas are the base of the adult Master Sword pedestal that works before the Forest Sage,
 the child sword fix and Sheik's new spot in every seed, Navi's lesson flags for an open or closed Deku forest, the D-pad shortcut fix for items given at the start and the Hyrule Field first visit flag fix for the clock.
 

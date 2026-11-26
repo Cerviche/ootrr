@@ -771,6 +771,13 @@ pub fn build() -> Schema {
             .tip("For checking the location data. After an item get, a text box shows the internal name of the location the item came from, such as [KF Midos Top Left Chest]. Covers chests, NPC, song and event rewards, Gold Skulltulas and items on the ground. Items on the ground need a button press, and a placed item missing from the location list says so. Experimental."),
     );
     s.push(starting_items());
+    s.push(
+        Setting::choice(5001, "item_pool", "shuffle", "Item Pool", "balanced")
+            .tip("Controls heart pieces and containers in shuffled locations. Starting hearts and unshuffled rewards are unchanged. Experimental, untested in the game.")
+            .opt("balanced", "Balanced", "Keep the existing item pool.")
+            .opt("scarce", "Scarce", "Replace every second shuffled Heart Piece and every second shuffled Heart Container with a Red Rupee.")
+            .opt("minimal", "Minimal", "Replace all shuffled Heart Pieces and Heart Containers with Red Rupees."),
+    );
     s.push(starting_songs());
     s.extend(difficulty());
     s.sort_by_key(|x| x.num);

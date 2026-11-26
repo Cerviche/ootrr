@@ -309,6 +309,10 @@ pub fn prepare(d: &Data, s: &Settings, seed: &str, plando: &[Entry]) -> Res<Prep
         let n: Vec<String> = crate::open_world::trade_shuffle::pool(d, &w, &pk.free, &mut base)?;
         p.notes.extend(n);
     }
+    let replaced: usize = crate::slice::health_pool::apply(s, &w, &pk.free, &mut base)?;
+    if replaced > 0 {
+        p.notes.push(format!("Item Pool: {replaced} shuffled heart pieces and containers were replaced by Red Rupees. Starting hearts and unshuffled rewards are unchanged."));
+    }
     let ex: Vec<String> = check_excluded(d, &w, &p, &pk.free, &base)?;
     p.notes.extend(ex);
     Ok(Prep { p, lay, owned, w, vanilla, pk, gates, base })

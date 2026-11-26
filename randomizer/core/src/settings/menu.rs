@@ -711,6 +711,7 @@ pub const IN_DEV: &str = "In Dev";
 pub const DEBUG: &str = "Debug";
 
 pub const MENU: &[Page] = &[
+    Page { id: "item_pool", label: "Item Pool", heading: IN_DEV, sections: &[sec("Health items", &["item_pool"])] },
     Page { id: "win", label: "Logic / Goal", heading: RANDOMIZER, sections: &[] },
     Page {
         id: "world",
