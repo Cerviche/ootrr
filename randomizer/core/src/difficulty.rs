@@ -798,8 +798,8 @@ mod tests {
         let mut bad: Vec<String> = Vec::new();
         let old: Opts = read(&s, &mut bad);
         assert_eq!((old.health, old.boss_health, old.miniboss_health), (250, 0, 0));
-        s.set(health::BOSS, crate::settings::Value::s("100")).unwrap();
-        s.set(health::MINI, crate::settings::Value::s("50")).unwrap();
+        s.set(health::BOSS, crate::settings::Value::s("pct_100")).unwrap();
+        s.set(health::MINI, crate::settings::Value::s("pct_50")).unwrap();
         let seed: crate::settings::seed::SeedFile = crate::settings::seed::SeedFile::new("health split", &s, "1.1.1", std::collections::BTreeMap::new()).unwrap();
         let back: crate::settings::seed::SeedFile = crate::settings::seed::SeedFile::parse(&seed.to_text()).unwrap();
         let got: Opts = read(&back.settings().unwrap().settings, &mut bad);

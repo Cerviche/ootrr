@@ -9,13 +9,13 @@ pub fn setting(num: u16, id: &str, label: &str) -> Setting {
         .opt("follow_enemy", "Follow enemy health", "Use the Enemy health multiplier, including in older presets.")
         .tip("Choose an independent health multiplier from 0.5x to 5x, or follow Enemy health. Health tops out at 99. Scripted health is unchanged. Experimental, untested in the game.");
     for n in (50..=500).step_by(25) {
-        out = out.opt(&n.to_string(), &format!("{}x", times(n)), "");
+        out = out.opt(&format!("pct_{n}"), &format!("{}x", times(n)), "");
     }
     out
 }
 
 pub fn percent(text: &str) -> i64 {
-    text.parse::<i64>().ok().filter(|n| (50..=500).contains(n) && n % 25 == 0).unwrap_or(0)
+    text.strip_prefix("pct_").unwrap_or("").parse::<i64>().ok().filter(|n| (50..=500).contains(n) && n % 25 == 0).unwrap_or(0)
 }
 
 pub fn multiplier(stem: &str, mini_lizalfos: bool, o: &Opts) -> i64 {
