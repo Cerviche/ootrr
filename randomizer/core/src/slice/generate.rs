@@ -322,7 +322,7 @@ pub fn prepare(d: &Data, s: &Settings, seed: &str, plando: &[Entry]) -> Res<Prep
 
 pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Generated> {
     let watch: Watch = Watch::new(o.limit, o.live.clone());
-    let Prep { copies, p, mut lay, owned, w, vanilla, pk, gates, base } = prepare(d, s, seed, &o.plando)?;
+    let Prep { p, mut lay, owned, w, vanilla, pk, gates, base, .. } = prepare(d, s, seed, &o.plando)?;
     let d: &Data = owned.as_ref().unwrap_or(d);
     let seen: Vec<Cell<u8>> = vec![Cell::new(0); w.items.len() * w.locs.len()];
     let ok = |it: ItemId, l: LocId| {
@@ -470,7 +470,6 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         fixed_elsewhere: w.real.len() - pk.free.len(),
     };
     let mut seed_file: SeedFile = SeedFile::new(seed, s, &d.scan.game, map)?;
-    seed_file.copies = copies;
     if let Some(l) = lay.as_mut() {
         crate::shops::layout::fill_deals(l, &seed_file.placements)?;
         seed_file.shops = crate::shops::seed::entries(l);

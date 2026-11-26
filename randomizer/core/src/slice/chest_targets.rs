@@ -105,12 +105,18 @@ pub(crate) fn actors_for(d: &Data, seed: &SeedFile) -> Res<BM<String, String>> {
             dests.entry(item.clone()).or_default().push(loc.clone());
         }
     }
-    let pl: crate::slice::support::Plan = plan(&seed.settings()?.settings)?;
+    let loaded: crate::settings::Loaded = seed.settings()?;
+    let pl: crate::slice::support::Plan = plan(&loaded.settings)?;
+    let health: BM<String, i64> = if loaded.settings.text("item_pool")? == "balanced" {
+        BM::new()
+    } else {
+        crate::slice::generate::prepare(d, &loaded.settings, &seed.seed, &[])?.copies
+    };
     let stripped: bool = crate::start_items::pool::active(&pl);
     let mut out: BM<String, String> = BM::new();
     for (item, locs) in &dests {
         let mut acts: Vec<String> = pool.get(item).cloned().unwrap_or_default();
-        let net: isize = crate::pot_slice::targets::delta(d, seed, item) + crate::shops::seed::delta(seed, item) + crate::slice::silver::delta(seed, item) + seed.copies.get(item).copied().unwrap_or(0) as isize;
+        let net: isize = crate::pot_slice::targets::delta(d, seed, item) + crate::shops::seed::delta(seed, item) + crate::slice::silver::delta(seed, item) + seed.copies.get(item).copied().unwrap_or(0) as isize + health.get(item).copied().unwrap_or(0) as isize;
         if acts.is_empty()
             && let Some(a) = crate::ap::item::foreign_actor(d, item)
         {

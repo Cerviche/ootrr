@@ -92,8 +92,10 @@ mod tests {
             s.set("item_pool", Value::s(mode)).unwrap();
             let g: crate::slice::generate::Generated = crate::slice::generate::generate_data(&d, &s, "health pool build", &crate::slice::generate::GenOpts::default()).unwrap();
             let seed: crate::settings::seed::SeedFile = crate::settings::seed::SeedFile::parse(&g.seed_file.to_text()).unwrap();
-            assert_eq!(seed.copies.values().sum::<i64>(), 0);
-            assert!(seed.copies.get("Rupees (20)").is_some_and(|n| *n > 0));
+            assert_eq!(seed.settings().unwrap().settings.text("item_pool").unwrap(), mode);
+            let copies: BM<String, i64> = crate::slice::generate::prepare(&d, &s, &seed.seed, &[]).unwrap().copies;
+            assert_eq!(copies.values().sum::<i64>(), 0);
+            assert!(copies.get("Rupees (20)").is_some_and(|n| *n > 0));
             let actors: BM<String, String> = crate::slice::chest_targets::actors_for(&d, &seed).unwrap();
             assert!(!actors.is_empty());
         }
